@@ -1,6 +1,7 @@
-/* Patch 0007. zlib.h documents that adler32 with a Z_NULL buffer returns the initial value 1, for any
- * length; adler32_c tests len == 1 before buf == NULL and reads buf[0] through NULL. Unpatched: an
- * AddressSanitizer report (a load through NULL). Patched: 1. Argument: the length. */
+/* Plain regression test (fixed upstream). zlib.h documents that adler32 with a Z_NULL buffer returns the
+ * initial value 1, for any length. In zlib-ng 2.3.3 adler32_c tested len == 1 before buf == NULL and read
+ * buf[0] through NULL; the current upstream tests buf == NULL in adler32 and adler32_z first. Expected:
+ * 1 from both, no sanitizer report. Argument: the length. */
 #include <stdio.h>
 #include <stdlib.h>
 #include "zlib.h"

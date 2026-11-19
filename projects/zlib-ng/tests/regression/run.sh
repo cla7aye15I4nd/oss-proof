@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: ZLIB_NG_SRC=<zlib-ng checkout> bash tests/regression/run.sh [case...]
-# The patch reproductions. For each case below, builds the pinned zlib-ng in the verified configuration
+# The patch reproductions and plain regression tests. For each patch case below, builds the pinned zlib-ng in the verified configuration
 # under AddressSanitizer (with pointer-pair checks) and UndefinedBehaviorSanitizer twice: once with every
 # patch but the case's own ("unpatched" below), once with every patch (the verified source). The unpatched
 # build must show the defect (a sanitizer report, or no return within the timeout); the patched build must
@@ -21,13 +21,21 @@ timeout_s=${TIMEOUT:-10}
 mkdir -p "$work"
 
 # case | patch prefix | arguments (comma-separated runs) | unpatched defect: "timeout", or an extended
-# regular expression that the sanitizer report must match | patched output line (one per run, ';')
+# regular expression that the output (sanitizer report or program output) must match | patched output
+# line (one per run, ';')
 cases=(
-  "gzbuffer-aligned-alloc-overflow|0001||runtime error: signed integer overflow|gzbuffer -1"
-  "crc32-combine-negative-len-hang|0002|g,o,c|timeout|gen 0;op 0;comb 0"
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
   "gzseek-offset-overflow|0004||runtime error: signed integer overflow|seek2 -1"
-  "adler32-null-len-1|0007|1|runtime error: load of null pointer|adler 1"
+  "deflatebound-gzip-extra-length|0006||bound-ok 0|bound-ok 1"
+)
+
+# Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch
+# remains. Each must run on the verified source without a sanitizer report and print the expected lines.
+# case | arguments (comma-separated runs) | expected output line (one per run, ';')
+plain=(
+  "adler32-null-len-1|1,0,7|adler_z 1;adler_z 1;adler_z 1"
+  "crc32-combine-negative-len-hang|g,c|gen 0;comb 0"
+  "gzbuffer-aligned-alloc-overflow||gzwrite 1"
 )
 
 build() { # build <dir> [exclude-prefix]
@@ -75,7 +83,29 @@ for entry in "${cases[@]}"; do
     i=$((i + 1))
   done
 done
+for entry in "${plain[@]}"; do
+  IFS='|' read -r name args want <<<"$entry"
+  [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
+  cc $san -I"$work/patched" "$here/$name/repro.c" "$work/patched/libz.a" -o "$work/$name-patched" || exit 2
+  IFS=',' read -r -a runs <<<"${args:-}"
+  [ ${#runs[@]} -gt 0 ] || runs=("")
+  IFS=';' read -r -a wants <<<"$want"
+  i=0
+  for arg in "${runs[@]}"; do
+    echo "== $name ${arg:+($arg)} (fixed upstream)"
+    out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched" $arg 2>&1); rc=$?
+    w=${wants[$i]}
+    if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|AddressSanitizer"; then
+      echo "UNEXPECTED: status $rc: $out"; fail=1
+    elif printf '%s\n' "$out" | grep -qx "$w"; then
+      echo "ok: $w, no report"
+    else
+      echo "UNEXPECTED: no line '$w' in: $out"; fail=1
+    fi
+    i=$((i + 1))
+  done
+done
 if [ $fail -eq 0 ]; then
-  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them"
+  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes"
 fi
 exit $fail

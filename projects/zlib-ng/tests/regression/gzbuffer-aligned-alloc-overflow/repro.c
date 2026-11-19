@@ -1,7 +1,8 @@
-/* Patch 0001. gzbuffer accepts a size up to INT_MAX; the first write then doubles it in int
- * (gz_buffer_alloc: want * 2) and zng_alloc_aligned wraps its 32-bit size, allocates too little and
- * writes the saved pointer outside the block. Unpatched: a sanitizer report. Patched: gzbuffer refuses
- * the size (-1) and the write succeeds with the default buffer. */
+/* Plain regression test (fixed upstream). In zlib-ng 2.3.3 gzbuffer accepted a size up to INT_MAX; the
+ * first write then doubled it in int (gz_buffer_alloc: want * 2) and zng_alloc_aligned wrapped its 32-bit
+ * size, allocated too little and wrote the saved pointer outside the block. The current upstream clamps
+ * the size to GZBUFSIZE_MAX (1 GiB), so every buffer size fits. Expected: the write succeeds without a
+ * sanitizer report. */
 #include <stdio.h>
 #include "zlib.h"
 int main(void) {

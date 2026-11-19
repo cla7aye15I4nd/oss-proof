@@ -13,17 +13,24 @@ set_option autoImplicit false
 namespace ZlibNg.Adler32
 open C ZlibNg.Adler32P ZlibNg.Adler32C
 
-/-- `unsigned long Z_EXPORT adler32_z(unsigned long adler, const unsigned char *buf, size_t len)` (`adler32.c:11-13`). -/
+/-- `#define ADLER32_INITIAL_VALUE 1` (`zutil.h:70`). -/
+def ADLER32_INITIAL_VALUE : UInt64 := 1
+
+/-- `unsigned long Z_EXPORT adler32_z(unsigned long adler, const unsigned char *buf, size_t len)` (`adler32.c:11-15`). -/
 def adler32_z (adler : UInt64) (buf : BPtr) (len : UInt64) : M UInt64 := do
+  if buf == .null then
+    return ADLER32_INITIAL_VALUE
   let r ← adler32_c adler.toUInt32 buf len
   return r.toUInt64
 
-/-- `unsigned long Z_EXPORT adler32(unsigned long adler, const unsigned char *buf, unsigned int len)` (`adler32.c:22-24`). -/
+/-- `unsigned long Z_EXPORT adler32(unsigned long adler, const unsigned char *buf, unsigned int len)` (`adler32.c:26-30`). -/
 def adler32 (adler : UInt64) (buf : BPtr) (len : UInt32) : M UInt64 := do
+  if buf == .null then
+    return ADLER32_INITIAL_VALUE
   let r ← adler32_c adler.toUInt32 buf len.toUInt64
   return r.toUInt64
 
-/-- `static uint32_t adler32_combine_(uint32_t adler1, uint32_t adler2, z_off64_t len2)` (`adler32.c:32-54`). -/
+/-- `static uint32_t adler32_combine_(uint32_t adler1, uint32_t adler2, z_off64_t len2)` (`adler32.c:40-62`). -/
 def adler32_combine_ (adler1 adler2 : UInt32) (len2 : Int64) : M UInt32 := do
   if len2 < 0 then
     return 0xffffffff
@@ -35,16 +42,16 @@ def adler32_combine_ (adler1 adler2 : UInt32) (len2 : Int64) : M UInt32 := do
   let mut sum2 : UInt32 := sum2 + (((adler1 >>> 16) &&& (0xffff : UInt32)) + ((adler2 >>> 16) &&& (0xffff : UInt32)) + BASE - rem)
   if sum1 >= BASE then sum1 := sum1 - BASE
   if sum1 >= BASE then sum1 := sum1 - BASE
-  if sum2.toUInt64 >= (BASE.toUInt64 <<< 1) then sum2 := (sum2.toUInt64 - (BASE.toUInt64 <<< 1)).toUInt32
+  if sum2 >= (BASE <<< 1) then sum2 := sum2 - (BASE <<< 1)
   if sum2 >= BASE then sum2 := sum2 - BASE
   return sum1 ||| (sum2 <<< 16)
 
-/-- `unsigned long Z_EXPORT adler32_combine(unsigned long adler1, unsigned long adler2, z_off_t len2)` (`adler32.c:58-60`). -/
+/-- `unsigned long Z_EXPORT adler32_combine(unsigned long adler1, unsigned long adler2, z_off_t len2)` (`adler32.c:66-68`). -/
 def adler32_combine (adler1 adler2 : UInt64) (len2 : Int64) : M UInt64 := do
   let r ← adler32_combine_ adler1.toUInt32 adler2.toUInt32 len2
   return r.toUInt64
 
-/-- `unsigned long Z_EXPORT adler32_combine64(unsigned long adler1, unsigned long adler2, z_off64_t len2)` (`adler32.c:62-64`). -/
+/-- `unsigned long Z_EXPORT adler32_combine64(unsigned long adler1, unsigned long adler2, z_off64_t len2)` (`adler32.c:70-72`). -/
 def adler32_combine64 (adler1 adler2 : UInt64) (len2 : Int64) : M UInt64 := do
   let r ← adler32_combine_ adler1.toUInt32 adler2.toUInt32 len2
   return r.toUInt64

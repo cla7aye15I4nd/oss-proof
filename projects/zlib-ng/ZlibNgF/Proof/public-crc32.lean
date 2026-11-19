@@ -5,14 +5,14 @@ import ZlibNgF.Spec.Functional.Goals
 # Proofs of `crc32.c`, `arch/generic/crc32_braid_c.c`, `crc32_braid_comb.c` and `crc32_braid_comb_p.h` (`ZlibNgF`)
 
 Proves safety and termination of `get_crc_table`, `crc32`, `crc32_z` and the five `crc32_combine*`
-entry points, the rejection values of the patched `crc32_combine*` functions, and a concrete
+entry points, the rejection values of `crc32_combine*` for a negative length, and a concrete
 non-vacuity witness for the braided kernel on an unaligned buffer.
 -/
 
 set_option autoImplicit false
 
 namespace ZlibNgF.Proof.Crc32
-open C ZlibNg.Crc32Tbl ZlibNg.Crc32Braid ZlibNg.Crc32CombP ZlibNg.Crc32Comb ZlibNg.Crc32
+open C ZlibNg.Crc32Tbl ZlibNg.Crc32P ZlibNg.Crc32Braid ZlibNg.Crc32CombP ZlibNg.Crc32Comb ZlibNg.Crc32
 open ZlibNgF.Spec ZlibNgF.Spec.Safety ZlibNgF.Spec.Functional
 
 /-! ## Heap-preserving runs -/
@@ -87,26 +87,110 @@ private theorem bit_facts : ∀ i, i < 32 →
     (0 < i → bit i >>> 1 = bit (i - 1) ∧ bit i - 1 = (bit (i - 1) - 1) ||| bit (i - 1)) := by
   decide
 
-/-- `multmodp(a, b)` terminates for every non-zero `a`. -/
+/-! ### A pure model of `multmodp`
+
+`mpGo a i p b` is the value `multmodp` returns from the loop state `m = 2^i`, with `p` and `b` as given. The
+loop's control flow depends on `a` only, so the model is linear (for `^^^`) in `(p, b)`. -/
+
+private def mulx (b : UInt32) : UInt32 := if b &&& 1 != 0 then (b >>> 1) ^^^ POLY else b >>> 1
+
+private def mpGo (a : UInt32) : Nat → UInt32 → UInt32 → UInt32
+  | 0, p, b => if a &&& bit 0 != 0 then p ^^^ b else p
+  | i + 1, p, b =>
+    if a &&& bit (i + 1) != 0 then
+      if a &&& (bit (i + 1) - 1) == 0 then p ^^^ b else mpGo a i (p ^^^ b) (mulx b)
+    else mpGo a i p (mulx b)
+
+private theorem xor_and_one (x y : UInt32) : (x ^^^ y) &&& 1 = (x &&& 1) ^^^ (y &&& 1) := by
+  apply UInt32.toBitVec_inj.1
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp [BitVec.getLsbD_and, BitVec.getLsbD_xor]
+  cases x.toBitVec.getLsbD i <;> cases y.toBitVec.getLsbD i <;> simp
+
+private theorem and_one_cases (x : UInt32) : x &&& 1 = 0 ∨ x &&& 1 = 1 := by
+  have : (x &&& 1).toNat ≤ 1 := by rw [UInt32.toNat_and]; exact Nat.and_le_right
+  rcases Nat.le_one_iff_eq_zero_or_eq_one.mp this with h | h
+  · left; exact UInt32.toNat_inj.mp (by rw [h]; rfl)
+  · right; exact UInt32.toNat_inj.mp (by rw [h]; rfl)
+
+/-- Closes an equation between `^^^`-terms of `UInt32` that holds by associativity, commutativity and
+`x ^^^ x = 0`. -/
+macro "xor_ac" : tactic => `(tactic| (
+  apply UInt32.toBitVec_inj.1
+  apply BitVec.eq_of_getLsbD_eq
+  intro _ _
+  simp [BitVec.getLsbD_xor, Bool.xor_assoc, Bool.xor_comm, Bool.xor_left_comm]))
+
+private theorem xor4 (a b c d : UInt32) : (a ^^^ b) ^^^ (c ^^^ d) = (a ^^^ c) ^^^ (b ^^^ d) := by
+  xor_ac
+
+private theorem mulx_xor (x y : UInt32) : mulx (x ^^^ y) = mulx x ^^^ mulx y := by
+  unfold mulx
+  rw [xor_and_one, UInt32.shiftRight_xor]
+  rcases and_one_cases x with hx | hx <;> rcases and_one_cases y with hy | hy <;> rw [hx, hy] <;>
+    simp <;> xor_ac
+
+private theorem mpGo_xor (a : UInt32) : ∀ i p1 p2 b1 b2,
+    mpGo a i (p1 ^^^ p2) (b1 ^^^ b2) = mpGo a i p1 b1 ^^^ mpGo a i p2 b2 := by
+  intro i
+  induction i with
+  | zero =>
+    intro p1 p2 b1 b2
+    unfold mpGo
+    split
+    · exact xor4 _ _ _ _
+    · rfl
+  | succ i ih =>
+    intro p1 p2 b1 b2
+    unfold mpGo
+    split
+    · split
+      · exact xor4 _ _ _ _
+      · rw [xor4, mulx_xor, ih]
+    · rw [mulx_xor, ih]
+
+/-- `multmodp(a, b)` terminates for every non-zero `a`, with the value of the pure model. -/
+private theorem mpGo_break (a p b : UInt32) (i : Nat) (hbit : a &&& bit i ≠ 0) (hlow : a &&& (bit i - 1) = 0) :
+    mpGo a i p b = p ^^^ b := by
+  cases i with
+  | zero => simp [mpGo, hbit]
+  | succ i => simp [mpGo, hbit, hlow]
+
+private theorem mpGo_shift_set (a p b : UInt32) (i : Nat) (hbit : a &&& bit (i + 1) ≠ 0)
+    (hlow : a &&& (bit (i + 1) - 1) ≠ 0) :
+    mpGo a (i + 1) p b = mpGo a i (p ^^^ b) (mulx b) := by
+  simp [mpGo, hbit, hlow]
+
+private theorem mpGo_shift_unset (a p b : UInt32) (i : Nat) (hbit : a &&& bit (i + 1) = 0) :
+    mpGo a (i + 1) p b = mpGo a i p (mulx b) := by
+  simp [mpGo, hbit]
+
 private theorem multmodp_ok (h : Heap) (a b : UInt32) (ha : a ≠ 0) :
-    Ok h (multmodp a b) (fun _ => True) := by
+    Ok h (multmodp a b) (fun r => r = mpGo a 31 0 b) := by
   unfold multmodp
-  refine Ok.bind (P := fun _ => True) ?_ (fun _ _ => Ok.pure trivial)
+  refine Ok.bind (P := fun (s : UInt32 × UInt32 × UInt32 × Bool) => s.2.1 = mpGo a 31 0 b) ?_
+    (fun v hv => by obtain ⟨_, _, _, _⟩ := v; exact Ok.pure hv)
   refine cwhile_measure
-    (I := fun s => s.2.2.2 = true ∨
-      ∃ i, i < 32 ∧ s.1 = bit i ∧ (a &&& (bit i - 1) ≠ 0 ∨ a &&& bit i ≠ 0))
-    (μ := fun s => if s.2.2.2 then 0 else s.1.toNat + 1)
-    (Q := fun _ => True) ?_ ?_ ?_
-  · rintro ⟨m, p, b, brk⟩ hI
+    (I := fun (s : UInt32 × UInt32 × UInt32 × Bool) => (s.2.2.2 = true ∧ s.2.1 = mpGo a 31 0 b) ∨
+      ∃ i, i < 32 ∧ s.1 = bit i ∧ s.2.2.2 = false ∧ (a &&& (bit i - 1) ≠ 0 ∨ a &&& bit i ≠ 0) ∧
+        mpGo a i s.2.1 s.2.2.1 = mpGo a 31 0 b)
+    (μ := fun (s : UInt32 × UInt32 × UInt32 × Bool) => if s.2.2.2 then 0 else s.1.toNat + 1)
+    (Q := fun (s : UInt32 × UInt32 × UInt32 × Bool) => s.2.1 = mpGo a 31 0 b) ?_ ?_ ?_
+  · rintro ⟨m, p, b', brk⟩ hI
     cases brk with
     | true =>
-      exact ⟨(false, m, p, b, true), rfl, fun hc => absurd hc Bool.false_ne_true, fun _ => trivial⟩
+      have hv : p = mpGo a 31 0 b := by
+        rcases hI with ⟨_, hv⟩ | ⟨_, _, _, hf, _⟩
+        · exact hv
+        · cases hf
+      exact ⟨(false, m, p, b', true), rfl, fun hc => absurd hc Bool.false_ne_true, fun _ => hv⟩
     | false =>
-      refine ⟨(true, m, p, b, false), rfl, fun _ => ?_, fun hc => absurd hc.symm Bool.false_ne_true⟩
-      rcases hI with hI | ⟨i, hi, hm, hinv⟩
+      refine ⟨(true, m, p, b', false), rfl, fun _ => ?_, fun hc => absurd hc.symm Bool.false_ne_true⟩
+      rcases hI with ⟨hI, _⟩ | ⟨i, hi, hm, _, hinv, hval⟩
       · cases hI
       obtain ⟨hnat, h0, hpos⟩ := bit_facts i hi
-      dsimp only at hm
+      dsimp only at hm hval
       subst hm
       by_cases hlow : a &&& (bit i - 1) = 0
       · -- the lowest set bit of `a` is bit `i`: the loop breaks here
@@ -114,8 +198,9 @@ private theorem multmodp_ok (h : Heap) (a b : UInt32) (ha : a ≠ 0) :
           rcases hinv with h1 | h1
           · exact absurd hlow h1
           · exact h1
-        refine ⟨(bit i, p ^^^ b, b, true), ?_, Or.inl rfl, by simp⟩
-        simp [C.run, hbit, hlow]
+        refine ⟨(bit i, p ^^^ b', b', true), ?_, Or.inl ⟨rfl, ?_⟩, by simp⟩
+        · simp [C.run, hbit, hlow]
+        · rw [← hval, mpGo_break a p b' i hbit hlow]
       · -- a lower bit of `a` is set: shift the mask
         have hipos : 0 < i := by
           rcases Nat.eq_zero_or_pos i with h1 | h1
@@ -137,14 +222,18 @@ private theorem multmodp_ok (h : Heap) (a b : UInt32) (ha : a ≠ 0) :
             rw [← Nat.pow_succ']; congr 1; omega
           have : 0 < 2 ^ (i - 1) := Nat.pow_pos (by omega)
           omega
-        by_cases hbit : a &&& bit i = 0
-        · refine ⟨(bit (i - 1), p, if b &&& 1 != 0 then (b >>> 1) ^^^ POLY else b >>> 1, false),
-            ?_, Or.inr ⟨i - 1, by omega, rfl, hinv'⟩, by simpa using hμ⟩
-          simp [C.run, hbit, hshift]
-        · refine ⟨(bit (i - 1), p ^^^ b, if b &&& 1 != 0 then (b >>> 1) ^^^ POLY else b >>> 1, false),
-            ?_, Or.inr ⟨i - 1, by omega, rfl, hinv'⟩, by simpa using hμ⟩
-          simp [C.run, hbit, hlow, hshift]
-  · refine Or.inr ⟨31, by omega, rfl, ?_⟩
+        obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by omega⟩
+        simp only [Nat.add_sub_cancel] at hinv' hμ hshift hnat'
+        by_cases hbit : a &&& bit (j + 1) = 0
+        · refine ⟨(bit j, p, mulx b', false),
+            ?_, Or.inr ⟨j, by omega, rfl, rfl, hinv', ?_⟩, by simpa using hμ⟩
+          · simp [C.run, hbit, hshift, mulx]
+          · rw [← hval, mpGo_shift_unset a p b' j hbit]
+        · refine ⟨(bit j, p ^^^ b', mulx b', false),
+            ?_, Or.inr ⟨j, by omega, rfl, rfl, hinv', ?_⟩, by simpa using hμ⟩
+          · simp [C.run, hbit, hlow, hshift, mulx]
+          · rw [← hval, mpGo_shift_set a p b' j hbit hlow]
+  · refine Or.inr ⟨31, by omega, rfl, rfl, ?_, by simp⟩
     by_cases h1 : a &&& bit 31 = 0
     · left
       intro h2
@@ -157,6 +246,117 @@ private theorem multmodp_ok (h : Heap) (a b : UInt32) (ha : a ≠ 0) :
     · exact Or.inr h1
   · show (bit 31).toNat + 1 < fuel
     decide
+
+/-! ### Multiplication by a power of `x` is injective
+
+`multmodp(x2n_table[k], ·)` is multiplication by `x^(2^k)` modulo the CRC polynomial, which has the inverse
+`multmodp(x2nInv[k], ·)` (checked on the 32 basis vectors by `decide`; both maps are linear). So it sends a
+non-zero value to a non-zero value, and `x2nmodp` never returns 0. -/
+
+private theorem bit_toNat (n : Nat) (hn : n < 32) : (bit n).toNat = 2 ^ n := by
+  unfold bit
+  rw [UInt32.toNat_ofNat_of_lt' (by have := Nat.pow_lt_pow_right (a := 2) (by omega) hn; omega)]
+
+private theorem nat_mod_succ (x n : Nat) : x % 2 ^ (n + 1) = (x % 2 ^ n) ^^^ (x &&& 2 ^ n) := by
+  apply Nat.eq_of_testBit_eq
+  intro j
+  simp only [Nat.testBit_mod_two_pow, Nat.testBit_xor, Nat.testBit_and, Nat.testBit_two_pow]
+  by_cases hj : j < n
+  · have : j < n + 1 := by omega
+    have : n ≠ j := by omega
+    simp [*]
+  · by_cases hjn : j = n
+    · subst hjn; simp
+    · have : ¬ j < n + 1 := by omega
+      have : n ≠ j := by omega
+      simp [*]
+
+private theorem nat_and_two_pow (x n : Nat) : x &&& 2 ^ n = 0 ∨ x &&& 2 ^ n = 2 ^ n := by
+  by_cases ht : x.testBit n
+  · right
+    apply Nat.eq_of_testBit_eq
+    intro j
+    simp only [Nat.testBit_and, Nat.testBit_two_pow]
+    by_cases hj : n = j
+    · subst hj; simp [ht]
+    · simp [hj]
+  · left
+    apply Nat.eq_of_testBit_eq
+    intro j
+    simp only [Nat.testBit_and, Nat.testBit_two_pow, Nat.zero_testBit]
+    by_cases hj : n = j
+    · subst hj; simp [ht]
+    · simp [hj]
+
+private theorem lin_id (L : UInt32 → UInt32) (hL : ∀ x y, L (x ^^^ y) = L x ^^^ L y)
+    (hb : ∀ i, i < 32 → L (bit i) = bit i) (b : UInt32) : L b = b := by
+  have h0 : L 0 = 0 := by
+    have := hL 0 0
+    rw [UInt32.xor_self, UInt32.xor_self] at this
+    exact this
+  have hpart : ∀ n, n ≤ 32 → L (b &&& UInt32.ofNat (2 ^ n - 1)) = b &&& UInt32.ofNat (2 ^ n - 1) := by
+    intro n
+    induction n with
+    | zero => intro _; simp [h0]
+    | succ n ih =>
+      intro hn
+      have hlt : 2 ^ (n + 1) - 1 < 2 ^ 32 := by
+        have := Nat.pow_le_pow_right (n := 2) (by omega) hn; omega
+      have hlt' : 2 ^ n - 1 < 2 ^ 32 := by
+        have := Nat.pow_le_pow_right (n := 2) (by omega) (show n ≤ 32 by omega); omega
+      have hsplit : b &&& UInt32.ofNat (2 ^ (n + 1) - 1) = (b &&& UInt32.ofNat (2 ^ n - 1)) ^^^ (b &&& bit n) := by
+        apply UInt32.toNat_inj.mp
+        rw [UInt32.toNat_and, UInt32.toNat_xor, UInt32.toNat_and, UInt32.toNat_and, bit_toNat n (by omega),
+          UInt32.toNat_ofNat_of_lt' hlt, UInt32.toNat_ofNat_of_lt' hlt', Nat.and_two_pow_sub_one_eq_mod,
+          Nat.and_two_pow_sub_one_eq_mod, nat_mod_succ]
+      rw [hsplit, hL, ih (by omega)]
+      congr 1
+      rcases nat_and_two_pow b.toNat n with hz | hz
+      · have : b &&& bit n = 0 := UInt32.toNat_inj.mp (by rw [UInt32.toNat_and, bit_toNat n (by omega), hz]; rfl)
+        rw [this, h0]
+      · have : b &&& bit n = bit n := UInt32.toNat_inj.mp (by rw [UInt32.toNat_and, bit_toNat n (by omega), hz])
+        rw [this, hb n (by omega)]
+  have := hpart 32 (Nat.le_refl _)
+  have hall : b &&& UInt32.ofNat (2 ^ 32 - 1) = b := by
+    apply UInt32.toNat_inj.mp
+    rw [UInt32.toNat_and, UInt32.toNat_ofNat_of_lt' (by decide), Nat.and_two_pow_sub_one_eq_mod]
+    exact Nat.mod_eq_of_lt b.toNat_lt
+  rw [hall] at this
+  exact this
+
+private def x2nInv : Array UInt32 := #[
+    0xdb710641, 0x6d930ac3, 0x6d3d2d4d, 0x6567cb95, 0xd7125358, 0x5b358fd3, 0x2e9bb40b, 0x12a59a49,
+    0x8df9403d, 0x5139de12, 0xba340226, 0x29c45641, 0x12fbc105, 0xecd30c55, 0x3755ebd8, 0x24ee460c,
+    0x23783fcf, 0x479933fc, 0xa39442a5, 0x9ea0056d, 0xf42608f6, 0x20cacf04, 0x2a0cf83d, 0xeffd8645,
+    0x2a39a67d, 0x640ebd82, 0x9dfd8792, 0x277402ab, 0xad31bc4f, 0x31536354, 0x5ea35fca, 0x52b55e39
+]
+
+set_option maxRecDepth 100000 in
+private theorem inv_basis : ∀ k, k < 32 → ∀ i, i < 32 →
+    mpGo (x2nInv[k]!) 31 0 (mpGo (x2n_table[k]!) 31 0 (bit i)) = bit i := by
+  decide
+
+/-- `multmodp(x2n_table[k], p)` is non-zero for a non-zero `p`. -/
+private theorem mpGo_x2n_ne_zero (k : Nat) (hk : k < 32) (p : UInt32) (hp : p ≠ 0) :
+    mpGo (x2n_table[k]!) 31 0 p ≠ 0 := by
+  intro h0
+  have hlin : ∀ x y : UInt32, mpGo (x2nInv[k]!) 31 0 (mpGo (x2n_table[k]!) 31 0 (x ^^^ y)) =
+      mpGo (x2nInv[k]!) 31 0 (mpGo (x2n_table[k]!) 31 0 x) ^^^
+        mpGo (x2nInv[k]!) 31 0 (mpGo (x2n_table[k]!) 31 0 y) := by
+    intro x y
+    have e1 := mpGo_xor (x2n_table[k]!) 31 0 0 x y
+    rw [UInt32.xor_self] at e1
+    rw [e1]
+    have e2 := mpGo_xor (x2nInv[k]!) 31 0 0 (mpGo (x2n_table[k]!) 31 0 x) (mpGo (x2n_table[k]!) 31 0 y)
+    rw [UInt32.xor_self] at e2
+    exact e2
+  have hid := lin_id (fun p => mpGo (x2nInv[k]!) 31 0 (mpGo (x2n_table[k]!) 31 0 p)) hlin (inv_basis k hk) p
+  have hz : mpGo (x2nInv[k]!) 31 0 (0 : UInt32) = 0 := by
+    have e := mpGo_xor (x2nInv[k]!) 31 0 0 0 0
+    rw [UInt32.xor_self, UInt32.xor_self] at e
+    exact e
+  rw [h0, hz] at hid
+  exact hp hid.symm
 
 /-! ## `x2nmodp` -/
 
@@ -182,40 +382,44 @@ private theorem int64_shr1 (n : Int64) : (n >>> 1).toInt = n.toInt / 2 := by
     Int.shiftRight_eq_div_pow]
   rfl
 
-/-- `x2nmodp(n, k)` terminates for every non-negative `n` once `x2n_table` is initialised. -/
+/-- `x2nmodp(n, k)` terminates for every non-negative `n` once `x2n_table` is initialised, and its value is
+not zero. -/
 private theorem x2nmodp_ok (h : Heap) (hx : h.x2nTable = x2n_table) (n : Int64) (k : UInt32)
-    (hn : 0 ≤ n.toInt) : Ok h (x2nmodp n k) (fun _ => True) := by
+    (hn : 0 ≤ n.toInt) : Ok h (x2nmodp n k) (fun r => r ≠ 0) := by
   unfold x2nmodp
-  refine Ok.bind (P := fun _ => True) ?_ (fun _ _ => Ok.pure trivial)
-  refine cwhile_measure (I := fun s => 0 ≤ s.2.1.toInt) (μ := fun s => s.2.1.toInt.toNat)
-    (Q := fun _ => True) ?_ hn ?_
-  · rintro ⟨p, n, k⟩ hI
-    refine ⟨(n != 0, p, n, k), rfl, fun hc => ?_, fun _ => trivial⟩
-    dsimp only at hc hI ⊢
+  refine Ok.bind (P := fun (s : UInt32 × Int64 × UInt32) => s.1 ≠ 0) ?_
+    (fun v hv => by obtain ⟨_, _, _⟩ := v; exact Ok.pure hv)
+  refine cwhile_measure (I := fun (s : UInt32 × Int64 × UInt32) => 0 ≤ s.2.1.toInt ∧ s.1 ≠ 0)
+    (μ := fun (s : UInt32 × Int64 × UInt32) => s.2.1.toInt.toNat)
+    (Q := fun (s : UInt32 × Int64 × UInt32) => s.1 ≠ 0) ?_ ⟨hn, show ((1 : UInt32) <<< 31) ≠ 0 by decide⟩ ?_
+  · rintro ⟨p, n, k⟩ ⟨hI, hp0⟩
+    refine ⟨(n != 0, p, n, k), rfl, fun hc => ?_, fun _ => hp0⟩
+    dsimp only at hc hI hp0 ⊢
     have hne : n ≠ 0 := by simpa using hc
     have hpos : 0 < n.toInt := by
       have : n.toInt ≠ 0 := fun h0 => hne (Int64.toInt_inj.mp (h0.trans Int64.toInt_zero.symm))
       omega
-    have hfin : ∀ p' : UInt32, Ok h (pure (p', n >>> 1, k + 1) : M (UInt32 × Int64 × UInt32))
-        (fun s2 => 0 ≤ s2.2.1.toInt ∧ s2.2.1.toInt.toNat < n.toInt.toNat) := by
-      intro p'
-      refine Ok.pure ?_
-      dsimp only
-      rw [int64_shr1]
-      omega
+    have hfin : ∀ p' : UInt32, p' ≠ 0 → Ok h (pure (p', n >>> 1, k + 1) : M (UInt32 × Int64 × UInt32))
+        (fun s2 => (0 ≤ s2.2.1.toInt ∧ s2.1 ≠ 0) ∧ s2.2.1.toInt.toNat < n.toInt.toNat) := by
+      intro p' hp'
+      refine Ok.pure ⟨⟨?_, hp'⟩, ?_⟩ <;> dsimp only <;> rw [int64_shr1] <;> omega
     by_cases hb : (n &&& 1 != 0) = true
     · simp only [hb, ↓reduceIte]
       have hidx : (k &&& 31).toNat < h.x2nTable.size := by
         rw [hx, x2n_table_facts.1, UInt32.toNat_and]
         exact Nat.lt_succ_of_le Nat.and_le_right
-      refine Ok.bind (P := fun t => t ≠ 0) ?_
-        (fun t ht => Ok.bind (multmodp_ok h t p ht) (fun p' _ => hfin p'))
-      refine Ok.mono (u32_index_ok (r := URef.st_x2n_table) (a := h.x2nTable) rfl hidx) ?_
-      intro v hv
-      rw [hv, hx]
-      exact x2n_table_facts.2 _ (by rw [hx, x2n_table_facts.1] at hidx; exact hidx)
+      have hidx' : (k &&& 31).toNat < 32 := by rw [hx, x2n_table_facts.1] at hidx; exact hidx
+      refine Ok.bind (P := fun t => t = x2n_table[(k &&& 31).toNat]!) ?_
+        (fun t ht => ?_)
+      · refine Ok.mono (u32_index_ok (r := URef.st_x2n_table) (a := h.x2nTable) rfl hidx) ?_
+        intro v hv
+        rw [hv, hx]
+      · have ht0 : t ≠ 0 := by rw [ht]; exact x2n_table_facts.2 _ hidx'
+        refine Ok.bind (multmodp_ok h t p ht0) (fun p' hp' => hfin p' ?_)
+        rw [hp', ht]
+        exact mpGo_x2n_ne_zero _ hidx' p hp0
     · simp only [hb, Bool.false_eq_true, ↓reduceIte]
-      exact hfin p
+      exact hfin p hp0
   · show n.toInt.toNat < fuel
     have := Int64.toInt_lt n
     unfold fuel
@@ -293,53 +497,183 @@ private theorem and_ff_64 (x : UInt64) : (x &&& 0xff).toNat < 256 := by
   rw [UInt64.toNat_and]
   exact Nat.lt_succ_of_le Nat.and_le_right
 
-/-! ## `CRC_DO1`, `CRC_DO8`, `crc_word` -/
+/-! ## `CRC_DO1` .. `CRC_DO8`, `crc32_copy_small`, `crc_word` -/
 
-private theorem crc_do1_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
-    (hg : Space.get h r = some data) (c : UInt32) {o : Nat} (hlt : o + 1 ≤ data.size) :
-    Ok h (crc_do1 c (.ref r o)) (fun p => p.2 = .ref r (o + 1)) := by
-  unfold crc_do1
-  refine Ok.bind (load8_ok hg (by omega)) ?_
-  intro b _
-  refine Ok.bind (ptr_add_ok hg 1 hlt) ?_
-  intro p hp
-  refine Ok.bind (crcTab_ok hc _ (and_ff_32 _)) ?_
-  intro t _
-  exact Ok.pure hp
+private theorem index8_ok' {h : Heap} {r : BRef} {data : Array UInt8} (hg : Space.get h r = some data)
+    {o : Nat} (i : Int) (h0 : 0 ≤ i) (hlt : o + i.toNat < data.size) :
+    Ok h (index8 (.ref r o) i) (fun _ => True) := by
+  rw [show i = Int.ofNat i.toNat by rw [Int.ofNat_eq_natCast, Int.toNat_of_nonneg h0]]
+  exact index8_ok hg _ hlt
 
-private theorem crc_do8_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
-    (hg : Space.get h r = some data) (c : UInt32) {o : Nat} (hle : o + 8 ≤ data.size) :
-    Ok h (crc_do8 c (.ref r o)) (fun p => p.2 = .ref r (o + 8)) := by
-  unfold crc_do8
-  refine Ok.bind (crc_do1_ok hc hg _ (by omega)) ?_
-  rintro ⟨_, _⟩ hb
-  dsimp only at hb ⊢
-  subst hb
-  refine Ok.bind (crc_do1_ok hc hg _ (by omega)) ?_
-  rintro ⟨_, _⟩ hb
-  dsimp only at hb ⊢
-  subst hb
-  refine Ok.bind (crc_do1_ok hc hg _ (by omega)) ?_
-  rintro ⟨_, _⟩ hb
-  dsimp only at hb ⊢
-  subst hb
-  refine Ok.bind (crc_do1_ok hc hg _ (by omega)) ?_
-  rintro ⟨_, _⟩ hb
-  dsimp only at hb ⊢
-  subst hb
-  refine Ok.bind (crc_do1_ok hc hg _ (by omega)) ?_
-  rintro ⟨_, _⟩ hb
-  dsimp only at hb ⊢
-  subst hb
-  refine Ok.bind (crc_do1_ok hc hg _ (by omega)) ?_
-  rintro ⟨_, _⟩ hb
-  dsimp only at hb ⊢
-  subst hb
-  refine Ok.bind (crc_do1_ok hc hg _ (by omega)) ?_
-  rintro ⟨_, _⟩ hb
-  dsimp only at hb ⊢
-  subst hb
-  exact Ok.mono (crc_do1_ok hc hg _ (by omega)) (fun p hp => by rw [hp])
+private theorem CRC_DO1_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+    (hg : Space.get h r = some data) (c : UInt32) {o : Nat} (i : Int) (h0 : 0 ≤ i)
+    (hle : o + i.toNat + 1 ≤ data.size) :
+    Ok h (CRC_DO1 c (.ref r o) i) (fun _ => True) := by
+  unfold CRC_DO1
+  refine Ok.bind (index8_ok' hg i h0 (by omega)) (fun b _ => ?_)
+  exact Ok.bind (crcTab_ok hc _ (and_ff_32 _)) (fun _ _ => Ok.pure trivial)
+
+private theorem CRC_DO2_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+    (hg : Space.get h r = some data) (c : UInt32) {o : Nat} (i : Int) (h0 : 0 ≤ i)
+    (hle : o + i.toNat + 2 ≤ data.size) :
+    Ok h (CRC_DO2 c (.ref r o) i) (fun _ => True) := by
+  unfold CRC_DO2
+  exact Ok.bind (CRC_DO1_ok hc hg c i h0 (by omega)) (fun c _ => CRC_DO1_ok hc hg c (i + 1) (by omega) (by omega))
+
+private theorem CRC_DO4_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+    (hg : Space.get h r = some data) (c : UInt32) {o : Nat} (i : Int) (h0 : 0 ≤ i)
+    (hle : o + i.toNat + 4 ≤ data.size) :
+    Ok h (CRC_DO4 c (.ref r o) i) (fun _ => True) := by
+  unfold CRC_DO4
+  exact Ok.bind (CRC_DO2_ok hc hg c i h0 (by omega)) (fun c _ => CRC_DO2_ok hc hg c (i + 2) (by omega) (by omega))
+
+private theorem CRC_DO8_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+    (hg : Space.get h r = some data) (c : UInt32) {o : Nat} (i : Int) (h0 : 0 ≤ i)
+    (hle : o + i.toNat + 8 ≤ data.size) :
+    Ok h (CRC_DO8 c (.ref r o) i) (fun _ => True) := by
+  unfold CRC_DO8
+  exact Ok.bind (CRC_DO4_ok hc hg c i h0 (by omega)) (fun c _ => CRC_DO4_ok hc hg c (i + 4) (by omega) (by omega))
+
+private theorem u64_ge_toNat {a : UInt64} {n : Nat} (hn : n < 2 ^ 64) :
+    (a ≥ UInt64.ofNat n) ↔ n ≤ a.toNat := by
+  rw [GE.ge, UInt64.le_iff_toNat_le, UInt64.toNat_ofNat_of_lt' hn]
+
+/-- `x != 0` as a statement about `x.toNat`. -/
+private theorem ne_zero_toNat {x : UInt64} : (x != 0) = true ↔ x.toNat ≠ 0 := by
+  constructor
+  · intro hx h0
+    have : x = 0 := UInt64.toNat_inj.mp (by rw [h0]; rfl)
+    simp [this] at hx
+  · intro hx
+    have : x ≠ 0 := fun h0 => hx (by rw [h0]; rfl)
+    simpa using this
+
+/-- The low three bits of a length, as the three tests `len & 4`, `len & 2`, `len & 1` see them. -/
+private theorem low_bits_facts : ∀ m, m < 8 →
+    (m &&& 4 = 0 ∨ m &&& 4 = 4) ∧ (m &&& 2 = 0 ∨ m &&& 2 = 2) ∧ (m &&& 1 = 0 ∨ m &&& 1 = 1) ∧
+    (m &&& 4) + (m &&& 2) + (m &&& 1) = m := by
+  decide
+
+private theorem and_small (x : UInt64) (k : Nat) (hk : k < 8) :
+    (x &&& UInt64.ofNat k).toNat = (x.toNat % 8) &&& k := by
+  rw [UInt64.toNat_and, UInt64.toNat_ofNat_of_lt' (by unfold UInt64.size; omega)]
+  have hlt : x.toNat &&& k < 2 ^ 3 := Nat.and_lt_two_pow _ (by omega)
+  rw [← Nat.mod_eq_of_lt hlt, Nat.and_mod_two_pow, Nat.mod_eq_of_lt (show k < 2 ^ 3 by omega)]
+
+/-- The three tests of `crc32_copy_small` on its remaining length `len`. -/
+private theorem len_bits (len : UInt64) :
+    ((len &&& 4).toNat = 0 ∨ (len &&& 4).toNat = 4) ∧ ((len &&& 2).toNat = 0 ∨ (len &&& 2).toNat = 2) ∧
+    ((len &&& 1).toNat = 0 ∨ (len &&& 1).toNat = 1) ∧
+    (len &&& 4).toNat + (len &&& 2).toNat + (len &&& 1).toNat ≤ len.toNat := by
+  have hm := low_bits_facts (len.toNat % 8) (Nat.mod_lt _ (by omega))
+  have h4 := and_small len 4 (by omega)
+  have h2 := and_small len 2 (by omega)
+  have h1 := and_small len 1 (by omega)
+  have hmod : len.toNat % 8 ≤ len.toNat := Nat.mod_le _ _
+  simp only [show (4 : UInt64) = UInt64.ofNat 4 from rfl, show (2 : UInt64) = UInt64.ofNat 2 from rfl,
+    show (1 : UInt64) = UInt64.ofNat 1 from rfl]
+  rw [h4, h2, h1]
+  omega
+
+/-- `crc32_copy_small(crc, NULL, buf, len, MAX_LEN, 0)` reads at most `len` bytes from `buf`. -/
+private theorem crc32_copy_small_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+    (hg : Space.get h r = some data) (c : UInt32) (o : Nat) (len : UInt64) (ML : Int32)
+    (hle : o + len.toNat ≤ data.size) :
+    Ok h (crc32_copy_small c .null (.ref r o) len ML 0) (fun _ => True) := by
+  have hfuel : ∀ l : UInt64, l.toNat < fuel := fun l => by unfold fuel; exact l.toNat_lt
+  have hz : ((0 : Int32) != 0) = false := rfl
+  unfold crc32_copy_small
+  simp only [hz, Bool.false_eq_true, ↓reduceIte]
+  let I : SmallState → Prop := fun s => ∃ o', s.buf = .ref r o' ∧ o' + s.len.toNat ≤ data.size
+  -- the three tests on the low bits, from a state satisfying `I`
+  have hrest : ∀ s : SmallState, I s → Ok h (do
+      if (s.len &&& 4 != 0) = true then do
+        let x1 ← CRC_DO4 s.crc s.buf 0
+        let x2 ← Ptr.add s.buf 4
+        if (s.len &&& 2 != 0) = true then do
+          let x4 ← CRC_DO2 x1 x2 0
+          let x5 ← Ptr.add x2 2
+          if (s.len &&& 1 != 0) = true then CRC_DO1 x4 x5 0 >>= fun x => pure x
+          else pure x4
+        else
+          if (s.len &&& 1 != 0) = true then CRC_DO1 x1 x2 0 >>= fun x => pure x
+          else pure x1
+      else
+        if (s.len &&& 2 != 0) = true then do
+          let x4 ← CRC_DO2 s.crc s.buf 0
+          let x5 ← Ptr.add s.buf 2
+          if (s.len &&& 1 != 0) = true then CRC_DO1 x4 x5 0 >>= fun x => pure x
+          else pure x4
+        else
+          if (s.len &&& 1 != 0) = true then CRC_DO1 s.crc s.buf 0 >>= fun x => pure x
+          else pure s.crc : M UInt32) (fun _ => True) := by
+    rintro ⟨crc, dst, buf, len⟩ ⟨o', hb, hl⟩
+    dsimp only at hb hl ⊢
+    subst hb
+    obtain ⟨b4, b2, b1, bsum⟩ := len_bits len
+    have d1 : ∀ (c' : UInt32) (o'' : Nat), o'' + 1 ≤ data.size →
+        Ok h (CRC_DO1 c' (.ref r o'') 0 >>= fun x => pure x : M UInt32) (fun _ => True) :=
+      fun c' o'' hh => Ok.bind (CRC_DO1_ok hc hg c' 0 (by omega) (by simpa using hh)) (fun _ _ => Ok.pure trivial)
+    split
+    · rename_i t4
+      rw [ne_zero_toNat] at t4
+      refine Ok.bind (CRC_DO4_ok hc hg _ 0 (by omega) (by simp; omega)) (fun _ _ => ?_)
+      refine Ok.bind (ptr_add_ok hg 4 (by omega)) (fun p hp => ?_)
+      subst hp
+      split
+      · rename_i t2
+        rw [ne_zero_toNat] at t2
+        refine Ok.bind (CRC_DO2_ok hc hg _ 0 (by omega) (by simp; omega)) (fun _ _ => ?_)
+        refine Ok.bind (ptr_add_ok hg 2 (by omega)) (fun p hp => ?_)
+        subst hp
+        split
+        · rename_i t1
+          rw [ne_zero_toNat] at t1
+          exact d1 _ _ (by omega)
+        · exact Ok.pure trivial
+      · rename_i t2
+        rw [ne_zero_toNat] at t2
+        split
+        · rename_i t1
+          rw [ne_zero_toNat] at t1
+          exact d1 _ _ (by omega)
+        · exact Ok.pure trivial
+    · rename_i t4
+      rw [ne_zero_toNat] at t4
+      split
+      · rename_i t2
+        rw [ne_zero_toNat] at t2
+        refine Ok.bind (CRC_DO2_ok hc hg _ 0 (by omega) (by simp; omega)) (fun _ _ => ?_)
+        refine Ok.bind (ptr_add_ok hg 2 (by omega)) (fun p hp => ?_)
+        subst hp
+        split
+        · rename_i t1
+          rw [ne_zero_toNat] at t1
+          exact d1 _ _ (by omega)
+        · exact Ok.pure trivial
+      · rename_i t2
+        rw [ne_zero_toNat] at t2
+        split
+        · rename_i t1
+          rw [ne_zero_toNat] at t1
+          exact d1 _ _ (by omega)
+        · exact Ok.pure trivial
+  split
+  · refine Ok.bind (P := I) ?_ hrest
+    refine cwhile_measure (I := I) (μ := fun s => s.len.toNat) (Q := I) ?_ ⟨o, rfl, hle⟩ (hfuel len)
+    rintro ⟨crc, dst, buf, l⟩ ⟨o', hb, hl⟩
+    dsimp only at hb hl
+    subst hb
+    refine ⟨_, rfl, fun hcnd => ?_, fun _ => ⟨o', rfl, hl⟩⟩
+    have h8 : 8 ≤ l.toNat := (u64_ge_toNat (n := 8) (by decide)).mp (by simpa using hcnd)
+    dsimp only
+    refine Ok.bind (CRC_DO8_ok hc hg crc 0 (by omega) (by simp; omega)) (fun _ _ => ?_)
+    refine Ok.bind (ptr_add_ok hg 8 (by omega)) (fun p hp => ?_)
+    subst hp
+    have hsub : (l - 8).toNat = l.toNat - 8 := UInt64.toNat_sub_of_le _ _ (by
+      rw [UInt64.le_iff_toNat_le]; exact h8)
+    exact Ok.pure ⟨⟨o' + 8, rfl, by dsimp only; omega⟩, by dsimp only; omega⟩
+  · exact hrest { crc := c, dst := .null, buf := .ref r o, len := len } ⟨o, rfl, hle⟩
 
 /-- Facts about the constant-trip `for (k = …; k < 8; k++)` loops over `int`. -/
 private theorem kloop_facts : ∀ j, j < 9 →
@@ -380,82 +714,40 @@ private theorem loadWordAt_ok {h : Heap} {r : BRef} {data : Array UInt8} (hg : S
   refine Ok.bind (index8_ok hg (8 * w + 7) (by omega)) (fun _ _ => ?_)
   exact Ok.pure trivial
 
-private theorem u64_ge_toNat {a : UInt64} {n : Nat} (hn : n < 2 ^ 64) :
-    (a ≥ UInt64.ofNat n) ↔ n ≤ a.toNat := by
-  rw [GE.ge, UInt64.le_iff_toNat_le, UInt64.toNat_ofNat_of_lt' hn]
-
-private theorem and_seven (x : UInt64) : (x &&& (BRAID_W - 1)).toNat = x.toNat % 8 := by
-  rw [UInt64.toNat_and, show (BRAID_W - 1).toNat = 2 ^ 3 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod]
-
-private theorem res_succ (b : UInt64) (o : Nat) :
-    (b + UInt64.ofNat (o + 1)).toNat % 8 = ((b + UInt64.ofNat o).toNat % 8 + 1) % 8 := by
-  rw [UInt64.toNat_add, UInt64.toNat_add, UInt64.toNat_ofNat', UInt64.toNat_ofNat']
-  simp only [Nat.reducePow]
+/-- `ALIGN_DIFF(buf, 8)` is below 8 and moves `buf` to a multiple of 8. -/
+private theorem align_diff_facts (h : Heap) (r : BRef) (o : Nat) :
+    let a := (8 - ((h.baseAddr r + UInt64.ofNat o) &&& (8 - 1))) &&& (8 - 1 : UInt64)
+    a.toNat < 8 ∧ (h.baseAddr r + UInt64.ofNat (o + a.toNat)).toNat % 8 = 0 := by
+  intro a
+  have h7 : ((8 : UInt64) - 1).toNat = 2 ^ 3 - 1 := rfl
+  have hA : ((h.baseAddr r + UInt64.ofNat o) &&& (8 - 1)).toNat = (h.baseAddr r + UInt64.ofNat o).toNat % 8 := by
+    rw [UInt64.toNat_and, h7, Nat.and_two_pow_sub_one_eq_mod]
+  have hAlt : (h.baseAddr r + UInt64.ofNat o).toNat % 8 < 8 := Nat.mod_lt _ (by omega)
+  have hsub : ((8 : UInt64) - ((h.baseAddr r + UInt64.ofNat o) &&& (8 - 1))).toNat =
+      8 - (h.baseAddr r + UInt64.ofNat o).toNat % 8 := by
+    rw [UInt64.toNat_sub_of_le _ _ (by rw [UInt64.le_iff_toNat_le, hA]; show _ ≤ 8; omega), hA]
+    rfl
+  have ha : a.toNat = (8 - (h.baseAddr r + UInt64.ofNat o).toNat % 8) % 8 := by
+    show (((8 : UInt64) - ((h.baseAddr r + UInt64.ofNat o) &&& (8 - 1))) &&& (8 - 1)).toNat = _
+    rw [UInt64.toNat_and, h7, Nat.and_two_pow_sub_one_eq_mod, hsub]
+  refine ⟨by rw [ha]; exact Nat.mod_lt _ (by omega), ?_⟩
+  have hb := (h.baseAddr r).toNat_lt
+  rw [UInt64.toNat_add, UInt64.toNat_ofNat', ha]
+  rw [UInt64.toNat_add, UInt64.toNat_ofNat'] at hAlt ⊢
+  simp only [Nat.reducePow] at *
   omega
 
-/-- The two tail loops `while (len >= 8) CRC_DO8; while (len) CRC_DO1;`. -/
-private theorem tail_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
+set_option maxRecDepth 20000 in
+/-- `crc32_braid(crc, buf, len)` reads only `buf[0 .. len)`. -/
+private theorem crc32_braid_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
     (hg : Space.get h r = some data) (c : UInt32) (o : Nat) (len : UInt64)
     (hle : o + len.toNat ≤ data.size) :
-    Ok h (do
-      let (c8, buf8, len8) ← cwhile
-        (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => pure (len >= 8, (c, buf, len)))
-        (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => do
-          let len := len - 8
-          let (c, buf) ← crc_do8 c buf
-          pure (c, buf, len))
-        (c, Ptr.ref r o, len)
-      let (cf, _, _) ← cwhile
-        (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => pure (len != 0, (c, buf, len)))
-        (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => do
-          let len := len - 1
-          let (c, buf) ← crc_do1 c buf
-          pure (c, buf, len))
-        (c8, buf8, len8)
-      return cf : M UInt32) (fun _ => True) := by
+    Ok h (crc32_braid c (.ref r o) len) (fun _ => True) := by
   have hfuel : ∀ l : UInt64, l.toNat < fuel := fun l => by unfold fuel; exact l.toNat_lt
-  let I : UInt32 × BPtr × UInt64 → Prop := fun s => ∃ o', s.2.1 = .ref r o' ∧ o' + s.2.2.toNat ≤ data.size
-  refine Ok.bind (P := I) ?_ ?_
-  · refine cwhile_measure (I := I) (μ := fun s => s.2.2.toNat) (Q := I) ?_ ⟨o, rfl, hle⟩ (hfuel len)
-    rintro ⟨c, b, l⟩ ⟨o', hb, hl⟩
-    dsimp only at hb hl
-    subst hb
-    refine ⟨_, rfl, fun hcnd => ?_, fun _ => ⟨o', rfl, hl⟩⟩
-    have h8 : 8 ≤ l.toNat := (u64_ge_toNat (n := 8) (by decide)).mp (by simpa using hcnd)
-    dsimp only
-    refine Ok.bind (crc_do8_ok hc hg c (o := o') (by omega)) ?_
-    rintro ⟨c', b'⟩ hb'
-    dsimp only at hb' ⊢
-    subst hb'
-    have hsub : (l - 8).toNat = l.toNat - 8 := UInt64.toNat_sub_of_le _ _ (by
-      rw [UInt64.le_iff_toNat_le]; exact h8)
-    exact Ok.pure ⟨⟨o' + 8, rfl, by dsimp only; omega⟩, by dsimp only; omega⟩
-  · rintro ⟨c8, b8, l8⟩ hI
-    dsimp only
-    refine Ok.bind (P := fun _ => True) ?_ (fun v _ => by obtain ⟨_, _, _⟩ := v; exact Ok.pure trivial)
-    refine cwhile_measure (I := I) (μ := fun s => s.2.2.toNat) (Q := fun _ => True) ?_ hI (hfuel l8)
-    rintro ⟨c, b, l⟩ ⟨o', hb, hl⟩
-    dsimp only at hb hl
-    subst hb
-    refine ⟨_, rfl, fun hcnd => ?_, fun _ => trivial⟩
-    have h1 : 1 ≤ l.toNat := by
-      have : l ≠ 0 := by simpa using hcnd
-      have : l.toNat ≠ 0 := fun h0 => this (UInt64.toNat_inj.mp (by rw [h0]; rfl))
-      omega
-    dsimp only
-    refine Ok.bind (crc_do1_ok hc hg c (o := o') (by omega)) ?_
-    rintro ⟨c', b'⟩ hb'
-    dsimp only at hb' ⊢
-    subst hb'
-    have hsub : (l - 1).toNat = l.toNat - 1 := UInt64.toNat_sub_of_le _ _ (by
-      rw [UInt64.le_iff_toNat_le]; exact h1)
-    exact Ok.pure ⟨⟨o' + 1, rfl, by dsimp only; omega⟩, by dsimp only; omega⟩
-
-private theorem braid_internal_ok {h : Heap} (hc : h.crcTable = crc_table) {r : BRef} {data : Array UInt8}
-    (hg : Space.get h r = some data) (c : UInt32) (o : Nat) (len : UInt64)
-    (hle : o + len.toNat ≤ data.size) :
-    Ok h (crc32_braid_internal c (.ref r o) len) (fun _ => True) := by
-  unfold crc32_braid_internal
+  have hlast : ∀ (c' : UInt32) (o' : Nat) (l' : UInt64), o' + l'.toNat ≤ data.size →
+      Ok h (do return ~~~(← crc32_copy_small c' .null (.ref r o') l' 39 0) : M UInt32) (fun _ => True) :=
+    fun c' o' l' hl => Ok.bind (crc32_copy_small_ok hc hg c' o' l' 39 hl) (fun _ _ => Ok.pure trivial)
+  unfold crc32_braid
   dsimp only
   split
   · rename_i hge
@@ -463,53 +755,79 @@ private theorem braid_internal_ok {h : Heap} (hc : h.crcTable = crc_table) {r : 
       have : BRAID_N * BRAID_W + BRAID_W - 1 = UInt64.ofNat 47 := by decide
       rw [this] at hge
       exact (u64_ge_toNat (by decide)).mp hge
-    let res : Nat → Nat := fun o' => (h.baseAddr r + UInt64.ofNat o').toNat % 8
-    let IA : UInt32 × BPtr × UInt64 → Prop := fun s => ∃ o', s.2.1 = .ref r o' ∧ o ≤ o' ∧
-      o' + s.2.2.toNat = o + len.toNat ∧ (o' - o) + (8 - res o') % 8 ≤ 7
-    have hfuel : ∀ l : UInt64, l.toNat < fuel := fun l => by unfold fuel; exact l.toNat_lt
-    refine Ok.bind (P := IA) ?_ ?_
-    · refine cwhile_measure (I := IA) (μ := fun s => s.2.2.toNat) (Q := IA) ?_
-        ⟨o, rfl, Nat.le_refl o, rfl, by omega⟩ (hfuel len)
-      rintro ⟨c, b, l⟩ ⟨o', hb, ho, hsum, hres⟩
-      dsimp only at hb ho hsum hres
-      subst hb
-      dsimp only
-      split
-      · rename_i hl0
-        have hl1 : 1 ≤ l.toNat := by
-          have : l ≠ 0 := by simpa using hl0
-          have : l.toNat ≠ 0 := fun h0 => this (UInt64.toNat_inj.mp (by rw [h0]; rfl))
-          omega
-        refine Ok.bind (P := fun a => a = h.baseAddr r + UInt64.ofNat o') ⟨_, rfl, rfl⟩ ?_
-        intro a ha
-        subst ha
-        refine Ok.pure ⟨fun hcnd => ?_, fun _ => ⟨o', rfl, ho, hsum, hres⟩⟩
-        have hr0 : res o' ≠ 0 := by
-          have h7 : ((h.baseAddr r + UInt64.ofNat o') &&& (BRAID_W - 1)).toNat ≠ 0 := by
-            intro h0
-            have : ((h.baseAddr r + UInt64.ofNat o') &&& (BRAID_W - 1)) = 0 :=
-              UInt64.toNat_inj.mp (by rw [h0]; rfl)
-            simp [this] at hcnd
-          rw [and_seven] at h7
-          exact h7
-        have hsucc := res_succ (h.baseAddr r) o'
-        dsimp only
-        refine Ok.bind (crc_do1_ok hc hg c (o := o') (by omega)) ?_
-        rintro ⟨c', b'⟩ hb'
-        dsimp only at hb' ⊢
-        subst hb'
-        have hsub : (l - 1).toNat = l.toNat - 1 := UInt64.toNat_sub_of_le _ _ (by
-          rw [UInt64.le_iff_toNat_le]; exact hl1)
-        refine Ok.pure ⟨⟨o' + 1, rfl, by omega, by dsimp only; omega, ?_⟩, by dsimp only; omega⟩
-        show (o' + 1 - o) + (8 - res (o' + 1)) % 8 ≤ 7
-        simp only [res] at hres hr0 ⊢
-        omega
-      · exact Ok.pure ⟨fun hcnd => absurd hcnd (by simp), fun _ => ⟨o', rfl, ho, hsum, hres⟩⟩
-    · rintro ⟨c', b', l'⟩ ⟨o', hb, ho, hsum, hres⟩
-      dsimp only at hb ho hsum hres
-      subst hb
-      dsimp only
-      have hl40 : 40 ≤ l'.toNat := by omega
+    obtain ⟨had_lt, had_al⟩ := align_diff_facts h r o
+    -- `ALIGN_DIFF(buf, 8)`
+    refine Ok.bind (P := fun a => a = (8 - ((h.baseAddr r + UInt64.ofNat o) &&& (8 - 1))) &&& (8 - 1 : UInt64))
+      ⟨_, rfl, rfl⟩ (fun a ha => ?_)
+    subst ha
+    generalize hA : ((8 - ((h.baseAddr r + UInt64.ofNat o) &&& (8 - 1))) &&& (8 - 1 : UInt64)) = A at had_lt had_al
+    have hmin : ZlibNg.Zbuild.MIN A len = A := by
+      unfold ZlibNg.Zbuild.MIN
+      have : ¬ (A > len) := by show ¬ (len.toNat < A.toNat); omega
+      simp [this]
+    rw [hmin]
+    -- the rest after the alignment step, from an aligned buffer position `o'`
+    have hmain : ∀ (crc0 : UInt32) (o' : Nat) (l' : UInt64), o' + l'.toNat = o + len.toNat →
+        40 ≤ l'.toNat → (h.baseAddr r + UInt64.ofNat o').toNat % 8 = 0 →
+        Ok h (do
+          let words ← (Ptr.ref r o').castAligned 8
+          let st ←
+            cwhile
+                (fun (s : BraidState) =>
+                  pure
+                    (s.blks - 1 != 0,
+                      { crc0 := s.crc0, crc1 := s.crc1, crc2 := s.crc2, crc3 := s.crc3, crc4 := s.crc4, words := s.words,
+                        blks := s.blks - 1 }))
+                (fun (s : BraidState) => do
+                  let w0 ← loadWordAt s.words 0
+                  let w1 ← loadWordAt s.words 1
+                  let w2 ← loadWordAt s.words 2
+                  let w3 ← loadWordAt s.words 3
+                  let w4 ← loadWordAt s.words 4
+                  let words ← Ptr.add s.words 40
+                  let c0 ← braidTab 0 ((s.crc0 ^^^ w0) &&& 255).toNat
+                  let c1 ← braidTab 0 ((s.crc1 ^^^ w1) &&& 255).toNat
+                  let c2 ← braidTab 0 ((s.crc2 ^^^ w2) &&& 255).toNat
+                  let c3 ← braidTab 0 ((s.crc3 ^^^ w3) &&& 255).toNat
+                  let c4 ← braidTab 0 ((s.crc4 ^^^ w4) &&& 255).toNat
+                  let __x ←
+                    cwhile (fun (x : (UInt64 × UInt64 × UInt64 × UInt64 × UInt64) × Int32) =>
+                          pure (decide (x.snd < BRAID_W_I32), x.fst, x.snd))
+                        (fun (x : (UInt64 × UInt64 × UInt64 × UInt64 × UInt64) × Int32) => do
+                          let t0 ←
+                            braidTab x.snd.toInt.toNat ((s.crc0 ^^^ w0) >>> (x.snd.toInt.toNat * 8).toUInt64 &&& 255).toNat
+                          let t1 ←
+                            braidTab x.snd.toInt.toNat ((s.crc1 ^^^ w1) >>> (x.snd.toInt.toNat * 8).toUInt64 &&& 255).toNat
+                          let t2 ←
+                            braidTab x.snd.toInt.toNat ((s.crc2 ^^^ w2) >>> (x.snd.toInt.toNat * 8).toUInt64 &&& 255).toNat
+                          let t3 ←
+                            braidTab x.snd.toInt.toNat ((s.crc3 ^^^ w3) >>> (x.snd.toInt.toNat * 8).toUInt64 &&& 255).toNat
+                          let t4 ←
+                            braidTab x.snd.toInt.toNat ((s.crc4 ^^^ w4) >>> (x.snd.toInt.toNat * 8).toUInt64 &&& 255).toNat
+                          pure
+                              ((x.1.fst ^^^ t0.toUInt64, x.1.2.fst ^^^ t1.toUInt64, x.1.2.2.fst ^^^ t2.toUInt64,
+                                  x.1.2.2.2.fst ^^^ t3.toUInt64, x.1.2.2.2.snd ^^^ t4.toUInt64),
+                                x.snd + 1))
+                        ((c0.toUInt64, c1.toUInt64, c2.toUInt64, c3.toUInt64, c4.toUInt64), 1)
+                  pure
+                      { crc0 := __x.1.fst, crc1 := __x.1.2.fst, crc2 := __x.1.2.2.fst, crc3 := __x.1.2.2.2.fst,
+                        crc4 := __x.1.2.2.2.snd, words := words, blks := s.blks })
+                { crc0 := crc0.toUInt64, crc1 := 0, crc2 := 0, crc3 := 0, crc4 := 0, words := words,
+                  blks := l' / (BRAID_N * BRAID_W) }
+          let lw0 ← loadWordAt st.words 0
+          let lw1 ← loadWordAt st.words 1
+          let lw2 ← loadWordAt st.words 2
+          let lw3 ← loadWordAt st.words 3
+          let lw4 ← loadWordAt st.words 4
+          let comb0 ← crc_word (st.crc0 ^^^ lw0)
+          let comb1 ← crc_word (st.crc1 ^^^ lw1 ^^^ comb0.toUInt64)
+          let comb2 ← crc_word (st.crc2 ^^^ lw2 ^^^ comb1.toUInt64)
+          let comb3 ← crc_word (st.crc3 ^^^ lw3 ^^^ comb2.toUInt64)
+          let comb4 ← crc_word (st.crc4 ^^^ lw4 ^^^ comb3.toUInt64)
+          let words ← Ptr.add st.words 40
+          let __do_lift ← crc32_copy_small comb4 Ptr.null words (l' - l' / (BRAID_N * BRAID_W) * BRAID_N * BRAID_W) 39 0
+          pure (~~~__do_lift)) (fun _ => True) := by
+      intro crc0 o' l' hsum hl40 hal
       have hB : (l' / (BRAID_N * BRAID_W)).toNat = l'.toNat / 40 := by
         rw [UInt64.toNat_div]; rfl
       have hlt := l'.toNat_lt
@@ -521,13 +839,22 @@ private theorem braid_internal_ok {h : Heap} (hc : h.crcTable = crc_table) {r : 
       have hrem : (l' - l' / (BRAID_N * BRAID_W) * BRAID_N * BRAID_W).toNat = l'.toNat % 40 := by
         rw [UInt64.toNat_sub_of_le _ _ (by rw [UInt64.le_iff_toNat_le, hBNW]; omega), hBNW]
         omega
+      have hcast : C.run (Ptr.castAligned (.ref r o') 8) h = .ok (.ref r o', h) := by
+        have hal' : ((h.baseAddr r).toNat + o') % 8 = 0 := by
+          rw [UInt64.toNat_add, UInt64.toNat_ofNat'] at hal
+          simp only [Nat.reducePow] at hal
+          omega
+        simp only [C.run, Ptr.castAligned, bind_app, addrOf]
+        simp [hal']
+      refine Ok.bind (P := fun w => w = .ref r o') ⟨_, hcast, rfl⟩ (fun words hw => ?_)
+      subst hw
       let IB : BraidState → Prop := fun s => 1 ≤ s.blks.toNat ∧
         ∃ o2, s.words = .ref r o2 ∧ o2 + 40 * s.blks.toNat + l'.toNat % 40 ≤ data.size
       refine Ok.bind (P := fun st => ∃ o2, st.words = .ref r o2 ∧ o2 + 40 + l'.toNat % 40 ≤ data.size)
         ?_ ?_
       · refine cwhile_measure (I := IB) (μ := fun s => s.blks.toNat)
           (Q := fun st => ∃ o2, st.words = .ref r o2 ∧ o2 + 40 + l'.toNat % 40 ≤ data.size) ?_
-          ⟨by dsimp only; omega, o', rfl, by dsimp only; rw [hB]; omega⟩ (hfuel _)
+          ⟨by dsimp only; rw [hB]; omega, o', rfl, by dsimp only; rw [hB]; omega⟩ (hfuel _)
         rintro st ⟨hb1, o2, hw, hsz⟩
         have hsub : (st.blks - 1).toNat = st.blks.toNat - 1 := UInt64.toNat_sub_of_le _ _ (by
           rw [UInt64.le_iff_toNat_le]; exact hb1)
@@ -592,8 +919,24 @@ private theorem braid_internal_ok {h : Heap} (hc : h.crcTable = crc_table) {r : 
         refine Ok.bind (crc_word_ok hc _) (fun _ _ => ?_)
         refine Ok.bind (ptr_add_ok hg 40 (by omega)) (fun wd hwd => ?_)
         subst hwd
-        exact tail_ok hc hg _ (o2 + 40) _ (by rw [hrem]; omega)
-  · exact tail_ok hc hg c o len hle
+        exact hlast _ (o2 + 40) _ (by rw [hrem]; omega)
+    split
+    · rename_i hA0
+      refine Ok.bind (crc32_copy_small_ok hc hg _ o A 7 (by omega)) (fun crc' _ => ?_)
+      refine Ok.bind (ptr_add_ok hg A.toNat (by omega)) (fun p hp => ?_)
+      subst hp
+      have hsubA : (len - A).toNat = len.toNat - A.toNat := UInt64.toNat_sub_of_le _ _ (by
+        rw [UInt64.le_iff_toNat_le]; omega)
+      have hm := hmain crc' (o + A.toNat) (len - A) (by omega) (by omega) had_al
+      exact hm
+    · rename_i hA0
+      have hA : A.toNat = 0 := by
+        have : A = 0 := by simpa using hA0
+        rw [this]; rfl
+      rw [hA, Nat.add_zero] at had_al
+      have hm := hmain (~~~c) o len rfl (by omega) had_al
+      exact hm
+  · exact hlast _ o len hle
 
 
 /-! ## Public `get_crc_table`, `crc32`, `crc32_z` -/
@@ -606,17 +949,26 @@ theorem crc32_z_safety : Goal.crc32_z_safety := by
   intro h seed buf len bytes hg hb
   rcases hb with ⟨rfl, _⟩ | ⟨r, off, data, rfl, hget, hle, _⟩
   · exact ⟨0, rfl⟩
-  · obtain ⟨v, hv, _⟩ := braid_internal_ok hg.1 hget (~~~seed.toUInt32) off len hle
-    refine ⟨(v ^^^ 0xffffffff).toUInt64, ?_⟩
+  · obtain ⟨v, hv, _⟩ := crc32_braid_ok hg.1 hget seed.toUInt32 off len hle
+    refine ⟨v.toUInt64, ?_⟩
     have hne : (Ptr.ref r off == (.null : BPtr)) = false := by simp
-    unfold crc32_z crc32_braid
+    unfold crc32_z
     simp only [hne, Bool.false_eq_true, ↓reduceIte]
-    rw [C.run_bind, C.run_bind, hv]
+    rw [C.run_bind, hv]
     rfl
 
 theorem crc32_safety : Goal.crc32_safety := by
   intro h seed buf len bytes hg hb
-  exact crc32_z_safety h _ buf len.toUInt64 bytes hg (by rw [UInt32.toNat_toUInt64]; exact hb)
+  rcases hb with ⟨rfl, _⟩ | ⟨r, off, data, rfl, hget, hle, _⟩
+  · exact ⟨0, rfl⟩
+  · obtain ⟨v, hv, _⟩ := crc32_braid_ok hg.1 hget seed.toUInt32 off len.toUInt64
+      (by rw [UInt32.toNat_toUInt64]; exact hle)
+    refine ⟨v.toUInt64, ?_⟩
+    have hne : (Ptr.ref r off == (.null : BPtr)) = false := by simp
+    unfold crc32
+    simp only [hne, Bool.false_eq_true, ↓reduceIte]
+    rw [C.run_bind, hv]
+    rfl
 
 theorem crc32_nonvacuous : Goal.crc32_nonvacuous := by
   let arr : Array UInt8 := Array.replicate 128 0x41
@@ -640,28 +992,23 @@ theorem crc32_nonvacuous : Goal.crc32_nonvacuous := by
 
 /-! ## `crc32_combine*` -/
 
-private theorem crc32_combine_op__ok (h : Heap) (crc1 crc2 op : UInt32) :
-    Ok h (crc32_combine_op_ crc1 crc2 op) (fun r => op = 0 → r = 0) := by
+private theorem crc32_combine_op__ok (h : Heap) (crc1 crc2 op : UInt32) (hop : op ≠ 0) :
+    Ok h (crc32_combine_op_ crc1 crc2 op) (fun _ => True) := by
   unfold crc32_combine_op_
-  by_cases hop : op = 0
-  · subst hop
-    exact ⟨0, rfl, fun _ => rfl⟩
-  · have hb : (op == 0) = false := by simpa using hop
-    simp only [hb, Bool.false_eq_true, ↓reduceIte]
-    exact Ok.bind (multmodp_ok h op crc1 hop) (fun m _ => Ok.pure (fun h0 => absurd h0 hop))
+  exact Ok.bind (multmodp_ok h op crc1 hop) (fun m _ => Ok.pure trivial)
 
 private theorem crc32_combine_gen__ok (h : Heap) (hx : h.x2nTable = x2n_table) (len2 : Int64) :
-    Ok h (crc32_combine_gen_ len2) (fun r => len2 < 0 → r = 0) := by
+    Ok h (crc32_combine_gen_ len2) (fun _ => True) := by
   unfold crc32_combine_gen_
   by_cases hneg : len2 < 0
   · simp only [hneg, ↓reduceIte]
-    exact Ok.pure (fun _ => rfl)
+    exact Ok.pure trivial
   · have hn : 0 ≤ len2.toInt := by
       have h1 : ¬ len2.toInt < (0 : Int64).toInt := fun h2 => hneg (Int64.lt_iff_toInt_lt.mpr h2)
       rw [Int64.toInt_zero] at h1
       omega
     simp only [hneg, ↓reduceIte]
-    exact Ok.mono (x2nmodp_ok h hx len2 3 hn) (fun _ _ h0 => by simp_all)
+    exact Ok.mono (x2nmodp_ok h hx len2 3 hn) (fun _ _ => trivial)
 
 /-- A negative `len2` is rejected before any table is read. -/
 private theorem crc32_combine_gen__neg (h : Heap) (len2 : Int64) (hneg : len2 < 0) :
@@ -673,13 +1020,21 @@ private theorem crc32_combine_gen__neg (h : Heap) (len2 : Int64) (hneg : len2 < 
 private theorem crc32_combine__ok (h : Heap) (hx : h.x2nTable = x2n_table) (crc1 crc2 : UInt32)
     (len2 : Int64) : Ok h (crc32_combine_ crc1 crc2 len2) (fun _ => True) := by
   unfold crc32_combine_
-  exact Ok.bind (crc32_combine_gen__ok h hx len2)
-    (fun op _ => Ok.mono (crc32_combine_op__ok h crc1 crc2 op) (fun _ _ => trivial))
+  by_cases hneg : len2 < 0
+  · simp only [hneg, ↓reduceIte]
+    exact Ok.pure trivial
+  · have hn : 0 ≤ len2.toInt := by
+      have h1 : ¬ len2.toInt < (0 : Int64).toInt := fun h2 => hneg (Int64.lt_iff_toInt_lt.mpr h2)
+      rw [Int64.toInt_zero] at h1
+      omega
+    simp only [hneg, ↓reduceIte]
+    exact Ok.bind (x2nmodp_ok h hx len2 3 hn)
+      (fun op hop => Ok.bind (multmodp_ok h op crc1 hop) (fun _ _ => Ok.pure trivial))
 
 private theorem crc32_combine__neg (h : Heap) (crc1 crc2 : UInt32) (len2 : Int64) (hneg : len2 < 0) :
     C.run (crc32_combine_ crc1 crc2 len2) h = .ok (0, h) := by
   unfold crc32_combine_
-  rw [C.run_bind, crc32_combine_gen__neg h len2 hneg]
+  simp only [hneg, ↓reduceIte]
   rfl
 
 private theorem ok_toUInt64 {h : Heap} {m : M UInt32} {Q : UInt32 → Prop} (hm : Ok h m Q) :
@@ -696,8 +1051,8 @@ theorem crc32_combine_gen64_safety : Goal.crc32_combine_gen64_safety := by
   exact ok_toUInt64 (crc32_combine_gen__ok h hg.2 len2)
 
 theorem crc32_combine_op_safety : Goal.crc32_combine_op_safety := by
-  intro h crc1 crc2 op
-  exact ok_toUInt64 (crc32_combine_op__ok h crc1.toUInt32 crc2.toUInt32 op.toUInt32)
+  intro h crc1 crc2 op hop
+  exact ok_toUInt64 (crc32_combine_op__ok h crc1.toUInt32 crc2.toUInt32 op.toUInt32 hop)
 
 theorem crc32_combine_safety : Goal.crc32_combine_safety := by
   intro h crc1 crc2 len2 hg
@@ -708,8 +1063,8 @@ theorem crc32_combine64_safety : Goal.crc32_combine64_safety := by
   exact ok_toUInt64 (crc32_combine__ok h hg.2 crc1.toUInt32 crc2.toUInt32 len2)
 
 theorem crc32_combine_rejection_functional : Goal.crc32_combine_rejection_functional := by
-  intro h crc1 crc2 op len2
-  refine ⟨fun hneg => ⟨?_, ?_, ?_, ?_⟩, fun hop => ?_⟩
+  intro h crc1 crc2 len2 hneg
+  refine ⟨?_, ?_, ?_, ?_⟩
   · show C.run (crc32_combine_ crc1.toUInt32 crc2.toUInt32 len2 >>= fun r => pure r.toUInt64) h = _
     rw [C.run_bind, crc32_combine__neg h _ _ len2 hneg]
     rfl
@@ -721,10 +1076,6 @@ theorem crc32_combine_rejection_functional : Goal.crc32_combine_rejection_functi
     rfl
   · show C.run (crc32_combine_gen_ len2 >>= fun r => pure r.toUInt64) h = _
     rw [C.run_bind, crc32_combine_gen__neg h len2 hneg]
-    rfl
-  · show C.run (crc32_combine_op_ crc1.toUInt32 crc2.toUInt32 op.toUInt32 >>= fun r => pure r.toUInt64) h = _
-    obtain ⟨r, hr, hz⟩ := crc32_combine_op__ok h crc1.toUInt32 crc2.toUInt32 op.toUInt32
-    rw [C.run_bind, hr, hz hop]
     rfl
 
 end ZlibNgF.Proof.Crc32

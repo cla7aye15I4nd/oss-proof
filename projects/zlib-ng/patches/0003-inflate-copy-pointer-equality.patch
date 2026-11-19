@@ -1,8 +1,6 @@
-diff --git a/inflate.c b/inflate.c
-index 8baa725..668ddab 100644
 --- a/inflate.c
 +++ b/inflate.c
-@@ -1396,8 +1396,8 @@ int32_t Z_EXPORT PREFIX(inflateCopy)(PREFIX3(stream) *dest, PREFIX3(stream) *sou
+@@ -1407,8 +1407,8 @@
      /* copy state */
      memcpy(copy, state, sizeof(struct inflate_state));
      copy->strm = dest;
