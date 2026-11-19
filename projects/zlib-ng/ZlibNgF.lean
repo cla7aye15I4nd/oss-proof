@@ -35,6 +35,7 @@ import ZlibNgF.Math.HuffMerge
 import ZlibNgF.Math.HuffPushCost
 import ZlibNgF.Math.HuffKraft
 import ZlibNgF.Math.HuffBuilt
+import ZlibNgF.Math.OverlayDynamic
 import ZlibNgF.Proof.«inftrees.c.base»
 import ZlibNgF.Proof.«inftrees.c.count»
 import ZlibNgF.Proof.«inftrees.c.rev»
