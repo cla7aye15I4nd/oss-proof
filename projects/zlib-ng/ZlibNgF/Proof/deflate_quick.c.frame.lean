@@ -389,6 +389,7 @@ theorem qf_post {h H : Heap} {i b : Nat} (F : QF h i b H) (flush : Int32) (bs : 
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun i' e => by obtain rfl := Option.some.inj e; exact F.out,
+    stateBlock_keep F.blk0 F.blk,
     fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).1 e)⟩, ?_⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩

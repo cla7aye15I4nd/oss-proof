@@ -5,7 +5,8 @@ import ZlibNgF.Math.Adler32Swar
 # The Adler-32 kernel `adler32_c` computes the RFC 1950 sums (`ZlibNgF`)
 
 `adler32_c` on a readable buffer terminates without fault, leaves the heap unchanged, and returns the packed
-reduced sums of the buffer (`adler32_c_ok`). The proof follows the C: the 8-byte alignment prefix
+reduced sums of the buffer (`adler32_c_safe` in `adler32_c.c.safety.lean`, `adler32_c_val` in
+`adler32_c.c.value.lean`); this file holds the shared steps. The proof follows the C: the 8-byte alignment prefix
 (`adler32_copy_align`), blocks of at most `NMAX` bytes made of 64-bit SWAR chunks of at most 184 bytes
 (`adler32_swar`), and the tail (`adler32_copy_tail`). Every 32-bit accumulator is tracked modulo `2^32`
 against the unreduced sums `rawSums`; the `NMAX` bound shows that the reductions see the exact sums.
