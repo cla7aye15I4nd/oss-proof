@@ -245,6 +245,23 @@ def DInv (h : Heap) (s : StreamPtr) : Prop :=
   ∃ i z b st al, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
     h.dallocsOf b = some al ∧ DCore h s z b (dview st) al
 
+/-- `st'` agrees with `st` on the fields that the between-call facts (`DeflateSide.SideAt`) read. -/
+structure SideEq (st st' : DeflateState) : Prop where
+  status : st'.status = st.status
+  wrap : st'.wrap = st.wrap
+  gzhead : st'.gzhead = st.gzhead
+  gzindex : st'.gzindex = st.gzindex
+  sym_next : st'.sym_next = st.sym_next
+  sym_end : st'.sym_end = st.sym_end
+  strstart : st'.strstart = st.strstart
+  block_start : st'.block_start = st.block_start
+  level : st'.level = st.level
+  lookahead : st'.lookahead = st.lookahead
+  strategy : st'.strategy = st.strategy
+  last_flush : st'.last_flush = st.last_flush
+
+theorem SideEq.refl (st : DeflateState) : SideEq st st := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+
 /-! ## Interface lemmas -/
 
 /-- `ldDState` of a live state. -/

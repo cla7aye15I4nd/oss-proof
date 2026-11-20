@@ -131,14 +131,16 @@ end
 
 /-- What `deflateCopy` guarantees: only the destination record and fresh blocks change, the source keeps its
 invariant, and a successful copy has it. -/
-def CopyPost (h : Heap) (i j : Nat) (r : Int32) (h' : Heap) : Prop :=
-  DFrame h h' [j] [] [] [] ∧ DInv h' (some i) ∧ (r = Z_OK → DInv h' (some j))
+def CopyPost (h : Heap) (i j : Nat) (st : DeflateState) (r : Int32) (h' : Heap) : Prop :=
+  DFrame h h' [j] [] [] [] ∧ DInv h' (some i) ∧ (r = Z_OK → DInv h' (some j) ∧
+    ∃ z' nb st', h'.streams j = some z' ∧ z'.state = some nb ∧ h.nextBlk ≤ nb ∧ h'.dstate nb = some st' ∧
+      SideEq st st')
 
 theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : DeflateState} {al : DeflateAllocs}
     (L : DLive h i z b st) (hal : h.dallocsOf b = some al) (c : DCore h (some i) z b (dview st) al)
     (hzd : h.streams j = some zd) (hji : j ≠ i)
     (hfr : h.allocOk h.nalloc = true → h.dstates h.nextBlk = none ∧ h.dallocs h.nextBlk = none) :
-    Sat h (deflateCopy (some j) (some i)) (fun r h' => CopyPost h i j r h') := by
+    Sat h (deflateCopy (some j) (some i)) (fun r h' => CopyPost h i j st r h') := by
   have hne : (some j == some i) = false := by simp [hji]
   let H1 : Heap := { h with streams := upd h.streams j (some z) }
   have ecs : copyStream (some j) (some i) h = .ok ((), H1) := by
@@ -301,7 +303,8 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Deflate
   have hpsym := c.psym
   have hdescs := c.descs
   simp only [dview] at hpbz hpsym hdescs
-  refine Sat.pure ⟨?_, ?_, fun _ => ?_⟩
+  refine Sat.pure ⟨?_, ?_, fun _ => ⟨?_, _, nb, _, SH_streams _ _ _ _ _ _, rfl, by omega, SH_dstate _ _ _ _ _ _,
+    ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩⟩⟩
   · refine dframe_of (fun k' hk => ?_) hBg.1 (fun c' hc => ?_) hBg.2.1 hBg.2.2.1 hBg.2.2.2.1 hBg.2.2.2.2.1
       hBg.2.2.2.2.2
     · simp only [SH, upd_ne _ _ _ _ hk, hBs]
@@ -414,11 +417,18 @@ theorem copy_noState {h : Heap} {src : StreamPtr} (hn : DNoState h src) (dst : S
     C.run (deflateCopy dst src) h = .ok (Z_STREAM_ERROR, h) := by
   simp [C.run, deflateCopy, bind_app, show deflateStateCheck src h = .ok (true, h) from stateCheck_noState hn]
 
+/-- The destination of a successful copy holds, in a block from `h.nextBlk` on, a state that agrees with the
+source's on the fields of `SideEq`. -/
+def CopySide (h h' : Heap) (src dst : StreamPtr) : Prop :=
+  ∃ i j z b st z' nb st', src = some i ∧ dst = some j ∧ h.streams i = some z ∧ z.state = some b ∧
+    h.dstate b = some st ∧ h'.streams j = some z' ∧ z'.state = some nb ∧ h.nextBlk ≤ nb ∧ h'.dstate nb = some st' ∧
+    SideEq st st'
+
 /-- `deflateCopy` on an invariant source and a distinct destination ready for initialisation: when it returns, the
 source keeps its invariant and a successful copy has it. -/
 theorem copy_inv {h h' : Heap} {src dst : StreamPtr} {r : Int32} (hv : DInv h src) (hdst : InitReady h dst)
     (hne : dst ≠ src) (e : C.run (deflateCopy dst src) h = .ok (r, h')) :
-    DInv h' src ∧ (r = Z_OK → DInv h' dst) := by
+    DInv h' src ∧ (r = Z_OK → DInv h' dst ∧ CopySide h h' src dst) := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
   rcases hdst with rfl | ⟨zd, ⟨j, rfl, hzd⟩, -, -⟩
   · rw [copy_none L.check] at e
@@ -430,7 +440,9 @@ theorem copy_inv {h h' : Heap} {src dst : StreamPtr} {r : Int32} (hv : DInv h sr
     have : C.run (deflateCopy (some j) (some i)) h = .ok (r', h'') := e'
     rw [this] at e
     obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Except.ok.inj e)
-    exact ⟨hi, hj⟩
+    refine ⟨hi, fun e => ⟨(hj e).1, ?_⟩⟩
+    obtain ⟨z', nb, st', h1, h2, h3, h4, h5⟩ := (hj e).2
+    exact ⟨i, j, z, b, st, z', nb, st', rfl, rfl, L.hz, L.hb, L.dstate, h1, h2, h3, h4, h5⟩
   · have hok : h.allocOk h.nalloc = true :=
       Classical.byContradiction fun hc => hfr (fun hh => absurd hh hc)
     have hx : ¬ (h.dstates h.nextBlk = none ∧ h.dallocs h.nextBlk = none) := fun hh => hfr (fun _ => hh)

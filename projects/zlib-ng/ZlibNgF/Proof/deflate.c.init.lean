@@ -659,9 +659,28 @@ theorem lm_fill_end (w : UInt32) (h1 : 512 ≤ w.toNat) (h2 : w.toNat ≤ 32768)
 theorem lb_one_le (l : Nat) {x : UInt32} (hx : x.toNat = l) (hl : 1 ≤ l) : 1 ≤ x := by
   rw [UInt32.le_iff_toNat_le, hx]; simpa using hl
 
+/-- The state that `deflateReset` leaves (through `lm_init`): no symbols, no window positions in use, no flush yet,
+and the first header state (`GZIP_STATE` only for a gzip stream). -/
+def FreshSt (st : DeflateState) : Prop :=
+  st.sym_next = 0 ∧ st.strstart = 0 ∧ st.block_start = 0 ∧ st.lookahead = 0 ∧ st.last_flush = -2 ∧
+    (st.status = GZIP_STATE ∨ st.status = INIT_STATE) ∧ (st.status = GZIP_STATE → st.wrap = 2)
+
+theorem fresh_lmS (b : Nat) (st : DeflateState) (A B C : Array Ct) (c : Config) (lm : Ival LongestMatchFn)
+    (ib : Ival InsertBatchFn) : FreshSt (lmS (trS b (rkS st) A B C) c lm ib) := by
+  by_cases hw : (st.wrap == 2) = true
+  · have e : st.wrap = 2 := by simpa using hw
+    simp [FreshSt, lmS, trS, rkS, e]
+  · simp only [FreshSt, lmS, trS, rkS, hw, Bool.false_eq_true, ↓reduceIte]
+    exact ⟨trivial, trivial, trivial, trivial, trivial, Or.inr trivial, fun e => absurd e (by decide)⟩
+
+/-- The state of stream `s` is a `FreshSt`. -/
+def DFreshOf (h : Heap) (s : StreamPtr) : Prop :=
+  ∃ i z b st, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧ FreshSt st
+
 /-- What a call of `deflateInit2` on stream `i` of `h` guarantees. -/
 def InitPost (h : Heap) (i : Nat) (r : Int32) (h' : Heap) : Prop :=
-  DFrame h h' [i] [] [] [] ∧ (r = Z_OK → DeflateInv.DInv h' (some i))
+  DFrame h h' [i] [] [] [] ∧ (r = Z_OK → DeflateInv.DInv h' (some i) ∧
+    ∃ z b st, h'.streams i = some z ∧ z.state = some b ∧ h'.dstate b = some st ∧ FreshSt st)
 
 theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc) (hzf : z1.zfree = .zcfree)
     (level method wb ml strat wrap : Int32) (hw : wrap = 0 ∨ wrap = 1 ∨ wrap = 2) :
@@ -805,7 +824,8 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
     · exact ⟨Int32.not_lt.mp hs0, Int32.not_lt.mp hs4⟩
   rintro r H' ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, RL⟩
   obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C c lm ib
-  refine ⟨⟨?_, fun _ => ?_⟩, fun _ _ _ _ _ _ _ => rfl⟩
+  refine ⟨⟨?_, fun _ => ⟨?_, _, h.nextBlk, _, SH_streams _ _ _ _ _ _, rfl, SH_dstate _ _ _ _ _ _,
+    fresh_lmS _ _ _ _ _ _ _ _⟩⟩, fun _ _ _ _ _ _ _ => rfl⟩
   · refine dframe_of (fun j hj => by simp [SH, AH, upd_ne _ _ _ _ hj]) rfl (fun c hc => ?_) rfl rfl rfl rfl
       (by simp [SH, AH])
     have hne : c ≠ h.nextBlk := Nat.ne_of_lt hc

@@ -51,18 +51,19 @@ theorem deflateInit2__safety : Goal.deflateInit2__safety := by
 
 /-- A successful `deflateInit2` leaves the structural invariant, on every heap. -/
 theorem init2_inv {h h' : Heap} {s : StreamPtr} (hi : DInitReady h s) (level method wb ml strat : Int32)
-    (e : deflateInit2 s level method wb ml strat h = .ok (Z_OK, h')) : DeflateInv.DInv h' s := by
+    (e : deflateInit2 s level method wb ml strat h = .ok (Z_OK, h')) : DeflateInv.DInv h' s ∧ DFreshOf h' s := by
   rcases hi with rfl | ⟨z, ⟨i, rfl, hz⟩, hza, hzf⟩
   · rw [init2_none] at e; cases e
   · rcases init2_sat hz hza hzf level method wb ml strat with ⟨r, h'', e', ⟨_, hinv⟩, _⟩ | ⟨_, err, ef⟩
     · rw [e'] at e
       obtain ⟨rfl, rfl⟩ : r = Z_OK ∧ h'' = h' := by simpa using e
-      exact hinv rfl
+      obtain ⟨hv, z, b, st, hz', hb, hst, hf⟩ := hinv rfl
+      exact ⟨hv, i, z, b, st, rfl, hz', hb, hst, hf⟩
     · rw [ef] at e; cases e
 
 theorem init_inv (h h' : Heap) (s : StreamPtr) (level : Int32) (version : BPtr) (size : Int32)
     (hi : DInitReady h s) (hv : VersionOk h version)
-    (e : C.run (deflateInit_ s level version size) h = .ok (Z_OK, h')) : DeflateInv.DInv h' s := by
+    (e : C.run (deflateInit_ s level version size) h = .ok (Z_OK, h')) : DeflateInv.DInv h' s ∧ DFreshOf h' s := by
   obtain ⟨c, hc⟩ := InflateInit.checkVer_ok h version size hv
   simp only [C.run, deflateInit_, bind_app, hc] at e
   cases c
@@ -72,7 +73,7 @@ theorem init_inv (h h' : Heap) (s : StreamPtr) (level : Int32) (version : BPtr) 
 theorem init2__inv (h h' : Heap) (s : StreamPtr) (level method wb ml strat : Int32) (version : BPtr) (size : Int32)
     (hi : DInitReady h s) (hv : VersionOk h version)
     (e : C.run (deflateInit2_ s level method wb ml strat version size) h = .ok (Z_OK, h')) :
-    DeflateInv.DInv h' s := by
+    DeflateInv.DInv h' s ∧ DFreshOf h' s := by
   obtain ⟨c, hc⟩ := InflateInit.checkVer_ok h version size hv
   simp only [C.run, deflateInit2_, bind_app, hc] at e
   cases c
