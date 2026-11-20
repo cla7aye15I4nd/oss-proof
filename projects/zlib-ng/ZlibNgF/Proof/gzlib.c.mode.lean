@@ -956,7 +956,7 @@ theorem macro_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size,
       ⟨P.1, ?_, ?_, fun e => absurd (hr.symm.trans e) read_ne_write⟩, ⟨sh.msg.msg, sh.msg.mem⟩,
       fun _ => ⟨R.how, fun _ => ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, hi, hz, ?_, hai, hreg⟩,
-        fun e => absurd e hsz, ?_⟩, fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
+        fun e => absurd e hsz, ?_, fun e => absurd e hsz⟩, fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
     · show (s.pos + 1).toInt + s.skip.toInt ≤ GZ_OFF_MAX.toInt
       rw [hp1]
       by_cases hk : s.skip = 0
