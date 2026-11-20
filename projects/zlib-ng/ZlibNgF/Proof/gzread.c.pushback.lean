@@ -94,7 +94,7 @@ theorem gzungetc_eq (c : Int32) (b : Nat) : gzungetc c (some b) = (do
 
 /-! ## Arithmetic and small facts -/
 
-theorem shl1_toNat (x : UInt32) (hx : x.toNat < 2 ^ 31) : (x <<< 1).toNat = 2 * x.toNat := by
+theorem ushl1_toNat (x : UInt32) (hx : x.toNat < 2 ^ 31) : (x <<< 1).toNat = 2 * x.toNat := by
   rw [UInt32.toNat_shiftLeft]
   simp [Nat.shiftLeft_eq]
   omega
@@ -223,7 +223,7 @@ theorem ungetcPush_spec {W : World} {H : Heap} {b : Nat} {s : GzState}
   have hwh := sh.want_hi
   have hosz : outSize s = 2 * s.want.toNat := by simp [outSize, hr, read_ne_write]
   have hshl : (s.size <<< 1).toNat = outSize s := by
-    rw [hB.size, hosz]; exact shl1_toNat _ (by omega)
+    rw [hB.size, hosz]; exact ushl1_toNat _ (by omega)
   have hout : s.out = .val (.ref (.heap c) (base + inSize s)) := hB.out (by omega)
   unfold ungetcPush
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
