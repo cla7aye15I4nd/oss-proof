@@ -47,6 +47,8 @@ cases=(
   "gzread-position-overflow|0016||runtime error: signed integer overflow|gzread 0 9223372036854775807 0"
   "fixed-block-start-overflow|0018|f|runtime error: signed integer overflow|deflate 1 2151677952|180"
   "deflate-slow-match-start|0019|362,303|ERROR: AddressSanitizer OR runtime error OR round-trip MISMATCH|inflate 1 out 80393 of 80393 round-trip ok;inflate 1 out 86208 of 86208 round-trip ok"
+  "gzdirect-pending-skip|0020||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 getc -1 tell 13"
+  "gzgets-pending-skip|0021||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 gets null tell 3"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch

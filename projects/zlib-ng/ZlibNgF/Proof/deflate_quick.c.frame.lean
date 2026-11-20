@@ -124,7 +124,7 @@ theorem qf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
     (hz : h.streams i = some z) (hb : z.state = some b)
     (hE : ∀ b' st, DStateIs h (some i) b' st → st.level = 1 ∧ st.strategy = Z_FIXED) :
     ∃ st, h.dstate b = some st ∧ st.pending = 0 ∧ SymsOk st ∧ QF h i b h := by
-  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, -, hs1⟩ := P
+  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, -, hs1, -⟩ := P
   obtain rfl : i = i1 := Option.some.inj e1
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
@@ -195,7 +195,7 @@ theorem qf_bits {h H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflat
     QF h i b (SH H0 i z b st' d') := by
   have hsym := F.sym st (SH_dstate _ _ _ _ _ _)
   refine qf_SH F (fun al _ c => ?_) (by rw [he]) (by rw [he]) (by rw [he]; exact hsym)
-    (by rw [he]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩)
+    (by rw [he]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩)
   have c1 := ZlibNgF.Proof.StoredF.dcore_mv (H' := SH H0 i z b st' d') c (SH_bytes _ _ _ _ _ _)
     (SH_bytes _ _ _ _ _ _) hs (by simpa [dview] using hsym) rfl rfl
   exact dcore_bits c1 ((congrArg dview he).trans rfl) hpb hpo hroom h0 h64 hbs hlo hsym
@@ -228,7 +228,7 @@ theorem qf_flush {h H : Heap} {i b : Nat} (F : QF h i b H) :
   obtain ⟨z0, z4, ob, oo, k, h0, h4, e0, e4, ek⟩ := F.out
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans h4)
   have hdo : dOutputRanges h (some i) = [(z0.next_out, z0.avail_out.toNat)] := by simp [dOutputRanges, h0]
-  have hk : StratKeeps st st' := by rw [hsteq]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  have hk : StratKeeps st st' := by rw [hsteq]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩
   refine ⟨⟨hv, hio, hset, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_, ?_, ?_, fun st3 h3 => ?_⟩,
     z, st, z', st', hz, hst, hz', hst', hsteq, hbv, by rw [hzeq], fun ha => ?_⟩
   · obtain ⟨⟨-, -, -, -, -, -, ec, ex, -, -⟩, -⟩ := fr
@@ -297,10 +297,14 @@ theorem fill_sum {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
   obtain ⟨-, w2, wsz, -, -, -, -⟩ := c.sizes
   obtain ⟨f, hf⟩ : ∃ f, st.insert_batch = .val f := ⟨_, c.fns.2⟩
   have C0 := ZlibNgF.Proof.FillFacts.wcore_of c
-  have S := ZlibNgF.Proof.FillWindow.fill_window_SH (H := H) (i := i) (z := z) (b := b) (d := d) f hb c.strm hf HL
+  have hfl : st.level ≠ 1 → f ≠ .insert_knuth_batch_head := fun hl e1 =>
+    ZlibNgF.Proof.FillFacts.insertBatchOf_ne hl (by
+      have e2 : st.insert_batch = .val (ZlibNgF.Proof.DeflateInv.insertBatchOf st.level) := c.fns.2
+      rw [hf, e1] at e2; injection e2 with e3; exact e3.symm)
+  have S := ZlibNgF.Proof.FillWindow.fill_window_SH (H := H) (i := i) (z := z) (b := b) (d := d) f hfl hb c.strm hf HL
     wsz hwo w2 C0 c.look hla (ZlibNgF.Proof.FillFacts.insrc_of hin0 (hdj _ (.inl rfl)).2 hni) (fun _ => hcrc.1)
   rw [ZlibNgF.Proof.DeflateReset.SH_self hz hsts hd] at S
-  obtain ⟨_, h', e', z', st', d', rfl, -, -, -, -, -, -, -, sum, -⟩ := S
+  obtain ⟨_, h', e', z', st', d', rfl, -, -, -, -, -, -, -, -, -, sum, -⟩ := S
   rw [e] at e'
   obtain ⟨-, rfl⟩ := Prod.mk.inj (Except.ok.inj e')
   exact ⟨z', st', SH_streams _ _ _ _ _ _, SH_dstate _ _ _ _ _ _, sum⟩
@@ -346,7 +350,8 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
   have hzs := ZlibNgF.Proof.FillWindow.ZR.state zr
   obtain ⟨hle, ⟨ni, ai, ti, ad, hze⟩, -⟩ := zr
   obtain ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩ := fws
-  have hK : StratKeeps (FS st la ss) st' := by rw [hste]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  have hK : StratKeeps (FS st la ss) st' := fill_keeps FI (SH_streams _ _ _ _ _ _) hb (SH_dstate _ _ _ _ _ _)
+    (SH_dstate _ _ _ _ _ _)
   refine ⟨_, _, _, d', rfl, ⟨FI.inv, FI.io, FI.set, FI.crc, ⟨_, SH_streams _ _ _ _ _ _, hzs.trans hb⟩, F1.blk0,
       dframe_trans F1.frame (dframe_nil _ FI.frame), ?_, ?_, ?_, fun st2 h2 => ?_⟩,
     ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩, ?_, ?_, hlt⟩
@@ -405,6 +410,9 @@ theorem qf_post {h H : Heap} {i b : Nat} (F : QF h i b H) (flush : Int32) (bs : 
       simp only [dview] at hse hl2
       rw [hs0]; apply UInt32.lt_iff_toNat_lt.mpr; simp; omega
     refine ⟨⟨hse, fun e0 => absurd (e0.symm.trans hlv) (by decide), fun _ _ => hs0, fun _ => hs0,
-      fun e8 => ⟨hlv, hsf, x3 e8⟩⟩, K, fun _ _ => hs0, fun e => ⟨hs0, x2 e⟩, fun _ => hs0⟩
+      fun e8 => ⟨hlv, hsf, x3 e8⟩⟩, K, fun _ _ => hs0, fun e => ⟨hs0, x2 e⟩, fun _ => hs0, fun L => ?_⟩
+    have N := K.lazy L fun ht => by
+      have h7 := ht.1; rw [hl1] at h7; exact absurd h7 (by decide)
+    exact ⟨N.1, fun _ => N.2⟩
 
 end ZlibNgF.Proof.QuickS

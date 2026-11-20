@@ -42,14 +42,15 @@ theorem LI.outPos {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
 theorem LI.produce {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     {p : Nat} (hp : l.put = .ref (.heap E.bo) p) (c : UInt32) (hc : c ≤ l.left) (l' : IL)
     (e1 : l'.next = l.next) (e2 : l'.have_ = l.have_) (e3 : l'.put = .ref (.heap E.bo) (p + c.toNat))
-    (e4 : l'.out = l.out) (e5 : l'.left = l.left - c) (e6 : l'.bits = l.bits) (e7 : l'.in_ = l.in_ := by rfl) :
+    (e4 : l'.out = l.out) (e5 : l'.left = l.left - c) (e6 : l'.bits = l.bits) (e7 : l'.in_ = l.in_ := by rfl)
+    (e8 : l'.ret = l.ret := by rfl) :
     LI E l' H z S := by
   obtain ⟨hle, ob, h1, h2, hput⟩ := li.outAt
   have hle' : l.left.toNat ≤ l.out.toNat := hle
   have hc' : c.toNat ≤ l.left.toNat := hc
   have hs : (l.left - c).toNat = l.left.toNat - c.toNat := UInt32.toNat_sub_of_le _ _ hc
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [e1, e2]; exact li.inAt, ?_,
-    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn⟩
+    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn, by rw [e4]; exact li.outO, by rw [e8]; exact li.retB⟩
   rw [e3, e4, e5]
   refine ⟨by rw [UInt32.le_iff_toNat_le, hs]; omega, ob, h1, h2, ?_⟩
   rw [hp] at hput
@@ -68,7 +69,8 @@ theorem run_COPY (E : Env) (eo : EnvOK E) : ModeRun E inflate_COPY (·.mode = CO
   refine SatX.bind (SatX.lift_eq (li.rdS (·.length)) ?_)
   dsimp (config := { zeta := false }) only
   split
-  · refine SatX.bind (SatX.get ?_)
+  · rename_i hlen
+    refine SatX.bind (SatX.get ?_)
     dsimp (config := { zeta := false }) only
     extract_lets c1 c2 jp
     have hc2 : c2 ≤ l.have_ ∧ c2 ≤ l.left := by
@@ -84,12 +86,23 @@ theorem run_COPY (E : Env) (eo : EnvOK E) : ModeRun E inflate_COPY (·.mode = CO
         | (exact UInt32.le_trans (UInt32.le_of_lt ‹_›) (UInt32.not_lt.mp ‹_›))
         | skip
     obtain ⟨hch, hcl⟩ := hc2
+    have hc3 : c2 = S.length ∨ c2 = l.have_ ∨ c2 = l.left := by
+      simp only [c2, c1]
+      by_cases h1 : S.length > l.have_
+      · simp only [h1, ↓reduceIte]; by_cases h2 : l.have_ > l.left <;> simp [h2]
+      · simp only [h1, ↓reduceIte]; by_cases h2 : S.length > l.left <;> simp [h2]
     clear_value c2 c1
     refine SatX.bind (SatX.modify ?_)
     dsimp (config := { zeta := false }) only
     have li1 : LI E { l with copy := c2 } H z S := li.locals rfl rfl rfl rfl rfl rfl
     split
-    · exact SatX.bind (SatX.throw ⟨z, S, li1⟩)
+    · rename_i hz0
+      have hc0 : c2 = 0 := by simpa using hz0
+      refine SatX.bind (SatX.throw ⟨⟨z, S, li1⟩, ?_⟩)
+      rcases hc3 with e | e | e
+      · exact absurd (e.symm.trans hc0) (by simpa using hlen)
+      · exact Why.have0 (show l.have_ = 0 by rw [← e, hc0])
+      · exact Why.full (show l.left = 0 by rw [← e, hc0]) (li.outEq (by rw [hm]; decide))
     rename_i hc0'
     have hc0 : c2 ≠ 0 := by simpa using hc0'
     simp only [jp]
@@ -149,7 +162,8 @@ theorem run_COPY (E : Env) (eo : EnvOK E) : ModeRun E inflate_COPY (·.mode = CO
     omega
   · refine SatX.bind (SatX.modify ?_)
     have li1 : LI E { l with copy := S.length } H z S := li.locals rfl rfl rfl rfl rfl rfl
-    refine SatX.lift (Sat.mono (li1.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide))) ?_)
+    refine SatX.lift (Sat.mono (li1.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide))
+      (Or.inl (li.outEq (by rw [hm]; decide)))) ?_)
     intro _ H1 li2
     refine post_ok li2 ?_
     unfold μ; dsimp only; rw [rank_TYPE]; omega
@@ -161,6 +175,7 @@ theorem run_COPY_ (E : Env) (hX : ModeRun E inflate_COPY (·.mode = COPY)) :
     unfold μ at hμ; rwa [hm, rank_COPY_] at hμ
   unfold inflate_COPY_
   exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li (by rw [rank_COPY]; omega)
+    (Or.inl (li.outEq (by rw [hm]; decide)))
 
 /-! ## `STORED` -/
 
@@ -196,11 +211,13 @@ theorem run_STORED (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_COPY_ (·.mo
   refine SatX.bind (initbits_ok ?_)
   have li4 := li3.setBits (l' := { l2 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl
     (by show (0 : UInt8) ≤ 39; decide)
-  refine SatX.bind (SatX.lift (Sat.mono (li4.setQuiet COPY_ (by decide) (by decide) (Or.inl (by decide))) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li4.setQuiet COPY_ (by decide) (by decide) (Or.inl (by decide))
+    (Or.inl (li2.outEq (by rw [hm]; decide)))) ?_))
   intro _ H5 li5
   dsimp only
   split
-  · exact SatX.bind (SatX.throw ⟨_, _, li5⟩)
+  · rename_i h
+    exact SatX.bind (SatX.throw ⟨⟨_, _, li5⟩, Why.trees (by simpa [Env.c] using h)⟩)
   · refine hX _ _ _ _ li5 rfl m ?_
     have e0 : (0 : UInt8).toNat = 0 := rfl
     unfold μ; dsimp only; rw [rank_COPY_, e0, hleft']; omega
@@ -224,13 +241,18 @@ theorem modeOK_len (b : Nat) (S : InflateState) (hm : ModeOK b (view S).m) (hd :
     · exact absurd (show LEN = MATCH from e) (by decide)
 
 open ZlibNgF.Proof.InflateInv (DecodeMode) in
+/-- The decoding modes come before `CHECK`. -/
+theorem decodeMode_rank {M : UInt32} (h : DecodeMode M) : 2 < rank M := by
+  rcases h with h | h | h | h | h | h | h <;> rw [h] <;> decide
+
+open ZlibNgF.Proof.InflateInv (DecodeMode) in
 theorem LI.setLen {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (hd : DecodeMode S.mode) :
     Sat H (setMode (some E.b) LEN) (fun _ H' => LI E l H' z { S with mode := LEN }) :=
   li.wrS (fun s => { s with mode := LEN }) (fun _ _ c => { c with
     mode_lo := by show HEAD ≤ LEN; decide
     mode_hi := by show LEN ≤ SYNC; decide
-    modes := modeOK_len _ S c.modes hd }) rfl
+    modes := modeOK_len _ S c.modes hd }) rfl (Or.inl (li.outEq (decodeMode_rank hd)))
 
 theorem run_LIT (E : Env) (eo : EnvOK E) : ModeRun E inflate_LIT (·.mode = LIT) := by
   intro l H z S li hm m hμ
@@ -240,7 +262,8 @@ theorem run_LIT (E : Env) (eo : EnvOK E) : ModeRun E inflate_LIT (·.mode = LIT)
   refine SatX.bind (SatX.get ?_)
   dsimp (config := { zeta := false }) only
   split
-  · exact SatX.bind (SatX.throw ⟨z, S, li⟩)
+  · rename_i h
+    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, Why.full (by simpa using h) (li.outEq (by rw [hm]; decide))⟩)
   rename_i hl0
   have hl : l.left ≠ 0 := by simpa using hl0
   have hl1 : 1 ≤ l.left.toNat := by

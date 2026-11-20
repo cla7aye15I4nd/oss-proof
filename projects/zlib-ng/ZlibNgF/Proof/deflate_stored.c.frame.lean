@@ -191,7 +191,7 @@ theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
     (hz : h.streams i = some z) (hb : z.state = some b)
     (hE : ∀ b' st, DStateIs h (some i) b' st → st.level = 0) :
     ∃ st, h.dstate b = some st ∧ st.pending = 0 ∧ SF h i b h := by
-  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, -, hs1⟩ := P
+  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, -, hs1, -⟩ := P
   obtain rfl : i = i1 := Option.some.inj e1
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
@@ -244,7 +244,11 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   simp only [dview] at hl1 hse
   refine ⟨⟨?_, fun _ => ⟨hbs, hsn, hla'⟩, fun e => absurd (hlv.symm.trans e) (by decide),
     fun _ => hsn, fun e8 => absurd h8 (Int32.not_lt.mpr e8)⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩,
-    fun _ => hsn⟩
+    fun _ => hsn, fun L => ?_⟩
+  rotate_left
+  · have N := K.lazy L fun ht => by
+      have h7 := ht.1; rw [l0] at h7; exact absurd h7 (by decide)
+    exact ⟨N.1, fun _ => N.2⟩
   rw [hsn]; apply UInt32.lt_iff_toNat_lt.mpr; simp; omega
 
 /-- What `SF` gives about the current heap `H`: the stream record `z` (output at `ob + oo` with `X` the output block),

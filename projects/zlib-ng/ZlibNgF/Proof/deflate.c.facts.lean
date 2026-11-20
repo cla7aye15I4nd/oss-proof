@@ -69,17 +69,39 @@ def SymsOk (st : DeflateState) : Prop :=
     ((st.strstart.toNat : Int) = st.block_start.toInt → st.sym_next = 0) ∧
     (8 ≤ st.bi_valid → st.level = 1 ∧ st.strategy = Z_FIXED ∧ st.lookahead ≠ 0)
 
-/-- The fields that a strategy reads back unchanged: it never writes them. -/
+/-- The dispatch of `deflate` to the strategy of a level from `configuration_table`: that level, and a strategy
+other than `Z_HUFFMAN_ONLY` and `Z_RLE`. -/
+def TableAt (lo hi : Int32) (st : DeflateState) : Prop :=
+  lo ≤ st.level ∧ st.level ≤ hi ∧ st.strategy ≠ Z_HUFFMAN_ONLY ∧ st.strategy ≠ Z_RLE
+
+/-- The lazy-match fields that `deflate_slow` keeps across calls (`prev_length`, `match_start`, `match_available`):
+a pending match (`prev_length >= STD_MIN_MATCH`) is at most `STD_MAX_MATCH` long, fits in the lookahead plus the byte
+before `strstart`, and starts at `match_start`, behind `strstart - 1` by at most `MAX_DIST`; a pending literal
+(`match_available`) is the byte before `strstart`, after `block_start`; outside the levels of `deflate_slow` (and
+after a reset, `last_flush == -2`) there is neither. -/
+def LazyOk (st : DeflateState) : Prop :=
+  (3 ≤ st.prev_length → st.prev_length.toNat ≤ 258 ∧ st.prev_length.toNat ≤ st.lookahead.toNat + 1 ∧
+      st.match_start.toNat + 1 < st.strstart.toNat ∧
+      st.strstart.toNat - 1 - st.match_start.toNat ≤ (MAX_DIST st).toNat) ∧
+    (st.match_available ≠ 0 → 1 ≤ st.strstart.toNat ∧ st.block_start.toInt < st.strstart.toNat) ∧
+    (¬ TableAt 7 9 st → st.prev_length < 3 ∧ st.match_available = 0) ∧
+    (st.last_flush = -2 → st.prev_length < 3 ∧ st.match_available = 0)
+
+/-- The fields that a strategy reads back unchanged: it never writes them; outside the levels of `deflate_slow`,
+`prev_length` does not grow (`fill_window` may clear it) and `match_available` is kept. -/
 def StratKeeps (st st' : DeflateState) : Prop :=
   st'.status = st.status ∧ st'.wrap = st.wrap ∧ st'.gzhead = st.gzhead ∧ st'.gzindex = st.gzindex ∧
-    st'.level = st.level ∧ st'.strategy = st.strategy ∧ st'.last_flush = st.last_flush
+    st'.level = st.level ∧ st'.strategy = st.strategy ∧ st'.last_flush = st.last_flush ∧
+    (¬ TableAt 7 9 st → st'.prev_length ≤ st.prev_length ∧ st'.match_available = st.match_available)
 
 /-- The state in which `deflate` calls a strategy: the invariant, the CRC tables, valid and set buffers, a valid
 `flush` (`Z_NO_FLUSH` .. `Z_BLOCK`), no pending bytes (`deflate` flushed them, or returned), the header written
-(`status` is `BUSY_STATE` or `FINISH_STATE`, so the invariant allows tallied symbols), and `SymsOk`. -/
+(`status` is `BUSY_STATE` or `FINISH_STATE`, so the invariant allows tallied symbols), `SymsOk`, `LazyOk`, and
+`last_flush` a flush value (`deflate` sets `s->last_flush = flush` before it dispatches). -/
 def StratPre (h : Heap) (s : StreamPtr) (flush : Int32) : Prop :=
   DInv h s ∧ CrcGlobals h ∧ DStreamIO h s ∧ DBufsSet h s ∧ 0 ≤ flush ∧ flush ≤ 5 ∧
-    ∃ b st, DStateIs h s b st ∧ st.pending = 0 ∧ (st.status = BUSY_STATE ∨ st.status = FINISH_STATE) ∧ SymsOk st
+    ∃ b st, DStateIs h s b st ∧ st.pending = 0 ∧ (st.status = BUSY_STATE ∨ st.status = FINISH_STATE) ∧ SymsOk st ∧
+      LazyOk st ∧ 0 ≤ st.last_flush
 
 /-- The output buffer of stream `i` in `H` is a tail of its output buffer in `h`. -/
 def OutTail (h H : Heap) (i : Nat) : Prop :=
@@ -91,7 +113,8 @@ stream's block and the output buffer only, the output buffer after a tail of the
 fields of `StratKeeps` unchanged, no symbols after a call with a flush that leaves output room (every such return
 goes through `FLUSH_BLOCK`, or the strategy never tallies; `deflate_slow` returns on a full output right after a
 tally), no symbols after `block_done` (it follows `FLUSH_BLOCK` or an empty symbol buffer), and no symbols and no
-lookahead after `finish_started` / `finish_done`. -/
+lookahead after `finish_started` / `finish_done`; `LazyOk` kept, and no pending literal after `block_done`
+(`deflate_slow` tallies it before it leaves its loop). -/
 def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' : Heap) : Prop :=
   DInv h' s ∧ DStreamIO h' s ∧ DBufsSet h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] (dOutputRanges h s) ∧
     (∀ i, s = some i → OutTail h h' i) ∧
@@ -99,7 +122,8 @@ def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' :
     ∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt h' s z' → z'.avail_out ≠ 0) → st'.sym_next = 0) ∧
       (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0) ∧
-      (bs = .block_done → st'.sym_next = 0)
+      (bs = .block_done → st'.sym_next = 0) ∧
+      (LazyOk st → LazyOk st' ∧ (bs = .block_done → st'.match_available = 0))
 
 /-- A strategy `f` that `deflate` dispatches to on states with `dispatch`: from `StratPre` and `dispatch`, no fault
 and `StratPost`. -/
@@ -140,11 +164,6 @@ def StratOkC (dispatch : DeflateState → Prop) (f : StatePtr → Int32 → M Bl
     (∀ st d, DStateIs h s b st → h.bytes b = some d → ChainOk b d st) →
     ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s flush bs h' ∧
       ∀ st d, DStateIs h' s b st → h'.bytes b = some d → ChainOk b d st
-
-/-- The dispatch of `deflate` to the strategy of a level from `configuration_table`: that level, and a strategy
-other than `Z_HUFFMAN_ONLY` and `Z_RLE`. -/
-def TableAt (lo hi : Int32) (st : DeflateState) : Prop :=
-  lo ≤ st.level ∧ st.level ≤ hi ∧ st.strategy ≠ Z_HUFFMAN_ONLY ∧ st.strategy ≠ Z_RLE
 
 /-- The strategies, one field each, with the facts of `deflate`'s dispatch (`level == 0 ? deflate_stored :
 strategy == Z_HUFFMAN_ONLY ? deflate_huff : strategy == Z_RLE ? deflate_rle : configuration_table[level].func`;
@@ -283,7 +302,10 @@ def DInvW (h : Heap) (s : StreamPtr) : Prop :=
 becomes 0 only if it was 0 (a slide lowers both by `slide_len`, or, patch 0018, only `strstart` when `block_start`
 would fall below `-(2^30 + 2^16)`, which leaves a gap above `2^30`); at the end the lookahead is full or the input empty; the state fields that the
 callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function pointers, `sym_next`, `gzindex`,
-`last_flush`, `bi_valid`) kept. -/
+`last_flush`, `bi_valid`) kept; the lazy-match fields: a `prev_length` of 3 or more after is the one before, with the
+same distance `strstart - match_start` and a `match_start` not above the one before (a slide lowers `strstart` and
+`match_start` together, or sets `match_start` and `prev_length` to 0), `prev_length` does not grow, `match_available`
+kept; the lookahead does not drop, and a `strstart` of 1 or more stays so (a slide leaves at least `MAX_DIST`). -/
 def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
   DInvW h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
   ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
@@ -302,12 +324,17 @@ def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
     st'.wrap = st.wrap ∧ st'.status = st.status ∧ st'.gzhead = st.gzhead ∧ st'.level = st.level ∧
     st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch ∧
     st'.sym_next = st.sym_next ∧ st'.gzindex = st.gzindex ∧ st'.last_flush = st.last_flush ∧
-    st'.bi_valid = st.bi_valid
+    st'.bi_valid = st.bi_valid ∧
+    (3 ≤ st'.prev_length → st'.prev_length = st.prev_length ∧
+      (st.strstart.toNat : Int) - st.match_start.toNat = (st'.strstart.toNat : Int) - st'.match_start.toNat ∧
+      st'.match_start ≤ st.match_start) ∧
+    st'.prev_length ≤ st.prev_length ∧ st'.match_available = st.match_available ∧
+    st.lookahead.toNat ≤ st'.lookahead.toNat ∧ (1 ≤ st.strstart.toNat → 1 ≤ st'.strstart.toNat)
 
 /-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
 the translated C code: `fill_window` from `DInvW` (the invariant, or the state inside `deflateSetDictionary`'s
 insertion loop), a readable input (the CRC tables when it computes a CRC-32) and `lookahead < MIN_LOOKAHEAD` (every
-caller's condition), and the `insert_batch` functions of `lm_set_level` over `n >= 1` positions from `str` whose
+caller's condition) and that it keeps the hash chains (`ChainOk`) there, and the `insert_batch` functions of `lm_set_level` over `n >= 1` positions from `str` whose
 4-byte reads stay below `strstart + lookahead + 1`; they change only the bytes of the stream's block (`head`, `prev`)
 and `ins_h` (the result is the `SH` heap of `Proof/deflate.c.init.lean`). -/
 structure WindowFacts : Prop where
@@ -321,6 +348,10 @@ structure WindowFacts : Prop where
     ∃ st' d', C.run (ZlibNg.InsertString.call_insert_batch f (some b) (.ref (.heap b) wo) str n) h =
         .ok ((), DeflateInit.SH h i z b st' d') ∧
       DInvW (DeflateInit.SH h i z b st' d') (some i) ∧ st' = { st with ins_h := st'.ins_h } ∧ d'.size = d.size
+  fill_window_chain : ∀ (h h' : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (d : Array UInt8), DInv h s →
+    DStateIs h s b st → h.bytes b = some d → DInput h s → (st.wrap = 2 → CrcGlobals h) → st.lookahead.toNat < 262 →
+    ChainOk b d st → C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') →
+    ∀ st' d', DStateIs h' s b st' → h'.bytes b = some d' → ChainOk b d' st'
 
 /-! ## Interface lemmas -/
 
@@ -396,5 +427,38 @@ theorem DInvW.inv {h : Heap} {s : StreamPtr} (hw : DInvW h s) : DInv h s := by
 /-- `fill_window` from an invariant stream leaves the invariant. -/
 theorem FillPost.inv {h h' : Heap} {s : StreamPtr} (_hv : DInv h s) (hp : FillPost h h' s) : DInv h' s :=
   hp.1.inv
+
+/-- `TableAt` reads the state through `level` and `strategy`. -/
+theorem tableAt_congr {lo hi : Int32} {st st' : DeflateState} (e1 : st'.level = st.level)
+    (e2 : st'.strategy = st.strategy) : TableAt lo hi st' ↔ TableAt lo hi st := by
+  unfold TableAt; rw [e1, e2]
+
+/-- No pending match and no pending literal: `LazyOk`. -/
+theorem LazyOk.of_clear {st : DeflateState} (h1 : st.prev_length < 3) (h2 : st.match_available = 0) : LazyOk st :=
+  ⟨fun e => absurd e (UInt32.not_le.mpr h1), fun e => absurd h2 e, fun _ => ⟨h1, h2⟩, fun _ => ⟨h1, h2⟩⟩
+
+/-- Outside the levels of `deflate_slow` there is no pending match and no pending literal. -/
+theorem LazyOk.clear {st : DeflateState} (L : LazyOk st) (ht : ¬ TableAt 7 9 st) :
+    st.prev_length < 3 ∧ st.match_available = 0 :=
+  L.2.2.1 ht
+
+/-- Outside the levels of `deflate_slow`, `StratKeeps` keeps `LazyOk`, with no pending literal. -/
+theorem StratKeeps.lazy {st st' : DeflateState} (K : StratKeeps st st') (L : LazyOk st) (ht : ¬ TableAt 7 9 st) :
+    LazyOk st' ∧ st'.match_available = 0 := by
+  obtain ⟨c1, c2⟩ := L.clear ht
+  obtain ⟨k1, k2⟩ := K.2.2.2.2.2.2.2 ht
+  have h1 : st'.prev_length < 3 := UInt32.lt_of_le_of_lt k1 c1
+  have h2 : st'.match_available = 0 := k2.trans c2
+  exact ⟨LazyOk.of_clear h1 h2, h2⟩
+
+/-- `LazyOk` reads the state through `prev_length`, `lookahead`, `match_start`, `strstart`, `w_size`,
+`match_available`, `block_start`, `level`, `strategy`, `last_flush`. -/
+theorem LazyOk.of_eq {st st' : DeflateState} (L : LazyOk st) (e1 : st'.prev_length = st.prev_length)
+    (e2 : st'.lookahead = st.lookahead) (e3 : st'.match_start = st.match_start) (e4 : st'.strstart = st.strstart)
+    (e5 : st'.w_size = st.w_size) (e6 : st'.match_available = st.match_available)
+    (e7 : st'.block_start = st.block_start) (e8 : st'.level = st.level) (e9 : st'.strategy = st.strategy)
+    (e10 : st'.last_flush = st.last_flush) : LazyOk st' := by
+  unfold LazyOk MAX_DIST TableAt at *
+  rw [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10]; exact L
 
 end ZlibNgF.Proof.DeflateFacts

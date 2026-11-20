@@ -77,7 +77,7 @@ theorem dec1_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : 
         match res with
         | .ok () => (∃ j, o ≤ j ∧ j < o + 2 ^ nb.toNat ∧ l'.here = a[j]!) ∧
             (CODE_BITS l'.here).toNat ≤ l'.bits.toNat
-        | .error e => e = .leave) := by
+        | .error e => e = .leave ∧ l'.have_ = 0) := by
   have hn15 : nb.toNat ≤ 15 := t.n_le
   unfold xloopBrk
   refine xwhileBrk_rank (fun l' H' => H' = H ∧ LI E l' H z S ∧ l'.left = l.left ∧
@@ -110,7 +110,7 @@ theorem dec1_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : 
     rintro res l3 H3 ⟨hH3, hres⟩
     rw [hH3]
     match res, hres with
-    | .error e, ⟨he, hl3⟩ => rw [he, hl3]; exact ⟨rfl, li2, hl1, hb1, rfl⟩
+    | .error e, ⟨he, hl3, h0⟩ => rw [he, hl3]; exact ⟨rfl, li2, hl1, hb1, rfl, h0⟩
     | .ok (), ⟨li3, p3, hb3, hh3⟩ =>
       refine SatX.pure ⟨⟨rfl, li3, ?_, ?_⟩, ?_⟩
       · rw [p3.1]; exact hl1
@@ -136,7 +136,7 @@ theorem dec2_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : 
         8 * l'.have_.toNat + l'.bits.toNat = 8 * l.have_.toNat + l.bits.toNat ∧
         match res with
         | .ok () => EntryOK l'.here 28 dist ∧ n + (CODE_BITS l'.here).toNat ≤ l'.bits.toNat
-        | .error e => e = .leave) := by
+        | .error e => e = .leave ∧ l'.have_ = 0) := by
   have hn15 : n ≤ 15 := t.n_le
   have hf0 := link_f0 hl
   have hop16 : a[j]!.op.toNat < 16 := andf0_lt' _ hf0
@@ -192,7 +192,7 @@ theorem dec2_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : 
     rintro res l3 H3 ⟨hH3, hres⟩
     rw [hH3]
     match res, hres with
-    | .error e, ⟨he, hl3⟩ => rw [he, hl3]; exact ⟨rfl, li2, hl1, hb1, rfl⟩
+    | .error e, ⟨he, hl3, h0⟩ => rw [he, hl3]; exact ⟨rfl, li2, hl1, hb1, rfl, h0⟩
     | .ok (), ⟨li3, p3, hb3, hh3⟩ =>
       refine SatX.pure ⟨⟨rfl, li3, ?_, ?_⟩, ?_⟩
       · rw [p3.1]; exact hl1
@@ -211,7 +211,7 @@ theorem decodeSym_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} 
         8 * l'.have_.toNat + l'.bits.toNat ≤ 8 * l.have_.toNat + l.bits.toNat ∧
         match res with
         | .ok () => EntryOK l'.here 28 dist ∧ (CODE_BITS l'.here).toNat ≤ l'.bits.toNat
-        | .error e => e = .leave) := by
+        | .error e => e = .leave ∧ l'.have_ = 0) := by
   unfold decodeSym
   refine SatX.bind (SatX.mono (dec1_ok eo li hg t) ?_)
   rintro res l1 H1 ⟨rfl, li1, hl1, hb1, hres⟩
@@ -313,7 +313,8 @@ theorem run_MATCH (E : Env) (eo : EnvOK E) : ModeRun E inflate_MATCH (·.mode = 
   refine SatX.bind (SatX.get ?_)
   dsimp (config := { zeta := false }) only
   split
-  · exact SatX.bind (SatX.throw ⟨z, S, li⟩)
+  · rename_i h
+    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, Why.full (by simpa using h) (li.outEq (by rw [hm]; decide))⟩)
   rename_i hl0
   have hl : l.left ≠ 0 := by simpa using hl0
   have hl1 : 1 ≤ l.left.toNat := by
@@ -468,7 +469,7 @@ theorem LI.setDec {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
   li.wrS (fun s => { s with mode := M }) (fun _ _ c => { c with
     mode_lo := (decodeMode_bounds hM).1
     mode_hi := (decodeMode_bounds hM).2
-    modes := modeOK_dec _ S c.modes hd M hM hx ho }) rfl
+    modes := modeOK_dec _ S c.modes hd M hM hx ho }) rfl (Or.inl (li.outEq (decodeMode_rank hd)))
 
 theorem rank_DISTEXT : rank DISTEXT = 7 := by decide
 theorem rank_DIST : rank DIST = 8 := by decide
@@ -514,7 +515,7 @@ theorem run_DISTEXT (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_MATCH (·.m
     refine hX _ _ _ _ (li'.withS { S with offset := o', back := bk, mode := MATCH } (fun _ _ c => { c with
       mode_lo := by show HEAD ≤ MATCH; decide
       mode_hi := by show MATCH ≤ SYNC; decide
-      modes := modeOK_match _ S c.modes hdm o' bk h1 }) rfl) rfl m ?_
+      modes := modeOK_match _ S c.modes hdm o' bk h1 }) rfl (Or.inl (li'.outEq (by rw [hm]; decide)))) rfl m ?_
     unfold μ; dsimp only; rw [rank_MATCH, hl]; omega
   clear_value jp
   split
@@ -593,7 +594,7 @@ theorem run_DIST (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_DISTEXT (·.mo
   refine SatX.bind (SatX.mono (decodeSym_ok eo li hg t) ?_)
   rintro res l1 H1 ⟨S1, li1, hS1, hl1, hb1, hres⟩
   match res, hres with
-  | .error e, he => rw [he]; exact ⟨z, S1, li1⟩
+  | .error e, ⟨he, h0⟩ => rw [he]; exact ⟨⟨z, S1, li1⟩, Why.have0 h0⟩
   | .ok (), ⟨hent, hcb⟩ =>
   refine SatX.bind (SatX.get ?_)
   dsimp only
@@ -832,7 +833,8 @@ theorem LI.afterFast {E : Env} (eo : EnvOK E) {l : IL} {H2 h' : Heap} {z : ZStre
   have hao' : ao.toNat ≤ l.left.toNat := hao
   have hlo' : l.left.toNat ≤ l.out.toNat := hlo
   have hb8 : bits.toNat < 8 := hbits
-  refine ⟨?_, ?_, ?_, hz', li.hb, hist, li.head, ?_, ?_, ?_, ?_, li.inn⟩
+  refine ⟨?_, ?_, ?_, hz', li.hb, hist, li.head, ?_, ?_, ?_, ?_, li.inn,
+    Or.inl (li.outEq (by show 2 < rank S.mode; rw [hm]; decide)), li.retB⟩
   · obtain ⟨i', z0, b0, st0, al, e, hz0, hb0, hst0, hal, c⟩ := li.inv
     obtain rfl : E.i = i' := Option.some.inj e
     rw [li.hz] at hz0; cases hz0
@@ -1017,7 +1019,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
     refine SatX.bind (SatX.mono (decodeSym_ok eo li1 hg t) ?_)
     rintro res l1 H2 ⟨S1, li2, hS1, hl1, hb1, hres⟩
     match res, hres with
-    | .error e, he => rw [he]; exact ⟨_, S1, li2⟩
+    | .error e, ⟨he, h0⟩ => rw [he]; exact ⟨⟨_, S1, li2⟩, Why.have0 h0⟩
     | .ok (), ⟨hent, hcb⟩ =>
     refine SatX.bind (SatX.get ?_)
     dsimp only
@@ -1051,7 +1053,8 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
     split
     · refine SatX.bind (SatX.lift (Sat.mono (li5.wrS (fun s => { s with back := -1 }) (fun _ _ c => c) rfl) ?_))
       intro _ H6 li6
-      refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide))) ?_))
+      refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide))
+        (Or.inl (li2.outEq (by rw [hm1]; decide)))) ?_))
       intro _ H7 li7
       refine SatX.pure (post_ok li7 ?_)
       show 32 * (8 * l1.have_.toNat + (l1.bits - (CODE_BITS l1.here).toUInt8).toNat + l1.left.toNat) + rank TYPE < m

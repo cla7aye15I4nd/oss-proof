@@ -22,7 +22,7 @@ theorem qsb0 (st : StatePtr) (ss la : UInt32) (last : Int32) : quick_start_block
 
 /-- The end of a trip from `strstart` / `lookahead` with at least one byte: the match part or a literal. -/
 theorem tail_ok (T : TreesFacts) {h H1 : Heap} {i b wo : Nat} {la1 ss1 : UInt32} {flush : Int32} {Mb : Nat}
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
+    (hn : NotSlow h b)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (I : SLI h i b la1 ss1 H1)
     (hl : 1 ≤ la1.toNat) (hM : avIn H1 i + la1.toNat ≤ Mb)
     (k : UInt32 → Option (UInt32 × UInt32 × QuickExit) → M (UInt32 × UInt32 × QuickExit))
@@ -66,7 +66,7 @@ theorem tail_ok (T : TreesFacts) {h H1 : Heap} {i b wo : Nat} {la1 ss1 : UInt32}
 
 /-- One trip of the main loop (`quick_trip` with `static_emit == 0`). -/
 theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss last : UInt32} (flush : Int32)
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
+    (hn : NotSlow h b)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (I : SLI h i b la ss H) :
     Sat H (quick_trip (some b) (.ref (.heap b) wo) flush last 0 ss la) (fun v H2 =>
       QI h i b flush v H2 ∧ QM i v H2 < avIn H i + la.toNat + 1) := by
@@ -109,8 +109,9 @@ theorem quick_tally_ok (T : TreesFacts) :
     obtain ⟨⟨h1, -, -, -⟩, h2⟩ := hE b' st hd
     exact ⟨Int32.lt_of_lt_of_le (by decide) h1, h2⟩
   obtain ⟨st, hst, I0⟩ := sli_entry P hz hb hE'
-  have hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED := fun st0 h0 =>
-    (hE' b st0 ⟨i, z, rfl, hz, hb, h0⟩).2
+  have hn : NotSlow h b := fun st0 h0 =>
+    ⟨(hE' b st0 ⟨i, z, rfl, hz, hb, h0⟩).2, fun ht =>
+      absurd (Int32.le_trans ht.1 (hE b st0 ⟨i, z, rfl, hz, hb, h0⟩).1.2.1) (by decide)⟩
   obtain ⟨i', z', b', st', al, e, L, -, c⟩ := live P.1
   obtain rfl : i = i' := Option.some.inj e
   obtain rfl : z = z' := Option.some.inj (hz.symm.trans L.hz)
@@ -125,7 +126,7 @@ theorem quick_tally_ok (T : TreesFacts) :
     exact ⟨bs, h', e, q⟩
   unfold deflate_quick
   refine Sat.bind (Sat.of_eq (rdD_app L _) ?_)
-  have hfx : (st.strategy == Z_FIXED) = false := by simpa using hn st hst
+  have hfx : (st.strategy == Z_FIXED) = false := by simpa using (hn st hst).1
   simp only [hfx, Bool.false_eq_true, ↓reduceIte]
   unfold deflate_quick_impl
   simp only [qsb0, ZlibNgF.Proof.DeflateAlloc.pure_bind_M, Bool.false_eq_true, ↓reduceIte]

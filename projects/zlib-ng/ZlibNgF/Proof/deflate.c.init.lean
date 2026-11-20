@@ -674,10 +674,11 @@ theorem lb_one_le (l : Nat) {x : UInt32} (hx : x.toNat = l) (hl : 1 ≤ l) : 1 �
   rw [UInt32.le_iff_toNat_le, hx]; simpa using hl
 
 /-- The state that `deflateReset` leaves (through `lm_init`): no symbols, no window positions in use, no flush yet,
-and the first header state (`GZIP_STATE` only for a gzip stream). -/
+and the first header state (`GZIP_STATE` only for a gzip stream), no pending match or literal. -/
 def FreshSt (st : DeflateState) : Prop :=
   st.sym_next = 0 ∧ st.strstart = 0 ∧ st.block_start = 0 ∧ st.lookahead = 0 ∧ st.last_flush = -2 ∧
-    (st.status = GZIP_STATE ∨ st.status = INIT_STATE) ∧ (st.status = GZIP_STATE → st.wrap = 2) ∧ st.bi_valid = 0
+    (st.status = GZIP_STATE ∨ st.status = INIT_STATE) ∧ (st.status = GZIP_STATE → st.wrap = 2) ∧ st.bi_valid = 0 ∧
+    st.prev_length = 0 ∧ st.match_available = 0
 
 theorem fresh_lmS (b : Nat) (st : DeflateState) (A B C : Array Ct) (c : Config) (lm : Ival LongestMatchFn)
     (ib : Ival InsertBatchFn) : FreshSt (lmS (trS b (rkS st) A B C) c lm ib) := by
@@ -686,7 +687,7 @@ theorem fresh_lmS (b : Nat) (st : DeflateState) (A B C : Array Ct) (c : Config) 
     simp [FreshSt, lmS, trS, rkS, e]
   · simp only [FreshSt, lmS, trS, rkS, hw, Bool.false_eq_true, ↓reduceIte]
     exact ⟨trivial, trivial, trivial, trivial, trivial, Or.inr trivial, fun e => absurd e (by decide),
-      by first | trivial | rfl⟩
+      by first | trivial | rfl, by first | trivial | rfl, by first | trivial | rfl⟩
 
 /-- The `head` array of state `st` lies in block `b` of `h` and is zero unless the configuration is `HASHLESS`
 (`HeadClear`). -/

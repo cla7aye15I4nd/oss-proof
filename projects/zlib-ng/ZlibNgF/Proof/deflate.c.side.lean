@@ -25,6 +25,7 @@ are not clauses of `DCore` (which the working state `DWork` of the strategies an
   keeps its fields and string lengths while the header is being written (`DCallerStep`), and the other calls do not
   write it. (That the header's buffers lie outside the library's block during a `deflate` call is part of
   `DStreamIO`.)
+* the hash chains (`ChainOk`) and the lazy-match fields (`LazyOk`).
 
 The preservation lemmas at the end cover every public step except `deflate` and `deflateParams`.
 -/
@@ -60,7 +61,7 @@ def FlushOk (st : DeflateState) : Prop :=
 def SideAt (h : Heap) (b : Nat) (st : DeflateState) : Prop :=
   SymsOk st ∧ (0 < st.last_flush → st.sym_next = 0) ∧
     (st.status = FINISH_STATE → st.sym_next = 0 ∧ st.lookahead = 0) ∧ HdrOk h b st ∧ FlushOk st ∧
-    ∀ d, h.bytes b = some d → ChainOk b d st
+    (∀ d, h.bytes b = some d → ChainOk b d st) ∧ LazyOk st
 
 /-- The between-call facts of stream `s` in `h`. -/
 def DSide (h : Heap) (s : StreamPtr) : Prop := ∀ b st, DStateIs h s b st → SideAt h b st
@@ -112,16 +113,18 @@ theorem ChainOk.of_bytes {b : Nat} {d d' : Array UInt8} {st : DeflateState} (C :
   · rw [posAt_eq q2 (Nat.mod_lt _ hw)]; exact c3 p hp hs
 
 /-- `SideAt` reads the state through the fields of `SymsOk`, `last_flush`, `status`, `wrap`, `gzhead`,
-`gzindex`, and those of `ChainOk`. -/
+`gzindex`, and those of `ChainOk` and `LazyOk`. -/
 theorem SideAt.of_state {h : Heap} {b : Nat} {st st' : DeflateState} (S : SideAt h b st)
     (e1 : st'.status = st.status) (e2 : st'.wrap = st.wrap) (e3 : st'.gzhead = st.gzhead)
     (e4 : st'.gzindex = st.gzindex) (e5 : st'.sym_next = st.sym_next) (e6 : st'.sym_end = st.sym_end)
     (e7 : st'.strstart = st.strstart) (e8 : st'.block_start = st.block_start) (e9 : st'.level = st.level)
     (e10 : st'.lookahead = st.lookahead) (e11 : st'.strategy = st.strategy)
     (e12 : st'.last_flush = st.last_flush) (e13 : 8 ≤ st'.bi_valid → 8 ≤ st.bi_valid) (e14 : st'.head = st.head)
-    (e15 : st'.prev = st.prev) (e16 : st'.w_size = st.w_size) : SideAt h b st' := by
-  obtain ⟨S1, S2, S3, S4, S5, S6⟩ := S
-  refine ⟨?_, ?_, ?_, S4.of_state e1 e2 e3 e4, ?_, fun d hd => ChainOk.of_state (S6 d hd) e9 e11 e14 e15 e7 e10 e16⟩
+    (e15 : st'.prev = st.prev) (e16 : st'.w_size = st.w_size) (e17 : st'.prev_length = st.prev_length)
+    (e18 : st'.match_start = st.match_start) (e19 : st'.match_available = st.match_available) : SideAt h b st' := by
+  obtain ⟨S1, S2, S3, S4, S5, S6, S7⟩ := S
+  refine ⟨?_, ?_, ?_, S4.of_state e1 e2 e3 e4, ?_, fun d hd => ChainOk.of_state (S6 d hd) e9 e11 e14 e15 e7 e10 e16,
+    S7.of_eq e17 e10 e18 e7 e16 e19 e8 e9 e11 e12⟩
   · obtain ⟨a1, a2, a3, a4, a5⟩ := S1
     refine ⟨?_, ?_, ?_, ?_, fun hb => ?_⟩
     · rw [e5, e6]; exact a1
@@ -161,10 +164,12 @@ theorem HdrOk.move {h h' : Heap} {b b' : Nat} {st : DeflateState} (H : HdrOk h b
 theorem SideAt.move {h h' : Heap} {b b' : Nat} {st st' : DeflateState} (S : SideAt h b st)
     (m : HdrMove h h' b b' st) (e : SideEq st st') (hc : ∀ d, h'.bytes b' = some d → ChainOk b' d st') :
     SideAt h' b' st' := by
-  obtain ⟨S1, S2, S3, S4, S5, -⟩ := S
+  obtain ⟨S1, S2, S3, S4, S5, -, S7⟩ := S
   have m' : HdrMove h h' b b' st' := fun hs k g hk hg =>
     m (by unfold HdrState at hs ⊢; rwa [e.status] at hs) k g (by rw [← e.gzhead]; exact hk) hg
-  refine ⟨?_, ?_, ?_, (S4.of_state e.status e.wrap e.gzhead e.gzindex).move m', ?_, hc⟩
+  refine ⟨?_, ?_, ?_, (S4.of_state e.status e.wrap e.gzhead e.gzindex).move m', ?_, hc,
+    S7.of_eq e.prev_length e.lookahead e.match_start e.strstart e.w_size e.match_available e.block_start e.level
+      e.strategy e.last_flush⟩
   · obtain ⟨a1, a2, a3, a4, a5⟩ := S1
     refine ⟨?_, ?_, ?_, ?_, fun hb => ?_⟩
     · rw [e.sym_next, e.sym_end]; exact a1
@@ -207,13 +212,13 @@ theorem side_setD {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflate
   have e2 : st2 = st' := by simpa [Heap.dstate, hd] using hst2.symm
   subst e2
   have S := k (hs b st ⟨i, z, rfl, hz, hb, hst⟩)
-  exact S.move (hdrMove_out rfl fun _ _ => rfl) (SideEq.refl _) fun d hd => S.2.2.2.2.2 d hd
+  exact S.move (hdrMove_out rfl fun _ _ => rfl) (SideEq.refl _) fun d hd => S.2.2.2.2.2.1 d hd
 
 /-- `deflateTune` keeps `DSide`: it writes `good_match`, `max_lazy_match`, `nice_match`, `max_chain_length`. -/
 theorem tune_side {h : Heap} {s : StreamPtr} (hv : DInv h s) (hs : DSide h s) (g l n c : Int32) :
     ∃ h', C.run (deflateTune s g l n c) h = .ok (Z_OK, h') ∧ DSide h' s := by
   obtain ⟨i, z, b, st, rfl, hz, hb, hst, e, -⟩ := DeflateControl.deflateTune_inv hv g l n c
-  exact ⟨_, e, side_setD hz hb hst hs fun S => S.of_state rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl id rfl rfl rfl⟩
+  exact ⟨_, e, side_setD hz hb hst hs fun S => S.of_state rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl id rfl rfl rfl rfl rfl rfl⟩
 
 /-- `deflateSetHeader` keeps `DSide` when called before the first `deflate` call (`GZIP_STATE`, not a header
 state; `wrap` is kept). -/
@@ -228,7 +233,7 @@ theorem setHeader_side {h h' : Heap} {s : StreamPtr} {hp : HeaderPtr} {r : Int32
     obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
     obtain rfl : st = st1 := Option.some.inj (hst.symm.trans hst1)
     refine side_setD hz hb hst hs fun S => ⟨S.1, S.2.1, S.2.2.1, ?_, S.2.2.2.2.1,
-      fun d hd => ChainOk.of_state (S.2.2.2.2.2 d hd) rfl rfl rfl rfl rfl rfl rfl⟩
+      fun d hd => ChainOk.of_state (S.2.2.2.2.2.1 d hd) rfl rfl rfl rfl rfl rfl rfl, S.2.2.2.2.2.2⟩
     have hn : ¬ HdrState st := by
       unfold HdrState; rw [hgz]; decide
     exact ⟨fun _ => S.2.2.2.1.1 (Or.inl hgz), fun hh => absurd hh hn⟩
@@ -245,7 +250,7 @@ theorem caller_side {h h' : Heap} {s : StreamPtr} (hs : DSide h s) (hc : DCaller
   have hst' : h'.dstate b = some st := by simp only [Heap.dstate, hbytes, hdstates]; exact hst
   obtain rfl : st = st2 := Option.some.inj (hst'.symm.trans hst2)
   refine (hs b st ⟨i, z, rfl, hz, hb, hst⟩).move (fun hh k g hk hg => ?_) (SideEq.refl _)
-    (fun d hd => (hs b st ⟨i, z, rfl, hz, hb, hst⟩).2.2.2.2.2 d (by rw [← hbytes]; exact hd))
+    (fun d hd => (hs b st ⟨i, z, rfl, hz, hb, hst⟩).2.2.2.2.2.1 d (by rw [← hbytes]; exact hd))
   obtain ⟨g', hg', hf⟩ := hhd k g hk hg
   obtain ⟨e1, e2, e3, e4, c1, c2⟩ := hf hh
   refine ⟨g', hg', e1, e2, e3, e4, fun p n hp nb c => ⟨?_, nb⟩⟩
@@ -282,13 +287,13 @@ theorem symsOk_clean {st : DeflateState} (h0 : 0 < st.sym_end) (hs : st.sym_next
   rw [Int32.le_iff_toInt_le, hb]; simp
 
 /-- `SideAt` of a state with no symbols, `block_start` at `strstart`, no lookahead, outside the header states, with
-`wrap = 2` in `GZIP_STATE`, fewer than 8 bits. -/
+`wrap = 2` in `GZIP_STATE`, fewer than 8 bits, with `LazyOk`. -/
 theorem sideAt_clean {h : Heap} {b : Nat} {st : DeflateState} (h0 : 0 < st.sym_end) (hs : st.sym_next = 0)
     (hb : st.block_start.toInt = st.strstart.toNat) (hl : st.lookahead = 0) (h8 : st.bi_valid < 8)
     (hn : ¬ HdrState st) (hg : st.status = GZIP_STATE → st.wrap = 2) (hf : FlushOk st)
-    (hc : ∀ d, h.bytes b = some d → ChainOk b d st) : SideAt h b st :=
+    (hc : ∀ d, h.bytes b = some d → ChainOk b d st) (hL : LazyOk st) : SideAt h b st :=
   ⟨symsOk_clean h0 hs hb hl h8, fun _ => hs, fun _ => ⟨hs, hl⟩,
-    ⟨fun e => e.elim hg (fun e2 => absurd e2 hn), fun e => absurd e hn⟩, hf, hc⟩
+    ⟨fun e => e.elim hg (fun e2 => absurd e2 hn), fun e => absurd e hn⟩, hf, hc, hL⟩
 
 /-- `FlushOk` right after `deflateInit*`, `deflateReset` or `deflateResetKeep`: `last_flush == -2` with no unfinished
 block and no lookahead. -/
@@ -315,7 +320,7 @@ theorem side_fresh {h : Heap} {s : StreamPtr} (hv : DInv h s) (hf : DFreshOf h s
   obtain rfl := Option.some.inj (hz0.symm.trans hz')
   obtain rfl := Option.some.inj (hb0.symm.trans hb')
   obtain rfl := Option.some.inj (hst0.symm.trans hst')
-  obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8⟩ := f
+  obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8, f9, f10⟩ := f
   have hc' : ∀ d, h.bytes b0 = some d → ChainOk b0 d st0 := by
     intro d hd
     obtain ⟨ho, d0, hd0, hh, hz⟩ := fh
@@ -323,7 +328,7 @@ theorem side_fresh {h : Heap} {s : StreamPtr} (hv : DInv h s) (hf : DFreshOf h s
     obtain ⟨-, -, po, -, -, -, -, hp, -⟩ := c.lay
     exact chainOk_clear hh (by simpa only [dview] using hp) hz
   refine sideAt_clean (symEnd_pos c) f1 (by rw [f2, f3]; rfl) f4 (by rw [f8]; decide) ?_ f7
-    (flushOk_fresh f5 (by rw [f2, f3]; rfl) f4) hc'
+    (flushOk_fresh f5 (by rw [f2, f3]; rfl) f4) hc' (LazyOk.of_clear (by rw [f9]; decide) f10)
   unfold HdrState
   rcases f6 with e | e <;> rw [e] <;> decide
 
@@ -367,7 +372,7 @@ theorem prime_side {h h' : Heap} {s : StreamPtr} {bits value r : Int32} (hv : DI
     obtain rfl : ho = ho' := by injection hh' with e2; injection e2
     obtain rfl : po = po' := by injection hp' with e2; injection e2
     exact ⟨fun j _ hj => hbt d pbo hd hpb j (by omega), fun j _ hj => hbt d pbo hd hpb j (by omega)⟩
-  have C0 := ChainOk.of_bytes (d' := d') ((hs b st1 ⟨_, z, rfl, hz, hb, hst1⟩).2.2.2.2.2 d hd) (by omega) hdb
+  have C0 := ChainOk.of_bytes (d' := d') ((hs b st1 ⟨_, z, rfl, hz, hb, hst1⟩).2.2.2.2.2.1 d hd) (by omega) hdb
   exact side_SH hs hz hb hst1 hb eq (ChainOk.of_state C0 eq.level eq.strategy eh ep eq.strstart eq.lookahead ew)
 
 /-- `deflateGetDictionary` keeps `DSide`: it writes only the caller's buffer, which is outside the library's block
@@ -387,7 +392,7 @@ theorem getDict_side {h h' : Heap} {s : StreamPtr} {d : BPtr} {hasLen : Bool} {r
     simpa [Heap.dstate, upd_ne _ _ _ _ (Ne.symm hbd)] using hst
   refine (hs b st ⟨i, z, rfl, hz, hzb, hst0⟩).move (fun hh k g hk hg => ⟨g, hg, rfl, rfl, rfl, rfl,
     fun p n hp nb c => ⟨?_, nb⟩⟩) (SideEq.refl _)
-    (fun d2 hd2 => (hs b st ⟨i, z, rfl, hz, hzb, hst0⟩).2.2.2.2.2 d2 (by
+    (fun d2 hd2 => (hs b st ⟨i, z, rfl, hz, hzb, hst0⟩).2.2.2.2.2.1 d2 (by
       have e2 : (upd h.bytes bd (some a1)) b = h.bytes b := upd_ne _ _ _ _ (Ne.symm hbd)
       rw [← e2]; exact hd2))
   have hreg : DRegisteredHeader h (some i) (some k) := ⟨b, st, ⟨⟨z, ⟨i, rfl, hz⟩, hzb⟩, hst0⟩, hk⟩
@@ -432,7 +437,7 @@ theorem setDict_side {h h' : Heap} {s : StreamPtr} {d : BPtr} {n : UInt32} {r : 
   obtain ⟨z', al', c'⟩ := core_of hv' hs'
   obtain ⟨i', z2, e1, hz2, hzb2, hst2⟩ := hs'
   obtain rfl := Option.some.inj e1
-  obtain ⟨⟨k1, k2, -, -, -, -, k7, k8⟩, -, kb, kl⟩ := hout z2 b' st' hz2 hzb2 hst2
+  obtain ⟨⟨k1, k2, -, -, -, -, k7, k8⟩, -, kb, kl, kp, km⟩ := hout z2 b' st' hz2 hzb2 hst2
   obtain ⟨b3, st3, ⟨⟨z3, ⟨i3, e3, hz3⟩, hzb3⟩, hst3⟩, h0⟩ := hdr
   obtain rfl := Option.some.inj e3
   obtain rfl := Option.some.inj (hz.symm.trans hz3)
@@ -447,6 +452,7 @@ theorem setDict_side {h h' : Heap} {s : StreamPtr} {d : BPtr} {n : UInt32} {r : 
     exact ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).1.2.2.2.2 hc).2.2 hl0
   refine sideAt_clean (symEnd_pos c') (k1.trans h0) kb kl h8 ?_ ?_
     ⟨by rw [k7]; exact H5.1, by rw [k7]; exact H5.2.1, fun _ => ⟨kb.symm, kl⟩⟩ hc'
+    (LazyOk.of_clear (by rw [kp]; decide) km)
   · intro hh; unfold HdrState at hh; rw [k2] at hh; exact hnh (Or.inr hh)
   · intro hh; rw [k2] at hh; exact absurd (Or.inl hh) hnh
 
@@ -503,7 +509,7 @@ theorem copy_side {h h' : Heap} {src dst : StreamPtr} (hs : DSide h src) (hfr : 
       unfold Heap.dstate at hst; split at hst
       · exact ⟨_, by assumption⟩
       · cases hst
-    exact ChainOk.copy ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).2.2.2.2.2 d hd) (hcc d dF hd hdF) eq
+    exact ChainOk.copy ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).2.2.2.2.2.1 d hd) (hcc d dF hd hdF) eq
   intro b2 st2 ⟨j2, z2, e2, hz2, hzb2, hst2⟩
   obtain rfl := Option.some.inj e2
   obtain rfl := Option.some.inj (hz'.symm.trans hz2)
@@ -548,7 +554,7 @@ theorem copy_src_side {h h' : Heap} {s dst : StreamPtr} {r : Int32} (hv : DInv h
   obtain ⟨w1, -⟩ := c.sizes
   simp only [dview] at hp hh hpb h2 h3 h4 w1
   obtain rfl := Option.some.inj (hd.symm.trans hd0)
-  refine ChainOk.of_bytes ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).2.2.2.2.2 d hd) (by omega) fun ho' po' hh' hp' => ?_
+  refine ChainOk.of_bytes ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).2.2.2.2.2.1 d hd) (by omega) fun ho' po' hh' hp' => ?_
   rw [hh] at hh'; rw [hp] at hp'
   obtain rfl : ho = ho' := by injection hh' with e2; injection e2
   obtain rfl : po = po' := by injection hp' with e2; injection e2
@@ -560,12 +566,12 @@ theorem resetKeep_side {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : DInv h s)
   obtain ⟨i, z, b, rfl, hz, hzb, r0, h0, e0, -, hv', -, hk1, hkb, hk2⟩ := ZlibNgF.Proof.DeflateReset.resetKeep_inv hv
   have e0' : C.run (deflateResetKeep (some i)) h = .ok (r0, h0) := e0
   rw [e] at e0'; cases e0'
-  obtain ⟨b1, st1, ⟨⟨z1, ⟨i1, e1, hz1⟩, hzb1⟩, hst1⟩, hss, hl, -⟩ := hr
+  obtain ⟨b1, st1, ⟨⟨z1, ⟨i1, e1, hz1⟩, hzb1⟩, hst1⟩, hss, hl, hma⟩ := hr
   obtain rfl := Option.some.inj e1
   obtain rfl := Option.some.inj (hz.symm.trans hz1)
   obtain rfl := Option.some.inj (hzb.symm.trans hzb1)
-  obtain ⟨st', hst', k1, kf, k3, k4, k5, k6, k7, k9, k10, -, k8, k11, k12, k13⟩ := hk2 st1 hst1
-  have C0 := (hs b st1 ⟨i, z, rfl, hz, hzb, hst1⟩).2.2.2.2.2
+  obtain ⟨st', hst', k1, kf, k3, k4, k5, k6, k7, k9, k10, -, k8, k11, k12, k13, kp, km⟩ := hk2 st1 hst1
+  have C0 := (hs b st1 ⟨i, z, rfl, hz, hzb, hst1⟩).2.2.2.2.2.1
   intro b2 st2 hs2
   have hc' : ∀ d, h'.bytes b2 = some d → ChainOk b2 d st2 := by
     intro d hd
@@ -581,7 +587,15 @@ theorem resetKeep_side {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : DInv h s)
   obtain rfl := Option.some.inj ((hk1 z2 hz2).symm.trans hzb2)
   obtain rfl := Option.some.inj (hst'.symm.trans hst2)
   refine sideAt_clean (symEnd_pos c) k1 (by rw [k5, k6]; exact hss.symm) (by rw [k7]; exact hl) (by rw [k8]; decide)
-    ?_ k4 (flushOk_fresh kf (by rw [k5, k6]; exact hss) (by rw [k7]; exact hl)) hc'
+    ?_ k4 (flushOk_fresh kf (by rw [k5, k6]; exact hss) (by rw [k7]; exact hl)) hc' ?_
+  rotate_left
+  · refine LazyOk.of_clear ?_ (by rw [km]; exact hma)
+    rw [kp]
+    refine UInt32.lt_iff_toNat_lt.mpr (Nat.lt_of_not_le fun h3 => ?_)
+    have L := (hs b st1 ⟨i, z, rfl, hz, hzb, hst1⟩).2.2.2.2.2.2
+    have := (L.1 (UInt32.le_iff_toNat_le.mpr (by simpa using h3))).2.1
+    have e3 : (3 : UInt32).toNat = 3 := rfl
+    rw [hl] at this; simp at this; omega
   unfold HdrState
   rcases k3 with e3 | e3 <;> rw [e3] <;> decide
 
