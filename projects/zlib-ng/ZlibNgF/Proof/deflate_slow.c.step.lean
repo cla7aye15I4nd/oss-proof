@@ -211,7 +211,8 @@ def SI (b : Nat) (H : Heap) : Prop :=
 def RI (h : Heap) (i b : Nat) (flush : Int32) (c : Ctl) (H : Heap) : Prop :=
   match c with
   | .cont => SLC h i b H ∧ SI b H
-  | .brk => SLC h i b H ∧ SI b H ∧ (∀ st, H.dstate b = some st → st.lookahead = 0) ∧ avIn H i = 0
+  | .brk => SLC h i b H ∧ SI b H ∧ (∀ st, H.dstate b = some st → st.lookahead = 0) ∧ avIn H i = 0 ∧
+    flush ≠ Z_NO_FLUSH
   | .ret r => StratPost h (some i) flush r H ∧ ∀ st d, H.dstate b = some st → H.bytes b = some d → ChainOk b d st
 
 /-- The lookahead of the state of `H`. -/

@@ -287,22 +287,27 @@ theorem cf_of_o0 {H : Heap} {i : Nat} (h0 : O0 H i) : CF H i := fun z' hz => .in
 
 /-- The exit facts of a strategy call with `flush` that returns `bs`, on the stream: all input consumed or the output
 full after `need_more` / `block_done`; `finish_started` / `finish_done` only for `Z_FINISH`; the output full after
-`need_more` / `finish_started` under `Z_FINISH` (each follows `FLUSH_BLOCK` or a test of `avail_out == 0`). -/
+`need_more` / `finish_started` under `Z_FINISH` (each follows `FLUSH_BLOCK` or a test of `avail_out == 0`);
+`block_done` only with a flush other than `Z_NO_FLUSH` and `Z_FINISH` and with all input consumed (it follows an
+empty lookahead after `fill_window` under a flush). -/
 def ExitIO (H : Heap) (i : Nat) (flush : Int32) (bs : BlockState) : Prop :=
   (bs = .need_more ∨ bs = .block_done → CF H i) ∧ (bs = .finish_started ∨ bs = .finish_done → flush = Z_FINISH) ∧
-    (flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → O0 H i)
+    (flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → O0 H i) ∧
+    (bs = .block_done → flush ≠ Z_NO_FLUSH ∧ flush ≠ Z_FINISH ∧ avIn H i = 0)
 
 /-- `ExitIO` for `need_more` with a full output. -/
 theorem exitIO_nm {H : Heap} {i : Nat} {flush : Int32} (ho : O0 H i) : ExitIO H i flush .need_more :=
-  ⟨fun _ => cf_of_o0 ho, fun e => (by rcases e with e | e <;> cases e), fun _ _ => ho⟩
+  ⟨fun _ => cf_of_o0 ho, fun e => (by rcases e with e | e <;> cases e), fun _ _ => ho, fun e => by cases e⟩
 
 /-- `ExitIO` for `need_more` without a flush. -/
 theorem exitIO_nmNF {H : Heap} {i : Nat} (hc : CF H i) : ExitIO H i Z_NO_FLUSH .need_more :=
-  ⟨fun _ => hc, fun e => (by rcases e with e | e <;> cases e), fun e => absurd e (by decide)⟩
+  ⟨fun _ => hc, fun e => (by rcases e with e | e <;> cases e), fun e => absurd e (by decide), fun e => by cases e⟩
 
 /-- `ExitIO` for `block_done`. -/
-theorem exitIO_bd {H : Heap} {i : Nat} {flush : Int32} (hc : CF H i) : ExitIO H i flush .block_done :=
-  ⟨fun _ => hc, fun e => (by rcases e with e | e <;> cases e), fun _ e => (by rcases e with e | e <;> cases e)⟩
+theorem exitIO_bd {H : Heap} {i : Nat} {flush : Int32} (hnf : flush ≠ Z_NO_FLUSH) (hnF : flush ≠ Z_FINISH)
+    (hin : avIn H i = 0) : ExitIO H i flush .block_done :=
+  ⟨fun _ => cf_of_avIn hin, fun e => (by rcases e with e | e <;> cases e), fun _ e => (by rcases e with e | e <;> cases e),
+    fun _ => ⟨hnf, hnF, hin⟩⟩
 
 /-- `ExitIO` for `finish_started` (with a full output) / `finish_done` under `Z_FINISH`. -/
 theorem exitIO_fin {H : Heap} {i : Nat} {bs : BlockState} (hb : bs = .finish_started ∨ bs = .finish_done)
@@ -312,13 +317,15 @@ theorem exitIO_fin {H : Heap} {i : Nat} {bs : BlockState} (hb : bs = .finish_sta
     fun _ e => by
       rcases e with e | e
       · rcases hb with h1 | h1 <;> rw [h1] at e <;> exact absurd e (by decide)
-      · exact ho e⟩
+      · exact ho e,
+    fun e => by rcases hb with h1 | h1 <;> rw [h1] at e <;> cases e⟩
 
 /-- `ExitIO` for `block_done` / `finish_done` at the end of a strategy. -/
 theorem exitIO_tail {H : Heap} {i : Nat} {flush : Int32} {bs : BlockState} (hbs : bs = .block_done ∨ bs = .finish_done)
-    (hc : CF H i) (hF : bs = .finish_done → flush = Z_FINISH) : ExitIO H i flush bs := by
+    (hin : avIn H i = 0) (hF : bs = .finish_done → flush = Z_FINISH)
+    (hB : bs = .block_done → flush ≠ Z_NO_FLUSH ∧ flush ≠ Z_FINISH) : ExitIO H i flush bs := by
   rcases hbs with rfl | rfl
-  · exact exitIO_bd hc
+  · exact exitIO_bd (hB rfl).1 (hB rfl).2 hin
   · rw [hF rfl]; exact exitIO_fin (.inr rfl) (fun e => by cases e)
 
 /-- `ExitIO` for the return of `FLUSH_BLOCK(s, window, last)` (`last` only under `Z_FINISH`). -/
@@ -328,6 +335,19 @@ theorem exitIO_flush {H : Heap} {i : Nat} {flush last : Int32} (ho : O0 H i) (hL
   · subst hl; exact exitIO_nm ho
   · have : (last != 0) = true := by simpa using hl
     rw [this]; simp only [ite_true]; rw [hL hl]; exact exitIO_fin (.inl rfl) (fun _ => ho)
+
+/-- The `block_done` clause of `StratPost` from `ExitIO`. -/
+theorem exitIO_bdpost {H : Heap} {i : Nat} {flush : Int32} {bs : BlockState} (hx : ExitIO H i flush bs) :
+    bs = .block_done → flush ≠ Z_NO_FLUSH ∧ flush ≠ Z_FINISH ∧ ∀ z', StreamAt H (some i) z' → z'.avail_in = 0 :=
+  fun e => by
+    obtain ⟨a, b, c⟩ := hx.2.2.2 e
+    refine ⟨a, b, fun z' hz' => ?_⟩
+    rcases cf_of_avIn c z' hz' with x | x
+    · exact x
+    · obtain ⟨i', e', hz⟩ := hz'
+      obtain rfl := Option.some.inj e'
+      simp only [avIn, hz] at c
+      exact UInt32.toNat_inj.mp (by rw [c]; rfl)
 
 theorem lt_of_out0 {a b : UInt32} (ha : a = 0) (hb : b ≠ 0) : a < b := by
   subst ha; apply UInt32.lt_iff_toNat_lt.mpr
@@ -408,8 +428,8 @@ theorem slf_postL {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
     stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
-    fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0), fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_,
-    slf_psi F flush bs he⟩
+    fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2.1 hf e z' hz') hn0), fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_,
+    slf_psi F flush bs he, exitIO_bdpost hx⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
@@ -1143,7 +1163,7 @@ def strat_tail (st : StatePtr) (window : BPtr) (flush : Int32) : M BlockState :=
 theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C : SLC h i b H)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
     (hn : NotSlow h b)
-    (hla : ∀ st, H.dstate b = some st → st.lookahead = 0) (hin : avIn H i = 0) :
+    (hla : ∀ st, H.dstate b = some st → st.lookahead = 0) (hin : avIn H i = 0) (hnf : flush ≠ Z_NO_FLUSH) :
     Sat H (strat_tail (some b) (.ref (.heap b) wo) flush) (fun r H' => StratPost h (some i) flush r H') := by
   have hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo) := by
     intro st hst
@@ -1164,7 +1184,8 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
     cases r with
     | none =>
       refine Sat.pure (slf_post F2 _ _ hn ⟨fun e => cf_of_avIn (by rw [hav2]; exact hin), hxio.2.1,
-        fun _ e => by rcases hbs with rfl | rfl <;> rcases e with e | e <;> cases e⟩ (fun st2 h2 =>
+        fun _ e => (by rcases hbs with rfl | rfl <;> rcases e with e | e <;> cases e),
+        fun e => ⟨(hxio.2.2.2 e).1, (hxio.2.2.2 e).2.1, by rw [hav2]; exact hin⟩⟩ (fun st2 h2 =>
         ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1, fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩,
           fun _ => (hx st2 h2).1⟩) (lastSlack_tail hlb))
     | some v =>
@@ -1193,11 +1214,11 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
     refine Sat.bind (Sat.of_eq (rdD_app L _) ?_)
     by_cases hs : (st.sym_next != 0) = true
     · simp only [hs, ↓reduceIte]
-      exact fl 0 .block_done (by decide) (by decide) (.inl rfl) (exitIO_bd (cf_of_avIn hin)) (fun e => absurd rfl e)
+      exact fl 0 .block_done (by decide) (by decide) (.inl rfl) (exitIO_bd hnf (by simpa using hf) hin) (fun e => absurd rfl e)
         (fun _ st2 h2 => by obtain rfl := Option.some.inj (hst.symm.trans h2); simpa using hs) (fun e => absurd rfl e)
     · simp only [hs, Bool.false_eq_true, ↓reduceIte]
       have h0 : st.sym_next = 0 := by simpa using hs
-      refine Sat.pure (slf_post C.1 _ _ hn (exitIO_bd (cf_of_avIn hin)) fun st2 h2 => ?_)
+      refine Sat.pure (slf_post C.1 _ _ hn (exitIO_bd hnf (by simpa using hf) hin) fun st2 h2 => ?_)
       obtain rfl := Option.some.inj (hst.symm.trans h2)
       exact ⟨(C.2 st hst).2, fun _ => (C.2 st hst).1, fun _ => h0, fun e => (by rcases e with e | e <;> cases e),
         fun _ => h0⟩

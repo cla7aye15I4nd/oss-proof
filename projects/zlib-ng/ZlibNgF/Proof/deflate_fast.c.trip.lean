@@ -27,7 +27,8 @@ open ZlibNg.DeflateP ZlibNg.DeflateFast
 def OI (h : Heap) (i b : Nat) (flush : Int32) (v : Ctl × Bool × UInt32) (H : Heap) : Prop :=
   match v.1 with
   | .cont => SLC h i b H ∧ CK b H ∧ v.2.2.toNat < 4
-  | .brk => SLC h i b H ∧ CK b H ∧ (∀ st, H.dstate b = some st → st.lookahead = 0) ∧ avIn H i = 0
+  | .brk => SLC h i b H ∧ CK b H ∧ (∀ st, H.dstate b = some st → st.lookahead = 0) ∧ avIn H i = 0 ∧
+    flush ≠ Z_NO_FLUSH
   | .ret r => StratPost h (some i) flush r H ∧ CK b H
 
 /-- The measure of the outer loop. -/
@@ -371,9 +372,11 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       by_cases hz0 : (st'.lookahead == 0) = true
       · simp -zeta only [hz0, ↓reduceIte]
         refine Sat.pure ⟨⟨sli_slc I2, Ck2, fun st5 h5 => ?_,
-          avIn_fill hfull (by rw [show st'.lookahead = 0 by simpa using hz0]; decide)⟩, by simp only [OM]; omega⟩
-        obtain rfl : st5 = st' := Option.some.inj (h5.symm.trans (SH_dstate _ _ _ _ _ _))
-        simpa using hz0
+          avIn_fill hfull (by rw [show st'.lookahead = 0 by simpa using hz0]; decide), fun hf => hx ?_⟩,
+          by simp only [OM]; omega⟩
+        · obtain rfl : st5 = st' := Option.some.inj (h5.symm.trans (SH_dstate _ _ _ _ _ _))
+          simpa using hz0
+        · rw [show st'.lookahead = 0 by simpa using hz0, hf]; decide
       · simp -zeta only [hz0, Bool.false_eq_true, ↓reduceIte]
         have : st'.lookahead.toNat ≠ 0 := fun e => hz0 (by simp [UInt32.toNat_inj.mp (by rw [e]; rfl : st'.lookahead.toNat = (0 : UInt32).toNat)])
         exact hS H0' z' st' d' I2 Ck2 (by omega) (by omega)

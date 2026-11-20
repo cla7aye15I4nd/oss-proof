@@ -142,7 +142,7 @@ theorem sli_win2 {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} 
 def RI (h : Heap) (i b : Nat) (flush : Int32) (v : UInt32 × UInt32 × UInt32 × RleExit) (H : Heap) : Prop :=
   match v.2.2.2 with
   | .ret r => StratPost h (some i) flush r H
-  | .brk => SLI h i b v.1 v.2.1 H ∧ v.1 = 0 ∧ avIn H i = 0
+  | .brk => SLI h i b v.1 v.2.1 H ∧ v.1 = 0 ∧ avIn H i = 0 ∧ flush ≠ Z_NO_FLUSH
   | .cont => SLI h i b v.1 v.2.1 H ∧ v.2.2.1.toNat < 3
 
 /-- The loop measure. -/
@@ -284,7 +284,8 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss ml : UInt32}
       by_cases hz : (st.lookahead == 0) = true
       · simp only [hz, ↓reduceIte]
         have hz0 : st.lookahead = 0 := by simpa using hz
-        exact Sat.pure ⟨⟨I2, hz0, avIn_fill hfull (by rw [hz0]; decide)⟩, by simp [RM]⟩
+        exact Sat.pure ⟨⟨I2, hz0, avIn_fill hfull (by rw [hz0]; decide), fun hf => hx (by rw [hz0, hf]; decide)⟩,
+          by simp [RM]⟩
       · simp only [hz, Bool.false_eq_true, ↓reduceIte]
         have := ne0 (by simpa using hz)
         refine Sat.bind (Sat.pure (hM _ _ _ I2 (by omega) ?_))
@@ -339,12 +340,12 @@ theorem rle_ok (T : TreesFacts) :
   | cont => cases hc
   | ret r => exact Sat.pure hI
   | brk =>
-    obtain ⟨hI, hl0, hin⟩ := hI
+    obtain ⟨hI, hl0, hin, hnf⟩ := hI
     refine Sat.bind (Sat.mono (sli_wb hI) ?_)
     rintro _ H1 ⟨C1, hav1, H0, z1, st1, d1, rfl, hla, -⟩
     refine Sat.bind (Sat.mono (slc_insert C1 0 UInt32.zero_le) ?_)
     rintro _ H2 ⟨C2, rfl⟩
-    refine slc_tail T flush C2 hw0 hn (fun st2 h2 => ?_) (by rw [avIn_SH, ← avIn_SH H0 i z1 b st1 d1, hav1]; exact hin)
+    refine slc_tail T flush C2 hw0 hn (fun st2 h2 => ?_) (by rw [avIn_SH, ← avIn_SH H0 i z1 b st1 d1, hav1]; exact hin) hnf
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
     simp only [] at hl0 ⊢; rw [hla, hl0]
 

@@ -110,7 +110,7 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
   | cont => cases hc
   | ret r => exact Sat.pure hI
   | brk =>
-    obtain ⟨C1, Ck1, hl0, hin⟩ := hI
+    obtain ⟨C1, Ck1, hl0, hin, hnf⟩ := hI
     obtain ⟨z1, st1, -, hz1, hb1, hst1, -, -⟩ := C1.1.live
     obtain ⟨d1, hd1⟩ := bytes_of_dstate hst1
     have eH := ZlibNgF.Proof.DeflateReset.SH_self hz1 (dstates_of_dstate hst1 hd1) hd1
@@ -139,6 +139,7 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
       ⟨(C2.2 st2 h2).1, slf_win C2.1 hw0 st2 h2⟩
     have fx : ∀ (last : Int32) (bs : BlockState), 0 ≤ last → last ≤ 1 →
         (bs = .block_done ∨ bs = .finish_done) → (bs = .finish_done → flush = Z_FINISH) →
+        (bs = .block_done → flush ≠ Z_FINISH) →
         (last ≠ 0 → flush = Z_FINISH) → (last ≠ 0 → bs = .finish_done) → ∀ (r : Option BlockState) H2,
         (avIn H2 i = avIn (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
           else STD_MIN_MATCH - 1 } d1) i ∧ SLFe (lastSlack last) h i b H2 ∧
@@ -151,7 +152,7 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
         CK b H2 →
         ∀ v, (r = none → v = bs) → (r ≠ none → some v = r) →
         StratPost h (some i) flush v H2 ∧ CK b H2 := by
-      rintro last bs hl0 hl1 hbs hF hL hlb r H2 ⟨hav2, F2, hs2, hn2, hsm, hcf⟩ Ck2 v hv1 hv2
+      rintro last bs hl0 hl1 hbs hF hBF hL hlb r H2 ⟨hav2, F2, hs2, hn2, hsm, hcf⟩ Ck2 v hv1 hv2
       have hx : ∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
           st2.lookahead = 0 := fun st2 h2 => by
         obtain ⟨e1, e2, st, hst, e3, -⟩ := hs2 st2 h2
@@ -159,7 +160,7 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
       cases r with
       | none =>
         obtain rfl := hv1 rfl
-        exact ⟨slf_post_l (he := lastSlack_tail hlb) F2 _ _ hn (exitIO_tail hbs (cf_of_avIn (by rw [hav2, avIn_SH]; exact hin)) hF) fun st2 h2 =>
+        exact ⟨slf_post_l (he := lastSlack_tail hlb) F2 _ _ hn (exitIO_tail hbs (by rw [hav2, avIn_SH]; exact hin) hF fun e => ⟨hnf, hBF e⟩) fun st2 h2 =>
           ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1,
             fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩, fun _ => (hx st2 h2).1⟩, Ck2⟩
       | some w =>
@@ -176,9 +177,11 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
       refine Sat.bind (Sat.mono (flushC T 1 (by decide) (by decide) C2.1 hp Ck2 (fun e => absurd e (by decide))) ?_)
       rintro r H3 ⟨q, Ck3⟩
       cases r with
-      | none => exact Sat.pure (fx 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf') (fun _ => hf') (fun _ => rfl)
+      | none => exact Sat.pure (fx 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf')
+          (fun e => by cases e) (fun _ => hf') (fun _ => rfl)
           none H3 q Ck3 _ (fun _ => rfl) (fun e => absurd rfl e))
-      | some w => exact Sat.pure (fx 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf') (fun _ => hf') (fun _ => rfl)
+      | some w => exact Sat.pure (fx 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf')
+          (fun e => by cases e) (fun _ => hf') (fun _ => rfl)
           (some w) H3 q Ck3 w (fun e => by cases e) (fun _ => rfl))
     · simp only [hf, Bool.false_eq_true, ↓reduceIte]
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
@@ -189,12 +192,12 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
         rintro r H3 ⟨q, Ck3⟩
         cases r with
         | none => exact Sat.pure (fx 0 .block_done (by decide) (by decide) (.inl rfl) (fun e => by cases e)
-            (fun e => absurd rfl e) (fun e => absurd rfl e) none H3 q Ck3 _ (fun _ => rfl) (fun e => absurd rfl e))
+            (fun _ => by simpa using hf) (fun e => absurd rfl e) (fun e => absurd rfl e) none H3 q Ck3 _ (fun _ => rfl) (fun e => absurd rfl e))
         | some w => exact Sat.pure (fx 0 .block_done (by decide) (by decide) (.inl rfl) (fun e => by cases e)
-            (fun e => absurd rfl e) (fun e => absurd rfl e) (some w) H3 q Ck3 w (fun e => by cases e) (fun _ => rfl))
+            (fun _ => by simpa using hf) (fun e => absurd rfl e) (fun e => absurd rfl e) (some w) H3 q Ck3 w (fun e => by cases e) (fun _ => rfl))
       · simp only [hs, Bool.false_eq_true, ↓reduceIte]
         have h0 : st1.sym_next = 0 := by simpa using hs
-        refine Sat.pure ⟨slf_post_l C2.1 _ _ hn (exitIO_bd (cf_of_avIn (by rw [avIn_SH]; exact hin))) fun st2 h2 => ?_,
+        refine Sat.pure ⟨slf_post_l C2.1 _ _ hn (exitIO_bd hnf (by simpa using hf) (by rw [avIn_SH]; exact hin)) fun st2 h2 => ?_,
           Ck2⟩
         obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
         exact ⟨(C2.2 _ (SH_dstate _ _ _ _ _ _)).2, fun _ => (C2.2 _ (SH_dstate _ _ _ _ _ _)).1, fun _ => h0,

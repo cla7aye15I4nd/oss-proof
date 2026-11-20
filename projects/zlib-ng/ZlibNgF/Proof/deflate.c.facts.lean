@@ -182,7 +182,10 @@ fields of `StratKeeps` unchanged, no symbols after a call with a flush that leav
 goes through `FLUSH_BLOCK`, or the strategy never tallies; `deflate_slow` returns on a full output right after a
 tally), no symbols after `block_done` (it follows `FLUSH_BLOCK` or an empty symbol buffer), and no symbols and no
 lookahead after `finish_started` / `finish_done`; `LazyOk` kept, and no pending literal after `block_done`
-(`deflate_slow` tallies it before it leaves its loop). -/
+(`deflate_slow` tallies it before it leaves its loop); the potential (`PsiPost`); and `block_done` only with a flush
+other than `Z_NO_FLUSH` and `Z_FINISH`, with all input consumed (each `block_done` follows an empty lookahead after
+`fill_window` under a flush, or in `deflate_stored` a test of `flush != Z_NO_FLUSH && flush != Z_FINISH &&
+avail_in == 0`). -/
 def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' : Heap) : Prop :=
   DInv h' s ∧ DStreamIO h' s ∧ DBufsSet h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] (dOutputRanges h s) ∧
     (∀ i, s = some i → OutTail h h' i) ∧ (∀ b, StateBlock h s b → StateBlock h' s b) ∧
@@ -197,7 +200,8 @@ def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' :
       (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0) ∧
       (bs = .block_done → st'.sym_next = 0) ∧
       (LazyOk st → LazyOk st' ∧ (bs = .block_done → st'.match_available = 0))) ∧
-    PsiPost h s flush bs h'
+    PsiPost h s flush bs h' ∧
+    (bs = .block_done → flush ≠ Z_NO_FLUSH ∧ flush ≠ Z_FINISH ∧ ∀ z', StreamAt h' s z' → z'.avail_in = 0)
 
 /-- A strategy `f` that `deflate` dispatches to on states with `dispatch`: from `StratPre` and `dispatch`, no fault
 and `StratPost`. -/

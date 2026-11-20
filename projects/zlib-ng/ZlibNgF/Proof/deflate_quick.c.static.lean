@@ -745,7 +745,7 @@ def QB (fl : Int32) (h : Heap) (i b : Nat) (last la ss : UInt32) (H : Heap) : Pr
   ∃ H0 z st d, H = SH H0 i z b st d ∧ QF h i b H ∧ st.strstart.toNat ≤ ss.toNat ∧
     ss.toNat = st.strstart.toNat + st.lookahead.toNat ∧ la = 0 ∧ st.pending_out = st.pending_buf ∧
     (st.block_open = 0 → st.pending = 0 ∧ st.bi_valid < 8 ∧ last = 0) ∧
-    bitsOf st + 41 ≤ 32 * st.lit_bufsize.toNat + 32 ∧ z.avail_in = 0 ∧ QD fl h i b la ss H
+    bitsOf st + 41 ≤ 32 * st.lit_bufsize.toNat + 32 ∧ z.avail_in = 0 ∧ fl ≠ Z_NO_FLUSH ∧ QD fl h i b la ss H
 
 /-- The invariant of the main loop with `static_emit` over `(strstart, lookahead, exit)`. -/
 def QIs (h : Heap) (i b : Nat) (flush : Int32) (last : UInt32) (v : UInt32 × UInt32 × QuickExit) (H : Heap) :
@@ -1004,7 +1004,8 @@ theorem trip_s {h H : Heap} {i b wo : Nat} {flush : Int32} {last la ss : UInt32}
         have hz' : st'.lookahead = 0 := by simpa using hz
         have hai0 : z'.avail_in = 0 := hend.resolve_left (by rw [hz']; decide)
         refine Sat.pure ⟨⟨H3, z', st', d', rfl, F2, Nat.le_refl _, by rw [hz']; simp, hz', hpo2,
-          fun e0 => ?_, hB2, hai0, ⟨ea, A2, ?_⟩⟩, by simp [ZlibNgF.Proof.QuickP.QM]⟩
+          fun e0 => ?_, hB2, hai0, fun e => (by rw [hz', e] at hx; revert hx; decide), ⟨ea, A2, ?_⟩⟩,
+          by simp [ZlibNgF.Proof.QuickP.QM]⟩
         · obtain ⟨-, a2, a3, a4⟩ := hbo (ebo ▸ e0)
           exact ⟨ep.trans a2, by rw [ebv]; exact a3, a4⟩
         · rcases hd with h0 | ⟨h33, hF, -, hsm⟩
@@ -1190,7 +1191,7 @@ theorem quick_static_ok :
     | cont => cases hc
     | ret r => exact Sat.pure hI
     | brk =>
-      obtain ⟨H0, z1, st1, d1, rfl, F1, hss1, hsum1, hla0, hpo1, hbo1, hB1, hai0, ea, A1, hd1⟩ := hI
+      obtain ⟨H0, z1, st1, d1, rfl, F1, hss1, hsum1, hla0, hpo1, hbo1, hB1, hai0, hnf0, ea, A1, hd1⟩ := hI
       dsimp only at hss1 hsum1 hla0 A1 hd1
       subst hla0
       have hea33 : ea ≤ 33 := by rcases hd1 with h0 | ⟨h0, -⟩ <;> omega
@@ -1208,12 +1209,12 @@ theorem quick_static_ok :
         (la' := 0) (ss' := ss) (d' := d1) A1 (Nat.le_of_eq rfl)
       have fin : ∀ (lst : Int32) (b1 b2 : BlockState),
           (lst = 0 ∧ b1 = .need_more ∧ b2 = .block_done) ∨ (lst = 1 ∧ b1 = .finish_started ∧ b2 = .finish_done) →
-          (lst = 1 → flush = Z_FINISH) → (lst = 0 → ea = 0) →
+          (lst = 1 → flush = Z_FINISH) → (lst = 0 → ea = 0) → (b2 = .block_done → flush ≠ Z_FINISH) →
           Sat (SH H0 i z1 b { FS st1 0 ss with insert := if ss < STD_MIN_MATCH - 1 then ss else STD_MIN_MATCH - 1 } d1)
             (do
               if ← quick_end_block (some b) ss lst 1 then return b1
               return b2) (fun r H' => StratPost h (some i) flush r H') := by
-        intro lst b1 b2 hc hlF1 hea
+        intro lst b1 b2 hc hlF1 hea hbd
         have hfs : ∀ bs, (bs = b1 ∨ bs = b2) → ea ≤ finSlack bs := by
           intro bs hbs
           rcases hc with ⟨h0, rfl, rfl⟩ | ⟨-, rfl, rfl⟩
@@ -1236,7 +1237,8 @@ theorem quick_static_ok :
         · obtain ⟨rfl, rfl⟩ := q0 hb
           obtain ⟨a1, a2, -⟩ := hbo1 hb
           simp only [Bool.false_eq_true, ↓reduceIte]
-          refine Sat.pure (qf_post F3 flush b2 ⟨fun _ => ?_, hF2, fun _ e => absurd e hn2⟩ hE0 (fun st' h' => ?_)
+          refine Sat.pure (qf_post F3 flush b2 ⟨fun _ => ?_, hF2, fun _ e => absurd e hn2,
+            fun e => ⟨hnf0, hbd e, by rw [avIn_SH, hai0]; rfl⟩⟩ hE0 (fun st' h' => ?_)
             (qp_post F3 A3 (fun st' h' => by rw [SH_dstate] at h'; cases h'; exact ⟨rfl, rfl⟩) b2
               (hfs b2 (.inr rfl))))
           · rintro z' ⟨i', e', h'⟩
@@ -1254,7 +1256,7 @@ theorem quick_static_ok :
                   obtain rfl := Option.some.inj (hz4.symm.trans h''); exact ht (hb1 rfl)
               · exact absurd e hn2
             have hX : ExitIO H' i flush bs := by
-              refine ⟨fun e => ?_, fun e => ?_, fun _ e => hO e⟩
+              refine ⟨fun e => ?_, fun e => ?_, fun _ e => hO e, fun e => ?_⟩
               · rcases hbs with rfl | rfl
                 · rcases e with e | e
                   · exact cf_of_o0 (hO (.inl e))
@@ -1266,6 +1268,9 @@ theorem quick_static_ok :
               · rcases hbs with rfl | rfl
                 · exact hF1 e
                 · exact hF2 e
+              · rcases hbs with rfl | rfl
+                · rcases hc with ⟨-, rfl, -⟩ | ⟨-, rfl, -⟩ <;> cases e
+                · exact ⟨hnf0, hbd e, by simp only [avIn, hz4, hai4.trans hai0, UInt32.toNat_zero]⟩
             refine qf_post F4 flush bs hX hE0 (fun st' h' => ?_)
               (qp_post F4 A4 (fun st' h' => by obtain rfl := Option.some.inj (hst4.symm.trans h'); exact ⟨rfl, rfl⟩)
                 bs (hfs bs hbs))
@@ -1290,13 +1295,14 @@ theorem quick_static_ok :
           · exact absurd hl (by decide)
           · rfl
         exact fin 1 .finish_started .finish_done (.inr ⟨rfl, rfl, rfl⟩) (fun _ => hlF hl1)
-          (fun e => absurd e (by decide))
+          (fun e => absurd e (by decide)) (fun e => by cases e)
       · simp only [hl, Bool.false_eq_true, ↓reduceIte]
         have hl0 : last = 0 := by simpa using hl
-        exact fin 0 .need_more .block_done (.inl ⟨rfl, rfl, rfl⟩) (fun e => absurd e (by decide)) fun _ => by
-          rcases hd1 with h0 | ⟨-, hF, -⟩
-          · exact h0
-          · exact absurd hF (hl0F hl0)
+        refine fin 0 .need_more .block_done (.inl ⟨rfl, rfl, rfl⟩) (fun e => absurd e (by decide)) (fun _ => ?_)
+          (fun _ => hl0F hl0)
+        rcases hd1 with h0 | ⟨-, hF, -⟩
+        · exact h0
+        · exact absurd hF (hl0F hl0)
 
 /-- The state record of a stream is unique. -/
 theorem dstateIs_unique {h : Heap} {s : StreamPtr} {b b' : Nat} {st st' : DeflateState} (h1 : DStateIs h s b st)
