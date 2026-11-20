@@ -296,4 +296,168 @@ theorem exBody_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} 
       rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by omega)), hcopy]
       simp; omega
 
+/-- What the copy loop leaves. -/
+def EQ (h : Heap) (i b k : Nat) (g : GzHeader) (s : Bool × UInt32 × UInt32) (H : Heap) : Prop :=
+  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → EF h i b k g s.2.1 s.2.2 H ∧
+    ∀ st, H.dstate b = some st → st.pending.toNat + s.2.2.toNat ≤ st.pending_buf_size.toNat)
+
+/-- The loop condition and, when it holds, the trip. -/
+theorem exCond_ok {h : Heap} {i b k : Nat} {g : GzHeader} (s : Bool × UInt32 × UInt32) (H : Heap)
+    (I : EI h i b k g s H) :
+    Sat H (exCond (some b) s) (fun cs H1 =>
+      (cs.1 = true → Sat H1 (exBody (some b) (some i) (some k) cs.2)
+        (fun s2 H2 => EI h i b k g s2 H2 ∧ eμ s2 < eμ s)) ∧ (cs.1 = false → EQ h i b k g cs.2 H1)) := by
+  obtain ⟨rr, beg, left⟩ := s
+  cases rr with
+  | true =>
+    unfold exCond
+    dsimp only
+    rw [ite_t rfl]
+    exact Sat.pure ⟨nofun, fun _ => ⟨fun _ => I.1 rfl, nofun⟩⟩
+  | false =>
+    have E : EF h i b k g beg left H := I.2 rfl
+    obtain ⟨z, st, d, pbo, r, o, src, F⟩ := ef_facts E
+    have hL2 := land_lt g.extra_len
+    have hidx := F.idx
+    have hpl := F.plt
+    have hpbs := F.pbs
+    have hlb2 := F.lb2
+    unfold exCond
+    dsimp only
+    rw [ite_f (by simp)]
+    rw [← F.e]
+    refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+    have hadd : (st.pending + left).toNat = st.pending.toNat + left.toNat := u32_add _ _ (by omega)
+    refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨nofun, fun _ => ⟨by rw [F.e]; exact E, fun st' hst' => ?_⟩⟩⟩
+    · have hc' : st.pending_buf_size.toNat < st.pending.toNat + left.toNat := by
+        have := UInt32.lt_iff_toNat_lt.mp (of_decide_eq_true hc); rwa [hadd] at this
+      rw [F.e]
+      exact exBody_ok false E fun st' hst' => by
+        obtain rfl := Option.some.inj (F.hst.symm.trans hst'); exact hc'
+    · rw [F.e] at hst'
+      obtain rfl := Option.some.inj (F.hst.symm.trans hst')
+      have := of_decide_eq_false hc
+      have h2 : ¬ st.pending_buf_size.toNat < (st.pending + left).toNat := fun x => this (UInt32.lt_iff_toNat_lt.mpr x)
+      rw [hadd] at h2
+      show st.pending.toNat + left.toNat ≤ _
+      omega
+
+/-- The rest of the extra field fits: the copy, `gzindex = 0`, `NAME_STATE`. -/
+theorem exTail_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} (E : EF h i b k g beg left H)
+    (hfit : ∀ st, H.dstate b = some st → st.pending.toNat + left.toNat ≤ st.pending_buf_size.toNat) :
+    Sat H (exTail (some b) (some i) (some k) beg left) (HRet h i b (HK NAME_STATE)) := by
+  obtain ⟨z, st, d, pbo, r, o, src, F⟩ := ef_facts E
+  have hf := hfit st F.hst
+  have hL := land_le g.extra_len
+  have hL2 := land_lt g.extra_len
+  have hpl := F.plt
+  have hb := F.beg
+  have hidx := F.idx
+  have hroom := F.room
+  have hpbs := F.pbs
+  have hxl := F.xlen
+  have hlb2 := F.lb2
+  obtain ⟨-, -, hn, nbn, -⟩ := hdr_rd E.1 F.hst F.gz F.hg
+  have hadd : (st.pending + left).toNat = st.pending.toNat + left.toNat := u32_add _ _ (by omega)
+  rw [← F.e]
+  unfold exTail exEnd
+  refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+  refine Sat.bind (Sat.of_eq (ldHeader_SH F.hg) ?_)
+  refine sat_ival F.pb ?_
+  refine Sat.bind (Sat.of_eq (add_SH' (k := st.pending.toNat) (by omega)) ?_)
+  rw [F.xe]
+  refine Sat.bind (Sat.of_eq (InflateWindow.add_ref (h := SH H i z b st d)
+    (by rw [DeflateSetDict.space_SH_ne F.rb]; exact F.hsrc) (k := st.gzindex.toNat) (by omega)) ?_)
+  refine Sat.bind (Sat.of_eq (memcpy_in F.rb F.hsrc (od := pbo + st.pending.toNat) (n := left.toNat)
+    (by omega) (by omega)) ?_)
+  refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+  refine Sat.bind (Sat.mono (hcrc_SH (st := { st with pending := st.pending + left }) F.gz F.hg F.pb E.1.crc.1
+    (by rw [copyFold_size]; dsimp only; omega) beg
+    (by dsimp only; exact UInt32.le_iff_toNat_le.mpr (by omega))) ?_)
+  rintro _ _ ⟨a, rfl⟩
+  refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+  refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+  have R' := seg_run (d := copyFold src (pbo + st.pending.toNat) (o + st.gzindex.toNat)
+    (List.range' 0 left.toNat) d) F.run F.pb F.sym F.pout a (st.pending + left) NAME_STATE 0 (copyFold_size _ _ _ _ _)
+    (fun j hj => copyFold_get _ _ _ _ _ _ fun x hx => by simp only [List.mem_range'_1] at hx; omega)
+    (by omega) (by decide) (by decide) (by decide)
+    (hdrOk_name F.gz F.hg F.wrap rfl rfl hn nbn)
+  refine Sat.pure ⟨R', nofun, fun _ st' hst' => ?_⟩
+  rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
+  exact .inr ⟨rfl, F.sym, F.pout, UInt32.le_iff_toNat_le.mpr (by dsimp only; omega)⟩
+
+/-- No extra field: `NAME_STATE` (`gzindex` is 0 already). -/
+theorem exEnd_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
+    (hs : st.status = EXTRA_STATE) (h0 : st.sym_next = 0) (hpo : st.pending_out = st.pending_buf)
+    (hpl : st.pending < st.pending_buf_size) {k : Nat} {g : GzHeader} (hgz : st.gzhead = .val (some k))
+    (hg : H.gzheaders k = some g) (hx : g.extra = .null) :
+    Sat H (exEnd (some b)) (HRet h i b (HK NAME_STATE)) := by
+  obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, e, c⟩ := R.live
+  obtain rfl := Option.some.inj (hst.symm.trans hst1)
+  obtain ⟨-, -, hn, nbn, -⟩ := hdr_rd R hst hgz hg
+  obtain ⟨hw, H2⟩ := (R.side st hst).2.2.1
+  obtain ⟨k', g', hgz', hg', -, -, -, x4, -⟩ := H2 (Or.inl hs)
+  rw [hgz] at hgz'; obtain rfl : k = k' := by injection hgz' with e1; injection e1
+  obtain rfl := Option.some.inj (hg.symm.trans hg')
+  have hi0 := x4 hs hx
+  obtain ⟨d0, wo, po, ho, pbo, hd0, -, -, -, hpb, -⟩ := c.lay
+  obtain ⟨-, -, -, -, -, l3, -⟩ := c.sizes
+  rw [← e] at R ⊢
+  unfold exEnd
+  refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+  have R' := seg_run R hpb h0 hpo z.adler st.pending NAME_STATE st.gzindex rfl (fun _ _ => rfl)
+    (by have := UInt32.lt_iff_toNat_lt.mp hpl; simp only [dview] at l3; omega) (by decide) (by decide) (by decide)
+    (hdrOk_name hgz hg (hw (Or.inr (Or.inl hs))) rfl hi0 hn nbn)
+  refine Sat.pure ⟨R', nofun, fun _ st' hst' => ?_⟩
+  rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
+  exact .inr ⟨rfl, h0, hpo, UInt32.le_of_lt hpl⟩
+
+/-- The `EXTRA_STATE` part of `deflateHeaders`. -/
+theorem extra_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
+    (hs : st.status = EXTRA_STATE) (h0 : st.sym_next = 0) (hpo : st.pending_out = st.pending_buf)
+    (hpl : st.pending < st.pending_buf_size) :
+    Sat H (headersExtra (some b) (some i)) (HRet h i b (HK NAME_STATE)) := by
+  obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, e, c⟩ := R.live
+  obtain rfl := Option.some.inj (hst.symm.trans hst1)
+  obtain ⟨hw, H2⟩ := (R.side st hst).2.2.1
+  obtain ⟨k, g, hgz, hg, x1, -, -, -, -⟩ := H2 (Or.inl hs)
+  have hg0 : h.gzheaders k = some g := by
+    obtain ⟨⟨-, fg, -⟩, -⟩ := R.frame; rw [← fg k (by simp)]; exact hg
+  rw [extra_eq]
+  rw [← e]
+  refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+  refine sat_ival hgz ?_
+  refine Sat.bind (Sat.of_eq (ldHeader_SH hg) ?_)
+  by_cases hx : (g.extra != .null) = true
+  · rw [ite_t hx]
+    have hxn : g.extra ≠ .null := by simpa using hx
+    have hle := x1 hs hxn
+    refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+    refine Sat.bind (Sat.of_eq (ldHeader_SH hg) ?_)
+    have hL2 := land_lt g.extra_len
+    have E0 : EI h i b k g (false, st.pending, (g.extra_len &&& 0xffff) - st.gzindex) (SH H i z b st d) := by
+      refine ⟨nofun, fun _ => ⟨by rw [e]; exact R, hg0, hxn, fun st' hst' => ?_⟩⟩
+      rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
+      refine ⟨hs, h0, hpo, hpl, UInt32.le_refl _, ?_, hgz⟩
+      show st.gzindex.toNat + ((g.extra_len &&& 0xffff) - st.gzindex).toNat = _
+      rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr hle)]; omega
+    refine Sat.bind (Sat.mono (WinInv.sat_cwhileH (EI h i b k g) (fun s _ => eμ s) (EQ h i b k g)
+      (fun s H1 I => exCond_ok s H1 I) E0 (by
+        have := UInt32.toNat_lt ((g.extra_len &&& 0xffff) - st.gzindex)
+        simp only [eμ, fuel]; split <;> omega)) ?_)
+    rintro ⟨rr, beg, left⟩ H1 Q1
+    dsimp only
+    cases rr with
+    | true =>
+      rw [ite_t rfl]
+      obtain ⟨R1, l1⟩ := Q1.1 rfl
+      exact Sat.pure ⟨R1, fun _ => l1, nofun⟩
+    | false =>
+      rw [ite_f (by simp)]
+      obtain ⟨E1, f1⟩ := Q1.2 rfl
+      exact exTail_ok E1 f1
+  · rw [ite_f hx]
+    rw [e]
+    exact exEnd_ok R hst hs h0 hpo hpl hgz (by rw [← e]; exact hg) (by simpa using hx)
+
 end ZlibNgF.Proof.DeflateBody
