@@ -329,3 +329,21 @@ theorem rle_ok (T : TreesFacts) : StratOkG deflate_rle := by
     exact slc_tail T flush C2 hw0
 
 end ZlibNgF.Proof.DeflateRleP
+
+namespace ZlibNgF.Proof.Strategy
+open C ZlibNgF.Spec ZlibNg.Deflate ZlibNgF.Proof.DeflateInv ZlibNgF.Proof.DeflateFacts
+
+/-- `StratOkG` gives `StratOkL` once every invariant state satisfies `GapOk` and has room for one more symbol (the
+clauses that `DInv` does not state yet). -/
+theorem stratOkL_of_G (hG : ∀ h s, DInv h s → ∀ b st, DStateIs h s b st → GapOk st ∧ st.sym_next < st.sym_end)
+    {f : StatePtr → Int32 → M BlockState} (hf : StratOkG f) : StratOkL f := by
+  intro h s b flush P hsb hl
+  obtain ⟨bs, h', e, q, -⟩ := hf h s b flush P hsb fun b' st hd => ⟨hl b' st hd, hG h s P.1 b' st hd⟩
+  exact ⟨bs, h', e, q⟩
+
+/-- The two strategies of this branch: `deflate_huff` and `deflate_rle`, given the block emitters. -/
+theorem strategiesA (T : TreesFacts) :
+    StratOkG ZlibNg.DeflateHuff.deflate_huff ∧ StratOkG ZlibNg.DeflateRle.deflate_rle :=
+  ⟨ZlibNgF.Proof.DeflateHuffP.huff_ok T, ZlibNgF.Proof.DeflateRleP.rle_ok T⟩
+
+end ZlibNgF.Proof.Strategy
