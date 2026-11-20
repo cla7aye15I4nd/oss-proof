@@ -180,6 +180,7 @@ import ZlibNgF.Proof.«gzread.c.look»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
 import ZlibNgF.Proof.«gzwrite.c.error»
+import ZlibNgF.Proof.«gzwrite.c.init»
 import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
 import ZlibNgF.Proof.«deflate_huff.c.safety»
