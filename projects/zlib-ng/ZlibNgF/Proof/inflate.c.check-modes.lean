@@ -37,7 +37,8 @@ theorem run_LENGTH (E : Env) (eo : EnvOK E) : ModeRun E inflate_LENGTH (·.mode 
     intro _ H1 li1
     unfold inflate_DONE
     refine SatX.bind (SatX.modify ?_)
-    exact SatX.throw ⟨⟨_, _, li1.setRet Z_STREAM_END (by decide)⟩, Why.ret (show Z_STREAM_END ≠ Z_OK by decide)⟩
+    have li2 := li1.setRet Z_STREAM_END (by decide)
+    exact SatX.throw ⟨⟨_, _, li2⟩, Why.ret (show Z_STREAM_END ≠ Z_OK by decide) (li2.frLEnd rfl)⟩
   clear_value jp
   split
   · refine needbits_then eo li 32 (by decide) ?_
@@ -223,7 +224,7 @@ theorem tripOK (E : Env) (eo : EnvOK E) : TripOK E := by
   have rLENGTH := run_LENGTH E eo
   have rCHECK := run_CHECK E eo rLENGTH
   have rDONE : ModeRun E inflate_DONE (·.mode = DONE) := run_DONE E
-  have rBAD : ModeRun E inflate_BAD (·.mode = BAD) := (run_BAD E).of_true
+  have rBAD : ModeRun E inflate_BAD (·.mode = BAD) := run_BAD E
   refine trip_of_modes (fun M l H z S li hm m hμ => ?_)
   obtain ⟨al, -, c⟩ := li.core
   have lo : HEAD ≤ M := hm ▸ c.mode_lo

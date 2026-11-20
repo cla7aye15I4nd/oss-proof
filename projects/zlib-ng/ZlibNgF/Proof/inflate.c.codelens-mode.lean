@@ -199,10 +199,12 @@ theorem LI.clFacts {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
 /-- A bad repeat: `SET_BAD(msg); break;`. -/
 theorem badBrk_ok {E : Env} {m : Nat} {l0 : IL} {z0 : ZStream} {hv0 : Nat} {l : IL} {H : Heap} {z : ZStream}
     {S : InflateState} (li : LI E l H z S) (hl : l.left = l0.left)
-    (hb : 8 * l.have_.toNat + l.bits.toNat ≤ 8 * l0.have_.toNat + l0.bits.toNat) :
+    (hb : 8 * l.have_.toNat + l.bits.toNat ≤ 8 * l0.have_.toNat + l0.bits.toNat)
+    (hmS : S.mode ≠ HEAD ∧ S.mode ≠ TYPEDO) :
     SatX H l (do (MonadLiftT.monadLift (SET_BAD E.c "invalid bit length repeat") : X Unit); pure true)
       (CLbody E m l0 z0 hv0) := by
-  refine SatX.bind (SatX.lift (Sat.mono (li.setBad _ (strIdx 15 (by decide) (by decide) (by decide))) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li.setBad _ (strIdx 15 (by decide) (by decide) (by decide))
+    (fun h => h.mono rfl (FrS.no_mode hmS))) ?_))
   rintro _ H1 ⟨z1, li1⟩
   exact SatX.pure ⟨z1, _, li1, hl, hb, Or.inr rfl⟩
 
@@ -234,7 +236,7 @@ theorem repTail_ok {E : Env} {m : Nat} {l0 : IL} {l : IL} {H : Heap} {z : ZStrea
   have hnd : (S.nlen + S.ndist).toNat = S.nlen.toNat + S.ndist.toNat := by
     rw [UInt32.toNat_add]; exact Nat.mod_eq_of_lt (by show _ < 4294967296; omega)
   split
-  · exact badBrk_ok li hl hb
+  · exact badBrk_ok li hl hb (by rw [hm]; decide)
   rename_i hng
   have hle : S.«have».toNat + l.copy.toNat ≤ S.nlen.toNat + S.ndist.toNat := by
     have : ¬ (S.nlen + S.ndist).toNat < (S.«have» + l.copy).toNat := hng
@@ -382,6 +384,7 @@ theorem rep16_ok {E : Env} {m : Nat} {l0 : IL} {l : IL} {H : Heap} {z : ZStream}
   split
   · exact badBrk_ok li4 (by show l3.left = l0.left; rw [hl3, hl])
       (by show 8 * l3.have_.toNat + (l3.bits - h.bits.toUInt32.toUInt8).toNat ≤ _; rw [hd4]; omega)
+      (by rw [hm]; decide)
   rename_i hv0
   have hv0' : S.«have» ≠ 0 := by simpa using hv0
   have hv1 : 1 ≤ S.«have».toNat := by
@@ -487,11 +490,12 @@ theorem bad_withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     {m : Nat} (S' : InflateState)
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view { S' with mode := BAD }) al)
     (hh : S'.head = S.head) (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) < m) (msg : String)
-    {i : Nat} (hi : strTable.findIdx? (· == msg) = some i) (hlast : S'.last = S.last := by rfl) :
+    {i : Nat} (hi : strTable.findIdx? (· == msg) = some i) (hlast : S'.last = S.last := by rfl)
+    (hmS : S.mode ≠ HEAD ∧ S.mode ≠ TYPEDO) :
     SatX (withS H E.b S') { l with ret := v } (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ())
       (Post E m) := by
   have li1 := li.withS { S' with mode := BAD } keep hh (Or.inr fun _ => show rank BAD ≤ 2 by decide)
-    (fun h => h.mono rfl fun ⟨a, b, _, d⟩ => ⟨a, hlast ▸ b, Or.inr (Or.inr rfl), d⟩)
+    (fun h => h.mono rfl (FrS.no_mode hmS))
   have hs : Sat (withS H E.b S') (SET_BAD E.c msg) (fun _ H' => ∃ z', LI E l H' z' { S' with mode := BAD }) := by
     unfold SET_BAD
     refine Sat.bind (Sat.of_eq (wrS_withS li.hs S' _) ?_)
@@ -662,7 +666,7 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
         work := work'
         next := .val (.ref (.codes E.b) 0)
         lenbits := lb } (fun _ _ c => core_CLbad c hcs hws (o := 0) (by decide) lb S1.distcode S1.distbits hdc) rfl
-      hb1' "invalid literal/lengths set" (strIdx 23 (by decide) (by decide) (by decide))
+      hb1' "invalid literal/lengths set" (strIdx 23 (by decide) (by decide) (by decide)) (hmS := by rw [hm1]; decide)
   have h0 : ret = 0 := by simpa using hne
   obtain ⟨ho1, -, -, -, hct1⟩ := hok h0
   have ho1' : o' ≤ 1332 := by
@@ -714,7 +718,7 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
         next := .val (.ref (.codes E.b) o'')
         distbits := db } (fun _ _ c => core_CLbad c hcs2 hws2 (o := o'') (by rw [ho]; show o' ≤ 1924; omega) lb
       (.val (.ref (.codes E.b) o')) db ⟨o', rfl, by show o' ≤ 1924; omega⟩) rfl
-      hb1' "invalid distances set" (strIdx 21 (by decide) (by decide) (by decide))
+      hb1' "invalid distances set" (strIdx 21 (by decide) (by decide) (by decide)) (hmS := by rw [hm1]; decide)
   have h02 : ret2 = 0 := by simpa using hne2
   obtain ⟨ho2, -, -, -, hct2⟩ := hok2 h02
   rw [mOf_DISTS, dOf_DISTS] at hct2
@@ -735,7 +739,8 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
   dsimp (config := { zeta := false }) only
   split
   · rename_i h
-    exact SatX.bind (SatX.throw ⟨⟨_, _, liF⟩, Why.trees (by simpa [Env.c] using h)⟩)
+    exact SatX.bind (SatX.throw ⟨⟨_, _, liF⟩, Why.trees (by simpa [Env.c] using h)
+      (liF.frL (by show LEN_ ≠ HEAD ∧ LEN_ ≠ TYPEDO; decide))⟩)
   · refine hL _ _ _ _ liF rfl m ?_
     unfold μ; dsimp only; rw [rank_LEN_]; omega
 

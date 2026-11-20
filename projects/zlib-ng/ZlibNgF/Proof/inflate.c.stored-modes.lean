@@ -104,6 +104,7 @@ theorem run_COPY (E : Env) (eo : EnvOK E) : ModeRun E inflate_COPY (·.mode = CO
       · exact absurd (e.symm.trans hc0) (by simpa using hlen)
       · exact Why.have0 (show l.have_ = 0 by rw [← e, hc0])
       · exact Why.full (show l.left = 0 by rw [← e, hc0]) (li.outEq (by rw [hm]; decide))
+          (li1.frL (by rw [hm]; decide))
     rename_i hc0'
     have hc0 : c2 ≠ 0 := by simpa using hc0'
     simp only [jp]
@@ -218,7 +219,8 @@ theorem run_STORED (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_COPY_ (·.mo
   dsimp only
   split
   · rename_i h
-    exact SatX.bind (SatX.throw ⟨⟨_, _, li5⟩, Why.trees (by simpa [Env.c] using h)⟩)
+    exact SatX.bind (SatX.throw ⟨⟨_, _, li5⟩, Why.trees (by simpa [Env.c] using h)
+      (li5.frL (by show COPY_ ≠ HEAD ∧ COPY_ ≠ TYPEDO; decide))⟩)
   · refine hX _ _ _ _ li5 rfl m ?_
     have e0 : (0 : UInt8).toNat = 0 := rfl
     unfold μ; dsimp only; rw [rank_COPY_, e0, hleft']; omega
@@ -264,7 +266,8 @@ theorem run_LIT (E : Env) (eo : EnvOK E) : ModeRun E inflate_LIT (·.mode = LIT)
   dsimp (config := { zeta := false }) only
   split
   · rename_i h
-    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, Why.full (by simpa using h) (li.outEq (by rw [hm]; decide))⟩)
+    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, Why.full (by simpa using h) (li.outEq (by rw [hm]; decide))
+      (li.frL (by rw [hm]; decide))⟩)
   rename_i hl0
   have hl : l.left ≠ 0 := by simpa using hl0
   have hl1 : 1 ≤ l.left.toNat := by

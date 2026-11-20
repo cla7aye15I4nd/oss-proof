@@ -165,9 +165,9 @@ theorem initfall_ok {E : Env} {f : Ctx → X Unit} {md : UInt32} (run : ModeRun 
 /-- `SET_BAD(msg); break;` with the input bits conserved. -/
 theorem bad_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
     (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) < m) (msg : String) {i : Nat}
-    (hi : strTable.findIdx? (· == msg) = some i) :
+    (hi : strTable.findIdx? (· == msg) = some i) (hfr : Fr E l S → Fr E l { S with mode := BAD } := by frt) :
     SatX H l (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ()) (Post E m) := by
-  refine SatX.bind (SatX.lift (Sat.mono (li.setBad msg hi) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li.setBad msg hi hfr) ?_))
   rintro _ H1 ⟨z1, li1⟩
   refine SatX.pure (post_ok li1 ?_)
   unfold μ; dsimp only; rw [rank_BAD]; omega
@@ -175,9 +175,9 @@ theorem bad_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (l
 /-- `ret = v; SET_BAD(msg)` for a code `v` of `inflate_table`: the next trip (`BAD`) sets `ret` again. -/
 theorem bad_ok_ret {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (v : Int32)
     {m : Nat} (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) < m) (msg : String) {i : Nat}
-    (hi : strTable.findIdx? (· == msg) = some i) :
+    (hi : strTable.findIdx? (· == msg) = some i) (hfr : Fr E l S → Fr E l { S with mode := BAD } := by frt) :
     SatX H { l with ret := v } (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ()) (Post E m) := by
-  refine SatX.bind (SatX.lift (Sat.mono (li.setBad msg hi) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li.setBad msg hi hfr) ?_))
   rintro _ H1 ⟨z1, li1⟩
   refine SatX.pure ⟨z1, _, Or.inr ⟨rfl, l.ret, li1⟩, ?_⟩
   unfold μ; dsimp only; rw [rank_BAD]; omega
