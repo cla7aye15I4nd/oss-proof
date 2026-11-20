@@ -312,7 +312,7 @@ theorem shape_have {h : Heap} {s : GzState} (sh : GzShape h s) (v : UInt32) (hv 
     · obtain ⟨c, base, z, hb, hz, hd, hai, hnh⟩ := (sh.write hw).bufs hsz
       exact ⟨c, base, z, ⟨hb.1, hb.2, hb.3, hb.4, hb.5, hb.6⟩, hz, hd, hai, hnh⟩
     have R := sh.read hr
-    refine ⟨R.how, fun hsz => ?_, fun _ => rfl, fun hk => ?_⟩
+    refine ⟨R.how, fun hsz => ?_, fun _ => rfl, fun hk => ?_, R.fresh⟩
     · obtain ⟨c, base, z, hb, hi, hz, -, hai, hreg⟩ := R.bufs hsz
       exact ⟨c, base, z, ⟨hb.1, hb.2, hb.3, hb.4, hb.5, hb.6⟩, hi, hz, Or.inl rfl, hai, hreg⟩
     · show s.pos.toInt + s.skip.toInt + ((0 : UInt32).toNat : Int) ≤ _

@@ -85,7 +85,7 @@ def QE (h : Heap) (i b : Nat) (flush : Int32) (v : Bool × UInt32 × UInt32) (H 
 
 /-- `QE` from the facts after `quick_end_block(s, strstart, 0, 0)`. -/
 theorem qe_of {h H2 : Heap} {i b : Nat} {flush : Int32} {r : Bool} {la ss : UInt32}
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED) (F2 : SLF h i b H2)
+    (hn : NotSlow h b) (F2 : SLF h i b H2)
     (hs : ∀ st2, H2.dstate b = some st2 → st2.lookahead = la ∧ st2.strstart = ss ∧ st2.sym_next < st2.sym_end ∧
       (r = false → st2.pending = 0) ∧ (r = true → st2.sym_next = 0)) : QE h i b flush (r, ss, la) H2 := by
   obtain ⟨z2, st2, -, hz2, -, hst2, -, -⟩ := F2.live
@@ -105,7 +105,7 @@ theorem qe_of {h H2 : Heap} {i b : Nat} {flush : Int32} {r : Bool} {la ss : UInt
 
 /-- After a tally that filled the symbol buffer: write the locals back and `quick_end_block(s, strstart, 0, 0)`. -/
 theorem slw_end (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la ss : UInt32}
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
+    (hn : NotSlow h b)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (W : SLW h i b la ss H) :
     Sat H (do
       wrD (some b) fun s => { s with strstart := ss, lookahead := la }
@@ -124,7 +124,7 @@ theorem slw_end (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la
 
 /-- `quick_emit_lit(s, lit, &strstart, &lookahead, 0)` (`deflate_quick.c:87-104`) in the loop. -/
 theorem qlit_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la ss : UInt32}
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
+    (hn : NotSlow h b)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (I : SLI h i b la ss H)
     (hl : 1 ≤ la.toNat) (lit : UInt8) :
     Sat H (quick_emit_lit (some b) lit ss la 0) (fun v H2 => QE h i b flush v H2 ∧ v.2.1 = ss + 1 ∧
@@ -144,7 +144,7 @@ theorem qlit_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la
 /-- `quick_emit_dist(s, match_len, dist, &strstart, &lookahead, 0)` (`deflate_quick.c:107-124`) in the loop, with
 `match_len` 3..258 and at most `lookahead`, and `dist` 1..32768. -/
 theorem qdist_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la ss : UInt32}
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
+    (hn : NotSlow h b)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (I : SLI h i b la ss H)
     (ml dist : UInt32) (hm3 : 3 ≤ ml.toNat) (hm : ml.toNat ≤ 258) (hml : ml.toNat ≤ la.toNat)
     (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768) :

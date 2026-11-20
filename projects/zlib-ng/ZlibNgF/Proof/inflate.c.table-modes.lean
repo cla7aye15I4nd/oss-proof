@@ -86,8 +86,9 @@ theorem storeLens_withS {H : Heap} {b : Nat} {S : InflateState} (hs : H.istate b
 theorem LI.withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (S' : InflateState)
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view S') al)
-    (hh : S'.head = S.head) : LI E l (withS H E.b S') z S' := by
-  obtain ⟨_, H', e, hl⟩ := li.wrS (fun _ => S') keep hh
+    (hh : S'.head = S.head) (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank S'.mode ≤ 2) := by exact Or.inr id) :
+    LI E l (withS H E.b S') z S' := by
+  obtain ⟨_, H', e, hl⟩ := li.wrS (fun _ => S') keep hh ho
   rw [wrS_app li.hs] at e
   obtain ⟨-, rfl⟩ := Prod.mk.inj (Except.ok.inj e)
   exact hl
@@ -271,8 +272,8 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
       rintro r l2 H2 ⟨rfl, li2, p2, hb2, hr⟩
       match r, hr with
       | .error e, hr =>
-        obtain ⟨rfl, -⟩ := hr
-        exact ⟨z, S1, li2⟩
+        obtain ⟨rfl, -, h0⟩ := hr
+        exact ⟨⟨z, S1, li2⟩, Why.have0 h0⟩
       | .ok (), hr =>
         have hs1 := li2.hs
         have hsz := li2.lensSize
@@ -353,7 +354,7 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
     distcode := .val (.ref (.codes E.b) 0)
     lencode := .val (.ref (.codes E.b) 0)
     lenbits := 7 }
-  obtain ⟨ret, o', lb, codes', work', e, hcs, hws, -, -, hok, herr⟩ :=
+  obtain ⟨ret, o', lb, codes', work', e, hcs, hws, -, hr3, hok, herr⟩ :=
     Inftrees.table_run (withS H2 E.b S4) E.b S4 ZlibNg.Inftrees.CODES 0 19 0 7 (istate_withS hs2 _)
       c2.codes_size c2.lens_size c2.work_size (Or.inl ⟨rfl, rfl, rfl, rfl, rfl⟩)
       (fun j hj => by show _ ≤ 7; exact lens19 h19 hll.2.2.2 j hj)
@@ -364,6 +365,7 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
   refine SatX.bind (SatX.lift (Sat.of_eq e' ?_))
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs2 _ _) ?_))
   have hμ2 : 32 * (8 * l2.have_.toNat + l2.bits.toNat + l2.left.toNat) + 17 ≤ m := by rw [hl2]; omega
+  have hrB : ret ≠ Z_BUF_ERROR := by rcases hr3 with e | e | e <;> rw [e] <;> decide
   refine SatX.bind (SatX.modify (SatX.ite (fun hne => ?_) (fun hne => ?_)))
   · have h0 : ret ≠ 0 := by simpa using hne
     obtain rfl := herr h0
@@ -371,8 +373,7 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
         codes := codes'
         work := work'
         next := .val (.ref (.codes E.b) 0)
-        lenbits := lb } (fun _ _ c => core_LLtab (o := 0) c hm2 hcs hws (by decide) lb) rfl).locals
-        (l' := { l2 with ret := ret }) rfl rfl rfl rfl rfl rfl)
+        lenbits := lb } (fun _ _ c => core_LLtab (o := 0) c hm2 hcs hws (by decide) lb) rfl).setRet ret hrB)
         (by show 32 * (8 * l2.have_.toNat + l2.bits.toNat + l2.left.toNat) < m; omega) "invalid code lengths set" (strIdx 18 (by decide) (by decide) (by decide))
   · have h0 : ret = 0 := by simpa using hne
     obtain ⟨ho1, ho2, -, -, hct⟩ := hok h0
@@ -388,8 +389,7 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
         mode := CODELENS } (fun _ _ c => core_CL c hm2 hcs hws
           (by have : (1332 : Nat) ≤ ENOUGH := by decide
               have e : (if ZlibNg.Inftrees.CODES = ZlibNg.Inftrees.DISTS then 592 else 1332) = 1332 := by decide
-              omega) lb hct') rfl).locals
-        (l' := { l2 with ret := ret }) rfl rfl rfl rfl rfl rfl) rfl m ?_
+              omega) lb hct') rfl (Or.inl (li2.outEq (by rw [hm2]; decide)))).setRet ret hrB) rfl m ?_
     unfold μ; dsimp only; rw [rank_CODELENS]; omega
 
 /-! ## `TABLE` -/
@@ -484,7 +484,7 @@ theorem run_TABLE (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENLENS (·.m
       mode_lo := by show HEAD ≤ LENLENS; decide
       mode_hi := by show LENLENS ≤ SYNC; decide
       modes := modeOK_LL _ _ rfl ⟨bits4_le _, ⟨bits5_ge _ 257 (by decide), hok.1⟩, ⟨bits5_ge _ 1 (by decide), hok.2⟩,
-        fun j hj => absurd hj (Nat.not_lt_zero _)⟩ }) rfl) ?_))
+        fun j hj => absurd hj (Nat.not_lt_zero _)⟩ }) rfl (Or.inl (li1.outEq (by rw [hm]; decide)))) ?_))
     intro _ H9 li9
     refine hX _ _ _ _ li9 rfl m ?_
     unfold μ

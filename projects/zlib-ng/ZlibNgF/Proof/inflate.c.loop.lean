@@ -78,6 +78,20 @@ theorem SizeKeep.trans {H0 H1 H2 : Heap} {b : Nat} (s1 : SizeKeep H0 H1 b) (s2 :
   obtain ⟨d2, e2, z2⟩ := s2.1 c hc d1 e1
   exact ⟨d2, e2, z2.trans z1⟩
 
+/-- How far a mode is from leaving without consuming anything (see the module comment). -/
+def rank (m : UInt32) : Nat := min 31 <|
+  if m = LENGTH then 1 else if m = CHECK then 2 else if m = LEN then 3 else if m = LEN_ then 4
+  else if m = LIT then 5 else if m = MATCH then 6 else if m = DISTEXT then 7 else if m = DIST then 8
+  else if m = LENEXT then 9 else if m = TYPEDO then 10 else if m = TYPE then 11 else if m = COPY then 12
+  else if m = COPY_ then 13 else if m = STORED then 14 else if m = TABLE then 15 else if m = LENLENS then 17
+  else if m = CODELENS then 16 else if m = HCRC then 18 else if m = COMMENT then 19 else if m = NAME then 20
+  else if m = EXTRA then 21 else if m = EXLEN then 22 else if m = OS then 23 else if m = TIME then 24
+  else if m = FLAGS then 25 else if m = DICT then 26 else if m = DICTID then 27 else if m = HEAD then 28
+  else 0
+
+theorem rank_lt (m : UInt32) : rank m < 32 := by
+  unfold rank; exact Nat.lt_of_le_of_lt (Nat.min_le_left _ _) (by decide)
+
 /-- The loop invariant: heap `H` with stream record `z` and state `S`, locals `l`. -/
 structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Prop where
   inv : Inv H (some E.i)
@@ -93,23 +107,28 @@ structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Pr
   bits : l.bits ≤ 39
   /-- `in`, the input count at entry, is set once before the loop -/
   inn : l.in_ = E.A0
+  /-- `out` is the output count at entry until `CHECK` sets it to `left` (and then the mode stays in
+  `CHECK`, `LENGTH`, `DONE`, `BAD`, the modes of rank at most 2) -/
+  outO : l.out = E.O0 ∨ rank S.mode ≤ 2
+  /-- `ret` is `Z_OK`, `Z_STREAM_END` or `Z_DATA_ERROR` inside the loop, never `Z_BUF_ERROR` -/
+  retB : l.ret ≠ Z_BUF_ERROR
 
 /-- The loop invariant for some stream record and state. -/
 def LIx (E : Env) (l : IL) (H : Heap) : Prop := ∃ z S, LI E l H z S
 
-/-- How far a mode is from leaving without consuming anything (see the module comment). -/
-def rank (m : UInt32) : Nat := min 31 <|
-  if m = LENGTH then 1 else if m = CHECK then 2 else if m = LEN then 3 else if m = LEN_ then 4
-  else if m = LIT then 5 else if m = MATCH then 6 else if m = DISTEXT then 7 else if m = DIST then 8
-  else if m = LENEXT then 9 else if m = TYPEDO then 10 else if m = TYPE then 11 else if m = COPY then 12
-  else if m = COPY_ then 13 else if m = STORED then 14 else if m = TABLE then 15 else if m = LENLENS then 17
-  else if m = CODELENS then 16 else if m = HCRC then 18 else if m = COMMENT then 19 else if m = NAME then 20
-  else if m = EXTRA then 21 else if m = EXLEN then 22 else if m = OS then 23 else if m = TIME then 24
-  else if m = FLAGS then 25 else if m = DICT then 26 else if m = DICTID then 27 else if m = HEAD then 28
-  else 0
+/-- Why a trip went to `inf_leave`: `ret` was set, the input ran out or was read from, the output ran out (with `out`
+still the output count at entry), or `flush` asked to stop at a block boundary. -/
+def Why (E : Env) (l : IL) : Prop :=
+  l.ret ≠ Z_OK ∨ l.have_ = 0 ∨ l.have_ < E.A0 ∨ (l.left = 0 ∧ l.out = E.O0) ∨ E.flush = Z_BLOCK ∨
+    E.flush = Z_TREES
 
-theorem rank_lt (m : UInt32) : rank m < 32 := by
-  unfold rank; exact Nat.lt_of_le_of_lt (Nat.min_le_left _ _) (by decide)
+theorem Why.ret {E : Env} {l : IL} (h : l.ret ≠ Z_OK) : Why E l := Or.inl h
+theorem Why.have0 {E : Env} {l : IL} (h : l.have_ = 0) : Why E l := Or.inr (Or.inl h)
+theorem Why.read {E : Env} {l : IL} (h : l.have_ < E.A0) : Why E l := Or.inr (Or.inr (Or.inl h))
+theorem Why.full {E : Env} {l : IL} (h : l.left = 0) (h' : l.out = E.O0) : Why E l :=
+  Or.inr (Or.inr (Or.inr (Or.inl ⟨h, h'⟩)))
+theorem Why.block {E : Env} {l : IL} (h : E.flush = Z_BLOCK) : Why E l := Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h))))
+theorem Why.trees {E : Env} {l : IL} (h : E.flush = Z_TREES) : Why E l := Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h))))
 
 /-- The measure of the loop. -/
 def μ (l : IL) (S : InflateState) : Nat :=
@@ -131,8 +150,8 @@ def Fin (E : Env) (H : Heap) : Prop := Inv H (some E.i) ∧ Frame E.H0 H [E.i] [
 /-- The outcome of one trip of the loop started below the measure `m`. -/
 def Post (E : Env) (m : Nat) : Except Ex Unit → IL → Heap → Prop
   | .ok (), l, H => ∃ z S, LI E l H z S ∧ μ l S < m
-  | .error .leave, l, H => LIx E l H
-  | .error (.ret v), _, H => Fin E H ∧ v ≠ Z_OK
+  | .error .leave, l, H => LIx E l H ∧ Why E l
+  | .error (.ret v), _, H => Fin E H ∧ v ≠ Z_OK ∧ v ≠ Z_BUF_ERROR
 
 theorem Post.mono {E : Env} {m m' : Nat} (hm : m ≤ m') {r : Except Ex Unit} {l : IL} {H : Heap}
     (p : Post E m r l H) : Post E m' r l H := by
@@ -151,8 +170,8 @@ theorem loop_ok {E : Env} (T : TripOK E) {l : IL} {H : Heap} {z : ZStream} {S : 
     (li : LI E l H z S) :
     SatX H l (xloopBrk (do dispatch E.c; return false)) (fun r l' H' => match r with
       | .ok () => False
-      | .error .leave => LIx E l' H'
-      | .error (.ret v) => Fin E H' ∧ v ≠ Z_OK) := by
+      | .error .leave => LIx E l' H' ∧ Why E l'
+      | .error (.ret v) => Fin E H' ∧ v ≠ Z_OK ∧ v ≠ Z_BUF_ERROR) := by
   unfold xloopBrk
   refine xwhileBrk_rank (fun l H => LIx E l H) (fun l H => ?_) _ ?_ ⟨z, S, li⟩ ?_
   · exact match H.istate E.b with | some S => μ l S | none => 0
