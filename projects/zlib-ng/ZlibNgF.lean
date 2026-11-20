@@ -198,6 +198,7 @@ import ZlibNgF.Proof.«gzwrite.c.comp»
 import ZlibNgF.Proof.«gzwrite.c.flat»
 import ZlibNgF.Proof.«gzwrite.c.deflx»
 import ZlibNgF.Proof.«gzwrite.c.errx»
+import ZlibNgF.Proof.«gzwrite.c.loop»
 import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
 import ZlibNgF.Proof.«deflate_huff.c.safety»
