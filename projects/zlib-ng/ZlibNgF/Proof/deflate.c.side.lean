@@ -584,7 +584,7 @@ theorem resetKeep_side {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : DInv h s)
   obtain rfl := Option.some.inj (hst'.symm.trans hst2)
   refine sideAt_clean (symEnd_pos c) k1 (by rw [k5, k6]; exact hss.symm) (by rw [k7]; exact hl) (by rw [k8]; decide)
     ?_ k4 (flushOk_fresh kf (by rw [k5, k6]; exact hss) (by rw [k7]; exact hl)) hc' ?_
-  swap
+  rotate_left
   · refine LazyOk.of_clear ?_ (by rw [km]; exact hma)
     rw [kp]
     refine UInt32.lt_iff_toNat_lt.mpr (Nat.lt_of_not_le fun h3 => ?_)

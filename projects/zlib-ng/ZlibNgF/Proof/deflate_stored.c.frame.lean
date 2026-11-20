@@ -245,7 +245,7 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   refine ⟨⟨?_, fun _ => ⟨hbs, hsn, hla'⟩, fun e => absurd (hlv.symm.trans e) (by decide),
     fun _ => hsn, fun e8 => absurd h8 (Int32.not_lt.mpr e8)⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩,
     fun _ => hsn, fun L => ?_⟩
-  swap
+  rotate_left
   · have N := K.lazy L fun ht => by
       have h7 := ht.1; rw [l0] at h7; exact absurd h7 (by decide)
     exact ⟨N.1, fun _ => N.2⟩

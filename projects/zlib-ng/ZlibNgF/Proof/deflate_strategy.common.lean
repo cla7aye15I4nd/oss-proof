@@ -280,7 +280,7 @@ theorem slf_post {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs 
     (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
   refine slf_postL F flush bs (fun st0 h0 _ => (hn st0 h0).1) (fun st0 h0 L st hst => ?_) hs
   obtain ⟨st1, h1, hk⟩ := F.keeps
-  obtain rfl : st1 = st0 := Option.some.inj (h1.symm.trans h0)
+  obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
   obtain ⟨L', hm⟩ := (hk st hst).lazy L (hn st0 h0).2
   exact ⟨L', fun _ => hm⟩
 
