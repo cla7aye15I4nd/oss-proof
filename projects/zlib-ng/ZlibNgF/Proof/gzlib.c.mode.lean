@@ -74,6 +74,8 @@ structure HK (h h' : Heap) (s : GzState) (L : List Nat) : Prop where
   dal : ∀ c ∈ L, h'.dallocs c = h.dallocs c
   base : h'.baseAddr = h.baseAddr
   next : h.nextBlk ≤ h'.nextBlk
+  dead : s.size = 0 → ∀ c ∈ blkOf s.buffers ++ stBlk h s, h.bytes c = none → h'.bytes c = none
+  saved : ∀ c ∈ L, h'.savedPtrs c = h.savedPtrs c
 
 theorem ownStr_keep {h h' : Heap} {p : Ival BPtr} (hp : OwnedStr h p) (hb : ∀ c ∈ blkOf p, h'.bytes c = h.bytes c) :
     OwnedStr h' p := by
@@ -94,11 +96,12 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
   have hbufs : ∀ c base, s.size ≠ 0 → GzBufs h s c base → GzBufs h' s c base := by
     intro c base hsz hb
     obtain ⟨d, hd, hds⟩ := hb.fits
-    refine ⟨hb.size, hb.buffers, hb.inp, hb.out, d, ?_, hds⟩
-    rw [hk.bytes c (by simp [ownL, hsz, hb.buffers, blkOf])]; exact hd
+    have hcL : c ∈ ownL h b s := by simp [ownL, hsz, hb.buffers, blkOf]
+    refine ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, ?_, hds⟩, hb.hdr.1, by rw [hk.saved c hcL]; exact hb.hdr.2⟩
+    rw [hk.bytes c hcL]; exact hd
   refine ⟨sh.mode, ownStr_keep sh.path fun c hc => hk.bytes c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inl (Or.inr hc))),
     by rw [hk.strm]; exact sh.strm, sh.want_lo, sh.want_hi, sh.size, sh.pos,
-    ⟨?_, sh.msg.mem⟩, fun hr => ?_, fun hw => ?_⟩
+    ⟨?_, sh.msg.mem⟩, fun hr => ?_, fun hw => ?_, fun hz c hc => ?_⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
     · exact Or.inr (ownStr_keep hm fun c hc => hk.bytes c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inr hc)))
@@ -142,6 +145,7 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
       ⟨s.strm, z, z, sb, st, rfl, hz, by rw [hk.strm]; exact hz, hsb, hst0, rfl, hk.bytes sb hsbL, hk.dst sb hsbL,
         hk.dal sb hsbL, fun k g hk' _ => absurd hk' (hnh sb st k hsb hst0),
         hk.base, hk.next⟩
+  · rw [hst] at hc; exact hk.dead hz c hc (sh.dead hz c hc)
 
 /-! ## Steps of each kind -/
 
@@ -407,7 +411,7 @@ theorem Agree.bufs {h : Heap} {s s' : GzState} {c base : Nat} (a : Agree s s') (
     GzBufs h s' c base :=
   ⟨by rw [a.size, a.want]; exact hb.size, by rw [a.buffers]; exact hb.buffers, by rw [a.inp]; exact hb.inp,
     fun e => by rw [a.out, a.inS]; exact hb.out (by rw [← a.outS]; exact e),
-    by rw [a.inS, a.outS]; exact hb.fits⟩
+    by rw [a.inS, a.outS]; exact hb.fits, hb.hdr⟩
 
 theorem Agree.posOf {s s' : GzState} (a : Agree s s') (p : GzPos s) : GzPos s' :=
   ⟨by rw [a.skip]; exact p.1, by rw [a.pos, a.skip]; exact p.2, by rw [a.pos]; exact p.3,
@@ -419,7 +423,7 @@ theorem shape_congr {h : Heap} {s s' : GzState} (sh : GzShape h s) (a : Agree s 
     GzShape h s' := by
   refine ⟨by rw [a.mode]; exact sh.mode, by rw [a.path]; exact sh.path, by rw [a.strm]; exact sh.strm,
     by rw [a.want]; exact sh.want_lo, by rw [a.want]; exact sh.want_hi, by rw [a.size, a.want]; exact sh.size,
-    a.posOf sh.pos, hm, fun hr => ?_, fun hw => ?_⟩
+    a.posOf sh.pos, hm, fun hr => ?_, fun hw => ?_, fun hz c hc => ?_⟩
   · have R := sh.read (by rw [← a.mode]; exact hr)
     refine ⟨by rw [a.how]; exact R.how, fun hsz => ?_, by rw [a.size, a.hv]; exact R.nobuf,
       by rw [a.skip, a.pos, a.hv]; exact R.skip_have⟩
@@ -434,6 +438,8 @@ theorem shape_congr {h : Heap} {s s' : GzState} (sh : GzShape h s) (a : Agree s 
     refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hz, ?_, by rw [a.size]; exact hai, ?_⟩
     · rw [a.direct, a.strm]; exact hd
     · intro sb st k hsb; exact hnh sb st k hsb
+  · have e : blkOf s'.buffers ++ stBlk h s' = blkOf s.buffers ++ stBlk h s := by simp only [stBlk, a.buffers, a.strm]
+    rw [e] at hc; exact sh.dead (by rw [← a.size]; exact hz) c hc
 
 theorem ownL_congr {h : Heap} {b : Nat} {s s' : GzState} (a : Agree s s') (hm : s'.msg = s.msg) :
     ownL h b s' = ownL h b s := by
@@ -466,6 +472,28 @@ theorem freeMsg_bytes (h : Heap) (s : GzState) (c : Nat) (hc : c ∉ blkOf s.msg
     · simp only; rw [upd_ne _ _ _ _ hne]
   · rfl
 
+theorem freeMsg_saved (h : Heap) (s : GzState) (c : Nat) (hc : c ∉ blkOf s.msg) :
+    (freeMsg h s).savedPtrs c = h.savedPtrs c := by
+  unfold freeMsg; split
+  · next c' e =>
+    rw [e] at hc
+    have hne : c ≠ c' := fun e' => hc (by simp [blkOf, e'])
+    split
+    · rfl
+    · simp only; rw [upd_ne _ _ _ _ hne]
+  · rfl
+
+theorem freeMsg_none (h : Heap) (s : GzState) (c : Nat) (hc : h.bytes c = none) : (freeMsg h s).bytes c = none := by
+  unfold freeMsg; split
+  · split
+    · exact hc
+    · next c' _ _ =>
+      show (upd h.bytes c' none) c = none
+      by_cases e : c = c'
+      · rw [e]; simp
+      · rw [upd_ne _ _ _ _ e]; exact hc
+  · exact hc
+
 /-- The fields after `gz_error` with no message (`err` `Z_OK`, as `gzclearerr`), on the heap that frees the old
 message. -/
 theorem clear_keep {h : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hn : (ownL h b s).Nodup) :
@@ -491,7 +519,8 @@ theorem clear_keep {h : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hn : (
     · exact hn.2.2 c (List.mem_append.mpr (Or.inr hcm)) c hc rfl
   have hk : HK h (freeMsg h s) { s with eof := e1, past := e2, err := ZlibNg.Inflate.Z_OK, msg := .val .null }
       (ownL h b { s with eof := e1, past := e2, err := ZlibNg.Inflate.Z_OK, msg := .val .null }) := by
-    refine ⟨by rw [freeMsg_streams], fun c hc => freeMsg_bytes h s c (hnot c hc), ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+    refine ⟨by rw [freeMsg_streams], fun c hc => freeMsg_bytes h s c (hnot c hc), ?_, ?_, ?_, ?_, ?_, ?_,
+      fun _ c _ hc0 => freeMsg_none h s c hc0, fun c hc => freeMsg_saved h s c (hnot c hc)⟩ <;>
       (try intro c _) <;> (unfold freeMsg; split <;> (try split) <;> first | rfl | exact Nat.le_refl _)
   obtain ⟨sh2, e2'⟩ := shape_keep sh1 hk
   refine ⟨sh2, ?_⟩
@@ -703,8 +732,10 @@ theorem keeps_outside {S : World → Heap → World → Heap → GzPtr → Prop}
       unfold World.gz at hs ⊢; rw [hg]; rcases hh with e | ⟨a, e⟩ <;> rw [e] <;> exact hs
     have hk : HK h h' s (ownL h b s) := by
       rcases hh with e | ⟨a, e⟩ <;> rw [e]
-      · exact ⟨rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, Nat.le_refl _⟩
-      · exact ⟨rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, Nat.le_refl _⟩
+      · exact ⟨rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, Nat.le_refl _,
+          fun _ _ _ e => e, fun _ _ => rfl⟩
+      · exact ⟨rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, Nat.le_refl _,
+          fun _ _ _ e => e, fun _ _ => rfl⟩
     obtain ⟨sh', e⟩ := shape_keep sh hk
     have hgb : ∀ s', w'.gzs b = some s' → s'.strm = s.strm := by
       intro s' e'
@@ -800,7 +831,7 @@ theorem buffer_keeps : KeepsR SBuffer ∧ KeepsW SBuffer := by
       refine Or.inr ⟨v, e1, e2, ?_, hn⟩
       exact ⟨sh.mode, sh.path, sh.strm, h8, h30, Or.inl hz, ⟨sh.pos.1, sh.pos.2, sh.pos.3, sh.pos.4⟩,
         ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => ⟨(sh.read hr).how, fun e => absurd hz e, (sh.read hr).nobuf,
-          (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd hz e⟩⟩
+          (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd hz e⟩, fun _ => sh.dead hz⟩
   refine ⟨fun w h w' h' f hv hst => ?_, fun w h w' h' f hv hst => ?_⟩
   · obtain ⟨b, s, rfl, hs, sh, hn⟩ := hv.1
     rcases key w h w' h' b s hs sh hn hst with ⟨e1, e2⟩ | ⟨v, e1, e2, sh', hn'⟩ <;> rw [e1, e2]
@@ -868,6 +899,15 @@ theorem ownL_owned {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b
       · exact Or.inl (Or.inr (by unfold blkOf at hc; split at hc <;> simp_all))
       · exact Or.inr (by unfold stBlk at hc; exact hc)
 
+theorem dead_owned {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) :
+    ∀ c ∈ blkOf s.buffers ++ stBlk h s, c ∈ GzOwned w h (some b) := by
+  intro c hc
+  simp only [GzOwned, hs]
+  simp only [List.mem_append] at hc ⊢
+  rcases hc with hc | hc
+  · exact Or.inl (Or.inr (by unfold blkOf at hc; split at hc <;> simp_all))
+  · exact Or.inr (by unfold stBlk at hc; exact hc)
+
 theorem macro_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr} (hv : GzInvR w h f)
     (hc : GzGetcMacro w h w' h' f) : GzInvR w' h' f := by
   obtain ⟨b, s, nx, rfl, hs, hhv, hpos, hnx, nx', hadd, e1, e2⟩ := hc
@@ -903,8 +943,8 @@ theorem macro_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
   have sh' : GzShape h s' := by
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size,
       ⟨P.1, ?_, ?_, fun e => absurd (hr.symm.trans e) read_ne_write⟩, ⟨sh.msg.msg, sh.msg.mem⟩,
-      fun _ => ⟨R.how, fun _ => ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, d, hd, hds⟩, hi, hz, ?_, hai, hreg⟩,
-        fun e => absurd e hsz, ?_⟩, fun e => absurd (hr.symm.trans e) read_ne_write⟩
+      fun _ => ⟨R.how, fun _ => ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, hi, hz, ?_, hai, hreg⟩,
+        fun e => absurd e hsz, ?_⟩, fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
     · show (s.pos + 1).toInt + s.skip.toInt ≤ GZ_OFF_MAX.toInt
       rw [hp1]
       by_cases hk : s.skip = 0
@@ -928,7 +968,9 @@ theorem keeps_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
   obtain ⟨⟨b0, s0, e0, hs0, sh, hn⟩, hm, -⟩ := hv
   cases e0; rw [hs] at hs0; cases hs0
   have hk : HK h h' s (ownL h b s) := by
-    refine ⟨hstr, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, hba, hnb⟩
+    refine ⟨hstr, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, hba, hnb,
+      fun _ c hc hc0 => by rw [(hobj c (dead_owned hs c hc)).1]; exact hc0,
+      fun c hc => (hobj c (ownL_owned hs c hc)).2.2.2.2.2⟩
     · exact (hobj c (ownL_owned hs c hc)).1
     · exact (hobj c (ownL_owned hs c hc)).2.1
     · exact (hobj c (ownL_owned hs c hc)).2.2.1

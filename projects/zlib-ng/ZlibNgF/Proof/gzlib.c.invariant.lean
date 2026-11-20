@@ -16,7 +16,7 @@ so that a proof about one function opens only the clauses it needs.
   `err` is `Z_MEM_ERROR` (`gz_error` does not allocate for that error and does not free on it);
 * the embedded `z_stream` is an entry of `Heap.streams`;
 * `want` is in `[8, 2^30]` (`gzbuffer`, `GZBUFSIZE`); `size` is 0 (no buffers yet) or `want`, and then the buffers
-  are one live block, `in` at its start and `out` after the `in` part: `want` and `2 * want` bytes when reading,
+  are one live block (from `zng_alloc_aligned`, with its saved pointer), `in` at its start and `out` after the `in` part: `want` and `2 * want` bytes when reading,
   `2 * want` and `want` (none when `direct`) when writing (`gz_buffer_alloc`);
 * positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -2^31` (only `gzungetc` lowers it, by at
   most the `2 * want` bytes of the output buffer), `pos ≥ 0` when writing;
@@ -63,6 +63,8 @@ structure GzBufs (h : Heap) (s : GzState) (c base : Nat) : Prop where
   inp : s.«in» = .val (.ref (.heap c) base)
   out : outSize s ≠ 0 → s.out = .val (.ref (.heap c) (base + inSize s))
   fits : ∃ d, h.bytes c = some d ∧ base + inSize s + outSize s ≤ d.size
+  /-- the header of the aligned allocation (`zng_alloc_aligned`): the pointer to the block is saved before `base` -/
+  hdr : 8 ≤ base ∧ h.savedPtrs c = some (base - 8, .ref (.heap c) 0)
 
 /-- Reading. -/
 structure GzRead (h : Heap) (s : GzState) : Prop where
@@ -89,6 +91,13 @@ structure GzMsg (h : Heap) (s : GzState) : Prop where
   msg : s.msg = .val .null ∨ OwnedStr h s.msg
   mem : s.err = ZlibNg.Inflate.Z_MEM_ERROR → s.msg = .val .null
 
+/-- The block of the inflate or deflate state of the embedded stream of `s`, if any. -/
+def stBlk (h : Heap) (s : GzState) : List Nat :=
+  match h.streams s.strm with | some z => (match z.state with | some c => [c] | none => []) | none => []
+
+/-- The heap block of an owned pointer field, if any. -/
+def blkOf (p : Ival BPtr) : List Nat := match p with | .val (.ref (.heap c) _) => [c] | _ => []
+
 /-- The fields of a live `gz_state` between two public calls. -/
 structure GzShape (h : Heap) (s : GzState) : Prop where
   mode : s.mode = GZ_READ ∨ s.mode = GZ_WRITE
@@ -101,13 +110,8 @@ structure GzShape (h : Heap) (s : GzState) : Prop where
   msg : GzMsg h s
   read : s.mode = GZ_READ → GzRead h s
   write : s.mode = GZ_WRITE → GzWrite h s
-
-/-- The block of the inflate or deflate state of the embedded stream of `s`, if any. -/
-def stBlk (h : Heap) (s : GzState) : List Nat :=
-  match h.streams s.strm with | some z => (match z.state with | some c => [c] | none => []) | none => []
-
-/-- The heap block of an owned pointer field, if any. -/
-def blkOf (p : Ival BPtr) : List Nat := match p with | .val (.ref (.heap c) _) => [c] | _ => []
+  /-- without buffers, no buffer block and no stream state is live (none made yet, or freed) -/
+  dead : s.size = 0 → ∀ c ∈ blkOf s.buffers ++ stBlk h s, h.bytes c = none
 
 /-- The blocks the file `b` owns and frees: its state, `path`, `msg` and, once the buffers exist, the buffers and the
 block of the stream's state. -/

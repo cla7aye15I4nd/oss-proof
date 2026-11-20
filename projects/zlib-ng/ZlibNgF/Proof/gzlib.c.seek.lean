@@ -33,7 +33,7 @@ theorem shape_avail0 {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzSh
   have R := sh.read hr
   refine ⟨sh.mode, ownStr_keep sh.path fun _ _ => rfl, ⟨{ z with avail_in := 0 }, by simp [avail0]⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos,
     ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have⟩,
-    fun e => absurd (hr.symm.trans e) read_ne_write⟩
+    fun e => absurd (hr.symm.trans e) read_ne_write, fun hz c hc => sh.dead hz c (by rw [hst] at hc; exact hc)⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
     · exact Or.inr (ownStr_keep hm fun _ _ => rfl)
@@ -43,7 +43,7 @@ theorem shape_avail0 {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzSh
     obtain ⟨i, z1, sb, st, al, e, hz1, hsb, hst1, hal, core⟩ := hi
     cases e
     rw [hz] at hz1; cases hz1
-    refine ⟨c, base, { z with avail_in := 0 }, ⟨hb.size, hb.buffers, hb.inp, hb.out, d, hd, hds⟩, ?_,
+    refine ⟨c, base, { z with avail_in := 0 }, ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, ?_,
       by simp [avail0], hhv, Or.inl rfl, fun hp hr' => hreg hp (regHdr_avail0 hz hr')⟩
     exact InflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst1, hal, core⟩
       ⟨s.strm, z, { z with avail_in := 0 }, sb, rfl, hz, by simp [avail0], hsb, rfl, rfl, rfl, rfl,
@@ -106,9 +106,9 @@ theorem reset_keep {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzShap
     refine ⟨sh1.mode, sh1.path, sh1.strm, sh1.want_lo, sh1.want_hi, sh1.size,
       ⟨by rw [hsk]; decide, by rw [hpo, hsk]; decide, by rw [hpo]; decide, fun _ => by rw [hpo]; decide⟩,
       ⟨sh1.msg.msg, sh1.msg.mem⟩, fun _ => ⟨Or.inl rfl, fun hsz => ?_, fun _ => rfl, fun e => absurd rfl e⟩,
-      fun e => absurd (hr.symm.trans e) read_ne_write⟩
+      fun e => absurd (hr.symm.trans e) read_ne_write, fun hz => sh1.dead hz⟩
     obtain ⟨c, base, z0, hb, hi, hz0, -, hai, hreg⟩ := R.bufs hsz
-    exact ⟨c, base, z0, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits⟩, hi, hz0, Or.inl rfl, hai, hreg⟩
+    exact ⟨c, base, z0, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz0, Or.inl rfl, hai, hreg⟩
   have hz' : (freeMsg h s).streams (rstSt s).strm = some z := by rw [freeMsg_streams]; exact hz
   obtain ⟨sh3, e3⟩ := shape_avail0 (b := b) sh2 hr hz'
   have e4 : ownL (freeMsg h s) b (rstSt s) =

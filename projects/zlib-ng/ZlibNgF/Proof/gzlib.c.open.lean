@@ -46,6 +46,7 @@ structure OI (w : World) (h : Heap) (b i : Nat) (w1 : World) (h1 : Heap) : Prop 
   gzOld : ∀ c, c < h.nextBlk → w1.gzs c = w.gzs c
   gzNew : ∀ c, h.nextBlk ≤ c → c ≠ b → w1.gzs c = none
   same : HSame h h1
+  snone : ∀ z, h1.streams i = some z → z.state = none
 
 theorem fsWF_of {w : World} {h : Heap} (hwf : GzWF w h) : FsWF w.fs :=
   ⟨hwf.2.2.2.2.2.1, hwf.2.2.2.2.2.2.1, hwf.2.2.2.2.2.2.2⟩
@@ -278,6 +279,7 @@ structure P0 (i : Nat) (st : GzState) : Prop where
   past : st.past = 0
   skip : st.skip = 0
   strm : st.strm = i
+  buffers : st.buffers = .uninit
 
 theorem gzs_beyond {w : World} {h : Heap} (hwf : GzWF w h) : w.gzs h.nextBlk = none := hwf.2.2.2.1 _ (Nat.le_refl _)
 
@@ -304,13 +306,14 @@ theorem oi_init {w : World} {h : Heap} {W : World} {H : Heap} (hwf : GzWF w h)
     (hb : ∀ c, c ≠ h.nextBlk → H.bytes c = h.bytes c) (hbb : H.bytes h.nextBlk = some #[])
     (hs : ∀ j, j ≠ h.streams.arr.size → H.streams j = h.streams j) (hsi : ∃ z, H.streams h.streams.arr.size = some z)
     (hg : ∀ c, c ≠ h.nextBlk → W.gzs c = w.gzs c)
-    (hgb : ∃ st, W.gzs h.nextBlk = some st ∧ st.strm = h.streams.arr.size) (hfs : W.fs = w.fs) (hn : H.nextBlk = h.nextBlk + 1) (same : HSame h H) :
+    (hgb : ∃ st, W.gzs h.nextBlk = some st ∧ st.strm = h.streams.arr.size) (hfs : W.fs = w.fs) (hn : H.nextBlk = h.nextBlk + 1) (same : HSame h H)
+    (hsn : ∀ z, H.streams h.streams.arr.size = some z → z.state = none) :
     OI w h h.nextBlk h.streams.arr.size W H := by
   have hi := streams_size_none h
   obtain ⟨st, hgb, hst⟩ := hgb
   have hnone : ∀ c, h.nextBlk ≤ c → h.bytes c = none := fun c hc => (hwf.2.1.1 c hc).2.2
   refine ⟨hwf, gzWF_mk ?_ ?_ ?_ ?_ ?_ ?_, Nat.le_refl _, hi, by omega, fun c hc => hb c (by omega), ?_,
-    fun c hc => hg c (by omega), fun c hc hne => by rw [hg c hne]; exact hwf.2.2.2.1 c hc, same⟩
+    fun c hc => hg c (by omega), fun c hc hne => by rw [hg c hne]; exact hwf.2.2.2.1 c hc, same, hsn⟩
   · exact ⟨by rw [same.crc]; exact hwf.1.1, by rw [same.x2n]; exact hwf.1.2⟩
   · refine ⟨fun c hc => ⟨by rw [same.istates]; exact (hwf.2.1.1 c (by omega)).1,
       by rw [same.iallocs]; exact (hwf.2.1.1 c (by omega)).2.1, by rw [hb c (by omega)]; exact hnone c (by omega)⟩,
@@ -351,9 +354,10 @@ theorem state_init_spec {w : World} {h : Heap} (hwf : GzWF w h) : GSat w h gz_st
       and_intros <;> rfl
     case q =>
       refine Or.inr ⟨rfl, oi_init hwf (fun c hc => ?_) ?_ (fun j hj => ?_) (by simp) (fun c hc => ?_) (by simp) rfl rfl
-        ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, ?_⟩
-      all_goals simp [upd_ne, World.gz, *]
-      exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+        ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (fun z hz => ?_), rfl, ?_⟩
+      all_goals (try simp [upd_ne, World.gz, *])
+      · simp at hz; rw [← hz]
+      · exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   · refine ⟨none, w, { h with nalloc := h.nalloc + 1 }, ?_, Or.inl ⟨rfl, rfl, rfl⟩⟩
     simp [gz_state_init, gzStateAlloc, allocB, hok]
 
@@ -372,11 +376,12 @@ theorem oi_heap {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 H : Heap} (o
     (hob : ∀ c d, H.bytes c = some d → h1.bytes c = some d ∨ d.size < 2 ^ 63)
     (hgz : ∀ c, H.nextBlk ≤ c → w1.gzs c = none)
     (hstr : ∀ c s, w1.gz H c = some s → ∃ z, H.streams s.strm = some z)
-    (hold : ∀ j z, h1.streams j = some z → h.streams j = some z → H.streams j = some z) : OI w h b i w1 H := by
+    (hold : ∀ j z, h1.streams j = some z → h.streams j = some z → H.streams j = some z)
+    (hsn : ∀ z, H.streams i = some z → z.state = none) : OI w h b i w1 H := by
   have wf := o.wf
   refine ⟨o.wf0, gzWF_mk ?_ ?_ ?_ hgz hstr (fsWF_of wf), o.nb, o.inone, by have := o.next; omega,
     fun c hc => by rw [hbytes c hc]; exact o.bytes c hc,
-    fun j z hz => hold j z (o.strOld j z hz) hz, o.gzOld, o.gzNew, o.same.trans same⟩
+    fun j z hz => hold j z (o.strOld j z hz) hz, o.gzOld, o.gzNew, o.same.trans same, hsn⟩
   · exact ⟨by rw [same.crc]; exact wf.1.1, by rw [same.x2n]; exact wf.1.2⟩
   · exact ⟨fun c hc => ⟨by rw [same.istates]; exact (wf.2.1.1 c (by omega)).1,
       by rw [same.iallocs]; exact (wf.2.1.1 c (by omega)).2.1, hfresh c hc⟩,
@@ -393,7 +398,7 @@ theorem oi_world {w : World} {h : Heap} {b i : Nat} {w1 W : World} {h1 : Heap} (
     (hfs : FsLe w1.fs W.fs) (hb : b < h1.nextBlk) : OI w h b i W h1 := by
   have wf := o.wf
   refine ⟨o.wf0, gzWF_mk wf.1 wf.2.1 wf.2.2.1 (fun c hc => ?_) (fun c s hs => ?_) (hfs.wf (fsWF_of wf)), o.nb,
-    o.inone, o.next, o.bytes, o.strOld, fun c hc => ?_, fun c hc hne => ?_, o.same⟩
+    o.inone, o.next, o.bytes, o.strOld, fun c hc => ?_, fun c hc hne => ?_, o.same, o.snone⟩
   · by_cases e : c = b
     · omega
     · rw [hg c e]; exact wf.2.2.2.1 c hc
@@ -441,7 +446,7 @@ theorem sat_alloc_oi {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap}
     refine ⟨oi_heap o ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (by simp [allocH])
       (fun c hc => by simp [allocH, upd_ne _ _ _ _ (hne c (by have := o.next; omega))])
       (fun c hc => ?_) (fun c d hd => ?_) (fun c hc => wf.2.2.2.1 c (by simp [allocH] at hc; omega)) (fun c s hs => ?_)
-      (fun j z hz _ => hz), by simp [allocH], fun c hc => by simp [allocH, upd_ne _ _ _ _ (hne c hc)], rfl,
+      (fun j z hz _ => hz) o.snone, by simp [allocH], fun c hc => by simp [allocH, upd_ne _ _ _ _ (hne c hc)], rfl,
       Or.inr ⟨rfl, Array.ofFn (n := n) fun j => Junk.of (h1.garbage h1.nalloc j.val), by simp only [allocH, upd_same],
         Array.size_ofFn, rfl, gzs_beyond wf⟩⟩
     · simp only [allocH] at hc ⊢
@@ -456,7 +461,7 @@ theorem sat_alloc_oi {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap}
   · refine ⟨.null, { h1 with nalloc := h1.nalloc + 1 }, by simp [allocB, hok], ?_⟩
     refine ⟨oi_heap o ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (Nat.le_refl _) (fun _ _ => rfl)
       (fun c hc => (wf.2.1.1 c hc).2.2) (fun c d hd => Or.inl hd) wf.2.2.2.1 (fun c s hs => wf.2.2.2.2.1 c s hs)
-      (fun j z hz _ => hz), Nat.le_refl _, fun _ _ => rfl, rfl, Or.inl rfl⟩
+      (fun j z hz _ => hz) o.snone, Nat.le_refl _, fun _ _ => rfl, rfl, Or.inl rfl⟩
 
 /-- `free` of a fresh block that holds no `gz_state`. -/
 theorem sat_free_oi {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} (o : OI w h b i w1 h1) {c : Nat}
@@ -467,7 +472,7 @@ theorem sat_free_oi {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} 
   refine ⟨(), _, by simp [freeB, hd]; rfl, ?_⟩
   refine ⟨oi_heap o ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (Nat.le_refl _)
     (fun c' hc' => by simp [upd_ne _ _ _ _ (show c' ≠ c by omega)]) (fun c' hc' => ?_) (fun c' d' hd' => ?_)
-    wf.2.2.2.1 (fun c' s hs => ?_) (fun j z hz _ => hz), by simp, fun c' hc' => by simp [upd_ne _ _ _ _ hc'], rfl, rfl⟩
+    wf.2.2.2.1 (fun c' s hs => ?_) (fun j z hz _ => hz) o.snone, by simp, fun c' hc' => by simp [upd_ne _ _ _ _ hc'], rfl, rfl⟩
   · by_cases e : c' = c
     · subst e; simp
     · simp only; rw [upd_ne _ _ _ _ e]; exact (wf.2.1.1 c' hc').2.2
@@ -511,7 +516,7 @@ theorem gsat_free_state {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : He
       (FsLe.refl _) hbn
   refine ⟨oi_heap o1 ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (Nat.le_refl _)
     (fun c hc => by simp [upd_ne _ _ _ _ (show c ≠ b by have := o.nb; omega)]) (fun c hc => ?_)
-    (fun c d' hd' => ?_) o1.wf.2.2.2.1 (fun c t ht => ?_) (fun j z' hz' hj => ?_), by simp, by simp, by simp,
+    (fun c d' hd' => ?_) o1.wf.2.2.2.1 (fun c t ht => ?_) (fun j z' hz' hj => ?_) (fun z hz => by simp at hz), by simp, by simp, by simp,
     fun c hc => by simp [upd_ne _ _ _ _ hc], rfl, rfl⟩
   · by_cases e : c = b
     · subst e; simp
@@ -556,7 +561,7 @@ theorem sat_snprintf_path {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : 
       if x = c then some (stored d ((bs.extract 0 np).push 0) 0) else h1.bytes x := modify_some _ _ _ _ hd
   refine ⟨oi_heap o ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (Nat.le_refl _)
     (fun c' hc' => by simp only [hget]; simp [show c' ≠ c by omega]) (fun c' hc' => ?_) (fun c' d' hd' => ?_)
-    wf.2.2.2.1 (fun c' t ht => ?_) (fun j z hz _ => hz), ?_, fun c' hc' => by simp only [hget]; simp [hc'], rfl, rfl,
+    wf.2.2.2.1 (fun c' t ht => ?_) (fun j z hz _ => hz) o.snone, ?_, fun c' hc' => by simp only [hget]; simp [hc'], rfl, rfl,
     ⟨stored d ((bs.extract 0 np).push 0) 0, by simp only [hget]; simp⟩⟩
   · simp only [hget]
     have : c' ≠ c := by
@@ -582,11 +587,13 @@ theorem sat_snprintf_path {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : 
       simpa [getElem!_def, Array.getElem?_push, hbs, hj, show j < np by omega, show j ≠ np by omega] using this
 
 /-- A change of the stream record `i` (kept live) only. -/
-theorem oi_stream {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} (o : OI w h b i w1 h1) (z : ZStream) :
+theorem oi_stream {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} (o : OI w h b i w1 h1) (z : ZStream)
+    (hzs : z.state = none) :
     OI w h b i w1 { h1 with streams := upd h1.streams i (some z) } := by
   have wf := o.wf
   refine oi_heap o ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (Nat.le_refl _) (fun _ _ => rfl)
     (fun c hc => (wf.2.1.1 c hc).2.2) (fun c d hd => Or.inl hd) wf.2.2.2.1 (fun c t ht => ?_) (fun j z' hz hj => ?_)
+    (fun z' hz' => by simp at hz'; rw [← hz']; exact hzs)
   · obtain ⟨z0, hz0⟩ := wf.2.2.2.2.1 c t ht
     by_cases e : t.strm = i
     · exact ⟨z, by simp [e]⟩
@@ -607,7 +614,7 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
     GSat w1 h1 (gz_reset (some b)) (fun _ W H => OI w h b i W H ∧ H.bytes = h1.bytes ∧ H.nextBlk = h1.nextBlk ∧
       ∃ st', W.gz H b = some st' ∧ st'.path = st.path ∧ st'.mode = st.mode ∧ st'.strm = st.strm ∧
         st'.size = st.size ∧ st'.want = st.want ∧ st'.msg = st.msg ∧ st'.pos = 0 ∧ st'.skip = 0 ∧
-        st'.err = ZlibNg.Inflate.Z_OK ∧ st'.«have» = 0 ∧ (st.mode = GZ_READ → st'.how = LOOK)) := by
+        st'.err = ZlibNg.Inflate.Z_OK ∧ st'.«have» = 0 ∧ st'.buffers = st.buffers ∧ (st.mode = GZ_READ → st'.how = LOOK)) := by
   obtain ⟨d, hd⟩ : ∃ d, h1.bytes b = some d := by
     unfold World.gz at hs; split at hs
     · next d hd => exact ⟨d, hd⟩
@@ -626,7 +633,7 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
         ldStream, stStream, hsi, hz, Ival.get, liftM, monadLift, MonadLift.monadLift, StateT.lift, getHeap_app]
       and_intros <;> rfl
     case q =>
-      refine ⟨oi_stream (hW _ ?_ ?_ ?_) _, rfl, rfl, ?_⟩
+      refine ⟨oi_stream (hW _ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
       · rfl
       · intro c hc; simp only [upd_ne _ _ _ _ hc]
       · simp
@@ -638,7 +645,7 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
         ldStream, stStream, hsi, hz, Ival.get, liftM, monadLift, MonadLift.monadLift, StateT.lift, getHeap_app]
       and_intros <;> rfl
     case q2 =>
-      refine ⟨oi_stream (hW _ ?_ ?_ ?_) _, rfl, rfl, ?_⟩
+      refine ⟨oi_stream (hW _ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
       · rfl
       · intro c hc; simp only [upd_ne _ _ _ _ hc]
       · simp
@@ -713,7 +720,7 @@ set_option hygiene false in
 macro "leafA" : tactic => `(tactic| (
   refine GSat.bind (GSat.mono (gsat_wrG_oi o hst hbl _ rfl) fun _ W' H' q => ?_)
   obtain ⟨rfl, hst', o'⟩ := q
-  exact jp_ok o' hbl hdH hn hmk hk hc ⟨_, hst', ⟨p0.1, p0.2, p0.3, p0.4, p0.5, p0.6, p0.7, p0.8⟩,
+  exact jp_ok o' hbl hdH hn hmk hk hc ⟨_, hst', ⟨p0.1, p0.2, p0.3, p0.4, p0.5, p0.6, p0.7, p0.8, p0.9⟩,
     by unfold MS; first | exact hms | simp⟩ _ _))
 
 /-! ## The tail of `gz_open`
@@ -797,7 +804,7 @@ theorem finish_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
     (hpath : OwnedStr H st.path) (hfr : ∃ c, st.path = .val (.ref (.heap c) 0) ∧ h.nextBlk ≤ c ∧ c ≠ b) :
     GSat W H (gz_reset (some b) >>= fun _ => pure (some b)) (OpenPost w h) := by
   refine GSat.bind (GSat.mono (gsat_reset o t.hst t.hbl t.p0.msg t.p0.strm) fun _ W' H' q => ?_)
-  obtain ⟨o', hby, -, st', hst', hpa, hmo, hstm, hsz, hwa, hms, hpo, hsk, -, hhv, hhow⟩ := q
+  obtain ⟨o', hby, -, st', hst', hpa, hmo, hstm, hsz, hwa, hms, hpo, hsk, -, hhv, hbu, hhow⟩ := q
   refine GSat.pure ⟨o'.post.1, o'.post.2, fun b' e => ?_⟩
   cases e
   have hsz0 : st'.size = 0 := by rw [hsz]; exact t.p0.size
@@ -811,7 +818,11 @@ theorem finish_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
     ⟨by rw [hsk]; decide, by rw [hpo, hsk]; decide, by rw [hpo]; decide, fun _ => by rw [hpo]; decide⟩,
     ⟨Or.inl (by rw [hms]; exact t.p0.msg), fun _ => by rw [hms]; exact t.p0.msg⟩,
     fun hr => ⟨Or.inl (hhow (by rw [← hmo]; exact hr)), fun e => absurd hsz0 e, fun _ => hhv,
-      fun e => absurd hsk e⟩, fun _ => ⟨fun e => absurd hsz0 e⟩⟩
+      fun e => absurd hsk e⟩, fun _ => ⟨fun e => absurd hsz0 e⟩, fun _ c hc => by
+        rw [hbu, t.p0.buffers] at hc
+        obtain ⟨z, hz⟩ := o'.wf.2.2.2.2.1 b st' hst'
+        have hz' : H'.streams i = some z := by rw [hstm, t.p0.strm] at hz; exact hz
+        simp [blkOf, stBlk, hz, o'.snone z hz'] at hc⟩
   obtain ⟨r, off, d, e1, e2, e3⟩ := hcs
   exact ⟨r, off, d, e1, by cases e1; show H'.bytes c = some d; rw [hby]; exact e2, e3⟩
 
@@ -854,13 +865,13 @@ theorem tailRead_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {s
     have t1 := t.fs e1
     refine GSat.bind (GSat.mono (gsat_wrG_oi o1 t1.hst t1.hbl _ rfl) fun _ W2 H2 q => ?_)
     obtain ⟨rfl, hst2, o2⟩ := q
-    have t2 := t1.wr hst2 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8⟩
+    have t2 := t1.wr hst2 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8, t.p0.9⟩
     refine GSat.bind (GSat.of_eq (rdG_app' t2.hst _) ?_)
     apply GSat.ite
     · intro _
       refine GSat.bind (GSat.mono (gsat_wrG_oi o2 t2.hst t2.hbl _ rfl) fun _ W3 H3 q => ?_)
       obtain ⟨rfl, hst3, o3⟩ := q
-      exact finish_ok o3 (t2.wr hst3 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8⟩) hmode hpath hfr
+      exact finish_ok o3 (t2.wr hst3 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8, t.p0.9⟩) hmode hpath hfr
     · intro _
       exact finish_ok o2 t2 hmode hpath hfr
   · intro _
@@ -884,7 +895,7 @@ theorem tailFd_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
   unfold tailFd
   refine GSat.bind (GSat.mono (gsat_wrG_oi o t.hst t.hbl _ rfl) fun _ W1 H1 q => ?_)
   obtain ⟨rfl, hst1, o1⟩ := q
-  have t1 := t.wr hst1 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8⟩
+  have t1 := t.wr hst1 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8, t.p0.9⟩
   refine GSat.bind (GSat.of_eq (rdG_app' t1.hst _) ?_)
   apply GSat.ite
   · intro _
@@ -907,7 +918,7 @@ theorem tailFd_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
       have t2 := t1.fs e2
       refine GSat.bind (GSat.mono (gsat_wrG_oi o2 t2.hst t2.hbl _ rfl) fun _ W3 H3 q => ?_)
       obtain ⟨rfl, hst3, o3⟩ := q
-      exact tailRead_ok o3 (t2.wr hst3 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8⟩)
+      exact tailRead_ok o3 (t2.wr hst3 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8, t.p0.9⟩)
         (Or.inr rfl) ⟨c, np, pk.path, pk.str⟩ ⟨c, pk.path, pk.fresh, pk.ne⟩
     · intro hna
       have hm' : st.mode = GZ_READ ∨ st.mode = GZ_WRITE := by
@@ -940,7 +951,7 @@ theorem tailPath_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {s
   have t1 : TS h b i W H1 st := ⟨by rw [gz_of_bytes (hby1 b t.hbl)]; exact t.hst, by have := t.hbl; omega, t.p0⟩
   refine GSat.bind (GSat.mono (gsat_wrG_oi o1 t1.hst t1.hbl _ rfl) fun _ W2 H2 q => ?_)
   obtain ⟨rfl, hst2, o2⟩ := q
-  have t2 := t1.wr hst2 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8⟩
+  have t2 := t1.wr hst2 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8, t.p0.9⟩
   refine GSat.bind (GSat.of_eq (ldGz_app t2.hst) ?_)
   refine GSat.bind (GSat.of_eq (liftGet_app rfl _ _) ?_)
   apply GSat.ite
@@ -1097,7 +1108,7 @@ theorem gz_open_spec {w : World} {h : Heap} (hwf : GzWF w h) (path mode : BPtr) 
               · intro _
                 refine GSat.bind (GSat.mono (gsat_wrG_oi o hst hbl _ rfl) fun _ W3 H3 q => ?_)
                 obtain ⟨rfl, hst3, o3⟩ := q
-                exact tailPath_ok o3 (t.wr hst3 ⟨p0.1, p0.2, p0.3, p0.4, p0.5, p0.6, p0.7, p0.8⟩) (Or.inl hr')
+                exact tailPath_ok o3 (t.wr hst3 ⟨p0.1, p0.2, p0.3, p0.4, p0.5, p0.6, p0.7, p0.8, p0.9⟩) (Or.inl hr')
                   hpH fd lp.cloexec lp.exclusive
               · intro _
                 exact tailPath_ok o t (Or.inl hr') hpH fd lp.cloexec lp.exclusive

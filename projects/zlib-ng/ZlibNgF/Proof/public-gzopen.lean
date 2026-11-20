@@ -143,9 +143,14 @@ theorem post_drop {w : World} {h HS : Heap} {r : GzPtr} {W : World} {H : Heap} (
     obtain ⟨r', off', d', e1, e2, e3⟩ := hcs'
     cases e1
     have hsz0 : ¬ s.size ≠ 0 := fun e => e hsz
-    exact ⟨sh.mode, ⟨c, n', hpc, .heap c, 0, d', rfl, by show (upd H.bytes h.nextBlk none) c = _; rw [upd_ne _ _ _ _ hcL]; exact e2, e3⟩,
+    refine ⟨sh.mode, ⟨c, n', hpc, .heap c, 0, d', rfl, by show (upd H.bytes h.nextBlk none) c = _; rw [upd_ne _ _ _ _ hcL]; exact e2, e3⟩,
       sh.strm, sh.want_lo, sh.want_hi, sh.size, sh.pos, ⟨Or.inl hmsg, fun _ => hmsg⟩,
-      fun hr => ⟨(sh.read hr).how, fun e => absurd e hsz0, (sh.read hr).nobuf, (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd e hsz0⟩⟩
+      fun hr => ⟨(sh.read hr).how, fun e => absurd e hsz0, (sh.read hr).nobuf, (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd e hsz0⟩,
+      fun hz c2 hc2 => ?_⟩
+    show (upd H.bytes h.nextBlk none) c2 = none
+    by_cases e : c2 = h.nextBlk
+    · rw [e]; simp
+    · rw [upd_ne _ _ _ _ e]; exact sh.dead hz c2 hc2
 
 theorem gzdopen_spec {w : World} {h : Heap} (hwf : GzWF w h) (fd : Int32) (mode : BPtr)
     (hm : mode = .null ∨ CStr h mode) : GSat w h (gzdopen fd mode) (OpenPost w h) := by
