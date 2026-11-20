@@ -404,4 +404,25 @@ theorem copy_src_side {h h' : Heap} {s dst : StreamPtr} {r : Int32} (hv : DInv h
   refine (hs b st ⟨i, z, rfl, hz, hzb, hst⟩).move (fun hh k g hk hg => ⟨g, by rw [fg k (by simp)]; exact hg,
     rfl, rfl, rfl, rfl, fun p n _ nb c => ⟨(cstr_frame hfr f c).1, nb⟩⟩) (SideEq.refl _)
 
+/-- `deflateResetKeep` keeps `DSide` on a stream with nothing unfinished (`ResetKeepReady`). -/
+theorem resetKeep_side {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : DInv h s) (hr : ResetKeepReady h s)
+    (e : C.run (deflateResetKeep s) h = .ok (r, h')) : DSide h' s := by
+  obtain ⟨i, z, b, rfl, hz, hzb, r0, h0, e0, -, hv', -, hk1, hk2⟩ := ZlibNgF.Proof.DeflateReset.resetKeep_inv hv
+  have e0' : C.run (deflateResetKeep (some i)) h = .ok (r0, h0) := e0
+  rw [e] at e0'; cases e0'
+  obtain ⟨b1, st1, ⟨⟨z1, ⟨i1, e1, hz1⟩, hzb1⟩, hst1⟩, hss, hl, -⟩ := hr
+  obtain rfl := Option.some.inj e1
+  obtain rfl := Option.some.inj (hz.symm.trans hz1)
+  obtain rfl := Option.some.inj (hzb.symm.trans hzb1)
+  obtain ⟨st', hst', k1, -, k3, k4, k5, k6, k7, -, -, -⟩ := hk2 st1 hst1
+  intro b2 st2 hs2
+  obtain ⟨z', al, c⟩ := core_of hv' hs2
+  obtain ⟨i2, z2, e2, hz2, hzb2, hst2⟩ := hs2
+  obtain rfl := Option.some.inj e2
+  obtain rfl := Option.some.inj ((hk1 z2 hz2).symm.trans hzb2)
+  obtain rfl := Option.some.inj (hst'.symm.trans hst2)
+  refine sideAt_clean (symEnd_pos c) k1 (by rw [k5, k6]; exact hss.symm) (by rw [k7]; exact hl) ?_ k4
+  unfold HdrState
+  rcases k3 with e3 | e3 <;> rw [e3] <;> decide
+
 end ZlibNgF.Proof.DeflateSide

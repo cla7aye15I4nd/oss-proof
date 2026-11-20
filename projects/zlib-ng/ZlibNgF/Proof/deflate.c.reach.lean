@@ -17,12 +17,12 @@ import ZlibNgF.Proof.«deflate.c.side»
 (`Proof/deflate.c.side.lean`). The constructor cases proved: `deflateInit_` and `deflateInit2_`
 (`Proof/public-deflate-init.lean`), the caller step, the copy constructor (`Proof/deflate.c.copy.lean`), and the
 steps `deflatePending`, `deflateUsed`, `deflateTune`, `deflateSetHeader`, `deflateBound`, `deflateBound_z`,
-`deflateReset`, `deflateGetDictionary` (`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`),
-`deflateSetDictionary` (`Proof/deflate.c.setdict.lean`, with the window facts `FillFacts.windowFacts`); the invariant
-(not `DSide`) for `deflateResetKeep`, and the `deflateCopy` step on the source. Every other case is a field of
-`DPending`, the list of obligations not proved yet: `deflate` and `deflateParams`, and `DSide` after
-`deflateResetKeep`. The `*_safety_of` theorems derive
-registered goals from `DPending`; a goal is registered as proved only once `DPending` is.
+`deflateReset`, `deflateResetKeep` (on a stream with nothing unfinished), `deflateGetDictionary`
+(`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`), `deflateSetDictionary`
+(`Proof/deflate.c.setdict.lean`, with the window facts `FillFacts.windowFacts`), and `deflateCopy` on the source.
+Every other case is a field of `DPending`, the list of obligations not proved yet: `deflate` and `deflateParams`.
+The `*_safety_of` theorems derive registered goals from `DPending`; a goal is registered as proved only once
+`DPending` is.
 -/
 
 set_option autoImplicit false
@@ -33,15 +33,12 @@ open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv
 open ZlibNgF.Proof.DeflateSide (DSide)
 
 /-- The obligations still to prove: each remaining public step keeps the invariant and the between-call facts
-(`DSide`). `resetKeep_side`: `deflateResetKeep` drops the symbols but keeps `strstart` and `block_start`, so the gap
-clause of `SymsOk` does not follow (open, see the module comment). -/
+(`DSide`). -/
 structure DPending : Prop where
   deflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), DInv h s → DSide h s → CrcGlobals h →
     DStreamIO h s → C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') → DInv h' s ∧ DSide h' s
   params : ∀ (h h' : Heap) (s : StreamPtr) (level strategy r : Int32), DInv h s → DSide h s → CrcGlobals h →
     DStreamIO h s → C.run (ZlibNg.Deflate.deflateParams s level strategy) h = .ok (r, h') → DInv h' s ∧ DSide h' s
-  resetKeep_side : ∀ (h h' : Heap) (s : StreamPtr) (r : Int32), DInv h s → DSide h s →
-    C.run (ZlibNg.Deflate.deflateResetKeep s) h = .ok (r, h') → DSide h' s
 
 /-- Two runs of one computation on one heap agree. -/
 theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h = .ok (r, h'))
@@ -69,7 +66,7 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
     (hs : DeflateStep h h' s) : DInv h' s ∧ DSide h' s := by
   rcases hs with ⟨flush, r, hcg, hio, e⟩ | ⟨level, strategy, r, hcg, hio, e⟩ | ⟨d, n, r, hdr, hd, hnb, e⟩ |
     ⟨d, hasLen, r, hd, hnb, hdis, e⟩ | ⟨hp, r, hbf, _, e⟩ | ⟨hp, hb, r, e⟩ | ⟨hb, r, e⟩ | ⟨bits, value, r, hpr, e⟩ |
-    ⟨g, l, n, c, r, e⟩ | ⟨n, r, e⟩ | ⟨n, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hfr, hdst, hne, e⟩
+    ⟨g, l, n, c, r, e⟩ | ⟨n, r, e⟩ | ⟨n, r, e⟩ | ⟨r, e⟩ | ⟨r, hrk, e⟩ | ⟨dst, r, hfr, hdst, hne, e⟩
   · exact P.deflate h h' s flush r hv hsd hcg hio e
   · exact P.params h h' s level strategy r hv hsd hcg hio e
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateSetDict.setDict_inv FillFacts.windowFacts hv hd hnb
@@ -99,7 +96,7 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
     rw [det e e0]; exact ⟨hi, DeflateSide.side_fresh hi hq⟩
   · obtain ⟨_, _, _, rfl, _, _, _, H, e0, ⟨_, hi, _, _⟩⟩ := DeflateReset.resetKeep_inv hv
     rw [det e e0]
-    exact ⟨hi, by rw [← det e e0]; exact P.resetKeep_side h h' _ r hv hsd e⟩
+    exact ⟨hi, by rw [← det e e0]; exact DeflateSide.resetKeep_side hv hrk e⟩
   · exact ⟨(DeflateCopy.copy_inv hv hdst hne e).1, DeflateSide.copy_src_side hv hsd hfr hdst hne e⟩
 
 /-- **The induction.** Every reachable deflate stream has the structural invariant and `DSide`, given the pending

@@ -64,8 +64,8 @@ theorem keep_trS (b : Nat) (st : DeflateState) (A B C : Array Ct) : KeepSt st (t
       trivial, trivial⟩
 
 /-- The post of `deflateResetKeep` on block `b`, from heap `h`. -/
-def KeepPost (h : Heap) (b : Nat) (h' : Heap) : Prop :=
-  ∀ st, h.dstate b = some st → ∃ st', h'.dstate b = some st' ∧ KeepSt st st'
+def KeepPost (h : Heap) (i b : Nat) (h' : Heap) : Prop :=
+  (∀ z', h'.streams i = some z' → z'.state = some b) ∧ ∀ st, h.dstate b = some st → ∃ st', h'.dstate b = some st' ∧ KeepSt st st'
 
 /-- The layout facts of `RLay` from the invariant's clauses. -/
 theorem rlay_of {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : DeflateState} {al : DeflateAllocs}
@@ -146,7 +146,7 @@ theorem reset_inv_nn {h : Heap} {s : StreamPtr} (hv : DInv h s)
 theorem resetKeep_inv_nn {h : Heap} {s : StreamPtr} (hv : DInv h s)
     (hw : ∀ b st, StateBlock h s b → h.dstate b = some st → st.wrap = 0 ∨ st.wrap = 1 ∨ st.wrap = 2) :
     ∃ i z b, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧
-      Sat h (deflateResetKeep s) (fun r h' => ResetPost h i b r h' (KeepPost h b)) := by
+      Sat h (deflateResetKeep s) (fun r h' => ResetPost h i b r h' (KeepPost h i b)) := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
   obtain ⟨pb, hpb⟩ := c.pbuf
   obtain ⟨ho, d, hd, hh, hho⟩ := c.head
@@ -157,7 +157,9 @@ theorem resetKeep_inv_nn {h : Heap} {s : StreamPtr} (hv : DInv h s)
     c.trees.2.2) ?_
   rintro r h' ⟨rfl, A, B, C, rfl, hA, hB, hC, hF⟩
   refine ⟨rfl, ⟨i, rkZ z st.wrap, b, trS b (rkS st) A B C, al, rfl, by simp [SH], L.hb,
-    by simp [Heap.dstate, SH], ?_, ?_⟩, ?_, fun st0 e0 => ⟨trS b (rkS st) A B C, by simp [Heap.dstate, SH], ?_⟩⟩
+    by simp [Heap.dstate, SH], ?_, ?_⟩, ?_, fun z' hz' => by
+      simp only [SH, upd_same] at hz'; rw [← Option.some.inj hz']; exact L.hb,
+    fun st0 e0 => ⟨trS b (rkS st) A B C, by simp [Heap.dstate, SH], ?_⟩⟩
   · simp [Heap.dallocsOf, SH, hda]
   · exact {
       zalloc := c.zalloc
@@ -284,7 +286,7 @@ theorem neg_view {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
 
 theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
     ∃ i z b, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧
-      Sat h (deflateResetKeep s) (fun r h' => ResetPost h i b r h' (KeepPost h b)) := by
+      Sat h (deflateResetKeep s) (fun r h' => ResetPost h i b r h' (KeepPost h i b)) := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
   by_cases hn : st.wrap = -1 ∨ st.wrap = -2
   · obtain ⟨h0, hv0, f0, e0, hz0, ⟨w, hw⟩, hw0⟩ := neg_view L hal c hn
@@ -292,9 +294,9 @@ theorem resetKeep_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) :
     obtain rfl : i' = i := (Option.some.inj e1).symm
     obtain rfl : z' = z := Option.some.inj (hz'.symm.trans hz0)
     obtain rfl : b' = b := Option.some.inj (hb'.symm.trans L.hb)
-    refine ⟨_, _, _, rfl, L.hz, L.hb, r, h', by rw [e0]; exact e, hr, hi, dframe_trans f0 hf, fun st0 hs0 => ?_⟩
+    refine ⟨_, _, _, rfl, L.hz, L.hb, r, h', by rw [e0]; exact e, hr, hi, dframe_trans f0 hf, hk.1, fun st0 hs0 => ?_⟩
     obtain rfl := Option.some.inj (hs0.symm.trans L.dstate)
-    obtain ⟨st', h1, h2⟩ := hk _ hw
+    obtain ⟨st', h1, h2⟩ := hk.2 _ hw
     exact ⟨st', h1, h2⟩
   · refine resetKeep_inv_nn hv fun b' st' hb' hs' => ?_
     obtain ⟨z', ⟨i', e1, e2⟩, e3⟩ := hb'

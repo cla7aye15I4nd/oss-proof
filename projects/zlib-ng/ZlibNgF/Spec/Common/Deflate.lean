@@ -25,7 +25,8 @@ into a buffer of at least 32768 bytes, the size `zlib.h` names as always enough;
 and destination, on a heap whose unallocated blocks hold no object (`DFreshBlocks`, as its goal assumes), both as
 the call that makes a stream and as a step on its source; `deflateSetHeader` registers a header for the stream only before the first `deflate` call (status
 `GZIP_STATE`), `deflatePrime` is called only before any pending output was flushed (`PrimeReady`), and
-`deflateSetDictionary` only with no tallied symbols (`DictReady`), as `zlib.h` requires; the buffer of
+`deflateSetDictionary` only with no tallied symbols (`DictReady`), as `zlib.h` requires; `deflateResetKeep`
+(undocumented) only on a stream with nothing unfinished (`ResetKeepReady`); the buffer of
 `deflateGetDictionary` does not overlap the registered header's buffers.
 -/
 
@@ -126,6 +127,14 @@ bytes. -/
 def DictReady (h : Heap) (s : StreamPtr) : Prop :=
   ∃ b st, DStateOf h s b st ∧ st.sym_next = 0
 
+/-- Nothing is unfinished in the deflate state of `s`: no unfinished block (`block_start == strstart`), no lookahead,
+no lazy match. `deflateResetKeep` (exported, but listed among the undocumented functions of `zlib.h`) keeps the window
+and these fields; the goals cover it on such streams, as right after `deflateInit*` or `deflateReset`, or after a
+completed `Z_FINISH` of a strategy other than `deflate_quick` (level 1, which never moves `block_start`). -/
+def ResetKeepReady (h : Heap) (s : StreamPtr) : Prop :=
+  ∃ b st, DStateOf h s b st ∧ (st.strstart.toNat : Int) = st.block_start.toInt ∧ st.lookahead = 0 ∧
+    st.match_available = 0
+
 /-- One public deflate call on stream `s` with valid arguments that returns (any result); `deflateEnd` is not a
 step (it ends the stream). -/
 def DeflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
@@ -146,7 +155,7 @@ def DeflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
   (∃ n r, C.run (ZlibNg.Deflate.deflateBound s n) h = .ok (r, h')) ∨
   (∃ n r, C.run (ZlibNg.Deflate.deflateBound_z s n) h = .ok (r, h')) ∨
   (∃ r, C.run (ZlibNg.Deflate.deflateReset s) h = .ok (r, h')) ∨
-  (∃ r, C.run (ZlibNg.Deflate.deflateResetKeep s) h = .ok (r, h')) ∨
+  (∃ r, ResetKeepReady h s ∧ C.run (ZlibNg.Deflate.deflateResetKeep s) h = .ok (r, h')) ∨
   (∃ dst r, DFreshBlocks h ∧ InitReady h dst ∧ dst ≠ s ∧ C.run (ZlibNg.Deflate.deflateCopy dst s) h = .ok (r, h'))
 
 /-- The deflate streams reachable through `zlib.h` (see the module comment). -/
