@@ -816,7 +816,10 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
         ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
-      · exact hw
+      · rcases hw with e | e | e
+        · exact Or.inl e
+        · exact Or.inr (Or.inl e)
+        · exact Or.inr (Or.inr (Or.inl e))
       · exact wsize_ne n hn2
       · exact ⟨_, rfl⟩
       · exact ⟨_, d', SH_bytes _ _ _ _ _ _, rfl, by rw [hd', hdsz]; omega⟩
