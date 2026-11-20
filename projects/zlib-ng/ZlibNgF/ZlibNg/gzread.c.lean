@@ -394,7 +394,8 @@ structure SlideLoop where
   src : BPtr
   dest : BPtr
 
-/-- `z_int32_t Z_EXPORT PREFIX(gzungetc)(z_int32_t c, gzFile file)` (`gzread.c:457-511`). -/
+/-- `z_int32_t Z_EXPORT PREFIX(gzungetc)(z_int32_t c, gzFile file)` (`gzread.c:457-511`, with patch 0023: no push
+when `x.pos <= -GZ_OFF_MAX`; the negation of the constant `GZ_OFF_MAX = 2^63 - 1` cannot overflow). -/
 def gzungetc (c : Int32) (file : GzPtr) : G Int32 := do
   if file == none then
     return -1
@@ -410,6 +411,8 @@ def gzungetc (c : Int32) (file : GzPtr) : G Int32 := do
     if (← gz_skip state) == -1 then
       return -1
   if c < 0 then
+    return -1
+  if (← rdG state (·.pos)) ≤ -GZ_OFF_MAX then
     return -1
   if (← rdG state (·.«have»)) == 0 then
     wrG state fun s => { s with «have» := 1 }
