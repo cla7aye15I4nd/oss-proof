@@ -363,4 +363,67 @@ theorem krank_split (N : Nat) (g : Nat → Nat) (i : Nat) (hi : i ≤ N) :
   · apply List.countP_congr; intro l _; simp [kLt]
   · intro l h; simp at h ⊢; omega
 
+/-! ## The forced leaves -/
+
+theorem scan_nil_mc (f : Nat → Nat) : ∀ n, scanLeaves f n = [] → maxCode1 f n = 0
+  | 0, _ => rfl
+  | n + 1, h => by
+    simp only [scanLeaves] at h
+    have h1 := List.append_eq_nil_iff.mp h
+    simp only [maxCode1]
+    split at h1
+    · simp at h1
+    · rename_i hf; simp only [hf, ↓reduceIte]; exact scan_nil_mc f n h1.1
+
+theorem scan_last_mc (f : Nat → Nat) : ∀ n (L : List (Nat × Nat)) (e : Nat × Nat), scanLeaves f n = L ++ [e] →
+    maxCode1 f n = e.2 + 1
+  | 0, L, e, h => by simp [scanLeaves] at h
+  | n + 1, L, e, h => by
+    simp only [scanLeaves] at h
+    simp only [maxCode1]
+    split at h
+    · rename_i hf
+      rw [ite_eq_left_of_eq_true _ _ (eq_true hf)]
+      have := (List.append_inj' h rfl).2
+      simp at this; rw [← this]
+    · rename_i hf
+      simp only [hf, ↓reduceIte, List.append_nil] at h ⊢
+      exact scan_last_mc f n L e h
+
+/-- The leaves after the forcing loop have distinct nodes, below `max(elems, 3)`, and every scanned frequency. -/
+theorem forced_props (f : Nat → Nat) (n : Nat) :
+    (forced (scanLeaves f n) (maxCode1 f n)).1.Pairwise (fun a b => a.2 ≠ b.2) ∧
+    (∀ e ∈ (forced (scanLeaves f n) (maxCode1 f n)).1, e.2 < max n 3 ∧ (e.1 = 1 ∨ e.1 = f e.2)) ∧
+    2 ≤ (forced (scanLeaves f n) (maxCode1 f n)).1.length := by
+  have inc := scan_inc f n
+  have lt := scan_lt f n
+  generalize hL : scanLeaves f n = L at inc lt
+  have mem : ∀ e ∈ L, e.1 = f e.2 := by
+    intro e he; rw [← hL] at he
+    clear hL inc lt
+    induction n with
+    | zero => simp [scanLeaves] at he
+    | succ n ih =>
+      simp only [scanLeaves] at he
+      rcases List.mem_append.mp he with h | h
+      · exact ih h
+      · split at h <;> simp at h; subst h; rfl
+  match L, hL with
+  | [], hL =>
+    have := scan_nil_mc f n hL
+    rw [this]
+    simp [forced, forceNode, forceNext]
+    omega
+  | [l], hL =>
+    have hm := scan_last_mc f n [] l (by simpa using hL)
+    have hl := lt l (by simp)
+    rw [hm]
+    simp only [forced, List.pairwise_cons, List.mem_cons, List.not_mem_nil, or_false,
+      forall_eq_or_imp, forall_eq, List.length_cons, List.length_nil]
+    unfold forceNode
+    refine ⟨⟨by split <;> omega, by simp⟩, ⟨⟨by omega, Or.inr (mem l (by simp))⟩, ⟨by split <;> omega, by simp⟩⟩, by omega⟩
+  | a :: c :: rest, _ =>
+    simp only [forced]
+    refine ⟨inc.imp (fun h => Nat.ne_of_lt h), fun e he => ⟨by have := lt e he; omega, Or.inr (mem e he)⟩, by simp⟩
+
 end ZlibNgF.Math.TreesRadix
