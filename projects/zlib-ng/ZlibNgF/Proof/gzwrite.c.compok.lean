@@ -196,6 +196,118 @@ theorem wx_err {w W : World} {h H : Heap} {b : Nat} {s : GzState} {z : ZStream} 
     have := gzOwned_setZ W H b hs' hz' (z' := flatZ z) rfl
     rw [k1] at this; exact this
 
+/-! ## The message block across a call -/
+
+/-- The message of `s` is still the message of `s'`, or its block is freed in `H` (and was handed out before). -/
+def MKeep (s s' : GzState) (H : Heap) : Prop :=
+  s'.msg = s.msg ∨ ∀ c ∈ blkOf s.msg, H.bytes c = none ∧ c < H.nextBlk
+
+theorem MKeep.trans {s1 s2 s3 : GzState} {H2 H3 : Heap} (a : MKeep s1 s2 H2) (b : MKeep s2 s3 H3)
+    (mono : ∀ c, c < H2.nextBlk → H2.bytes c = none → H3.bytes c = none ∧ c < H3.nextBlk) : MKeep s1 s3 H3 := by
+  rcases a with e | d
+  · rcases b with e' | d'
+    · exact Or.inl (e'.trans e)
+    · exact Or.inr fun c hc => d' c (by rw [e]; exact hc)
+  · exact Or.inr fun c hc => mono c (d c hc).2 (d c hc).1
+
+/-- The blocks of an open file, as `ownL` lists them once the buffers exist. -/
+theorem gzOwned_eq {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) :
+    GzOwned w h (some b) = [b] ++ blkOf s.path ++ blkOf s.msg ++ blkOf s.buffers ++ stBlk h s := by
+  simp only [GzOwned, hs]; rfl
+
+theorem owned_ownL {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) (hsz : s.size ≠ 0)
+    {c : Nat} (hc : c ∈ GzOwned w h (some b)) : c ∈ ownL h b s := by
+  rw [gzOwned_eq hs] at hc
+  simp only [ownL, hsz, ite_false, List.mem_append] at hc ⊢
+  rcases hc with (((h1 | h2) | h3) | h4) | h5
+  · exact Or.inl (Or.inl (Or.inl h1))
+  · exact Or.inl (Or.inl (Or.inr h2))
+  · exact Or.inl (Or.inr h3)
+  · exact Or.inr (Or.inl h4)
+  · exact Or.inr (Or.inr h5)
+
+/-- A dead block stays dead across a step from a write handle in the state `GzWX` (whose blocks are all live). -/
+theorem wx_mono {W W' : World} {H H' : Heap} {b : Nat} {s : GzState} {z : ZStream} {i : Nat} {a' : ZStream}
+    (hx : GzWX W H b s z) (g : GStep W (setZ H s.strm (flatZ z)) W' (setZ H' i a') b []) :
+    ∀ c, c < H.nextBlk → H.bytes c = none → H'.bytes c = none ∧ c < H'.nextBlk := by
+  obtain ⟨hs, -, hsz, hv, -⟩ := hx
+  have hsF : W.gz (setZ H s.strm (flatZ z)) b = some s := hs
+  have hwm := modeOf hsF hv.2.1
+  obtain ⟨sh, -⟩ := inv_of hsF hv.1
+  intro c hc hd
+  have hno : c ∉ GzOwned W (setZ H s.strm (flatZ z)) (some b) := fun m => by
+    obtain ⟨d, e⟩ := ownL_liveW sh hwm (gz_live hsF) c (owned_ownL hsF hsz m)
+    have e' : H.bytes c = some d := e
+    rw [hd] at e'; cases e'
+  obtain ⟨⟨⟨fr, -⟩, -, -⟩, -, -⟩ := g
+  simp only [hsF] at fr
+  exact ⟨fr.2.2.2.2.1 c hc hno hd, Nat.lt_of_lt_of_le hc fr.2.2.2.2.2.2.2.2.2⟩
+
+/-- `gz_error` on a write handle in the state `GzWX` frees the old message, a block handed out before. -/
+theorem gz_error_freesX {w : World} {h : Heap} {b : Nat} {s : GzState} {za : ZStream}
+    (hz : h.streams s.strm = some za) (hv : GzInvWS w (setZ h s.strm (flatZ za)) (some b))
+    (hs : w.gz h b = some s) (e : Int32) (msg : BPtr) (hmsg : msg = .null ∨ CStr h msg)
+    (hmk : ∀ c o, msg ≠ .ref (.heap c) o) :
+    GSat w h (gz_error (some b) e msg) (fun _ _ H => ∀ c ∈ blkOf s.msg, H.bytes c = none ∧ c < H.nextBlk) := by
+  have hlit : LitOk w h := hv.2.2.lit
+  have hsF : w.gz (setZ h s.strm (flatZ za)) b = some s := hs
+  obtain ⟨⟨b0, s0, e0, hs0, sh, hn⟩, -, hw⟩ := hv
+  cases e0; rw [hsF] at hs0; cases hs0
+  have hoF : ownL (setZ h s.strm (flatZ za)) b s = ownL h b s := ownL_setZ h b hz rfl
+  have hnA : (ownL h b s).Nodup := hoF ▸ hn
+  have fr : FreshBlocks h := hw.2.1.1
+  obtain ⟨db, hdb⟩ := gz_live hs
+  have hdb1 : (freeMsg h s).bytes b = some db := freeMsg_bytes_b hnA hdb
+  have hs1 : ({ w with gzs := upd w.gzs b (some (errSt s e)) } : World).gz (freeMsg h s) b = some (errSt s e) := by
+    unfold World.gz; rw [hdb1]; simp
+  obtain ⟨sh1, -⟩ := err0_keep sh hn e
+  rw [freeMsg_setZ] at sh1
+  have fr1 : FreshBlocks (freeMsg h s) := (HLess.free h s).freshB fr
+  obtain ⟨r, W, H, eq, -, -, -, -, -, x, -, -⟩ := errTail_spec hs1 fr1
+    (LitOk.ext (w := w) hlit rfl fun k a e' => by rw [freeMsg_consts]; exact e') sh1.path rfl e rfl msg
+    (hmsg.imp_right fun hp => cstr_free hp hmk)
+  refine ⟨r, W, H, by
+    rw [gz_error_run hs (by obtain ⟨⟩ := sh.msg; constructor <;> assumption) (msg_ne_b hnA) e msg]; exact eq, ?_⟩
+  intro c hc
+  rcases sh.msg.msg with e1 | ⟨c', d, e1, hd⟩
+  · rw [e1] at hc; simp [blkOf] at hc
+  · rw [e1] at hc; simp [blkOf] at hc; subst hc
+    have hne : s.err ≠ ZlibNg.Inflate.Z_MEM_ERROR := fun e' => by
+      have := sh.msg.mem e'; rw [e1] at this; cases this
+    have hd' : h.bytes c = some d := hd
+    have hlt : c < h.nextBlk := live_lt fr ⟨d, hd'⟩
+    have hf : (freeMsg h s).bytes c = none := by unfold freeMsg; rw [e1]; simp [hne]
+    have hc' : c < (freeMsg h s).nextBlk := by rw [freeMsg_next]; exact hlt
+    exact ⟨by rw [(x.old c hc').1]; exact hf, Nat.lt_of_lt_of_le hc' x.next⟩
+
+/-- `gz_error(state, Z_ERRNO, zstrerror())` in the state `GzWX` frees the old message. -/
+theorem gz_error_strX_frees {w : World} {h : Heap} {b : Nat} {s : GzState} {za : ZStream}
+    (hz : h.streams s.strm = some za) (hv : GzInvWS w (setZ h s.strm (flatZ za)) (some b))
+    (hs : w.gz h b = some s) {α : Type} (r : α) :
+    GSat w h (do gz_error (some b) Z_ERRNO (← zstrerror); pure r)
+      (fun _ _ H => ∀ c ∈ blkOf s.msg, H.bytes c = none ∧ c < H.nextBlk) := by
+  obtain ⟨p, a, e, hc, hk⟩ := zstrerror_spec w h
+  refine GSat.bind ⟨p, w, _, e, ?_⟩
+  have x := HExt.lit h a
+  obtain ⟨hv1, hs1, -⟩ := invX_ext hv hs x (LitOk.ext hv.2.2.lit rfl x.consts)
+  exact GSat.bind (GSat.mono (gz_error_freesX (by rw [x.streams]; exact hz) hv1 hs1 _ p (Or.inr hc) hk)
+    fun _ W H q => GSat.pure q)
+
+/-- `gz_error(state, e, lit)` in the state `GzWX` frees the old message. -/
+theorem gz_error_litX_frees (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i)
+    (hl : gzLits[i]? = some lit) (hn : NoNul lit) {w : World} {h : Heap} {b : Nat} {s : GzState} {za : ZStream}
+    (hz : h.streams s.strm = some za) (hv : GzInvWS w (setZ h s.strm (flatZ za)) (some b))
+    (hs : w.gz h b = some s) (e : Int32) {α : Type} (r : α) :
+    GSat w h (do gz_error (some b) e (← gzLit lit); pure r)
+      (fun _ _ H => ∀ c ∈ blkOf s.msg, H.bytes c = none ∧ c < H.nextBlk) := by
+  refine GSat.bind (GSat.mono (gzLit_spec lit i hi hl hn hv.2.2.lit) fun p W1 H1 q => ?_)
+  obtain ⟨hg, -, x, hL, hc, hk⟩ := q
+  obtain ⟨v1, e1, -⟩ := invWS_ext hv (show w.gz (setZ h s.strm (flatZ za)) b = some s from hs)
+    (hext_setZ x s.strm (flatZ za)) hg (by exact hL)
+  have hs1 : W1.gz H1 b = some s := e1
+  exact GSat.bind (GSat.mono (gz_error_freesX (by rw [x.streams]; exact hz) v1 hs1 e p (Or.inr ⟨_, hc⟩) hk)
+    fun _ W H q => GSat.pure q)
+
 /-! ## The potential -/
 
 /-- A `deflate` call with room in the output does not raise the potential, and lowers it when it produces output. -/
@@ -246,6 +358,16 @@ theorem pot_call {ψ : Int32 → C.DeflateState → Nat} {Gr : Nat} (hG : Gr ≤
 
 /-! ## The tail of the loop body: `deflate` -/
 
+/-- Two facts of the same deterministic run. -/
+theorem gsat_andC {α : Type} {w : World} {h : Heap} {m : G α} {P Q : α → World → Heap → Prop}
+    (p : GSat w h m P) (q : GSat w h m Q) : GSat w h m (fun a W H => P a W H ∧ Q a W H) := by
+  obtain ⟨a, W, H, e, pa⟩ := p
+  obtain ⟨a', W', H', e', qa⟩ := q
+  rw [e] at e'
+  simp only [Except.ok.injEq, Prod.mk.injEq] at e'
+  obtain ⟨⟨rfl, rfl⟩, rfl⟩ := e'
+  exact ⟨a, W, H, e, pa, qa⟩
+
 theorem lit_dcorrupt : gzLits.findIdx? (· == "internal error: deflate stream corrupt") = some 10 := by
   simp [gzLits, List.findIdx?_cons]
 theorem lit_dcorrupt_get : gzLits[10]? = some "internal error: deflate stream corrupt" := by decide
@@ -260,7 +382,7 @@ def TailPost (ψ : Int32 → C.DeflateState → Nat) (flush : Int32) (W : World)
       (l'.ctl = .go ∧ s' = s ∧ l'.hv = z.avail_out - z'.avail_out ∧
         pot ψ flush s.size.toNat H' s.strm ≤ pot ψ flush s.size.toNat H s.strm ∧
         (l'.hv ≠ 0 → pot ψ flush s.size.toNat H' s.strm < pot ψ flush s.size.toNat H s.strm) ∧
-        (flush ≠ ZlibNg.Inflate.Z_FINISH → z'.avail_in = 0 ∨ z'.avail_out = 0)))
+        (flush ≠ ZlibNg.Inflate.Z_FINISH → z'.avail_in = 0 ∨ z'.avail_out = 0))) ∧ MKeep s s' H'
 
 /-- **`cTail`**: `deflate` on a write handle in the state `GzWX` (not direct) with room in the output. -/
 theorem tail_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → Nat} {Gr : Nat}
@@ -282,15 +404,17 @@ theorem tail_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState →
   · intro _
     have hx1 := hx'
     obtain ⟨hs', -, -, hv', -⟩ := hx1
-    refine GSat.mono (gz_error_litX _ 10 lit_dcorrupt lit_dcorrupt_get nonul_dcorrupt hz' hv' hs'
-      ZlibNg.Inflate.Z_STREAM_ERROR ({ l with ret := r, ctl := .ret } : CompLoop)) fun l' W2 H2 q => ?_
-    obtain ⟨rfl, q⟩ := q
+    refine GSat.mono (gsat_andC (gz_error_litX _ 10 lit_dcorrupt lit_dcorrupt_get nonul_dcorrupt hz' hv' hs'
+      ZlibNg.Inflate.Z_STREAM_ERROR ({ l with ret := r, ctl := .ret } : CompLoop))
+      (gz_error_litX_frees _ 10 lit_dcorrupt lit_dcorrupt_get nonul_dcorrupt hz' hv' hs'
+      ZlibNg.Inflate.Z_STREAM_ERROR ({ l with ret := r, ctl := .ret } : CompLoop))) fun l' W2 H2 q => ?_
+    obtain ⟨⟨rfl, q⟩, hfree⟩ := q
     obtain ⟨s2, hx2, he2, hfs2, g2⟩ := wx_err hx' q
-    exact ⟨s2, z', hx2, hfs2, g.trans g2 ⟨s, hx.1⟩ ⟨s, hx'.1⟩, hadv, Or.inl ⟨rfl, he2⟩⟩
+    exact ⟨s2, z', hx2, hfs2, g.trans g2 ⟨s, hx.1⟩ ⟨s, hx'.1⟩, hadv, Or.inl ⟨rfl, he2⟩, Or.inr hfree⟩
   · intro hne
     refine GSat.bind (GSat.lm ⟨_, H', rdZ_run hz' _, GSat.pure ?_⟩)
     refine ⟨s, z', hx', rfl, g, hadv, Or.inr ⟨hl, rfl, rfl, pl, fun h1 => plt fun e2 => h1 ?_,
-      fun h1 => hdone h1 (by simpa using hne)⟩⟩
+      fun h1 => hdone h1 (by simpa using hne)⟩, Or.inl rfl⟩
     show z.avail_out - z'.avail_out = 0
     rw [e2]; exact UInt32.sub_self _
 
@@ -370,18 +494,23 @@ structure LFix (s s' : GzState) : Prop where
   inp : s'.«in» = s.«in»
   out : s'.out = s.out
   reset : s'.reset = s.reset
+  path : s'.path = s.path
 
-theorem LFix.refl (s : GzState) : LFix s s := ⟨WFix.refl s, rfl, rfl, rfl, rfl, rfl⟩
+theorem LFix.refl (s : GzState) : LFix s s := ⟨WFix.refl s, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 theorem LFix.trans {s1 s2 s3 : GzState} (a : LFix s1 s2) (b : LFix s2 s3) : LFix s1 s3 :=
-  ⟨a.1.trans b.1, b.2.trans a.2, b.3.trans a.3, b.4.trans a.4, b.5.trans a.5, b.6.trans a.6⟩
+  ⟨a.1.trans b.1, b.2.trans a.2, b.3.trans a.3, b.4.trans a.4, b.5.trans a.5, b.6.trans a.6, b.7.trans a.7⟩
+
+theorem errOf_path {s s' : GzState} {e : Int32} (he : ErrOf s e s') : s'.path = s.path := by
+  obtain ⟨h1, -⟩ := he
+  rw [h1]; rfl
 
 theorem LFix.of_err {s s' : GzState} {e : Int32} (he : ErrOf s e s') : LFix s s' := by
   obtain ⟨-, k2, k3, k4, k5, -, -, -, k9, -⟩ := errOf_keep he
-  exact ⟨WFix.of_err he, k2, k3, k4, k5, k9⟩
+  exact ⟨WFix.of_err he, k2, k3, k4, k5, k9, errOf_path he⟩
 
 theorem LFix.next (s : GzState) (nx : Ival BPtr) : LFix s { s with next := nx } :=
-  ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl, rfl, rfl⟩
+  ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-- What one trip of the loop body of `gz_comp` leaves, from `W`, `H`, `s`, `z`. -/
 def BPost (ψ : Int32 → C.DeflateState → Nat) (flush : Int32) (W : World) (H : Heap) (b : Nat) (s : GzState)
@@ -392,7 +521,8 @@ def BPost (ψ : Int32 → C.DeflateState → Nat) (flush : Int32) (W : World) (H
     (InOk s z → InOk s' z') ∧
     (l'.ctl = .ret ∨ (l'.ctl = .go ∧ pot ψ flush s.size.toNat H' s.strm ≤ pot ψ flush s.size.toNat H s.strm ∧
       (l'.hv ≠ 0 → pot ψ flush s.size.toNat H' s.strm < pot ψ flush s.size.toNat H s.strm) ∧
-      (l'.hv = 0 → z'.avail_out ≠ 0 ∧ (flush ≠ ZlibNg.Inflate.Z_FINISH → z'.avail_in = 0))))
+      (l'.hv = 0 → z'.avail_out ≠ 0 ∧ (flush ≠ ZlibNg.Inflate.Z_FINISH → z'.avail_in = 0)))) ∧
+    MKeep s s' H' ∧ z'.state = z.state
 
 /-- A head that changes only the output fields and `x.next`, followed by `cTail`. -/
 theorem bpost_tail {ψ : Int32 → C.DeflateState → Nat} {flush : Int32} {W W2 W' : World} {H H2 H' : Heap}
@@ -401,20 +531,21 @@ theorem bpost_tail {ψ : Int32 → C.DeflateState → Nat} {flush : Int32} {W W2
     (hfs : FdWrites s.fd W.fs W2.fs)
     (g : GStep W (setZ H s.strm (flatZ z)) W2 (setZ H2 s.strm (flatZ z2)) b [])
     (hin : z2.next_in = z.next_in) (hai : z2.avail_in = z.avail_in) (h0 : z2.avail_out ≠ 0)
+    (hst2 : z2.state = z.state)
     (hpot : pot ψ flush s.size.toNat H2 s.strm = pot ψ flush s.size.toNat H s.strm)
     (T : TailPost ψ flush W2 H2 b { s with next := nx } z2 l' W' H') : BPost ψ flush W H b s z l' W' H' := by
-  obtain ⟨s', z', hx', hfs', g', hadv, hr⟩ := T
+  obtain ⟨s', z', hx', hfs', g', hadv, hr, hmk⟩ := T
   have hsF : W.gz (setZ H s.strm (flatZ z)) b = some s := hx.1
   have hs2F : W2.gz (setZ H2 s.strm (flatZ z2)) b = some { s with next := nx } := hs2
   have gg := g.trans g' ⟨s, hsF⟩ ⟨_, hs2F⟩
-  obtain ⟨a1, a2, a3, -, -⟩ := hadv
+  obtain ⟨a1, a2, a3, -, a5⟩ := hadv
   rw [hin, hai] at a3; rw [hai] at a1
   have hlf : LFix s s' := by
     rcases hr with ⟨-, he⟩ | ⟨-, rfl, -⟩
     · exact (LFix.next s nx).trans (LFix.of_err he)
     · exact LFix.next s nx
   refine ⟨s', z', hx', hlf, by rw [hfs']; exact hfs, gg, a1, a3,
-    fun hi => inOk_adv hd hlf.buffers hlf.size hlf.fix.direct hi a1 a3, ?_⟩
+    fun hi => inOk_adv hd hlf.buffers hlf.size hlf.fix.direct hi a1 a3, ?_, hmk, a5.trans hst2⟩
   rcases hr with ⟨e1, -⟩ | ⟨e1, -, e3, p1, p2, p3⟩
   · exact Or.inl e1
   · refine Or.inr ⟨e1, by rw [← hpot]; exact p1, fun h => by rw [← hpot]; exact p2 h, fun h => ?_⟩
@@ -503,7 +634,7 @@ theorem rt_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → N
     try dsimp only
     simp only [InflateInv.upd_upd]
     refine GSat.mono (tail_spec P hP hxw hd hsz flush l hl) fun l' W6 H6 q => ?_
-    refine bpost_tail (z2 := { { z with avail_out := s.size } with next_out := .ref (.heap c) (base + inSize s) }) hx hd hs3 hfs (g0.trans (by rw [setZ_setZ]; exact gw) ⟨s, hx.1⟩ ⟨s, hs'⟩) rfl rfl hsz ?_ q
+    refine bpost_tail (z2 := { { z with avail_out := s.size } with next_out := .ref (.heap c) (base + inSize s) }) hx hd hs3 hfs (g0.trans (by rw [setZ_setZ]; exact gw) ⟨s, hx.1⟩ ⟨s, hs'⟩) rfl rfl hsz rfl ?_ q
     refine pot_setZ ψ flush _ hz rfl rfl ?_
     simp only [ha0, hsz, ↓reduceIte]
   · intro ha
@@ -518,7 +649,7 @@ theorem rt_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → N
     refine GSat.bind (GSat.of_eq (wrG_app hs' _) ?_)
     try dsimp only
     refine GSat.mono (tail_spec P hP hxw hd ha0 flush l hl) fun l' W6 H6 q => ?_
-    exact bpost_tail (H2 := H) hx hd hs3 hfs (g0.trans gw ⟨s, hx.1⟩ ⟨s, hs'⟩) rfl rfl ha0 rfl q
+    exact bpost_tail (H2 := H) hx hd hs3 hfs (g0.trans gw ⟨s, hx.1⟩ ⟨s, hs'⟩) rfl rfl ha0 rfl rfl q
 
 theorem hv_val (n : Nat) (hn : n < 2 ^ 31) : (Int64.ofInt (n : Int)).toUInt64.toUInt32.toNat = n := by
   have h1 : (Int64.ofInt (n : Int)) = Int64.ofNat n := by
@@ -579,14 +710,16 @@ theorem body_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState →
       have f1 : FdWrites s.fd W.fs ({ W with fs := (W.fs.writeCall s.fd bs).2 } : World).fs := FdWrites.one _ _ _
       apply GSat.ite
       · intro _
-        refine GSat.mono (gz_error_strX hz hx1.2.2.2.1 hx1.1 ({ l with ctl := .ret } : CompLoop))
+        refine GSat.mono (gsat_andC (gz_error_strX hz hx1.2.2.2.1 hx1.1 ({ l with ctl := .ret } : CompLoop))
+          (gz_error_strX_frees hz hx1.2.2.2.1 hx1.1 ({ l with ctl := .ret } : CompLoop)))
           fun l' W2 H2 q => ?_
-        obtain ⟨rfl, q⟩ := q
+        obtain ⟨⟨rfl, q⟩, hfree⟩ := q
         obtain ⟨s2, hx2, he2, hfs2, g2⟩ := wx_err hx1 q
         have hst2 : H2.streams = H.streams := q.choose_spec.2.2.2.2.1
         refine ⟨s2, z, hx2, LFix.of_err he2, by rw [hfs2]; exact f1, g1.trans g2 ⟨s, hs⟩ ⟨s, hs⟩,
           UInt32.le_refl _, ?_, fun hi => inOk_adv hd (LFix.of_err he2).buffers (LFix.of_err he2).size
-            (LFix.of_err he2).fix.direct hi (UInt32.le_refl _) (by simpa using adv_zero z.next_in), Or.inl rfl⟩
+            (LFix.of_err he2).fix.direct hi (UInt32.le_refl _) (by simpa using adv_zero z.next_in), Or.inl rfl,
+          Or.inr hfree, rfl⟩
         simpa using adv_zero z.next_in
       · intro _
         have T := RT _ hx1 f1 g1
@@ -602,7 +735,7 @@ theorem body_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState →
     have T := tail_spec P hP hx hd ha0 flush l hl
     dsimp only [cTail] at T
     exact GSat.mono T fun l' W' H' q => bpost_tail (nx := s.next) (H2 := H) (z2 := z) hx hd hs (FdWrites.refl _ _)
-      (GStep.refl _ _ _ _) rfl rfl ha0 rfl q
+      (GStep.refl _ _ _ _) rfl rfl ha0 rfl rfl q
 
 /-! ## The loop -/
 
@@ -612,7 +745,7 @@ def LFacts (w0 : World) (h0 : Heap) (b : Nat) (s0 : GzState)
   GzWX W H b s z ∧ LFix s0 s ∧ FdWrites s0.fd w0.fs W.fs ∧
     GStep w0 (setZ h0 s0.strm (flatZ z0)) W (setZ H s0.strm (flatZ z)) b [] ∧
     z.avail_in ≤ z0.avail_in ∧ Adv z0.next_in z.next_in (z0.avail_in.toNat - z.avail_in.toNat) ∧
-    (InOk s0 z0 → InOk s z)
+    (InOk s0 z0 → InOk s z) ∧ MKeep s0 s H ∧ z.state = z0.state
 
 /-- The invariant of the loop of `gz_comp`. -/
 def LInv (ψ : Int32 → C.DeflateState → Nat) (flush : Int32) (w0 : World) (h0 : Heap) (b : Nat) (s0 : GzState)
@@ -632,15 +765,17 @@ theorem lfacts_step {w0 W W' : World} {h0 H H' : Heap} {b : Nat}
     (hx' : GzWX W' H' b s' z') (hlf : LFix s s') (hfs : FdWrites s.fd W.fs W'.fs)
     (g : GStep W (setZ H s.strm (flatZ z)) W' (setZ H' s.strm (flatZ z')) b [])
     (h1 : z'.avail_in ≤ z.avail_in) (h2 : Adv z.next_in z'.next_in (z.avail_in.toNat - z'.avail_in.toNat))
-    (h3 : InOk s z → InOk s' z') : LFacts w0 h0 b s0 z0 W' H' s' z' := by
-  obtain ⟨hx, f1, f2, f3, f4, f5, f6⟩ := F
+    (h3 : InOk s z → InOk s' z') (hmk : MKeep s s' H') (hzs : z'.state = z.state) :
+    LFacts w0 h0 b s0 z0 W' H' s' z' := by
+  obtain ⟨hx, f1, f2, f3, f4, f5, f6, f7, f8⟩ := F
+  have mono := wx_mono hx g
   have hst : s.strm = s0.strm := f1.fix.strm
   have hfd : s.fd = s0.fd := f1.fix.fd
   rw [hst] at g; rw [hfd] at hfs
   have l1 := UInt32.le_iff_toNat_le.mp h1
   have l2 := UInt32.le_iff_toNat_le.mp f4
   refine ⟨hx', f1.trans hlf, f2.trans hfs, f3.trans g ⟨s0, hs0⟩ ⟨s, hx.1⟩, UInt32.le_trans h1 f4, ?_,
-    fun hi => h3 (f6 hi)⟩
+    fun hi => h3 (f6 hi), f7.trans hmk mono, hzs.trans f8⟩
   · have := adv_trans f5 h2
     have e : z0.avail_in.toNat - z.avail_in.toNat + (z.avail_in.toNat - z'.avail_in.toNat) =
         z0.avail_in.toNat - z'.avail_in.toNat := by omega
@@ -655,7 +790,7 @@ theorem loop_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState →
   have hs0 : w0.gz h0 b = some s0 := hx.1
   refine gsat_gdoWhile (LInv ψ flush w0 h0 b s0 z0) (fun _ _ H => pot ψ flush s0.size.toNat H s0.strm) _
     (fun l W H hI => ?_) ⟨rfl, s0, z0, ⟨hx, LFix.refl s0, FdWrites.refl _ _, GStep.refl _ _ _ _,
-      UInt32.le_refl _, by simpa using adv_zero z0.next_in, id⟩, Nat.le_refl _⟩ ?_
+      UInt32.le_refl _, by simpa using adv_zero z0.next_in, id, Or.inl rfl, rfl⟩, Nat.le_refl _⟩ ?_
   · obtain ⟨hl, s, z, F, hp⟩ := hI
     have hx1 := F.1
     have hd' : s.direct = 0 := F.2.1.fix.direct.trans hd
@@ -664,8 +799,8 @@ theorem loop_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState →
     have B := body_spec P hP hx1 hd' flush l hl
     rw [hstrm] at B
     refine GSat.mono B fun l1 W1 H1 q => ?_
-    obtain ⟨s1, z1, hx2, hlf, hfs, g, h1, h2, h3, hr⟩ := q
-    have F1 := lfacts_step hs0 F hx2 hlf hfs g h1 h2 h3
+    obtain ⟨s1, z1, hx2, hlf, hfs, g, h1, h2, h3, hr, hmk, hzs⟩ := q
+    have F1 := lfacts_step hs0 F hx2 hlf hfs g h1 h2 h3 hmk hzs
     unfold compCond
     apply GSat.ite
     · intro hc
