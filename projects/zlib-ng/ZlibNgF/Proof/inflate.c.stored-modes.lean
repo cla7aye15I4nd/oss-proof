@@ -32,7 +32,7 @@ theorem LI.outBytes {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
 
 /-- `put` in the output buffer with `left` bytes of room. -/
 theorem LI.outPos {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) :
-    ∃ p, l.put = .ref (.heap E.bo) p ∧ E.oo ≤ p ∧ p + l.left.toNat ≤ E.oo + E.O0.toNat := by
+    ∃ p, l.put = .ref (.heap E.bo) p ∧ E.oo ≤ p ∧ p + l.left.toNat = E.oo + E.O0.toNat := by
   obtain ⟨hle, ob, h1, h2, hput⟩ := li.outAt
   have hle' : l.left.toNat ≤ l.out.toNat := hle
   refine ⟨_, hput, by omega, ?_⟩
@@ -50,7 +50,7 @@ theorem LI.produce {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
   have hc' : c.toNat ≤ l.left.toNat := hc
   have hs : (l.left - c).toNat = l.left.toNat - c.toNat := UInt32.toNat_sub_of_le _ _ hc
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [e1, e2]; exact li.inAt, ?_,
-    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn, by rw [e4]; exact li.outO, by rw [e8]; exact li.retB⟩
+    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn, by rw [e4]; exact li.outO, by rw [e8]; exact li.retB, li.sacc⟩
   rw [e3, e4, e5]
   refine ⟨by rw [UInt32.le_iff_toNat_le, hs]; omega, ob, h1, h2, ?_⟩
   rw [hp] at hput

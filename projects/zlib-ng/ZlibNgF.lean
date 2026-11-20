@@ -181,10 +181,13 @@ import ZlibNgF.Proof.«gzlib.c.error»
 import ZlibNgF.Proof.«gzread.c.close»
 import ZlibNgF.Proof.«gzread.c.facts»
 import ZlibNgF.Proof.«gzread.c.load»
+import ZlibNgF.Proof.«gzread.c.decomp»
 import ZlibNgF.Proof.«gzread.c.look»
 import ZlibNgF.Proof.«gzread.c.init»
+import ZlibNgF.Proof.«gzread.c.lookspec»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
+import ZlibNgF.Proof.«deflate.c.gz»
 import ZlibNgF.Proof.«gzwrite.c.error»
 import ZlibNgF.Proof.«gzwrite.c.init»
 import ZlibNgF.Proof.«gzwrite.c.comp»
@@ -192,6 +195,12 @@ import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
 import ZlibNgF.Proof.«deflate_huff.c.safety»
 import ZlibNgF.Proof.«deflate_rle.c.safety»
+import ZlibNgF.Proof.«deflate_slow.c.lazy»
+import ZlibNgF.Proof.«deflate_slow.c.frame»
+import ZlibNgF.Proof.«deflate_slow.c.step»
+import ZlibNgF.Proof.«deflate_slow.c.emit»
+import ZlibNgF.Proof.«deflate_slow.c.trip»
+import ZlibNgF.Proof.«deflate_slow.c.safety»
 import ZlibNgF.Proof.«deflate_stored.c.io»
 import ZlibNgF.Proof.«deflate_stored.c.frame»
 import ZlibNgF.Proof.«deflate_stored.c.trip»
