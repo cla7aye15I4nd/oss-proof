@@ -158,7 +158,11 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have hcd2 : cd.toNat ≤ 32768 := by omega
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       rw [k4.2.1]
-      trace_state
+      set_option pp.oneline false in set_option pp.deepTerms false in set_option pp.deepTerms.threshold 4 in
+        run_tac do
+          let g ← Lean.Elab.Tactic.getMainTarget
+          let m := g.getAppArgs[1]!
+          Lean.logInfo m!"KIND {m.ctorName} HEAD {m.getAppFn.ctorName} {m.getAppFn} NARGS {m.getAppNumArgs}"
       (try simp -zeta only [])
       extract_lets jpI
       -- after the insertions
