@@ -125,7 +125,7 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
     obtain rfl : st1 = st := by
       have := congrArg (fun H => H.dstate b) e1
       simp only [SH_dstate] at this
-      exact (Option.some.inj (this.symm.trans hst)).symm
+      exact Option.some.inj (this.symm.trans hst)
     rw [FS_self, ← e1] at C1
     exact C1
   suffices S : Sat h (deflate_fast (some b) flush) (fun bs h' => StratPost h (some i) flush bs h' ∧ CK b h') by
@@ -171,9 +171,9 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
     have hv : (if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart else STD_MIN_MATCH - 1) ≤ st1.strstart := by
       split
       · exact UInt32.le_refl _
-      · exact UInt32.le_of_lt (UInt32.not_lt.mp (by assumption))
-    refine Sat.bind (Sat.mono (slc_insert C1 _ hv) ?_)
-    rintro _ H2 ⟨C2, rfl⟩
+      · exact UInt32.not_lt.mp (by assumption)
+    obtain ⟨_, H2, -, C2, rfl⟩ := slc_insert C1 _ hv
+    refine Sat.bind (Sat.of_eq (wrD_eq _ _ rfl) ?_)
     have Ck2 : CK b (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
         else STD_MIN_MATCH - 1 } d1) := fun st2 d2 h2 hd2 => by
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
