@@ -471,19 +471,42 @@ theorem cstr_frame {h h' : Heap} {S : List Nat} {p : BPtr} {n : Nat} (hfr : DFre
     rw [fc]; exact hgd
   | str k0 => exact ⟨⟨.str k0, o, data, rfl, hgd, h1, h2, h3⟩, fun _ _ off e3 => by injection e3 with e4; cases e4⟩
 
+/-- The hash chains move with a copy of the `head` and `prev` arrays (`ChainCopy`). -/
+theorem ChainOk.copy {b nb : Nat} {d dF : Array UInt8} {st st' : DeflateState} (C : ChainOk b d st)
+    (cc : ZlibNgF.Proof.DeflateCopy.ChainCopy b nb d dF st st') (e : SideEq st st') : ChainOk nb dF st' := by
+  intro h1 h2
+  rw [e.level] at h1; rw [e.level, e.strategy] at h2
+  obtain ⟨I, ho, po, hh, hp, c1, c2, c3⟩ := C h1 h2
+  obtain ⟨ew, hw, f⟩ := cc
+  obtain ⟨nho, npo, hh', hp', q1, q2⟩ := f ho po hh hp
+  have pa : ∀ k, k < 65536 → posAt dF nho k = posAt d ho k := fun k hk => by
+    simp only [posAt, Nat.add_assoc, q1 (2 * k) (by omega), q1 (2 * k + 1) (by omega)]
+  have pb : ∀ k, k < st.w_size.toNat → posAt dF npo k = posAt d po k := fun k hk => by
+    simp only [posAt, Nat.add_assoc, q2 (2 * k) (by omega), q2 (2 * k + 1) (by omega)]
+  refine ⟨I, nho, npo, hh', hp', fun p hp => ?_, fun k hk hn => ?_, fun p hp hs => ?_⟩
+  · rw [chainLim_eq e.level e.strstart e.lookahead]; exact c1 p hp
+  · rw [pa k hk] at hn ⊢; exact c2 k hk hn
+  · rw [e.strstart, ew] at hs; rw [ew, pb _ (Nat.mod_lt _ hw)]; exact c3 p hp hs
+
 /-- The destination of `deflateCopy` (on a heap with fresh blocks) has `DSide`. -/
 theorem copy_side {h h' : Heap} {src dst : StreamPtr} (hs : DSide h src) (hfr : DFreshBlocks h)
-    (hc : ZlibNgF.Proof.DeflateCopy.CopySide h h' src dst) (hf : DFrame h h' (streamIds dst) [] [] [])
-    (hch : ∀ b st d, DStateIs h' dst b st → h'.bytes b = some d → ChainOk b d st) :
+    (hc : ZlibNgF.Proof.DeflateCopy.CopySide h h' src dst) (hf : DFrame h h' (streamIds dst) [] [] []) :
     DSide h' dst := by
-  obtain ⟨i, j, z, b, st, z', nb, st', rfl, rfl, hz, hzb, hst, hz', hzb', hnb, hst', eq⟩ := hc
+  obtain ⟨i, j, z, b, st, z', nb, st', rfl, rfl, hz, hzb, hst, hz', hzb', hnb, hst', eq, hcc⟩ := hc
+  have hch : ∀ d, h'.bytes nb = some d → ChainOk nb d st' := by
+    intro dF hdF
+    obtain ⟨d, hd⟩ : ∃ d, h.bytes b = some d := by
+      unfold Heap.dstate at hst; split at hst
+      · exact ⟨_, by assumption⟩
+      · cases hst
+    exact ChainOk.copy ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).2.2.2.2.2 d hd) (hcc d dF hd hdF) eq
   intro b2 st2 ⟨j2, z2, e2, hz2, hzb2, hst2⟩
   obtain rfl := Option.some.inj e2
   obtain rfl := Option.some.inj (hz'.symm.trans hz2)
   obtain rfl := Option.some.inj (hzb'.symm.trans hzb2)
   obtain rfl := Option.some.inj (hst'.symm.trans hst2)
   refine (hs b st ⟨i, z, rfl, hz, hzb, hst⟩).move (fun hh k g hk hg => ⟨g, by rw [hf.1.2.1 k (by simp)]; exact hg,
-    rfl, rfl, rfl, rfl, fun p n _ _ c => ?_⟩) eq (fun d hd => hch _ _ d ⟨j, z', rfl, hz', hzb', hst'⟩ hd)
+    rfl, rfl, rfl, rfl, fun p n _ _ c => ?_⟩) eq hch
   obtain ⟨c1, c2⟩ := cstr_frame hfr hf c
   exact ⟨c1, c2 nb hnb⟩
 

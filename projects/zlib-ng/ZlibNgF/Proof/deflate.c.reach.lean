@@ -21,9 +21,9 @@ steps `deflatePending`, `deflateUsed`, `deflateTune`, `deflateSetHeader`, `defla
 (`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`), `deflateSetDictionary`
 (`Proof/deflate.c.setdict.lean`, with the window facts `FillFacts.windowFacts`), and `deflateCopy` on the source.
 Every other case is a field of `DPending`, the list of obligations not proved yet: `deflate` and `deflateParams`, and
-the hash chains (`ChainOk`, the last part of `DSide`) after `deflateCopy` (destination) and
-`deflateSetDictionary` (after `deflateInit_`, `deflateInit2_` and `deflateReset` they follow from `lm_init`'s
-`CLEAR_HASH`, `FreshHead`; `deflateResetKeep` keeps them).
+the hash chains (`ChainOk`, the last part of `DSide`) after `deflateSetDictionary` (after `deflateInit_`,
+`deflateInit2_` and `deflateReset` they follow from `lm_init`'s `CLEAR_HASH`, `FreshHead`; `deflateResetKeep` keeps
+them; `deflateCopy` copies them, `ChainCopy`).
 The `*_safety_of` theorems derive registered goals from `DPending`; a goal is registered as proved only once
 `DPending` is.
 -/
@@ -46,8 +46,6 @@ structure DPending : Prop where
     DStreamIO h s → C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') → DInv h' s ∧ DSide h' s
   params : ∀ (h h' : Heap) (s : StreamPtr) (level strategy r : Int32), DInv h s → DSide h s → CrcGlobals h →
     DStreamIO h s → C.run (ZlibNg.Deflate.deflateParams s level strategy) h = .ok (r, h') → DInv h' s ∧ DSide h' s
-  copy_chain : ∀ (h h' : Heap) (src dst : StreamPtr), DInv h src → DSide h src → DFreshBlocks h → InitReady h dst →
-    dst ≠ src → C.run (ZlibNg.Deflate.deflateCopy dst src) h = .ok (Z_OK, h') → DChain h' dst
   setDict_chain : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (n : UInt32) (r : Int32), DInv h s → DSide h s →
     DictReady h s → NullOrRead h d n.toNat → (∀ b, StateBlock h s b → NotInBlock b d) →
     C.run (ZlibNg.Deflate.deflateSetDictionary s d n) h = .ok (r, h') → DChain h' s
@@ -127,7 +125,7 @@ theorem dreach (P : DPending) {h : Heap} {s : StreamPtr} (hr : DeflateReachable 
     obtain ⟨hv', hc⟩ := (DeflateCopy.copy_inv ih.1 hdst hne e).2 rfl
     obtain ⟨r0, h0, e0, f⟩ := DeflateCopy.copy_safe ih.1 hfr hdst hne
     rw [← det e e0] at f
-    exact ⟨hv', DeflateSide.copy_side ih.2 hfr hc f (P.copy_chain h h' src dst ih.1 ih.2 hfr hdst hne e)⟩
+    exact ⟨hv', DeflateSide.copy_side ih.2 hfr hc f⟩
   | step h h' s _ hs ih => exact step_inv P ih.1 ih.2 hs
   | caller h h' s _ hc ih => exact ⟨caller_inv ih.1 hc, DeflateSide.caller_side ih.2 hc⟩
 
