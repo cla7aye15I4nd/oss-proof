@@ -173,15 +173,18 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
       · exact UInt32.le_refl _
       · exact UInt32.not_lt.mp (by assumption)
     obtain ⟨_, H2, -, C2, rfl⟩ := slc_insert C1 _ hv
-    refine Sat.bind (Sat.of_eq (wrD_eq _ _ rfl) ?_)
+    refine Sat.bind (Sat.of_eq (wrD_eq _ { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
+        else STD_MIN_MATCH - 1 } rfl) ?_)
     have Ck2 : CK b (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
         else STD_MIN_MATCH - 1 } d1) := fun st2 d2 h2 hd2 => by
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
       obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd2)
       exact ZlibNgF.Proof.DeflateSide.ChainOk.of_state (Ck1 st1 d1 (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _))
         rfl rfl rfl rfl rfl rfl rfl
-    exact ftail_ok T flush C2 Ck2 hw0 hn fun st2 h2 => by
+    have TL := ftail_ok T flush C2 Ck2 hw0 hn fun st2 h2 => by
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
       exact hl0 st1 (SH_dstate _ _ _ _ _ _)
+    unfold strat_tail at TL
+    exact TL
 
 end ZlibNgF.Proof.FastP
