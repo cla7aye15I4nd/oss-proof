@@ -22,13 +22,28 @@ open C ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateFacts
 `match_discard` `md`, the `prev_length` `bl = MAX(pl, mf)` that `longest_match` sees (its initial best length
 `bl0`), its result `r` with `match_start = ms` (`PR`: at most `bl0`, or within the lookahead `la`, at most 258, from
 `lb = limit_base`), and `strstart = ss`. -/
-theorem ml_cases (pl mf md bl bl0 r ms ss la lb ml : Nat) (hmf : mf ≤ md) (hbl : bl = max pl mf)
-    (hbl0 : bl0 = if bl ≠ 0 then bl else 2) (hpr : r ≤ bl0 ∨ (r ≤ la ∧ r ≤ 258 ∧ lb ≤ ms))
-    (hml : ml = if r ≤ md then 2 else if ss ≤ ms then 2 else r) (h3 : 3 ≤ ml) :
+theorem ml_cases (pl mf md bl bl0 r ms ss la lb ml : Nat) (hmf : mf ≤ md)
+    (hbl : (pl < mf → bl = mf) ∧ (¬ pl < mf → bl = pl)) (hbl0 : (bl ≠ 0 → bl0 = bl) ∧ (bl = 0 → bl0 = 2))
+    (hpr : r ≤ bl0 ∨ (r ≤ la ∧ r ≤ 258 ∧ lb ≤ ms))
+    (hml : (r ≤ md → ml = 2) ∧ (¬ r ≤ md → ss ≤ ms → ml = 2) ∧ (¬ r ≤ md → ¬ ss ≤ ms → ml = r)) (h3 : 3 ≤ ml) :
     (3 ≤ pl ∧ ml ≤ pl) ∨ (ml ≤ 258 ∧ ml ≤ la ∧ lb ≤ ms ∧ ms < ss) := by
-  subst hbl hbl0 hml
-  by_cases a : r ≤ md <;> by_cases c : ss ≤ ms <;> by_cases e : max pl mf ≠ 0 <;>
-    simp only [a, c, e, ↓reduceIte] at hpr h3 ⊢ <;> omega
+  obtain ⟨b1, b2⟩ := hbl
+  obtain ⟨c1, c2⟩ := hbl0
+  obtain ⟨m1, m2, m3⟩ := hml
+  by_cases a : r ≤ md
+  · have := m1 a; omega
+  by_cases c : ss ≤ ms
+  · have := m2 a c; omega
+  have e1 := m3 a c
+  by_cases p : pl < mf
+  · have := b1 p
+    by_cases z : bl = 0
+    · have := c2 z; omega
+    · have := c1 z; omega
+  · have := b2 p
+    by_cases z : bl = 0
+    · have := c2 z; omega
+    · have := c1 z; omega
 
 /-- `limit_base <= match_start` bounds the distance `strstart - match_start` by `MAX_DIST`. -/
 theorem dist_le (st : DeflateState) (ms : Nat) (h : (ZlibNgF.Proof.LongestMatch.limitBase st).toNat ≤ ms)
