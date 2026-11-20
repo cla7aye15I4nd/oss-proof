@@ -7,7 +7,8 @@ import ZlibNgF.ZlibNg.arch.generic.«slide_hash_c.c»
 
 Source: `zlib-ng/deflate.c:1242-1361` and the macro `HASHLESS` (`deflate.c:165-166`). This part of `deflate.c` is
 in its own module because the strategy files call `fill_window` and `deflate.c` calls the strategies; the rest of
-`deflate.c` is `deflate.c.lean`. `HAVE_QUICK_STRATEGY` is 1. `FUNCTABLE_CALL(slide_hash)` = `slide_hash_c`,
+`deflate.c` is `deflate.c.lean`. With patch 0018, the slide lowers `block_start` only while it stays at or above
+`-(2^30 + 2^16)` (`(1 << 30)` and `(1 << 16)` are the constants 1073741824 and 65536). `HAVE_QUICK_STRATEGY` is 1. `FUNCTABLE_CALL(slide_hash)` = `slide_hash_c`,
 `FUNCTABLE_CALL(slide_hash_head)` = `slide_hash_head_c`; the call `insert_batch(...)` goes through the function
 pointer read from `s->insert_batch` (`call_insert_batch`).
 -/
@@ -38,8 +39,9 @@ def fill_window_slide (st : StatePtr) (window : BPtr) (level : Int32) : M Unit :
       wrD st fun s => { s with match_start := 0, prev_length := 0 }
     wrD st fun s => { s with strstart := s.strstart - slide_len }
     let s ← ldDState st
-    let bs ← chkI32 (s.block_start.toInt - slide_len.toInt32.toInt)
-    wrD st fun s => { s with block_start := bs }
+    if s.block_start.toInt ≥ (← chkI32 ((← chkI32 (slide_len.toInt32.toInt - 1073741824)).toInt - 65536)).toInt then
+      let bs ← chkI32 (s.block_start.toInt - slide_len.toInt32.toInt)
+      wrD st fun s => { s with block_start := bs }
     wrD st fun s => { s with fill_end := s.fill_end - slide_len }
     let s ← ldDState st
     if s.insert > s.strstart then
