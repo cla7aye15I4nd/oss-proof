@@ -20,7 +20,7 @@ open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 /-- The match that `find_best_match` returns at `strstart = ss` (`lookahead = la`, distance bound `md`): no match
 (`match_length = 1`), or a match of length `4..258`, at most `la`, starting before `ss` and at most `md` back. -/
 def FindOk (ss la md : Nat) (m : Match) : Prop :=
-  m.strstart.toNat = ss ∧ ss ≤ m.orgstart.toNat ∧ m.orgstart.toNat ≤ ss + m.match_length.toNat ∧
+  m.strstart.toNat = ss ∧ ss ≤ m.orgstart.toNat ∧ m.orgstart.toNat + 1 ≤ ss + m.match_length.toNat ∧
     (m.match_length = 1 ∨
       (4 ≤ m.match_length.toNat ∧ m.match_length.toNat ≤ 258 ∧ m.match_length.toNat ≤ la ∧
         m.match_start.toNat < ss ∧ ss ≤ m.match_start.toNat + md))
@@ -91,7 +91,7 @@ theorem find_best_match_ok {wo po ho : Nat} {hh : UInt32} {md : Int32}
     obtain ⟨hlb2, hlb3⟩ := limitBase_le st hw1
     have hsub : (st.strstart - ms).toNat = st.strstart.toNat - ms.toNat :=
       UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by omega))
-    have hk : ∀ o : UInt32, st.strstart.toNat ≤ o.toNat → o.toNat ≤ st.strstart.toNat + len.toNat →
+    have hk : ∀ o : UInt32, st.strstart.toNat ≤ o.toNat → o.toNat + 1 ≤ st.strstart.toNat + len.toNat →
         FindOk st.strstart.toNat st.lookahead.toNat (MAX_DIST st).toNat
           { match_start := ms, match_length := len, strstart := st.strstart, orgstart := o } :=
       fun o h1 h2 => ⟨rfl, h1, h2, Or.inr ⟨hl4', hp2, hp1, hms', show st.strstart.toNat ≤ ms.toNat + (MAX_DIST st).toNat by omega⟩⟩
