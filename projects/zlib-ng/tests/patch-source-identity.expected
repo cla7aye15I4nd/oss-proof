@@ -7,3 +7,7 @@ diff -r -x test before/deflate.c after/deflate.c
 diff -r -x test before/inflate.c after/inflate.c
 621a622
 >                     /* Guard against shared gz_header state reducing extra_len. */
+1250a1252,1254
+>     /* Reject any NULL dictionary, symmetric with deflateSetDictionary(): even
+>        a zero-length one would reach updatewindow() and the DFLTCC hook as a
+>        NULL pointer. */

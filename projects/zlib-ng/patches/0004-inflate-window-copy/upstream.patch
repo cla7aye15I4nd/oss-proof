@@ -1,18 +1,36 @@
-From d432e73fd64103bf0528b8c117d3774ee3a2a087 Mon Sep 17 00:00:00 2001
+From 72107e8b51823ff828af4c3ae6b989f0a7628e52 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Thu, 19 Nov 2026 11:28:43 -0800
 Subject: [PATCH] Copy window matches with memcpy() when the window is not the
  output
 
-chunkcopy_safe(), CHUNKCOPY_SAFE and chunkmemset compare and subtract a pointer
-into the window and a pointer into the caller's output, two different objects.
-In inflate() (MATCH) copy from the window with memcpy(); in inflate_fast() keep
-the overlap-safe copy only when the output is the window (window == beg, as in
-inflateBack()).
+chunkcopy_safe() and CHUNKCOPY_SAFE() compare and subtract their source
+and destination pointers to handle overlapping copies. When inflate()
+copies a match from its sliding window into the caller's output buffer,
+the two pointers point into different objects, so the comparison and the
+subtraction are undefined (C17 6.5.8p5, 6.5.6p9).
+
+In the MATCH state of inflate(), copy from the window with memcpy(): the
+count is already limited to the space left in the output, and the window
+and the output cannot overlap.
+
+In inflate_fast(), copy from the window with memcpy() unless the output is
+the window (window == beg). That is the case for inflateBack(), which
+decodes into the caller's window, where the copy can overlap and the
+overlap-safe copy is kept. Pointer equality is defined for any two valid
+pointers.
+
+The existing inflate_far_distance.chunked_output test reports the invalid
+pointer pair under AddressSanitizer with detect_invalid_pointer_pairs=2
+(-fsanitize=pointer-compare,pointer-subtract) without this change. Add an
+inflateBack() test with matches whose window copies overlap, for
+windowBits 8, 9 and 15; AddressSanitizer reports memcpy-param-overlap there
+if inflate_fast() copies with memcpy() when the output is the window.
 ---
- inffast_tpl.h | 33 ++++++++++++++++++++++++++++-----
- inflate.c     |  3 ++-
- 2 files changed, 30 insertions(+), 6 deletions(-)
+ inffast_tpl.h             | 33 +++++++++++++---
+ inflate.c                 |  3 +-
+ test/test_inflate_back.cc | 79 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 109 insertions(+), 6 deletions(-)
 
 diff --git a/inffast_tpl.h b/inffast_tpl.h
 index 25298c6..a266ec9 100644
@@ -91,3 +109,97 @@ index 64ef037..4a76256 100644
              } else {
                  copy = MIN(state->length, left);
  
+diff --git a/test/test_inflate_back.cc b/test/test_inflate_back.cc
+index 4c8535a..8fbba8b 100644
+--- a/test/test_inflate_back.cc
++++ b/test/test_inflate_back.cc
+@@ -14,6 +14,7 @@
+ #include <stdint.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <vector>
+ 
+ #include <gtest/gtest.h>
+ 
+@@ -320,3 +321,81 @@ TEST(inflate_back_distance, match_inside_output) {
+     EXPECT_EQ(decoded[2], 0xa5);
+     EXPECT_EQ(decoded[3], 0xa5);
+ }
++
++/* inflateBack() decodes into the caller's window, so inflate_fast() copies a match that reaches into the
++ * previous pass of the window within that one buffer, and source and destination can overlap. Each stream is
++ * one fixed Huffman block: 2^wbits + k literals, a match of length len at distance dist, then 40 literals. */
++TEST(inflate_back_window, overlapping_window_copy) {
++    struct {
++        int wbits;
++        unsigned k, dist, len;
++    } const cases[] = {
++        {8, 100, 200, 150}, {8, 100, 250, 100}, {8, 100, 256, 100}, {8, 3, 255, 10},
++        {9, 10, 400, 258}, {15, 1000, 32700, 200}, {15, 1000, 32768, 258}
++    };
++    for (const auto &c : cases) {
++        SCOPED_TRACE(testing::Message() << "wbits " << c.wbits << ", k " << c.k << ", dist " << c.dist
++                                        << ", len " << c.len);
++        const unsigned wsize = 1U << c.wbits;
++        std::vector<uint8_t> comp, expect;
++        uint64_t acc = 0;
++        int nacc = 0;
++        auto put = [&](uint32_t v, int n) {
++            acc |= (uint64_t)v << nacc;
++            nacc += n;
++            for (; nacc >= 8; nacc -= 8, acc >>= 8)
++                comp.push_back((uint8_t)acc);
++        };
++        auto huff = [&](uint32_t code, int n) {  /* Huffman codes go most significant bit first */
++            for (int i = n - 1; i >= 0; i--)
++                put((code >> i) & 1, 1);
++        };
++        auto lit = [&](uint8_t v) {
++            if (v < 144)
++                huff(0x30 + v, 8);
++            else
++                huff(0x190 + v - 144, 9);
++            expect.push_back(v);
++        };
++        static const uint32_t lbase[] = {3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59,
++                                         67, 83, 99, 115, 131, 163, 195, 227, 258};
++        static const uint32_t dbase[] = {1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513,
++                                         769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577};
++
++        put(1, 1);  /* last block */
++        put(1, 2);  /* fixed codes */
++        for (unsigned i = 0; i < wsize + c.k; i++)
++            lit((uint8_t)(i * 7 + i / 251));
++        int lc = 28;
++        while (lbase[lc] > c.len)
++            lc--;
++        if (lc < 23)
++            huff((uint32_t)lc + 1, 7);           /* codes 257..279 */
++        else
++            huff(0xc0 + (uint32_t)lc - 23, 8);   /* codes 280..285 */
++        put(c.len - lbase[lc], lc < 8 || lc == 28 ? 0 : (lc - 4) / 4);
++        int dc = 29;
++        while (dbase[dc] > c.dist)
++            dc--;
++        huff((uint32_t)dc, 5);
++        put(c.dist - dbase[dc], dc < 4 ? 0 : dc / 2 - 1);
++        for (unsigned i = 0; i < c.len; i++)
++            expect.push_back(expect[expect.size() - c.dist]);
++        for (int i = 0; i < 40; i++)
++            lit('A');
++        huff(0, 7);  /* end of block */
++        if (nacc)
++            comp.push_back((uint8_t)acc);
++
++        std::vector<uint8_t> window(wsize), out(expect.size());
++        struct output_state out_state = {out.data(), out.size(), 0};
++        PREFIX3(stream) strm = {};
++        ASSERT_EQ(PREFIX(inflateBackInit)(&strm, c.wbits, window.data()), Z_OK);
++        strm.next_in = comp.data();
++        strm.avail_in = (uint32_t)comp.size();
++        EXPECT_EQ(PREFIX(inflateBack)(&strm, pull_all, &strm, push_all, &out_state), Z_STREAM_END);
++        EXPECT_EQ(PREFIX(inflateBackEnd)(&strm), Z_OK);
++        ASSERT_EQ(out_state.pos, expect.size());
++        EXPECT_EQ(memcmp(out.data(), expect.data(), expect.size()), 0);
++    }
++}
