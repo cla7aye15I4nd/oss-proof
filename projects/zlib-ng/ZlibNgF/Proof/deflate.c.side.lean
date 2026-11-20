@@ -292,19 +292,32 @@ theorem flushOk_fresh {st : DeflateState} (h2 : st.last_flush = -2)
     (hb : (st.strstart.toNat : Int) = st.block_start.toInt) (hl : st.lookahead = 0) : FlushOk st :=
   ⟨by rw [h2]; decide, by rw [h2]; decide, fun _ => ⟨hb, hl⟩⟩
 
-/-- `deflateInit*` and `deflateReset` leave `DSide` (`FreshSt`), given the hash chains. -/
-theorem side_fresh {h : Heap} {s : StreamPtr} (hv : DInv h s) (hf : DFreshOf h s)
-    (hc : ∀ b st d, DStateIs h s b st → h.bytes b = some d → ChainOk b d st) : DSide h s := by
+/-- Hash chains with no positions: `head` all zero (`HeadClear`), so the empty set satisfies the clauses. -/
+theorem chainOk_clear {b ho po : Nat} {d : Array UInt8} {st : DeflateState}
+    (hh : st.head = .val (.ref (.heap b) ho)) (hp : st.prev = .val (.ref (.heap b) po))
+    (hc : ZlibNgF.Proof.DeflateInit.HeadClear d st ho) : ChainOk b d st := by
+  intro _ h2
+  refine ⟨fun _ => False, ho, po, hh, hp, fun p hp => hp.elim, fun k hk hn => hn ?_, fun p hp => hp.elim⟩
+  simp only [posAt, hc h2 (ho + 2 * k) (by omega) (by omega), hc h2 (ho + 2 * k + 1) (by omega) (by omega)]
+  rfl
+
+/-- `deflateInit*` and `deflateReset` leave `DSide` (`FreshSt`, and `FreshHead` for the hash chains). -/
+theorem side_fresh {h : Heap} {s : StreamPtr} (hv : DInv h s) (hf : DFreshOf h s) : DSide h s := by
   intro b st hs
-  have hc' := fun d hd => hc b st d hs hd
   obtain ⟨z, al, c⟩ := core_of hv hs
-  obtain ⟨i, z0, b0, st0, rfl, hz0, hb0, hst0, f⟩ := hf
+  obtain ⟨i, z0, b0, st0, rfl, hz0, hb0, hst0, f, fh⟩ := hf
   obtain ⟨i', z', e, hz', hb', hst'⟩ := hs
   obtain rfl := Option.some.inj e
   obtain rfl := Option.some.inj (hz0.symm.trans hz')
   obtain rfl := Option.some.inj (hb0.symm.trans hb')
   obtain rfl := Option.some.inj (hst0.symm.trans hst')
   obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8⟩ := f
+  have hc' : ∀ d, h.bytes b0 = some d → ChainOk b0 d st0 := by
+    intro d hd
+    obtain ⟨ho, d0, hd0, hh, hz⟩ := fh
+    obtain rfl := Option.some.inj (hd0.symm.trans hd)
+    obtain ⟨-, -, po, -, -, -, -, hp, -⟩ := c.lay
+    exact chainOk_clear hh (by simpa only [dview] using hp) hz
   refine sideAt_clean (symEnd_pos c) f1 (by rw [f2, f3]; rfl) f4 (by rw [f8]; decide) ?_ f7
     (flushOk_fresh f5 (by rw [f2, f3]; rfl) f4) hc'
   unfold HdrState
@@ -515,19 +528,26 @@ theorem copy_src_side {h h' : Heap} {s dst : StreamPtr} {r : Int32} (hv : DInv h
   exact ⟨fun j _ hj => hpt j (by omega) (by simp), fun j _ hj => hpt j (by omega) (by simp)⟩
 
 /-- `deflateResetKeep` keeps `DSide` on a stream with nothing unfinished (`ResetKeepReady`). -/
-theorem resetKeep_side {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : DInv h s) (hr : ResetKeepReady h s)
-    (e : C.run (deflateResetKeep s) h = .ok (r, h'))
-    (hc : ∀ b st d, DStateIs h' s b st → h'.bytes b = some d → ChainOk b d st) : DSide h' s := by
-  obtain ⟨i, z, b, rfl, hz, hzb, r0, h0, e0, -, hv', -, hk1, hk2⟩ := ZlibNgF.Proof.DeflateReset.resetKeep_inv hv
+theorem resetKeep_side {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : DInv h s) (hs : DSide h s)
+    (hr : ResetKeepReady h s) (e : C.run (deflateResetKeep s) h = .ok (r, h')) : DSide h' s := by
+  obtain ⟨i, z, b, rfl, hz, hzb, r0, h0, e0, -, hv', -, hk1, hkb, hk2⟩ := ZlibNgF.Proof.DeflateReset.resetKeep_inv hv
   have e0' : C.run (deflateResetKeep (some i)) h = .ok (r0, h0) := e0
   rw [e] at e0'; cases e0'
   obtain ⟨b1, st1, ⟨⟨z1, ⟨i1, e1, hz1⟩, hzb1⟩, hst1⟩, hss, hl, -⟩ := hr
   obtain rfl := Option.some.inj e1
   obtain rfl := Option.some.inj (hz.symm.trans hz1)
   obtain rfl := Option.some.inj (hzb.symm.trans hzb1)
-  obtain ⟨st', hst', k1, kf, k3, k4, k5, k6, k7, -, -, -, k8⟩ := hk2 st1 hst1
+  obtain ⟨st', hst', k1, kf, k3, k4, k5, k6, k7, k9, k10, -, k8, k11, k12, k13⟩ := hk2 st1 hst1
+  have C0 := (hs b st1 ⟨i, z, rfl, hz, hzb, hst1⟩).2.2.2.2.2
   intro b2 st2 hs2
-  have hc' := fun d hd => hc b2 st2 d hs2 hd
+  have hc' : ∀ d, h'.bytes b2 = some d → ChainOk b2 d st2 := by
+    intro d hd
+    obtain ⟨i2, z2, e2, hz2, hzb2, hst2⟩ := hs2
+    obtain rfl := Option.some.inj e2
+    obtain rfl := Option.some.inj ((hk1 z2 hz2).symm.trans hzb2)
+    obtain rfl := Option.some.inj (hst'.symm.trans hst2)
+    rw [hkb] at hd
+    exact ChainOk.of_state (C0 d hd) k9 k10 k11 k12 k5 k7 k13
   obtain ⟨z', al, c⟩ := core_of hv' hs2
   obtain ⟨i2, z2, e2, hz2, hzb2, hst2⟩ := hs2
   obtain rfl := Option.some.inj e2

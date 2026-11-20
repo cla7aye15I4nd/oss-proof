@@ -376,11 +376,16 @@ theorem lm_set_level_sat {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : Defl
   obtain ⟨c, lm, ib, e⟩ := lm_set_level_SH (H := H) (i := i) (z := z) (b := b) (st := st) (d := d) level h0 h9
   exact ⟨(), _, e, c, lm, ib, rfl⟩
 
+/-- The `head` array (65536 `Pos` at offset `ho` of `d`) is zero unless the configuration is `HASHLESS` (`lm_init`'s
+`CLEAR_HASH`). -/
+def HeadClear (d : Array UInt8) (st : DeflateState) (ho : Nat) : Prop :=
+  HASHLESS st.level st.strategy = false → ∀ j, ho ≤ j → j < ho + 131072 → d[j]! = 0
+
 /-- `lm_init` on a state whose `head` lies in its block and whose `level` is 0..9. -/
 theorem lm_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8} {ho : Nat}
     (hh : st.head = .val (.ref (.heap b) ho)) (hho : ho + 131072 ≤ d.size) (h0 : 0 ≤ st.level) (h9 : st.level ≤ 9) :
     Sat (SH H i z b st d) (lm_init (some b)) (fun _ H' => ∃ c lm ib d', H' = SH H i z b (lmS st c (.val lm) (.val ib)) d' ∧
-      d'.size = d.size) := by
+      d'.size = d.size ∧ HeadClear d' st ho) := by
   unfold lm_init
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
@@ -394,14 +399,17 @@ theorem lm_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.mono (lm_set_level_sat _ h0 h9) ?_)
     rintro _ _ ⟨c, lm, ib, rfl⟩
-    refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, fillFold 0 ho (List.range' 0 (HASH_SIZE.toNat * 2)) d, ?_, ?_⟩
+    refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, fillFold 0 ho (List.range' 0 (HASH_SIZE.toNat * 2)) d, ?_, ?_, ?_⟩
     · simp [lmS, hh]
     · simp [fillFold_size]
+    · intro _ j h1 h2
+      exact fillFold_in 0 ho _ d j ⟨j - ho, by simp only [List.mem_range'_1]; exact ⟨Nat.zero_le _, by
+        show j - ho < 0 + 65536 * 2; omega⟩, by omega⟩ (by omega)
   · rw [ite_f hh2]
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.mono (lm_set_level_sat _ h0 h9) ?_)
     rintro _ _ ⟨c, lm, ib, rfl⟩
-    refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, d, ?_, rfl⟩
+    refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, d, ?_, rfl, fun e => absurd e (by simpa using hh2)⟩
     simp [lmS]
 
 /-- The layout facts about a state before `deflateReset` (set by `deflateInit2`, kept by every later call) from
@@ -425,7 +433,8 @@ theorem reset_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
     (l9 : st.level ≤ 9) (R : RLay b st d.size) :
     Sat (SH H i z b st d) (deflateReset (some i)) (fun r H' => r = Z_OK ∧ ∃ A B C c lm ib d',
       H' = SH H i (rkZ z st.wrap) b (lmS (trS b (rkS st) A B C) c (.val lm) (.val ib)) d' ∧ d'.size = d.size ∧
-      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C ∧ RLay b st d.size) := by
+      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C ∧ RLay b st d.size ∧
+      HeadClear d' (lmS (trS b (rkS st) A B C) c (.val lm) (.val ib)) ho) := by
   unfold deflateReset
   refine Sat.bind (Sat.mono (resetKeep_SH k hw hpb h1 h2 h3) ?_)
   rintro _ _ ⟨rfl, A, B, C, rfl, hA, hB, hC, hF⟩
@@ -435,8 +444,8 @@ theorem reset_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
   try dsimp only
   rw [hzs]
   refine Sat.bind (Sat.mono (lm_init_SH (ho := ho) hh hho l0 l9) ?_)
-  rintro _ _ ⟨c, lm, ib, d', rfl, hd'⟩
-  exact Sat.pure ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, R⟩
+  rintro _ _ ⟨c, lm, ib, d', rfl, hd', hz⟩
+  exact Sat.pure ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, R, hz⟩
 
 /-- The layout and position clauses of the invariant after `deflateReset`. -/
 theorem RLay.post {b : Nat} {st : DeflateState} {D : Nat} (r : RLay b st D) (H : Heap) (d : Array UInt8)
@@ -674,14 +683,20 @@ theorem fresh_lmS (b : Nat) (st : DeflateState) (A B C : Array Ct) (c : Config) 
     exact ⟨trivial, trivial, trivial, trivial, trivial, Or.inr trivial, fun e => absurd e (by decide),
       by first | trivial | rfl⟩
 
-/-- The state of stream `s` is a `FreshSt`. -/
+/-- The `head` array of state `st` lies in block `b` of `h` and is zero unless the configuration is `HASHLESS`
+(`HeadClear`). -/
+def FreshHead (h : Heap) (b : Nat) (st : DeflateState) : Prop :=
+  ∃ ho d, h.bytes b = some d ∧ st.head = .val (.ref (.heap b) ho) ∧ HeadClear d st ho
+
+/-- The state of stream `s` is a `FreshSt` with a cleared `head` (`FreshHead`). -/
 def DFreshOf (h : Heap) (s : StreamPtr) : Prop :=
-  ∃ i z b st, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧ FreshSt st
+  ∃ i z b st, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧ FreshSt st ∧
+    FreshHead h b st
 
 /-- What a call of `deflateInit2` on stream `i` of `h` guarantees. -/
 def InitPost (h : Heap) (i : Nat) (r : Int32) (h' : Heap) : Prop :=
   DFrame h h' [i] [] [] [] ∧ (r = Z_OK → DeflateInv.DInv h' (some i) ∧
-    ∃ z b st, h'.streams i = some z ∧ z.state = some b ∧ h'.dstate b = some st ∧ FreshSt st)
+    ∃ z b st, h'.streams i = some z ∧ z.state = some b ∧ h'.dstate b = some st ∧ FreshSt st ∧ FreshHead h' b st)
 
 theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc) (hzf : z1.zfree = .zcfree)
     (level method wb ml strat wrap : Int32) (hw : wrap = 0 ∨ wrap = 1 ∨ wrap = 2) :
@@ -823,10 +838,10 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
     · simp only [hl32]; omega
     · simp only [hl32]
     · exact ⟨Int32.not_lt.mp hs0, Int32.not_lt.mp hs4⟩
-  rintro r H' ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, RL⟩
+  rintro r H' ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, RL, hz⟩
   obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C c lm ib
   refine ⟨⟨?_, fun _ => ⟨?_, _, h.nextBlk, _, SH_streams _ _ _ _ _ _, rfl, SH_dstate _ _ _ _ _ _,
-    fresh_lmS _ _ _ _ _ _ _ _⟩⟩, fun _ _ _ _ _ _ _ => rfl⟩
+    fresh_lmS _ _ _ _ _ _ _ _, _, d', SH_bytes _ _ _ _ _ _, rfl, hz⟩⟩, fun _ _ _ _ _ _ _ => rfl⟩
   · refine dframe_of (fun j hj => by simp [SH, AH, upd_ne _ _ _ _ hj]) rfl (fun c hc => ?_) rfl rfl rfl rfl
       (by simp [SH, AH])
     have hne : c ≠ h.nextBlk := Nat.ne_of_lt hc
