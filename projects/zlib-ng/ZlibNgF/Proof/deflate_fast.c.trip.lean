@@ -158,6 +158,8 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have hcd2 : cd.toNat ≤ 32768 := by omega
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       rw [k4.2.1]
+      trace_state
+      (try simp -zeta only [])
       extract_lets jpI
       -- after the insertions
       have hI : ∀ (S2 : Nat → Prop) (d5 : Array UInt8),
@@ -217,7 +219,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
         rw [k4.2.2.1]
         have hl4' : 4 ≤ (st.lookahead - ml').toNat := by
           have := UInt32.le_iff_toNat_le.mp hl4; simpa [WANT_MIN_MATCH] using this
-        have hs1 : (st.strstart + 1).toNat = st.strstart.toNat + 1 := u32_add_toNat (by omega)
+        have hs1 : (st.strstart + 1).toNat = st.strstart.toNat + 1 := u32_add_toNat (by simp; omega)
         have hm1 : (ml' - 1).toNat = ml'.toNat - 1 := u32_sub_toNat (by simp; omega)
         refine Sat.bind (Sat.mono (sl_insert_spread (h := h) L4 hp4 hwp4 w14 (st.strstart + 1) (ml' - 1) mi
           (by omega) hmi (by omega) (by omega)) ?_)
@@ -259,7 +261,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have hH5 : Held b (st.lookahead - 1) (st.strstart + 1) (SH H0 i z b st5 d3) := fun st6 h6 => by
         obtain rfl : st6 = st5 := Option.some.inj (h6.symm.trans (SH_dstate _ _ _ _ _ _))
         exact ⟨k5.2.1, k5.2.2⟩
-      have hss : (st.strstart + 1).toNat = st.strstart.toNat + 1 := u32_add_toNat (by omega)
+      have hss : (st.strstart + 1).toNat = st.strstart.toNat + 1 := u32_add_toNat (by simp; omega)
       have hla5 : (st.lookahead - 1).toNat = st.lookahead.toNat - 1 := u32_sub_toNat (by simp; omega)
       have Ck5 : CK b (SH H0 i z b st5 d3) := ck_of_cg C0 (cg_st G3 k5.1) hlev fun st6 h6 => by
         obtain rfl : st6 = st5 := Option.some.inj (h6.symm.trans (SH_dstate _ _ _ _ _ _))
@@ -314,7 +316,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
           ⟨w1, w2, by omega, by omega, by omega, by omega, by have := L.pw; omega, by have := L.hd; omega⟩
         refine Sat.bind (Sat.mono (DeflateFastChain.fast_search CS hp w1 L.win L.prev N hk hr hr0 (by omega)) ?_)
         rintro m _ ⟨ms, rfl, hm⟩
-        refine hM H0 z st d _ m lc { st with match_start := ms } d1 C0 hlev.1 (sli_match_start I1 ms)
+        refine hM H0 z st d _ m lc { st with match_start := ms } d1 C0 hlev.1 (ZlibNgF.Proof.MediumStep.sli_match_start I1 ms)
           (fun st6 h6 => by
             obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h6); exact ⟨rfl, rfl⟩)
           (cg_st G1 ⟨rfl, rfl, rfl, rfl, rfl⟩) hS1 (fun h4 => ?_) hla0 hK0
@@ -341,7 +343,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have := UInt32.lt_iff_toNat_lt.mp hla; simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using this
     obtain ⟨_, H1, e1, hfill⟩ := sli_fill I0 hla'
     rw [wrD_eq _ st rfl] at e1
-    obtain rfl : SH H i z b st d = H1 := by injection e1 with e; injection e with _ e'; exact e'
+    obtain rfl : SH H i z b st d = H1 := by injection e1 with e; injection e
     obtain ⟨u, H2, e2, ⟨H0', z', st', d', rfl, I2, hsum, -, -⟩⟩ := hfill
     cases u
     have C0 : ChainOk b d st := Ck st d (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _)
