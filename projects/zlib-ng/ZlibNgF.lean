@@ -185,6 +185,7 @@ import ZlibNgF.Proof.«gzread.c.look»
 import ZlibNgF.Proof.«gzread.c.init»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
+import ZlibNgF.Proof.«deflate.c.gz»
 import ZlibNgF.Proof.«gzwrite.c.error»
 import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
