@@ -1,4 +1,4 @@
-/* Patch 0012. In the slow longest-match search of levels 7-9 (match_tpl.h), a lazy search that finds an older
+/* Patch 0009. In the slow longest-match search of levels 7-9 (match_tpl.h), a lazy search that finds an older
  * chain for a substring of the current match moved the match base back: mbase_start -= match_offset and
  * mbase_start = window - match_offset. alloc_deflate puts the window at the start of its block (after at most
  * 63 bytes of alignment padding) and match_offset reaches 256, so the pointer is formed before the start of the

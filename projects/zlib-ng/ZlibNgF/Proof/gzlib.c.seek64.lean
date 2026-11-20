@@ -6,7 +6,7 @@ import ZlibNgF.Proof.«gzread.c.load»
 
 On a read handle `gzseek64` returns early, seeks inside the raw data (`lseek` and the stores of `gzlib.c:431-441`),
 or rewinds (`gzrewind`) and records the skip after taking what it can from the output buffer; on a write handle it
-only records the skip. Patch 0004 refuses a seek whose offset (`SEEK_SET`: `offset - x.pos`) or target position
+only records the skip. Patch 0002 refuses a seek whose offset (`SEEK_SET`: `offset - x.pos`) or target position
 (`SEEK_CUR`: `x.pos + skip + offset`) does not fit in `z_off64_t`, and takes the raw seek only when the `lseek` offset
 `offset - x.have` fits; then every signed operation is in range. The target may be negative (after `gzungetc` at the
 start, as upstream allows); the new skip, together with the output left (`x.have` is 0 when the skip is not), keeps
@@ -73,7 +73,7 @@ def seekRaw (file : GzPtr) (offset : Int64) : G Int64 := do
 
 open ZlibNg.Inflate in
 /-- From the test of the raw area (`if (state->mode == GZ_READ && state->how == COPY && ...)`) to the end
-(`gzlib.c:425-466` with patch 0004), copied from the translation. -/
+(`gzlib.c:425-466` with patch 0002), copied from the translation. -/
 def seekTail (file : GzPtr) (offset : Int64) : G Int64 := do
   let state := file
   let mut offset := offset
@@ -96,7 +96,7 @@ def seekTail (file : GzPtr) (offset : Int64) : G Int64 := do
             return (← rdG state (·.pos))
   seekRest file offset
 
-/-- The `SEEK_SET` normalization from `if (bad)` on (`gzlib.c:414-415` with patch 0004, then `seekTail`), copied
+/-- The `SEEK_SET` normalization from `if (bad)` on (`gzlib.c:414-415` with patch 0002, then `seekTail`), copied
 from the translation; `bad` is the refusal test. -/
 def seekSet2 (file : GzPtr) (offset : Int64) (bad : Bool) : G Int64 := do
   let state := file
@@ -106,7 +106,7 @@ def seekSet2 (file : GzPtr) (offset : Int64) (bad : Bool) : G Int64 := do
   offset ← lm (chkI64 (offset.toInt - (← rdG state (·.pos)).toInt))
   seekTail file offset
 
-/-- The `SEEK_CUR` normalization from `if (bad)` on (`gzlib.c:422-423` with patch 0004, then `seekTail`), copied
+/-- The `SEEK_CUR` normalization from `if (bad)` on (`gzlib.c:422-423` with patch 0002, then `seekTail`), copied
 from the translation. -/
 def seekCur3 (file : GzPtr) (offset : Int64) (bad : Bool) : G Int64 := do
   let state := file
@@ -116,7 +116,7 @@ def seekCur3 (file : GzPtr) (offset : Int64) (bad : Bool) : G Int64 := do
   seekTail file offset
 
 /-- The `SEEK_CUR` normalization from `offset += state->past ? 0 : state->skip` on (`gzlib.c:418-423` with patch
-0004, then `seekTail`), copied from the translation; `add` is `state->past ? 0 : state->skip`. -/
+0002, then `seekTail`), copied from the translation; `add` is `state->past ? 0 : state->skip`. -/
 def seekCur2 (file : GzPtr) (offset add : Int64) : G Int64 := do
   let state := file
   let mut offset := offset

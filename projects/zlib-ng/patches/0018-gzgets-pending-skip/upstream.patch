@@ -1,0 +1,32 @@
+From 36b0351b71eba8407e472d7c853c242f30b8cb0e Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:11:47 -0800
+Subject: [PATCH] Do not fetch in gzgets() while a skip is pending
+
+gz_skip() stops at the end of file with the skip still pending; gzgets() then
+called gz_fetch(), which in copy mode reads again and returned bytes from
+before the position sought, after which gztell() overflowed. Report the end of
+file instead.
+---
+ gzread.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/gzread.c b/gzread.c
+index ee6fe5a..a56544b 100644
+--- a/gzread.c
++++ b/gzread.c
+@@ -564,8 +564,12 @@ char * Z_EXPORT PREFIX(gzgets)(gzFile file, char *buf, z_int32_t len) {
+     left = (unsigned)len - 1;
+     if (left) {
+         do {
+-            /* assure that something is in the output buffer */
+-            if (state->x.have == 0 && gz_fetch(state) == -1)
++            /* assure that something is in the output buffer -- not while a
++               skip is still pending: gz_skip() stopped at the end of the
++               input, and data read now would come before the position
++               sought */
++            if (state->x.have == 0 && state->skip == 0 &&
++                gz_fetch(state) == -1)
+                 return NULL;                /* error */
+             if (state->x.have == 0) {       /* end of file */
+                 state->past = 1;            /* read past end */

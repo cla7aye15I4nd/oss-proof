@@ -6,7 +6,7 @@ import ZlibNgF.Proof.«gzwrite.c.zero»
 Helpers: a caller's buffer stays readable and outside the file across a step of the file (`callerBuf_step`);
 `memcpy` from a caller's buffer into the buffer block of the file changes only that block (`memcpy_hbuf`).
 `gz_write_eq` splits `gz_write` into the buffer setup, the pending seek and `wMid` (the position bound of patch
-0017 and the two paths). The buffered path: one round (`wb_main`, `wb_body`: the input stays inside the first `size`
+0014 and the two paths). The buffered path: one round (`wb_main`, `wb_body`: the input stays inside the first `size`
 bytes of `in`, the position grows by the bytes copied, the caller's range moves on) and the loop (`wb_loop`, measure
 `2 len + [avail_in ≠ 0]`). `gz_comp` enters through `GzCompSpec` and `DeflateGz`.
 -/

@@ -52,7 +52,7 @@ theorem cpre_of {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sB : DeflateState} {
 
 /-- `slowB`: `prev_match = match_start`, and, for a candidate `hash_head` within `MAX_DIST` behind `strstart` and a
 pending match shorter than `max_lazy_match`, `longest_match` with `prev_length` raised to `match_floor`; the kept
-length after the `match_discard` test and the test of patch 0019; then `slowC`. -/
+length after the `match_discard` test and the test of patch 0016; then `slowC`. -/
 theorem slowB_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sB : DeflateState}
     {dB : Array UInt8} {level : Int32} {M0 : Nat} (flush : Int32) (lm : LongestMatchFn) (md mf : UInt32)
     (hmf : mf ≤ md) (hh : UInt32) (P : BPre h i b wo level M0 H0 z sB dB) :

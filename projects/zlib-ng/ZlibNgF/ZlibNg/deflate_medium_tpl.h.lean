@@ -291,7 +291,7 @@ def deflate_medium_tpl (fizzle : Bool) (st : StatePtr) (flush : Int32) : M Block
   let current_match : Match := { match_start := 0, match_length := 0, strstart := 0, orgstart := 0 }
   let next_match : Match := { match_start := 0, match_length := 0, strstart := 0, orgstart := 0 }
   let window ← (← rdD st (·.window)).get
-  -- uint32_t max_insert_count = MIN(MAX(2, s->max_insert_count), STD_MAX_MATCH);   (patch 0013; max_insert_count
+  -- uint32_t max_insert_count = MIN(MAX(2, s->max_insert_count), STD_MAX_MATCH);   (patch 0010; max_insert_count
   -- is max_lazy_match)
   let mic ← rdD st (·.max_lazy_match)
   let mic2 : UInt32 := if 2 < mic then mic else 2

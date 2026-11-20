@@ -102,7 +102,7 @@ def gz_comp (state : GzPtr) (flush : Int32) : G Int32 := do
     wrG state fun s => { s with reset := 1 }
   return 0
 
-/-- `static int gz_zero(gz_state *state)` (`gzwrite.c:127-158`, with patch 0022: each batch is taken off `skip` when
+/-- `static int gz_zero(gz_state *state)` (`gzwrite.c:127-158`, with patch 0019: each batch is taken off `skip` when
 it is added to `x.pos`, before `gz_comp` writes it, so that a failed write keeps `x.pos + skip`). -/
 def gz_zero (state : GzPtr) : G Int32 := do
   let strm ← strmOf state
@@ -146,8 +146,8 @@ structure WriteLoop where
   len : UInt64
   ctl : Ctl
 
-/-- `static size_t gz_write(gz_state *state, void const *buf, size_t len)` (`gzwrite.c:162-219`, with patch 0014:
-after the direct path, and when it fails, `strm.next_in` is `state->in` and `strm.avail_in` is 0; with patch 0017: a
+/-- `static size_t gz_write(gz_state *state, void const *buf, size_t len)` (`gzwrite.c:162-219`, with patch 0011:
+after the direct path, and when it fails, `strm.next_in` is `state->in` and `strm.avail_in` is 0; with patch 0014: a
 write that would move `x.pos` past `GZ_OFF_MAX` is refused with `Z_DATA_ERROR`, comparing `len` and the room left in
 64 bits). -/
 def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
@@ -255,7 +255,7 @@ def gzfwrite (buf : BPtr) (size nitems : UInt64) (file : GzPtr) : G UInt64 := do
   else
     return 0
 
-/-- `z_int32_t Z_EXPORT PREFIX(gzputc)(gzFile file, z_int32_t c)` (`gzwrite.c:275-314`, with patch 0017: the buffer
+/-- `z_int32_t Z_EXPORT PREFIX(gzputc)(gzFile file, z_int32_t c)` (`gzwrite.c:275-314`, with patch 0014: the buffer
 fast path only while `x.pos != GZ_OFF_MAX`). `unsigned char buf[1]` is
 a local array (`localBlock`). -/
 def gzputc (file : GzPtr) (c : Int32) : G Int32 := do
@@ -303,7 +303,7 @@ def gzputs (file : GzPtr) (s : BPtr) : G Int32 := do
   return if put < len then -1 else len.toUInt32.toInt32
 
 /-- `z_int32_t Z_EXPORTVA PREFIX(gzvprintf)(gzFile file, const char *format, va_list va)` (`gzwrite.c:341-392`, with
-patch 0017: `len > GZ_OFF_MAX - x.pos` is refused with `Z_DATA_ERROR`; with patch 0024: input left by a failed
+patch 0014: `len > GZ_OFF_MAX - x.pos` is refused with `Z_DATA_ERROR`; with patch 0021: input left by a failed
 `gz_comp` is moved to the start of `in` before formatting);
 also `gzprintf` (`gzwrite.c:394-402`). -/
 def gzvprintf (file : GzPtr) (format : BPtr) : G Int32 := do

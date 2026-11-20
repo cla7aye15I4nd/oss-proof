@@ -1,0 +1,29 @@
+From 625349a7c3a0410fe2b2e36df30ac0cd47580e7f Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 03:28:01 -0800
+Subject: [PATCH] Move leftover input to the buffer start before gzvprintf()
+ formats
+
+After a failed write, input is left in the buffer past state->in, and
+gzvprintf() (after gzclearerr()) formatted size bytes from next_in, past the
+end of the input half of the buffer and finally past the buffer block. Move
+leftover input to state->in first.
+---
+ gzwrite.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/gzwrite.c b/gzwrite.c
+index 9e9a08e..e56197a 100644
+--- a/gzwrite.c
++++ b/gzwrite.c
+@@ -385,6 +385,10 @@ z_int32_t Z_EXPORTVA PREFIX(gzvprintf)(gzFile file, const char *format, va_list
+        be state->size bytes available after the current contents */
+     if (strm->avail_in == 0)
+         strm->next_in = state->in;
++    else if (strm->next_in != state->in) {
++        memmove(state->in, strm->next_in, strm->avail_in);
++        strm->next_in = state->in;
++    }
+     next = (char *)(state->in + (strm->next_in - state->in) + strm->avail_in);
+     next[state->size - 1] = 0;
+     len = vsnprintf(next, state->size, format, va);

@@ -6,7 +6,7 @@ import ZlibNgF.Proof.«adler32_c.c.kernel»
 
 `inflateSync` on an invariant stream with valid input: the whole bytes of the bit buffer (at most 32 bits, so at most
 four bytes: the local `buf[4]` does not overflow) go to the search pattern, `syncsearch` reads only the `avail_in`
-bytes of `next_in`, `next_in` moves only when `len != 0` (patch 0008), and the call changes only the stream record and
+bytes of `next_in`, `next_in` moves only when `len != 0` (patch 0005), and the call changes only the stream record and
 the state. The invariant holds after.
 -/
 

@@ -13,7 +13,7 @@ state yet, on the state record (`WCore`):
   `fill_end = 2 * w_size - MIN_LOOKAHEAD`; `fill_window` adds `w_size` and subtracts a multiple of it): the slide of
   `fill_window` then moves at least half the data, so its `memcpy` does not overlap, and the reads stay in the window;
 * `insert <= strstart` (`str = strstart - insert` does not wrap);
-* `-(2^30 + 2^16) <= block_start <= strstart` (patch 0018: the slide lowers `block_start` only while it stays at or
+* `-(2^30 + 2^16) <= block_start <= strstart` (patch 0015: the slide lowers `block_start` only while it stays at or
   above `-(2^30 + 2^16)`, so the `int` subtraction does not overflow).
 
 `WInv h s`: the state record of `s` satisfies `WCore`. The loop rules `sat_cwhileH` / `sat_cdoWhileH` take a measure

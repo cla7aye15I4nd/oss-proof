@@ -1,5 +1,5 @@
-/* Patch 0016 on a build whose z_off64_t is 32 bits (-m32 -D_LARGEFILE64_SOURCE=0: zconf.h then makes z_off64_t the
- * 32-bit off_t, as on any system without large-file functions). The first version of patch 0016 (first-0016.patch)
+/* Patch 0013 on a build whose z_off64_t is 32 bits (-m32 -D_LARGEFILE64_SOURCE=0: zconf.h then makes z_off64_t the
+ * 32-bit off_t, as on any system without large-file functions). The first version of patch 0013 (first-0013.patch)
  * bounded gz_read with (z_off64_t)n > GZ_OFF_MAX - x.pos: for n above INT_MAX the conversion gives a negative value,
  * so the bound was skipped and x.pos wrapped past GZ_OFF_MAX (unsigned arithmetic, then an implementation-defined
  * conversion). The current patch compares in 64 bits. Documented calls only: gzdopen of /dev/zero (its lseek
@@ -8,7 +8,7 @@
  * gzfread of 2^31 one-byte items into a 64-byte buffer (at most the bytes buffered reach it), gztell, gzerror.
  * Positions are printed as distances from GZ_OFF_MAX. Expected with the current patch on every build:
  * "pos32 seek max-5 fread 4 tell max-0 err -3", preceded by the widths "size_t <bytes> off <bytes>". With
- * first-0016.patch on the 32-bit build: x.pos wraps, gztell is negative ("tell max-" and a large number). */
+ * first-0013.patch on the 32-bit build: x.pos wraps, gztell is negative ("tell max-" and a large number). */
 #include <stdio.h>
 #include <stdint.h>
 #include <limits.h>

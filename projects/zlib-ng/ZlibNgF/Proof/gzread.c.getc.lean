@@ -6,7 +6,7 @@ import ZlibNgF.Proof.«gzread.c.idlespec»
 # `gzgetc` and `gzgetc_` on a read handle (`ZlibNgF`)
 
 The fast path takes one byte of the output buffer (`x.have--`, `x.pos++`, `x.next++`): `x.pos + 1` does not overflow
-because a read handle keeps `x.pos + x.have <= GZ_OFF_MAX` (patch 0016). Otherwise `gz_read` reads one byte into the
+because a read handle keeps `x.pos + x.have <= GZ_OFF_MAX` (patch 0013). Otherwise `gz_read` reads one byte into the
 local array `buf[1]`, whose lifetime ends at the return.
 -/
 

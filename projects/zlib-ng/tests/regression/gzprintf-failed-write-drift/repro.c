@@ -1,4 +1,4 @@
-/* Patch 0024. gzvprintf formats into the input buffer at next_in + avail_in and, when the input reaches state->size,
+/* Patch 0021. gzvprintf formats into the input buffer at next_in + avail_in and, when the input reaches state->size,
  * compresses state->size bytes from next_in. It relies on next_in + avail_in <= in + size ("the input buffer is
  * double-sized just for this function"). A gz_comp whose write fails returns with next_in moved forward and input left;
  * after gzclearerr the next gzprintf then counts state->size bytes from the moved next_in, so next_in + avail_in passes
@@ -14,7 +14,7 @@
  *   corrupt: the same calls up to the gzprintf of 176283 bytes, then gzclose, and the pipe is read and inflated.
  *            Without the patch the gzip stream is damaged (the formatted text overwrote compressed data still in the
  *            output buffer, and the input of the last compression overlaps the output buffer).
- * With patch 0024 both runs end with a valid gzip stream: "<run> close 0 inflate 1 bytes <n> ok" (the formatted
+ * With patch 0021 both runs end with a valid gzip stream: "<run> close 0 inflate 1 bytes <n> ok" (the formatted
  * text of a gzprintf whose write failed is counted by x.pos but partly dropped, with or without the patch, so <n> is
  * less than the sum of the lengths).
  * On a host that is not Linux (no F_SETPIPE_SZ), write() on the pipe's descriptor is answered as a Linux pipe of 1 MiB

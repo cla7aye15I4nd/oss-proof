@@ -14,11 +14,11 @@ Statements only; the proofs are in `gzread.c.fetch` (`gz_fetch_spec`), `gzread.c
   A pending skip may still sit next to buffered output (`GzRead.skip_have` may fail): `gzungetc` calls `gz_look` and
   then `gz_skip`, and `gz_skip` consumes `min(x.have, skip)` first. Every read handle is in this state (`GzInvR` with
   `x.have` cleared is a read handle again).
-* **`gz_fetch`** (`gzread.c:227-272`, patch 0016) is called with `x.have == 0`; it leaves output in `out` (or none at the
+* **`gz_fetch`** (`gzread.c:227-272`, patch 0013) is called with `x.have == 0`; it leaves output in `out` (or none at the
   end of the input) without moving `x.pos` or `skip`. With no skip pending the result is a read handle again.
 * **`gz_skip`** (`gzread.c:259-284`) is called with `skip > 0`; it restores the read invariant, keeps `x.pos + skip`, and
   on success either skipped everything or reached the end of the input with no output left.
-* **`gz_read`** (`gzread.c:308-388`, patch 0016) writes at most `len` bytes into the caller's buffer and nothing else
+* **`gz_read`** (`gzread.c:308-388`, patch 0013) writes at most `len` bytes into the caller's buffer and nothing else
   outside the file; it returns at most `len`.
 -/
 

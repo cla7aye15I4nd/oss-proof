@@ -8,7 +8,8 @@
     "repository": "https://github.com/zlib-ng/zlib-ng",
     "version": "develop @ 5f1f4899",
     "target": "x86_64 Linux LP64 static library, cmake -DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF",
-    "patches_dir": "patches"
+    "patches_dir": "patches",
+    "patch_layout": "directories"
   },
   "build": {
     "targets": [
@@ -47,6 +48,8 @@
       "tests/run.sh",
       "tests/build-zlib-ng.sh",
       "tests/zlib-ng-build-current.sh",
+      "tests/apply-patches.sh",
+      "tests/patch-gtest.sh",
       "patches/",
       "zlib-ng"
     ]

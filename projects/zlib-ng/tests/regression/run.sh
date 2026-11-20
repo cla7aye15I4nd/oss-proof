@@ -28,28 +28,28 @@ mkdir -p "$work"
 # patched output line (one per run, ';') | optional timeout in seconds for this case (default $TIMEOUT or 10). In the defect field, " OR " separates alternatives (the field separator
 # is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull.
 cases=(
-  "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
-  "gzseek-offset-overflow|0004|cur,set,pos|runtime error: signed integer overflow|seek2 -1;set unget 120 seek -1 tell -1 getc 120;pos getc 0 seek 9223372036854775806 seek -1 tell 9223372036854775806"
-  "gzseek-refusal-state|0004|read,write,unget,raw|none|read seek 100 -1 tell 0 getc 97;write seek 10 -1 tell 0 putc 122 close 0 length 1;unget unget 120 121 tell -2 seek -1 tell -1 getc 120 97;raw unget 120 121 tell -2 seek -1 tell -1 getc 120 97"
-  "deflatebound-gzip-extra-length|0006||bound-ok 0|bound-ok 1"
-  "inflate-window-copy|0007|300,1|invalid-pointer-pair|inflate 1 1;inflate 1 1"
-  "infback-window-overlap|0007|8 100 200 150,8 100 250 100,8 100 256 100,8 100 256 200,8 200 220 100,15 1000 32700 200,15 1000 32768 258,9 10 400 258,8 3 255 10|none|back 1 546 1;back 1 496 1;back 1 496 1;back 1 596 1;back 1 596 1;back 1 34008 1;back 1 34066 1;back 1 820 1;back 1 309 1"
-  "inflatesync-null-next-in|0008||none|sync -3 1"
-  "inflatesetdictionary-null|0009||setdict 0 OR null pointer passed as argument|setdict -2"
-  "inflate-fast-primed-bits|0010||inflate 1 34 4294967294|inflate 1 32 0"
-  "inflate-shared-header-extra|0011|copy,two,late|heap-buffer-overflow|inflate 0;inflate 0;inflate 0"
-  "longest-match-offset-base|0012|f,x|none|deflate 1 31733 9f6d82f0;deflate 1 34825 6a1f0340"
-  "deflate-medium-insert-count|0013||runtime error: division by zero|deflate 1 28"
-  "gzwrite-clearerr-stale-input|0014||invalid-pointer-pair OR heap-buffer-overflow|gzwrite 0 -1 1"
-  "gzclose-after-failed-write|0014||heap-use-after-free|gzclose 0 0"
-  "gzread-position-overflow|0016||runtime error: signed integer overflow|gzread 0 9223372036854775807 -1"
-  "gzgetc-macro-position|0016|max,near|runtime error: signed integer overflow|max read 2 macro 0 last -1 pos 9223372036854775807 err -3;near read 1 macro 11 last -1 pos 9223372036854775807 err -3"
-  "fixed-block-start-overflow|0018|f|runtime error: signed integer overflow|deflate 1 2151677952|180"
-  "deflate-slow-match-start|0019|362,303|ERROR: AddressSanitizer OR runtime error OR round-trip MISMATCH|inflate 1 out 80393 of 80393 round-trip ok;inflate 1 out 86208 of 86208 round-trip ok"
-  "gzdirect-pending-skip|0020||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 getc -1 tell 13"
-  "gzgets-pending-skip|0021||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 gets null tell 3"
-  "gzwrite-zero-retry|0022|max,retry|runtime error: signed integer overflow OR ^retry seek 10000 write 0 tell 14096 write 3 tell 14099 close 0 bytes 14099 bad$|max seek 9223372036854775807 write 0 tell 9223372036854775807;retry seek 10000 write 0 tell 10000 write 3 tell 10003 close 0 bytes 10003 ok"
-  "gzprintf-failed-write-drift|0024|oob,corrupt|ERROR: AddressSanitizer: heap-buffer-overflow OR ERROR: AddressSanitizer: SEGV OR ERROR: AddressSanitizer: BUS OR ^corrupt close 0 inflate 0 bytes [0-9]+ bad$|oob close 0 inflate 1 bytes 786389 ok;corrupt close 0 inflate 1 bytes 733299 ok"
+  "inflate-copy-pointer-equality|0001||invalid-pointer-pair|inflateCopy 0"
+  "gzseek-offset-overflow|0002|cur,set,pos|runtime error: signed integer overflow|seek2 -1;set unget 120 seek -1 tell -1 getc 120;pos getc 0 seek 9223372036854775806 seek -1 tell 9223372036854775806"
+  "gzseek-refusal-state|0002|read,write,unget,raw|none|read seek 100 -1 tell 0 getc 97;write seek 10 -1 tell 0 putc 122 close 0 length 1;unget unget 120 121 tell -2 seek -1 tell -1 getc 120 97;raw unget 120 121 tell -2 seek -1 tell -1 getc 120 97"
+  "deflatebound-gzip-extra-length|0003||bound-ok 0|bound-ok 1"
+  "inflate-window-copy|0004|300,1|invalid-pointer-pair|inflate 1 1;inflate 1 1"
+  "infback-window-overlap|0004|8 100 200 150,8 100 250 100,8 100 256 100,8 100 256 200,8 200 220 100,15 1000 32700 200,15 1000 32768 258,9 10 400 258,8 3 255 10|none|back 1 546 1;back 1 496 1;back 1 496 1;back 1 596 1;back 1 596 1;back 1 34008 1;back 1 34066 1;back 1 820 1;back 1 309 1"
+  "inflatesync-null-next-in|0005||none|sync -3 1"
+  "inflatesetdictionary-null|0006||setdict 0 OR null pointer passed as argument|setdict -2"
+  "inflate-fast-primed-bits|0007||inflate 1 34 4294967294|inflate 1 32 0"
+  "inflate-shared-header-extra|0008|copy,two,late|heap-buffer-overflow|inflate 0;inflate 0;inflate 0"
+  "longest-match-offset-base|0009|f,x|none|deflate 1 31733 9f6d82f0;deflate 1 34825 6a1f0340"
+  "deflate-medium-insert-count|0010||runtime error: division by zero|deflate 1 28"
+  "gzwrite-clearerr-stale-input|0011||invalid-pointer-pair OR heap-buffer-overflow|gzwrite 0 -1 1"
+  "gzclose-after-failed-write|0011||heap-use-after-free|gzclose 0 0"
+  "gzread-position-overflow|0013||runtime error: signed integer overflow|gzread 0 9223372036854775807 -1"
+  "gzgetc-macro-position|0013|max,near|runtime error: signed integer overflow|max read 2 macro 0 last -1 pos 9223372036854775807 err -3;near read 1 macro 11 last -1 pos 9223372036854775807 err -3"
+  "fixed-block-start-overflow|0015|f|runtime error: signed integer overflow|deflate 1 2151677952|180"
+  "deflate-slow-match-start|0016|362,303|ERROR: AddressSanitizer OR runtime error OR round-trip MISMATCH|inflate 1 out 80393 of 80393 round-trip ok;inflate 1 out 86208 of 86208 round-trip ok"
+  "gzdirect-pending-skip|0017||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 getc -1 tell 13"
+  "gzgets-pending-skip|0018||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 gets null tell 3"
+  "gzwrite-zero-retry|0019|max,retry|runtime error: signed integer overflow OR ^retry seek 10000 write 0 tell 14096 write 3 tell 14099 close 0 bytes 14099 bad$|max seek 9223372036854775807 write 0 tell 9223372036854775807;retry seek 10000 write 0 tell 10000 write 3 tell 10003 close 0 bytes 10003 ok"
+  "gzprintf-failed-write-drift|0021|oob,corrupt|ERROR: AddressSanitizer: heap-buffer-overflow OR ERROR: AddressSanitizer: SEGV OR ERROR: AddressSanitizer: BUS OR ^corrupt close 0 inflate 0 bytes [0-9]+ bad$|oob close 0 inflate 1 bytes 786389 ok;corrupt close 0 inflate 1 bytes 733299 ok"
 )
 
 # Clang cases: patch reproductions whose defect only clang's UBSan reports (GCC's does not report NULL plus an
@@ -60,7 +60,7 @@ cases=(
 # line; when CI is set a missing clang fails the run.
 # case | patch prefix | report the unpatched clang build must show (" OR " separates alternatives) | patched line
 clang_cases=(
-  "gzbuffer-alloc-null-offset|0015|runtime error: .*null pointer OR runtime error: pointer overflow OR runtime error: pointer index expression|gzwrite 0 0 -4 -4"
+  "gzbuffer-alloc-null-offset|0012|runtime error: .*null pointer OR runtime error: pointer overflow OR runtime error: pointer index expression|gzwrite 0 0 -4 -4"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch
@@ -86,9 +86,9 @@ open_cases=(
 # case | patch prefix | earlier version (file in the case's directory) | arguments (comma-separated runs) |
 # extended regular expression every run's report must match
 guards=(
-  "infback-window-overlap|0007|first-0007.patch|8 100 200 150,8 100 250 100,15 1000 32700 200,9 10 400 258,8 3 255 10|memcpy-param-overlap"
-  "gzgetc-macro-position|0016|first-0016.patch|max,near|runtime error: signed integer overflow"
-  "gzseek-refusal-state|0004|first-0004.patch|read,write,unget,raw|^read seek 100 -1 tell 100 getc 119$|^write seek 10 -1 tell 10 putc 122 close 0 length 11$|^(unget|raw) unget 120 121 tell -2 seek -1 tell -2 getc 121 120$"
+  "infback-window-overlap|0004|first-0004.patch|8 100 200 150,8 100 250 100,15 1000 32700 200,9 10 400 258,8 3 255 10|memcpy-param-overlap"
+  "gzgetc-macro-position|0013|first-0013.patch|max,near|runtime error: signed integer overflow"
+  "gzseek-refusal-state|0002|first-0002.patch|read,write,unget,raw|^read seek 100 -1 tell 100 getc 119$|^write seek 10 -1 tell 10 putc 122 close 0 length 11$|^(unget|raw) unget 120 121 tell -2 seek -1 tell -2 getc 121 120$"
 )
 
 # 32-bit guards: like the guards, on a build whose size_t is 32 bits and whose file offsets are 64 bits
@@ -101,8 +101,8 @@ guards=(
 # earlier version's output must match | optional flags in place of $m32 | optional widths line in place of
 # "size_t 4 off 8" (the repro prints sizeof(size_t) and sizeof(z_off_t))
 wide32=(
-  "gzwrite-position-32bit|0017|first-0017.patch|pos32 seek 4294967295 write 1 tell 4294967296 err 0|^pos32 seek 4294967295 write 0 tell 4294967295 err -3$"
-  "gzread-position-32bit|0016|first-0016.patch|pos32 seek max-5 fread 4 tell max-0 err -3|^pos32 seek max-5 fread [0-9]+ tell max-[0-9]{6,} err 0$|-m32 -D_LARGEFILE64_SOURCE=0|size_t 4 off 4"
+  "gzwrite-position-32bit|0014|first-0014.patch|pos32 seek 4294967295 write 1 tell 4294967296 err 0|^pos32 seek 4294967295 write 0 tell 4294967295 err -3$"
+  "gzread-position-32bit|0013|first-0013.patch|pos32 seek max-5 fread 4 tell max-0 err -3|^pos32 seek max-5 fread [0-9]+ tell max-[0-9]{6,} err 0$|-m32 -D_LARGEFILE64_SOURCE=0|size_t 4 off 4"
 )
 m32="-m32 -D_FILE_OFFSET_BITS=64"
 

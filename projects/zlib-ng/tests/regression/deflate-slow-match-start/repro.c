@@ -1,4 +1,4 @@
-/* Patch 0019. At levels 7 and 8, deflate_slow takes a match whose start is at or after strstart. After a
+/* Patch 0016. At levels 7 and 8, deflate_slow takes a match whose start is at or after strstart. After a
  * Z_FULL_FLUSH that empties the lookahead (or deflateReset), strstart restarts at 0 and head is cleared, but prev keeps
  * positions of the earlier input. Levels 2-6 do not insert every position of a long match, so their slots keep those
  * positions, and deflateParams from 2-6 to 7 or 8 does not rebuild the chains. The offset search of

@@ -27,7 +27,7 @@ theorem gzeof_inv {w : World} {h : Heap} {f : GzPtr} (hv : f = none ∨ GzInv w 
         getThe, MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hm, GZ_READ, GZ_WRITE]⟩
 
 /-- `gztell64` on `NULL` or an open file returns and changes nothing: `x.pos + skip` does not overflow (patch
-0004 keeps it at most `GZ_OFF_MAX`, and both are above `-2^63`). -/
+0002 keeps it at most `GZ_OFF_MAX`, and both are above `-2^63`). -/
 theorem gztell64_inv {w : World} {h : Heap} {f : GzPtr} (hv : f = none ∨ GzInv w h f) :
     ∃ r, GzRun (gztell64 f) w h r w h := by
   rcases hv with rfl | ⟨b, s, rfl, hs, sh, -⟩

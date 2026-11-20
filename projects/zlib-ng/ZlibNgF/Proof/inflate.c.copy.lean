@@ -5,7 +5,7 @@ import ZlibNgF.Proof.«inflate.c.sync»
 
 `inflateCopy(dest, source)` on an invariant source and a distinct destination ready for initialisation: the
 destination record gets a copy of the source record, `alloc_inflate` gets a fresh block (or fails: `Z_MEM_ERROR`), the
-state is copied as a record, `lencode` / `distcode` / `next` are rebased into the copy's `codes` (patch 0003: the test
+state is copied as a record, `lencode` / `distcode` / `next` are rebased into the copy's `codes` (patch 0001: the test
 is `lencode == codes`, and then `distcode` points into `codes` too, by the invariant), the window bytes are copied.
 The source keeps its invariant, a successful copy has it, and only the destination record and the fresh block change.
 -/

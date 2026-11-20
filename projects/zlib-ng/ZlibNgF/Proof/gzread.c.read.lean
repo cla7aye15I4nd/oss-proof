@@ -3,7 +3,7 @@ import ZlibNgF.Proof.«gzread.c.skip»
 /-!
 # `gz_read` on a read handle (`ZlibNgF`)
 
-`gz_read` (`gzread.c:308-388`, patch 0016) does a pending skip first (`gz_skip`), then loops while the caller still
+`gz_read` (`gzread.c:308-388`, patch 0013) does a pending skip first (`gz_skip`), then loops while the caller still
 asks for bytes: it caps the count `n` at `UINT_MAX` and at the room `GZ_OFF_MAX - x.pos` (failing at `x.pos ==
 GZ_OFF_MAX`), then copies buffered output, stops at the end of the input (`past = 1`), fetches output (`gz_fetch`) when
 looking for a header or asked for less than `2 * size` bytes, or reads (`COPY`) or decompresses (`GZIP`) directly into
@@ -117,7 +117,7 @@ theorem gz_read_eq (state : GzPtr) (buf : BPtr) (len : UInt64) : gz_read state b
 
 /-! ## Small facts -/
 
-/-- The room test of `gz_read` (patch 0016): after it, `x.pos + n <= GZ_OFF_MAX`, and a count lowered by it reaches
+/-- The room test of `gz_read` (patch 0013): after it, `x.pos + n <= GZ_OFF_MAX`, and a count lowered by it reaches
 `GZ_OFF_MAX` exactly. -/
 theorem room_n (pos : Int64) (n : UInt32) (hlo : -GZ_OFF_MAX.toInt ≤ pos.toInt) (hhi : pos.toInt ≤ GZ_OFF_MAX.toInt) :
     ((decide (pos > 0) && decide (n.toUInt64 > (GZ_OFF_MAX - pos).toUInt64)) = true →

@@ -1,0 +1,25 @@
+From ef2e1b2bcdee2fbe2a20899e788c5283d4551b29 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Wed, 18 Nov 2026 17:47:25 -0800
+Subject: [PATCH] Mask the gzip extra length in deflateBound()
+
+2 + extra_len is computed in 32-bit unsigned and wraps for extra_len >=
+0xfffffffe, so deflateBound() returned less than one deflate(Z_FINISH) writes.
+Only the low 16 bits of extra_len are written, so add 2 + (extra_len & 0xffff).
+---
+ deflate.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/deflate.c b/deflate.c
+index 2cfd7d2..df4a436 100644
+--- a/deflate.c
++++ b/deflate.c
+@@ -734,7 +734,7 @@ z_size_t Z_EXPORT PREFIX(deflateBound_z)(PREFIX3(stream) *strm, z_size_t sourceL
+         if (s->gzhead != NULL) {            /* user-supplied gzip header */
+             unsigned char *str;
+             if (s->gzhead->extra != NULL) {
+-                wraplen += 2 + s->gzhead->extra_len;
++                wraplen += 2 + (z_size_t)(s->gzhead->extra_len & 0xffff);
+             }
+             str = s->gzhead->name;
+             if (str != NULL) {

@@ -23,8 +23,9 @@ not done.
 
 - `zlib-ng/` is the upstream submodule (`https://github.com/zlib-ng/zlib-ng`, branch `develop`, commit
   `5f1f4899`). Never
-  modify it. The verified source is `zlib-ng/` plus `patches/*.patch` applied in name order, each
-  listed in `patches/README.md`.
+  modify it. The verified source is `zlib-ng/` plus every `patches/NNNN-slug/upstream.patch` (one
+  directory per fix, numbered from 0001; library and test hunks) applied in full with `git apply` in directory
+  name order (`tests/apply-patches.sh`); `patches/README.md` is the index and lists exactly the directories.
 - Translations mirror the C layout: `zlib-ng/X.c` is `ZlibNgF/ZlibNg/X.c.lean`, `zlib-ng/X.h` is
   `ZlibNgF/ZlibNg/X.h.lean`, and `zlib-ng/arch/generic/X.c` is
   `ZlibNgF/ZlibNg/arch/generic/X.c.lean`. Each function keeps its C name, and its docstring starts
@@ -67,7 +68,7 @@ Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `in
 - Public entry points (`inflate.c`): `inflateInit_`, `inflateInit2_` (both call the hidden `inflateInit2`
   after `CHECK_VER_STSIZE`), `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateResetKeep`,
   `inflatePrime`, `inflateSetDictionary`, `inflateGetDictionary`, `inflateGetHeader`, `inflateSync`,
-  `inflateSyncPoint`, `inflateCopy` (with patch 0003), `inflateUndermine` (returns `Z_DATA_ERROR`:
+  `inflateSyncPoint`, `inflateCopy` (with patch 0001), `inflateUndermine` (returns `Z_DATA_ERROR`:
   `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR` is off), `inflateValidate`, `inflateMark`, `inflateCodesUsed`;
   `uncompr.c`: `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z`.
 - Internal functions of `inflate.c`: `inflateStateCheck`, `alloc_inflate`, `free_inflate` (one `zalloc`
@@ -98,14 +99,14 @@ Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `in
   the single block of `alloc_inflate`. The model has to place typed objects (`inflate_state`, `inflate_allocs`,
   the window bytes) inside one `char` block obtained from `zalloc`, and carry the function pointers `zalloc` /
   `zfree` and the static code tables as pointer targets; the runtime of this project does not support that yet.
-- Undefined behaviour of upstream reached by documented calls, fixed by patches 0007-0010 (see the findings page): pointer
+- Undefined behaviour of upstream reached by documented calls, fixed by patches 0004-0007 (see the findings page): pointer
   comparison and subtraction between the window and the caller's output in `chunkcopy_safe`
   (`inflate_p.h:224-225`, from `inflate.c:1100`), `CHUNKCOPY_SAFE` (`chunkset_tpl.h:319`) and `chunkmemset_c`
   (`chunkset_tpl.h:119`, `125`) from `inflate_fast_c` (`inffast_tpl.h:269`); `strm->next_in += 0` on a null
   `next_in` in `inflateSync` after `inflatePrime`; `NULL + 0` and `memcpy` from `NULL` in `updatewindow` from
   `inflateSetDictionary(strm, NULL, 0)` on a raw stream; `in -= len` at the end of `inflate_fast`
   (`inffast_tpl.h:327`) moving `next_in` before the caller's buffer when `inflatePrime` left 8 or more bits in
-  the bit buffer on entry. Patch 0011 bounds the copy into `head->extra` in state `EXTRA`, which overran the buffer
+  the bit buffer on entry. Patch 0008 bounds the copy into `head->extra` in state `EXTRA`, which overran the buffer
   when two streams share one `gz_header`.
 
 ## Deflate scope (pinned `develop` commit, verified option set)
@@ -117,7 +118,7 @@ files below (`OPTIMAL_CMP` is 64 on x86_64; no `NO_QUICK_STRATEGY`, `NO_MEDIUM_S
 
 - Public entry points (`deflate.c`): `deflateInit_`, `deflateInit2_` (both call the hidden `deflateInit2`), `deflate`,
   `deflateEnd`, `deflateSetDictionary`, `deflateGetDictionary`, `deflateCopy`, `deflateReset`, `deflateResetKeep`,
-  `deflateParams`, `deflateTune`, `deflateBound`, `deflateBound_z` (patch 0006), `deflatePending`, `deflateUsed`,
+  `deflateParams`, `deflateTune`, `deflateBound`, `deflateBound_z` (patch 0003), `deflatePending`, `deflateUsed`,
   `deflatePrime`, `deflateSetHeader`; `compress.c`: `compress`, `compress2`, `compress_z`, `compress2_z`,
   `compressBound`, `compressBound_z`. `zng_deflateSetParams` / `zng_deflateGetParams` are not compiled
   (`ZLIB_COMPAT`).
@@ -150,9 +151,9 @@ files below (`OPTIMAL_CMP` is 64 on x86_64; no `NO_QUICK_STRATEGY`, `NO_MEDIUM_S
   C, so pointer arithmetic is bounded by the block), `Pos` elements are two-byte accesses; the trees, `bl_count` and
   `pq_*` arrays are fields of the state record with their own `Space` instances. `deflateCopy`'s `memcpy` of a whole
   `deflate_state` is a record copy.
-- Deflate patches (findings page): 0012 keeps `mbase_start = window` in `match_tpl.h` and reads candidates at
+- Deflate patches (findings page): 0009 keeps `mbase_start = window` in `match_tpl.h` and reads candidates at
   `mbase_start + (cur_match - match_offset)` (the slow variants of levels 7-9 formed `window - match_offset`, before
-  the window's block); 0013 bounds `max_insert_count` of `deflate_medium` to `2..STD_MAX_MATCH` (`deflateTune` with
+  the window's block); 0010 bounds `max_insert_count` of `deflate_medium` to `2..STD_MAX_MATCH` (`deflateTune` with
   `max_lazy = INT_MIN` made `insert_knuth_stepped` divide by zero). `tests/expected-faults.txt` is empty: Lean and C
   agree on every generated input. `insert_knuth_stepped` is otherwise called with `count >= 3` and
   `max_inserts >= 4` (`deflate_fast`, through `insert_knuth_spread_static`) or `count > 2 * max_insert_count >= 4`
@@ -173,17 +174,17 @@ Evidence: `nm` of `infback.c.o` in the `libz.a` of `tests/build-zlib-ng.sh` (it 
   `PULLBYTE` (calling `in()`) and `ROOM` (calling `out()`).
 - `inflateBackInit` does not set `state->strm`, `state->mode` or the code pointers; `inflateBack` sets `mode`, `last`
   and `whave` at entry and keeps `hold` / `bits` in locals that start at 0 on every call (there is no `inflatePrime`
-  for these streams, so the bit buffer holds fewer than 8 bits whenever `LEN` calls the fast path: patch 0010's
+  for these streams, so the bit buffer holds fewer than 8 bits whenever `LEN` calls the fast path: patch 0007's
   concern has no analogue). `state->wnext` stays 0.
 - `LEN` calls `inflate_fast_safe_c(strm, state->wsize)` (not `inflate_fast_c`) when `have >= 15` and `left >= 3`, with
   `next_out` inside the caller's window, so the output of `inflate_fast` *is* the window (`beg == window`). The safe
   variant bails out to `MATCH` when a match does not fit in `left`; `MATCH` of `infback.c` copies it with
   `chunkcopy_safe` (window to window) or `chunkmemset_safe_c`.
-- Patch 0007's concern (comparing a pointer into the window with one into the caller's output) does not arise in
-  `infback.c`: both are the caller's window. Patch 0007 copies a window match in `inflate_fast` with `memcpy` only
+- Patch 0004's concern (comparing a pointer into the window with one into the caller's output) does not arise in
+  `infback.c`: both are the caller's window. Patch 0004 copies a window match in `inflate_fast` with `memcpy` only
   when `window != beg`; called from `inflateBack` (`beg == window`) it keeps upstream's `chunkcopy_safe`, which
   handles the overlap of a distance that reaches into the previous window pass (`dist + min(op, len) > wsize`).
-  The first version of 0007 used `memcpy` there too (overlapping ranges, ISO C17 §7.24.2.1p2); the guard of
+  The first version of 0004 used `memcpy` there too (overlapping ranges, ISO C17 §7.24.2.1p2); the guard of
   `tests/regression/infback-window-overlap` keeps that version and checks that it still shows the overlap.
 - Call-backs: `in_func` / `out_func` are the parameters `InCb` / `OutCb` of `inflateBack` (caller code); what the
   goals assume of them is in `ZlibNgF/Spec/Common/Infback.lean`.
@@ -195,7 +196,7 @@ Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of
 `WIDECHAR`; `O_CLOEXEC` and `O_EXCL` defined; `GZBUFSIZE` 131072, `GZBUFSIZE_MAX` `1u << 30`, `DEF_MEM_LEVEL` 8).
 
 - Public entry points: `gzlib.c`: `gzopen`, `gzopen64`, `gzdopen`, `gzbuffer`, `gzrewind`, `gzseek`, `gzseek64`
-  (patch 0004), `gztell`, `gztell64`, `gzoffset`, `gzoffset64`, `gzeof`, `gzerror`, `gzclearerr`, `gzclose`;
+  (patch 0002), `gztell`, `gztell64`, `gzoffset`, `gzoffset64`, `gzeof`, `gzerror`, `gzclearerr`, `gzclose`;
   `gzread.c`: `gzread`, `gzfread`, `gzgetc`, `gzgetc_`, `gzungetc`, `gzgets`, `gzdirect`, `gzclose_r`; `gzwrite.c`:
   `gzwrite`, `gzfwrite`, `gzputc`, `gzputs`, `gzvprintf`, `gzprintf`, `gzflush`, `gzsetparams`, `gzclose_w`.
   `gzopen_w` is Windows only (`WIDECHAR`): not applicable. With `ZLIB_COMPAT` and LP64, `z_off_t` and `z_off64_t`
@@ -237,26 +238,26 @@ Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of
   numbers the library's calls on each line and fails the ones the schedule names (`A<k>`), as the Lean side's
   `Heap.allocOk`; the driver's own buffers come from the C library's `malloc` and are not numbered. The C library's
   `snprintf`, `vsnprintf` and string functions are real.
-- Undefined behaviour of upstream reached by documented calls, fixed by patches 0014-0017 (findings page): a failed
+- Undefined behaviour of upstream reached by documented calls, fixed by patches 0011-0014 (findings page): a failed
   `gzwrite` on the direct path left `next_in` in the caller's buffer (`gzwrite.c:185` cross-object subtraction after
-  `gzclearerr`; `gzwrite.c:70` reads it again in `gzclose`): patch 0014 resets `next_in` / `avail_in` on that path;
-  `gz_buffer_alloc` formed `NULL + in_size` when the allocation failed (`gzlib.c:90`): patch 0015; the readers'
+  `gzclearerr`; `gzwrite.c:70` reads it again in `gzclose`): patch 0011 resets `next_in` / `avail_in` on that path;
+  `gz_buffer_alloc` formed `NULL + in_size` when the allocation failed (`gzlib.c:90`): patch 0012; the readers'
   position `x.pos` overflowed after `gzseek` to near `2^63` on a descriptor whose `lseek` succeeds and which keeps
-  delivering data (`gzread.c:356`): patch 0016 stops the readers at `GZ_OFF_MAX`; the writers' `x.pos` overflowed after
-  `2^63` bytes in all, failed writes included (`gzwrite.c:210`): patch 0017 refuses a write past `GZ_OFF_MAX`
+  delivering data (`gzread.c:356`): patch 0013 stops the readers at `GZ_OFF_MAX`; the writers' `x.pos` overflowed after
+  `2^63` bytes in all, failed writes included (`gzwrite.c:210`): patch 0014 refuses a write past `GZ_OFF_MAX`
   (`Z_DATA_ERROR`, comparing in `uint64_t` so that a 32-bit `size_t` does not truncate the room left; guard
   `tests/regression/gzwrite-position-32bit`). Its reproduction needs `2^31 + 1` failing `gzfwrite` calls (minutes), too
   long for `tests/regression/`; the differential test covers the refusal (`gzfwrite` lengths above `GZ_OFF_MAX`, which
   are refused before the buffer is read). `gz_zero` added a batch of a seek's zeros to `x.pos` before writing it but took
   it off `skip` only after success, so a failed write broke `x.pos + skip <= GZ_OFF_MAX` (`gztell` overflow at
-  `gzlib.c:496`; the batch written twice after `gzclearerr`): patch 0022 takes it off `skip` before the write, which
+  `gzlib.c:496`; the batch written twice after `gzclearerr`): patch 0019 takes it off `skip` before the write, which
   `GzWF`'s `pos_skip` clause needs on the write side. `gzungetc` lowered `x.pos` without a bound (a failed push when the
   buffer is full drops the pushed bytes but keeps the lowered `x.pos`; after `gzclearerr` the pushes start again): patch
-  0023 refuses a push at `x.pos <= -GZ_OFF_MAX` (not the minimum value: `gzseek64` negates a negative position), which
+  0020 refuses a push at `x.pos <= -GZ_OFF_MAX` (not the minimum value: `gzseek64` negates a negative position), which
   `GzPos.pos_lower` needs. `gzvprintf` counted `size` bytes of input from `next_in`, which a failed `gz_comp` leaves moved
   forward with input left: after `gzclearerr` the input end passed `in + size`, the formatted text overwrote unwritten
   compressed data and then the bytes after the buffer block (guard `tests/regression/gzprintf-failed-write-drift`):
-  patch 0024 moves leftover input to `in` before formatting, so `next_in + avail_in <= in + size` holds at every
+  patch 0021 moves leftover input to `in` before formatting, so `next_in + avail_in <= in + size` holds at every
   return of every writer, as `GzWBuf.inp` says. Open question, not a finding:
   `gzoffset64` computes `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below
   `INT64_MIN + avail_in`: `GzWF` admits only the `lseek` values POSIX allows (`-1` or not negative), a

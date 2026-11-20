@@ -1,12 +1,12 @@
-/* Patch 0007 with inflateBack. inflateBack decodes into the caller's window and calls inflate_fast_safe with
+/* Patch 0004 with inflateBack. inflateBack decodes into the caller's window and calls inflate_fast_safe with
  * next_out inside that window, so there inflate_fast's output IS the window (beg == window). A first version of
- * patch 0007 copied every match that reaches back into the window with memcpy(out, from, n), which assumes that
+ * patch 0004 copied every match that reaches back into the window with memcpy(out, from, n), which assumes that
  * the window and the output are distinct objects (true for inflate, whose window is its own allocation). Here
  * from = window + wsize - op and out = window + k: when the match reaches into the previous pass of the window
  * and wsize - dist < n, the two ranges overlap, and memcpy with overlapping ranges is undefined (ISO C17
  * 7.24.2.1p2; AddressSanitizer reports memcpy-param-overlap; a copy onto itself, dist == wsize, is undefined as
- * well but not reported). Patch 0007 now copies with memcpy only when window != beg, and with upstream's
- * chunkcopy_safe, which handles the overlap, when window == beg. Upstream without patch 0007 is clean here too.
+ * well but not reported). Patch 0004 now copies with memcpy only when window != beg, and with upstream's
+ * chunkcopy_safe, which handles the overlap, when window == beg. Upstream without patch 0004 is clean here too.
  *
  * Arguments: windowBits k dist len. The stream (fixed codes, one block): 2^windowBits literals (the window is
  * written out once), k more literals, a match of length len at distance dist (so op = dist - k bytes come from

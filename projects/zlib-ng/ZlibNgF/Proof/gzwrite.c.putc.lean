@@ -6,7 +6,7 @@ import ZlibNgF.Proof.«gzread.c.getc»
 
 `gzputc_spec`: on a write handle, `gzputc` keeps the invariant `GzInvWS` and is a step of the file, given
 `GzCompSpec` and `DeflateGz`. With buffers, room in the first `size` bytes of `in` and `x.pos != GZ_OFF_MAX` (patch
-0017), the byte goes into `in` (`putc_fast`); otherwise it goes into a local one-byte array and through `gz_write`
+0014), the byte goes into `in` (`putc_fast`); otherwise it goes into a local one-byte array and through `gz_write`
 (`putc_local`), and the array is dropped again.
 -/
 

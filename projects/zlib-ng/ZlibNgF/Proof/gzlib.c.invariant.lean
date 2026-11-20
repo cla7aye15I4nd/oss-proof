@@ -8,7 +8,7 @@ import ZlibNgF.Proof.«deflate.c.side»
 # The structural invariant of an open gz file (`ZlibNgF`)
 
 `GzInv w h f`: the `gz_state` of the open file `f` is live and its fields are those that `gz_open` and the public gz
-calls leave between two calls (`gzlib.c`, `gzread.c`, `gzwrite.c` with patches 0004, 0014-0017). The clauses are
+calls leave between two calls (`gzlib.c`, `gzread.c`, `gzwrite.c` with patches 0002, 0011-0014). The clauses are
 grouped in small structures (`GzPos`, `GzBufs`, `GzRead`, `GzWrite`, `GzMsg`) behind the interface lemmas at the end,
 so that a proof about one function opens only the clauses it needs.
 
@@ -19,21 +19,21 @@ so that a proof about one function opens only the clauses it needs.
 * `want` is in `[8, 2^30]` (`gzbuffer`, `GZBUFSIZE`); `size` is 0 (no buffers yet) or `want`, and then the buffers
   are one live block (from `zng_alloc_aligned`, with its saved pointer), `in` at its start and `out` after the `in` part: `want` and `2 * want` bytes when reading,
   `2 * want` and `want` (none when `direct`) when writing (`gz_buffer_alloc`);
-* positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -GZ_OFF_MAX` (only `gzungetc` lowers it,
-  and patch 0023 refuses a push at that bound, so that `gzseek64` can negate a negative position), `pos ≥ 0` when
+* positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0002), `pos ≥ -GZ_OFF_MAX` (only `gzungetc` lowers it,
+  and patch 0020 refuses a push at that bound, so that `gzseek64` can negate a negative position), `pos ≥ 0` when
   writing;
 * reading: `how ∈ {LOOK, COPY, GZIP}`; with buffers, the inflate stream has the inflate invariant (`gz_look` called
   `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, `avail_in` bytes
   from `next_in` inside `in`, and the stream's `msg` is `NULL` or one of inflate's string literals (`gz_decomp` passes
   it to `gz_error`); without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
   (`FreshStrm`) and `how` is `LOOK`; a pending skip and the bytes `gzungetc` pushed back
-  after it keep `pos + skip + have ≤ GZ_OFF_MAX`; `pos + have ≤ GZ_OFF_MAX` (patch 0016), so that the `gzgetc()`
+  after it keep `pos + skip + have ≤ GZ_OFF_MAX`; `pos + have ≤ GZ_OFF_MAX` (patch 0013), so that the `gzgetc()`
   macro cannot overflow `pos`; while looking at the start of transparent-capable input, `pos + have ≤ 0`; a gzip
   stream is not transparent; in `COPY` mode the input buffer is empty;
 * writing: `x.have` is 0; without buffers `avail_in` is 0; with buffers and not `direct`, the deflate stream has the
   deflate invariant and the between-call facts (`gz_write_init`), no `gz_header` registered, `next_out + avail_out`
   is the end of `out` and `x.next` lies in `out` at or before `next_out`; `avail_in` bytes from `next_in` lie inside
-  the first `size` bytes of `in`, or `avail_in` is 0 and `next_in` is `NULL` (not direct) (patch 0014: no pointer
+  the first `size` bytes of `in`, or `avail_in` is 0 and `next_in` is `NULL` (not direct) (patch 0011: no pointer
   into a caller's buffer is left between calls);
 * the blocks the file frees (`ownL`: the state, `path`, `msg`, and with buffers the buffers and the block of the
   stream's state) are pairwise distinct.
@@ -101,7 +101,7 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   fresh : s.size = 0 → FreshStrm h s
   /-- before the buffers exist the stream type is not known yet (`gz_look` leaves `LOOK` only with buffers) -/
   look : s.size = 0 → s.how = LOOK
-  /-- what the `gzgetc()` macro of `zlib.h` may take from the output buffer stays at or below `GZ_OFF_MAX` (patch 0016:
+  /-- what the `gzgetc()` macro of `zlib.h` may take from the output buffer stays at or below `GZ_OFF_MAX` (patch 0013:
   `gz_fetch` produces no output past it) -/
   pos_have : s.pos.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt
   /-- before the kind of input is known (looking, transparent reading allowed), no data has been delivered: only
@@ -122,7 +122,7 @@ structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop wh
   /-- no `gz_header` is registered on the deflate state -/
   nohdr : ∀ sb st k, z.state = some sb → h.dstate sb = some st → st.gzhead ≠ .val (some k)
   /-- the input: `avail_in` bytes from `next_in` inside the first `size` bytes of `in`; or no input, and then
-  `next_in` is `NULL` unless the file is direct (patch 0014: no pointer into a caller's buffer is left) -/
+  `next_in` is `NULL` unless the file is direct (patch 0011: no pointer into a caller's buffer is left) -/
   inp : Inside c base 0 s.size.toNat z.next_in z.avail_in.toNat ∨
     (z.avail_in = 0 ∧ (s.direct ≠ 0 ∨ z.next_in = .null))
   /-- direct: no deflate state (`gz_write_init` does not call `deflateInit2`) -/

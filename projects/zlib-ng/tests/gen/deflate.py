@@ -170,7 +170,7 @@ for case in range(120 if QUICK else 300):
     out.append("cmp %s %d %s %s %s" % (fn, rng.randint(-1, 10), dat, outs, cells))
 
 # 10. deflateTune with max_lazy outside 0..258 (it is also the insert count of the medium strategy: INT_MIN made
-# deflate_medium divide by zero before patch 0013), on runs and short periods that give overlapping matches.
+# deflate_medium divide by zero before patch 0010), on runs and short periods that give overlapping matches.
 for level in range(1, 10):
     for lazy in (-2147483648, -2147483647, -1, 259, 300, 2147483647):
         for kind, n in (("z", 5000), ("p", 3000)):
@@ -178,7 +178,7 @@ for level in range(1, 10):
               ["T8/%d/128/64" % lazy] + finish(), method=8)
 
 # 11. A Z_FULL_FLUSH that empties the lookahead at level 2, more input, deflateParams to level 7: levels 2-6 leave
-# prev slots of the earlier input, and before patch 0019 deflate_slow took a match at or after strstart here
+# prev slots of the earlier input, and before patch 0016 deflate_slow took a match at or after strstart here
 # (found with an instrumented copy of match_tpl.h). The case runs deflate_slow's test of match_start against strstart.
 d(2, -15, 8, 0, data("b", 100000, 940932758), 100000,
   ["o%d" % (1 << 30), "i55128", "f3", "i16582", "f0", "Q7/0", "L4/%d/%d" % (1 << 30, 1 << 30)])

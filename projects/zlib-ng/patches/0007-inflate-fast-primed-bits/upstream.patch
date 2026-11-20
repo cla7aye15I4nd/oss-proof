@@ -1,0 +1,27 @@
+From a1a9b19b66e9c39f93a862bae3130ac61dc8a718 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Wed, 18 Nov 2026 20:20:36 -0800
+Subject: [PATCH] Call inflate_fast() from inflate() only with fewer than 8
+ bits held
+
+inflate_fast() assumes fewer than 8 bits in the bit buffer. After inflatePrime()
+left 8 or more, it returned bits >> 3 bytes more input than it read: next_in
+moved before the caller's buffer and avail_in and total_in were wrong. Decode in
+inflate() itself in that case.
+---
+ inflate.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/inflate.c b/inflate.c
+index 0a0a90b..1c719bc 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -931,7 +931,7 @@ int32_t Z_EXPORT PREFIX(inflate)(PREFIX3(stream) *strm, int32_t flush) {
+ 
+         case LEN:
+             /* use inflate_fast() if we have enough input and output */
+-            if (have >= INFLATE_FAST_MIN_HAVE && left >= INFLATE_FAST_MIN_SAFE) {
++            if (have >= INFLATE_FAST_MIN_HAVE && left >= INFLATE_FAST_MIN_SAFE && bits < 8) {
+                 RESTORE();
+                 if (LIKELY(left >= INFLATE_FAST_MIN_LEFT))
+                     FUNCTABLE_CALL(inflate_fast)(strm, out);

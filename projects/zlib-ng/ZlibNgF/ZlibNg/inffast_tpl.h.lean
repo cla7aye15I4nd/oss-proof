@@ -4,7 +4,7 @@ import ZlibNgF.ZlibNg.«inflate_p.h»
 /-!
 # `inffast_tpl.h` — fast decoding loop (`ZlibNgF`)
 
-Source: `zlib-ng/inffast_tpl.h` with patch 0007 (a window copy is upstream's `CHUNKCOPY_SAFE` / `chunkcopy_safe`
+Source: `zlib-ng/inffast_tpl.h` with patch 0004 (a window copy is upstream's `CHUNKCOPY_SAFE` / `chunkcopy_safe`
 when `window == beg`, the output being the window as in `inflateBack`, and `memcpy` otherwise), instantiated twice by `zlib-ng/arch/generic/chunkset_c.c`:
 `inflate_fast_c` (`safeMode = false`) and `inflate_fast_safe_c` (`USE_SAFE_MODE`, `safeMode = true`), with the
 chunk functions of `chunkset_tpl.h.lean`, no `HAVE_MASKED_READWRITE`, no `INFLATE_STRICT`, no

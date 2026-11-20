@@ -118,7 +118,7 @@ jobs:
       - name: Install C compiler and tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential patch gcc-multilib clang
+          sudo apt-get install -y --no-install-recommends build-essential patch gcc-multilib clang cmake git
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -138,8 +138,24 @@ jobs:
           restore-keys: |
             lean-modules-${{ matrix.project }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.lean.outputs.abi }}-${{ hashFiles('lean-toolchain', format('projects/{0}/lakefile.toml', matrix.project), format('projects/{0}/tests/lakefile.toml', matrix.project)) }}-
 
+      # zlib-ng's tests/run.sh also runs the GoogleTest cases of its patch series (tests/patch-gtest.sh), which pins
+      # GoogleTest by commit and fetches it once; like the module cache, only pushes to main write this cache.
+      - name: Reuse the pinned GoogleTest checkout
+        if: ${{ matrix.project == 'zlib-ng' && github.event_name != 'push' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: projects/zlib-ng/tests/build/patch-gtest/googletest
+          key: googletest-${{ runner.os }}-${{ hashFiles('projects/zlib-ng/tests/patch-gtest.sh') }}
+
       - name: Build differential drivers and run under ASan and UBSan
         run: python3 framework/run_difftest.py "${{ matrix.project }}"
+
+      - name: Save the pinned GoogleTest checkout (pushes to main only)
+        if: ${{ matrix.project == 'zlib-ng' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: projects/zlib-ng/tests/build/patch-gtest/googletest
+          key: googletest-${{ runner.os }}-${{ hashFiles('projects/zlib-ng/tests/patch-gtest.sh') }}
 
   gate:
     if: always()

@@ -8,7 +8,7 @@ The three instantiations `longest_match_c`, `longest_match_slow_knuth_c` and `lo
 heap (`Proof/deflate.c.init.lean`) whose block `b` holds the window at `wo`, `prev` at `po` and `head` at `ho`.
 
 Read ranges. Every candidate position is a 16-bit `Pos` (the argument `cur_match`, or a value of `prev` / `head`), and
-with patch 0012 every candidate address is `window + (cur_match - match_offset) (+ offset)`, where
+with patch 0009 every candidate address is `window + (cur_match - match_offset) (+ offset)`, where
 `limit_base + match_offset <= cur_match` keeps the subtraction from wrapping. The reads are
 * `[window + strstart, + 8)` (`scan_start`), `[window + strstart + offset, + 8)` (`scan_end`, `offset < lookahead`),
   the bytes `scan[i]` / `scan + i .. + 4` of the lazy re-anchoring (`i <= best_len < lookahead`);

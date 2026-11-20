@@ -1,0 +1,93 @@
+From d432e73fd64103bf0528b8c117d3774ee3a2a087 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Thu, 19 Nov 2026 11:28:43 -0800
+Subject: [PATCH] Copy window matches with memcpy() when the window is not the
+ output
+
+chunkcopy_safe(), CHUNKCOPY_SAFE and chunkmemset compare and subtract a pointer
+into the window and a pointer into the caller's output, two different objects.
+In inflate() (MATCH) copy from the window with memcpy(); in inflate_fast() keep
+the overlap-safe copy only when the output is the window (window == beg, as in
+inflateBack()).
+---
+ inffast_tpl.h | 33 ++++++++++++++++++++++++++++-----
+ inflate.c     |  3 ++-
+ 2 files changed, 30 insertions(+), 6 deletions(-)
+
+diff --git a/inffast_tpl.h b/inffast_tpl.h
+index 25298c6..a266ec9 100644
+--- a/inffast_tpl.h
++++ b/inffast_tpl.h
+@@ -255,7 +255,12 @@ void Z_INTERNAL INFLATE_FAST(PREFIX3(stream) *strm, uint32_t start) {
+                         from += wsize - op;
+                         if (UNLIKELY(op < len)) {       /* some from end of window */
+                             len -= op;
+-                            out = CHUNKCOPY_SAFE(out, from, op, safe);
++                            if (window == beg) {        /* inflateBack: the output is the window */
++                                out = CHUNKCOPY_SAFE(out, from, op, safe);
++                            } else {                    /* window and output are distinct objects */
++                                memcpy(out, from, op);
++                                out += op;
++                            }
+                             from = window;              /* more from start of window */
+                             op = wnext;
+                             /* This (rare) case can create a situation where
+@@ -266,22 +271,40 @@ void Z_INTERNAL INFLATE_FAST(PREFIX3(stream) *strm, uint32_t start) {
+                     if (UNLIKELY(op < len)) {           /* still need some from output */
+                         len -= op;
+ #ifndef USE_SAFE_MODE
+-                        out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        if (window == beg) {
++                            out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        } else {
++                            memcpy(out, from, op);
++                            out += op;
++                        }
+                         out = CHUNKUNROLL(out, &dist, &len);
+                         out = CHUNKCOPY_SAFE(out, out - dist, len, safe);
+ #elif defined(HAVE_MASKED_READWRITE)
+-                        out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        if (window == beg) {
++                            out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        } else {
++                            memcpy(out, from, op);
++                            out += op;
++                        }
+                         out = CHUNKCOPY_SAFE(out, out - dist, len, safe);
+ #else
+-                        out = chunkcopy_safe(out, from, op, safe);
++                        if (window == beg) {
++                            out = chunkcopy_safe(out, from, op, safe);
++                        } else {
++                            memcpy(out, from, op);
++                            out += op;
++                        }
+                         out = chunkcopy_safe(out, out - dist, len, safe);
+ #endif
+-                    } else {
++                    } else if (window == beg) {
+ #if !defined(USE_SAFE_MODE) || defined(HAVE_MASKED_READWRITE)
+                         out = CHUNKCOPY_SAFE(out, from, len, safe);
+ #else
+                         out = chunkcopy_safe(out, from, len, safe);
+ #endif
++                    } else {
++                        memcpy(out, from, len);
++                        out += len;
+                     }
+                 } else {
+ #ifndef USE_SAFE_MODE
+diff --git a/inflate.c b/inflate.c
+index 64ef037..4a76256 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -1097,7 +1097,8 @@ int32_t Z_EXPORT PREFIX(inflate)(PREFIX3(stream) *strm, int32_t flush) {
+                 copy = MIN(copy, state->length);
+                 copy = MIN(copy, left);
+ 
+-                put = chunkcopy_safe(put, from, copy, put + left);
++                memcpy(put, from, copy);    /* the window and the output are distinct objects */
++                put += copy;
+             } else {
+                 copy = MIN(state->length, left);
+ 

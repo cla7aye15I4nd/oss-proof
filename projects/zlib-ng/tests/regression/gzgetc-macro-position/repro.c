@@ -1,10 +1,10 @@
-/* Patch 0016. The readers add the bytes they deliver to the signed 64-bit position x.pos; so does the gzgetc()
+/* Patch 0013. The readers add the bytes they deliver to the signed 64-bit position x.pos; so does the gzgetc()
  * macro of zlib.h, which runs in the caller and takes bytes from the output buffer without any bound. Documented
  * calls only, on a descriptor whose lseek succeeds without moving and which always has data (Linux /dev/zero; on a
  * system whose /dev/zero lseek does not behave so, the repro answers lseek on its descriptor as Linux does):
  *   max:  gzdopen, gzgetc, gzseek(INT64_MAX - 2, SEEK_SET), gzread of 4 bytes, then the gzgetc() macro.
  *   near: gzdopen, gzgetc, gzseek(INT64_MAX - 12, SEEK_SET), gzread of 1 byte, then the gzgetc() macro 12 times.
- * Without patch 0016 gzread itself overflows x.pos (max). With the first version of the patch (first-0016.patch),
+ * Without patch 0013 gzread itself overflows x.pos (max). With the first version of the patch (first-0013.patch),
  * the readers stopped at GZ_OFF_MAX but left output buffered: the macro then overflows x.pos in the caller, at
  * GZ_OFF_MAX (max) or after taking the 11 bytes up to it (near). With the patch, gz_fetch produces no output past
  * GZ_OFF_MAX, so x.pos + x.have stays at most GZ_OFF_MAX: the macro takes the bytes up to GZ_OFF_MAX, then calls

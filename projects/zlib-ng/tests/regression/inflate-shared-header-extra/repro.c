@@ -1,4 +1,4 @@
-/* Patch 0011. Two inflate streams share one gz_header: with argument "copy", stream A registers it with
+/* Patch 0008. Two inflate streams share one gz_header: with argument "copy", stream A registers it with
  * inflateGetHeader before its first inflate and inflateCopy copies A (with the header pointer) to B; with argument
  * "two", A and B each register it before their first inflate. The header's extra buffer holds extra_max = 2^32 - 1
  * bytes. A reads a gzip header up to an extra field of 100 bytes (head->extra_len = 100, state->length = 100), B

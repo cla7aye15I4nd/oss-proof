@@ -1,10 +1,10 @@
-/* Patch 0020. gzseek on a reader only records the skip (x.have is 0 afterwards). gzdirect then calls gz_look,
+/* Patch 0017. gzseek on a reader only records the skip (x.have is 0 afterwards). gzdirect then calls gz_look,
  * which, for a file that is not gzip, copies the input it read into the output buffer: x.have becomes nonzero
  * while the skip is still pending. gzgetc takes a byte from the output buffer without checking for a skip request
  * (the function and the gzgetc() macro of zlib.h alike) and adds 1 to x.pos, so x.pos + skip passes GZ_OFF_MAX;
  * gztell adds the two: signed overflow (ISO C17 §6.5p5) in gztell64. Without a sanitizer gzgetc also returns
  * the first byte of the file instead of the byte at the position sought.
- * With patch 0020 gzdirect skips the buffered bytes the pending seek covers: x.have is 0 again, gzgetc reaches the
+ * With patch 0017 gzdirect skips the buffered bytes the pending seek covers: x.have is 0 again, gzgetc reaches the
  * end of the file and returns -1, and gztell returns 13 (the end): "seek 9223372036854775807 direct 1 getc -1 tell 13". */
 #include <stdio.h>
 #include <stdint.h>
