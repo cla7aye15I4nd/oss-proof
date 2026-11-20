@@ -398,7 +398,7 @@ theorem bodyBt_ok (SF : StrategyFacts) (T : TreesFacts) {h H : Heap} {i b : Nat}
       · -- with a header registered, no potential is claimed: any budget that holds will do
         exact Sat.mono (bodyC_ok SF T R2 hst2 (.inl a1) (a4.trans hlf) hf0 hf5 a2
           (fun x => absurd (a1.symm.trans x) (by decide)) (bud_any flush hst2 (markK flush)) (.inl (Nat.le_refl _)))
-          fun _ _ ⟨x1, x2, x3, -⟩ => ⟨x1, x2, x3, fun x => absurd x hg⟩
+          fun _ _ ⟨x1, x2, x3, _⟩ => ⟨x1, x2, x3, fun x => absurd x hg⟩
   · rw [ite_f hc]
     have hs : st.status = BUSY_STATE ∨ st.status = FINISH_STATE := by
       obtain ⟨z, st1, al, d, -, -, hst1, -, -, -, c⟩ := R.live
@@ -462,7 +462,7 @@ theorem bodyB_ok (SF : StrategyFacts) (T : TreesFacts) {h H : Heap} {i b : Nat} 
       DIO.err (by rw [hr]; decide) (fun hf => absurd (hfs hF) hf), fun _ => endOk_zero
         (B.step (e' := e0) (d' := 0) ⟨st, hst⟩ ea eo fun s1 s2 g1 g2 => by
           obtain rfl := Option.some.inj (hst.symm.trans g1)
-          obtain rfl := Option.some.inj ((k s1 g1).symm.trans g2)
+          obtain rfl := Option.some.inj ((k st g1).symm.trans g2)
           omega) fun st' h' => by
         obtain rfl := Option.some.inj ((k st hst).symm.trans h'); exact mark_fin hF⟩
   rw [ite_f hc]
@@ -585,7 +585,7 @@ theorem bodyA_ok (SF : StrategyFacts) (T : TreesFacts) {h H : Heap} {i b : Nat} 
         DIO.err (by rw [hre]; decide) (fun _ _ => .inl (ka.trans hz0)), fun _ => endOk_zero
           (B.step (e' := e0) (d' := 0) ⟨st, hst⟩ ka ko fun s1 s2 g1 g2 => by
             obtain rfl := Option.some.inj (hst.symm.trans g1)
-            obtain rfl := Option.some.inj ((k s1 g1).symm.trans g2)
+            obtain rfl := Option.some.inj ((k st g1).symm.trans g2)
             omega) fun st' h' => by
           obtain rfl := Option.some.inj ((k st hst).symm.trans h'); exact mark_self hp0 hlf⟩
     · rw [ite_f hc]
@@ -599,7 +599,9 @@ theorem bodyA_ok (SF : StrategyFacts) (T : TreesFacts) {h H : Heap} {i b : Nat} 
           refine hm0 hF (.inr (rank_lt (by omega) (by omega) j0 j5 fun hr => hc ?_))
           have hz0 : z.avail_in = 0 := by
             rw [aIn_of hz] at hai; exact UInt32.toNat_inj.mp (by rw [hai]; rfl)
-          simp [hz0, hr, hfF]
+          rw [hz0]
+          simp only [Bool.and_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq]
+          exact ⟨⟨by decide, hr⟩, hfF⟩
         · exact .inr hai
       exact bodyB_ok SF T R hz hst hlf hf0 hf5 hp0 hfs B hE
 
@@ -619,7 +621,7 @@ theorem err_dst {h : Heap} {i : Nat} (hv : DInv h (some i)) (err : Int32)
     rw [e]
     refine Sat.bind (Sat.of_eq ep ?_)
     rw [← e]
-    exact Sat.of_eq (wrZ_SH _) (Sat.pure (SH_dstate _ _ _ _ _ _))
+    exact Sat.bind (Sat.of_eq (wrZ_SH _) (Sat.pure (SH_dstate _ _ _ _ _ _)))
   rw [e] at key
   refine Sat.mono key fun _ h' q b' st' h1 ⟨z', hz', hb'⟩ => ?_
   obtain rfl := Option.some.inj (L.hz.symm.trans hz')
@@ -699,6 +701,7 @@ theorem deflate_okP (SF : StrategyFacts) {h : Heap} {i : Nat} {flush : Int32} (h
     obtain rfl := Option.some.inj (hst1.symm.trans h')
     rw [aOut_of hz1, aIn_of hz1, aOut_of L.hz, aIn_of L.hz, psiS_lf, psi_psiS, Nat.sub_self, Nat.sub_self,
       Nat.mul_zero]
+    omega
   have hm0 : st.status ≠ FINISH_STATE → (st.pending ≠ 0 ∨ rank st.last_flush < rank flush) →
       markK flush ≤ mark flush st := fun x y => by
     unfold mark; rw [ite_eq_left ⟨x, y⟩]; exact Nat.le_refl _
