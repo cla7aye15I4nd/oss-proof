@@ -40,7 +40,7 @@ import ZlibNgF.Math.OverlaySmall
 import ZlibNgF.Math.OverlayChoice
 import ZlibNgF.Math.HuffBlCost
 import ZlibNgF.Math.OverlayScan
-import ZlibNgF.Math.OverlayTinyTrees
+import ZlibNgF.Math.OverlayTinyBudget
 import ZlibNgF.Proof.«inftrees.c.base»
 import ZlibNgF.Proof.«inftrees.c.count»
 import ZlibNgF.Proof.«inftrees.c.rev»
