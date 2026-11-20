@@ -179,7 +179,25 @@ theorem inflate_io : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO 
   obtain ⟨r2, h2, e2, -, -, -, -, -, -, hio', -⟩ := InflateTop.inflate_full flush hv hio hc
   rw [e] at e2
   cases e2
-  exact hio' hr
+  exact hio' (Or.inl hr)
+
+/-- **The exact accounting of `inflate` for every code** (any `flush`) when `inflate`'s own entry check passes
+(`next_out` not `NULL`, `next_in` not `NULL` unless `avail_in` is 0): as `inflate_io`, `Z_STREAM_ERROR` included (the
+modes `SYNC` / `MEM` return with the stream record as at entry). -/
+theorem inflate_io_entry : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO h (some i) →
+    h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
+    ∀ z, h.streams i = some z → z.next_out ≠ .null → (z.avail_in = 0 ∨ z.next_in ≠ .null) →
+    ∃ z', h'.streams i = some z' ∧ z'.state = z.state ∧
+      InflateLoop.InAt z.next_in z.avail_in z'.next_in z'.avail_in ∧ z'.avail_out ≤ z.avail_out ∧
+      ∃ bo oo, z.next_out = .ref (.heap bo) oo ∧
+        z'.next_out = .ref (.heap bo) (oo + (z.avail_out - z'.avail_out).toNat) := by
+  intro h i flush r h' hv hio hc e z hz hno hni
+  obtain ⟨r2, h2, e2, -, -, -, -, -, -, hio', -⟩ := InflateTop.inflate_full flush hv hio hc
+  rw [e] at e2
+  cases e2
+  refine hio' (Or.inr fun z0 hz0 => ?_) z hz
+  rw [hz] at hz0; cases hz0
+  exact ⟨hno, hni⟩
 
 /-- `inflateInit2_`, whatever it returns: no deflate object changes, the static bytes stay, `nextBlk` does not
 shrink, the heap stays well formed and the object bound holds. On success the stream's state is the block numbered

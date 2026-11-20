@@ -409,7 +409,7 @@ theorem LI.afterUW {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
       rfl ws wh wn hws W with }⟩,
     Frame.trans li.frame (Frame.mono (G3_frame ..) (fun _ m => m) (fun _ m => m) (fun _ m => nomatch m)
       (fun _ m => nomatch m)), ?_, by simp [G3], li.hb, G3_istate .., li.head, ?_, li.inAt, li.outAt, li.bits, li.inn,
-      li.outO, li.retB⟩
+      li.outO, li.retB, li.sacc⟩
   · simp only [Heap.iallocsOf, G3, upd_same]
     simpa [Heap.iallocsOf, hd] using hal
   · refine li.sz.trans ⟨fun c hc d0 hd0 => ⟨d0, ?_, rfl⟩, rfl⟩
@@ -575,13 +575,13 @@ theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S :
             obtain ⟨z9, e9, e10, e11⟩ := hbuf H7 rfl hc1 h1 h2 h3
             exact ⟨_, li8.hz, by rw [li7.hz] at e9; cases e9; exact e10,
               by rw [li7.hz] at e9; cases e9; exact e11⟩)
-          (li8.ioAcc hn ha hpo hao)
+          (li8.ioAcc)
       · exact hjpb () _ _ ⟨li7.inv, li7.frame, _, _, li7.hz, li7.hb, li7.hs, li7.head⟩
-          (hbuf H7 rfl hc1) (li7.ioAcc hn ha hpo hao)
+          (hbuf H7 rfl hc1) (li7.ioAcc)
     · rename_i hc
       refine hjpr () _ _ ⟨li7.inv, li7.frame, _, _, li7.hz, li7.hb, li7.hs, li7.head⟩ (fun hr => prog_of li7 hn ha hpo hao ?_)
         (fun hr => absurd hr (RetOK.ne_buf li.retB))
-        ⟨Or.imp_right (Or.imp_right Or.inl) li.retB, li7.ioAcc hn ha hpo hao⟩
+        ⟨Or.imp_right (Or.imp_right Or.inl) li.retB, li7.ioAcc⟩
       refine Classical.byContradiction fun hb => ?_
       simp only [not_or, ne_eq, Decidable.not_not] at hb
       exact hc (by simp [hb.1, hb.2]; exact hr)

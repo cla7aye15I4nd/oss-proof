@@ -696,11 +696,11 @@ theorem LI.restoreX {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
         { S with hold := l.hold, bits := l.bits.toUInt32 }) := by
   unfold RESTORE
   refine SatX.bind (SatX.get ?_)
-  refine SatX.bind (SatX.lift (Sat.mono (li.wrZ (fun z => { z with
+  refine SatX.bind (SatX.lift (Sat.mono (li.wrZio (fun z => { z with
     next_out := l.put
     avail_out := l.left
     next_in := l.next
-    avail_in := l.have_ }) rfl rfl rfl) ?_))
+    avail_in := l.have_ }) rfl rfl rfl (SAcc.of_locals li.inAt li.outAt rfl rfl rfl rfl)) ?_))
   intro _ H1 li1
   have hb : l.bits.toUInt32 ≤ 39 := by
     have := li.bits; rw [UInt8.le_iff_toNat_le] at this
@@ -833,8 +833,23 @@ theorem LI.afterFast {E : Env} (eo : EnvOK E) {l : IL} {H2 h' : Heap} {z : ZStre
   have hao' : ao.toNat ≤ l.left.toNat := hao
   have hlo' : l.left.toNat ≤ l.out.toNat := hlo
   have hb8 : bits.toNat < 8 := hbits
-  refine ⟨?_, ?_, ?_, hz', li.hb, hist, li.head, ?_, ?_, ?_, ?_, li.inn,
-    Or.inl (li.outEq (by show 2 < rank S.mode; rw [hm]; decide)), li.retB⟩
+  have hIn : InAt E.inp E.A0 (Ptr.ref ri (o0 + (E.A0.toNat - l.have_.toNat) + (l.have_ - ai).toNat)) ai := by
+    refine ⟨UInt32.le_trans hai li.inAt.1, ?_⟩
+    rw [hinp]
+    dsimp only
+    rw [UInt32.toNat_sub_of_le _ _ hai, UInt32.toNat_sub_of_le _ _ (UInt32.le_trans hai li.inAt.1)]
+    congr 1; omega
+  have hOut : OutAt E.bo E.oo E.O0 (Ptr.ref (BRef.heap E.bo) (ob + (l.out - ao).toNat)) l.out ao :=
+    ⟨UInt32.le_trans hao hlo, ob, hob1, hob2, rfl⟩
+  refine ⟨?_, ?_, ?_, hz', li.hb, hist, li.head, ?_, hIn, hOut, ?_, li.inn,
+    Or.inl (li.outEq (by show 2 < rank S.mode; rw [hm]; decide)), li.retB,
+    SAcc.of_locals (l := { l with
+        put := Ptr.ref (BRef.heap E.bo) (ob + (l.out - ao).toNat)
+        left := ao
+        next := Ptr.ref ri (o0 + (E.A0.toNat - l.have_.toNat) + (l.have_ - ai).toNat)
+        have_ := ai
+        hold := hold
+        bits := bits.toUInt8 }) hIn hOut rfl rfl rfl rfl⟩
   · obtain ⟨i', z0, b0, st0, al, e, hz0, hb0, hst0, hal, c⟩ := li.inv
     obtain rfl : E.i = i' := Option.some.inj e
     rw [li.hz] at hz0; cases hz0
@@ -864,12 +879,6 @@ theorem LI.afterFast {E : Env} (eo : EnvOK E) {l : IL} {H2 h' : Heap} {z : ZStre
     cases E.hp with
     | none => exact fun _ => trivial
     | some k => intro hd; dsimp only at hd ⊢; rw [hg]; exact hd
-  · refine ⟨UInt32.le_trans hai li.inAt.1, ?_⟩
-    rw [hinp]
-    dsimp only
-    rw [UInt32.toNat_sub_of_le _ _ hai, UInt32.toNat_sub_of_le _ _ (UInt32.le_trans hai li.inAt.1)]
-    congr 1; omega
-  · refine ⟨UInt32.le_trans hao hlo, ob, hob1, hob2, rfl⟩
   · show bits.toUInt8 ≤ 39
     rw [UInt8.le_iff_toNat_le, UInt32.toNat_toUInt8, Nat.mod_eq_of_lt (by omega)]; show _ ≤ 39; omega
 

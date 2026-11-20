@@ -98,6 +98,27 @@ def rank (m : UInt32) : Nat := min 31 <|
 theorem rank_lt (m : UInt32) : rank m < 32 := by
   unfold rank; exact Nat.lt_of_le_of_lt (Nat.min_le_left _ _) (by decide)
 
+/-- A stream record with the exact accounting of the call: `next_in` advanced by `A0 - avail_in` bytes (`InAt`), and
+`next_out` advanced by `O0 - avail_out` bytes from the start `oo` of the output buffer. -/
+def SAcc (E : Env) (z : ZStream) : Prop :=
+  InAt E.inp E.A0 z.next_in z.avail_in ∧ z.avail_out ≤ E.O0 ∧
+    z.next_out = .ref (.heap E.bo) (E.oo + (E.O0 - z.avail_out).toNat)
+
+/-- A stream record that holds the locals (after `RESTORE()`) has the exact accounting. -/
+theorem SAcc.of_locals {E : Env} {l : IL} {z : ZStream} (hi : InAt E.inp E.A0 l.next l.have_)
+    (ho : OutAt E.bo E.oo E.O0 l.put l.out l.left)
+    (hn : z.next_in = l.next) (ha : z.avail_in = l.have_) (hpo : z.next_out = l.put) (hao : z.avail_out = l.left) :
+    SAcc E z := by
+  obtain ⟨hlo, ob, hob1, hob2, hput⟩ := ho
+  have hlo' : l.left.toNat ≤ l.out.toNat := hlo
+  have hsub : (l.out - l.left).toNat = l.out.toNat - l.left.toNat := UInt32.toNat_sub_of_le _ _ hlo
+  have hle : l.left.toNat ≤ E.O0.toNat := by omega
+  have hsub2 : (E.O0 - l.left).toNat = E.O0.toNat - l.left.toNat :=
+    UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr hle)
+  refine ⟨by rw [hn, ha]; exact hi, by rw [hao]; exact UInt32.le_iff_toNat_le.mpr hle, ?_⟩
+  rw [hpo, hput, hao, hsub, hsub2]
+  congr 1; omega
+
 /-- The loop invariant: heap `H` with stream record `z` and state `S`, locals `l`. -/
 structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Prop where
   inv : Inv H (some E.i)
@@ -118,6 +139,9 @@ structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Pr
   outO : l.out = E.O0 ∨ rank S.mode ≤ 2
   /-- `ret` is `Z_OK`, `Z_STREAM_END` or `Z_DATA_ERROR` inside the loop, never `Z_BUF_ERROR` -/
   retB : RetOK l.ret
+  /-- the stream record has the exact accounting: it holds the entry values or those of the last `RESTORE()` or
+  `inflate_fast` -/
+  sacc : SAcc E z
 
 /-- The loop invariant for some stream record and state. -/
 def LIx (E : Env) (l : IL) (H : Heap) : Prop := ∃ z S, LI E l H z S
@@ -135,23 +159,15 @@ theorem LIh.hs {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (h
 
 /-- The stream record in `H` with the exact accounting of the call: `next_in` advanced by `A0 - avail_in` bytes
 (`InAt`), and `next_out` advanced by `O0 - avail_out` bytes from the start `oo` of the output buffer. -/
-def IoAcc (E : Env) (H : Heap) : Prop :=
-  ∃ z, H.streams E.i = some z ∧ InAt E.inp E.A0 z.next_in z.avail_in ∧ z.avail_out ≤ E.O0 ∧
-    z.next_out = .ref (.heap E.bo) (E.oo + (E.O0 - z.avail_out).toNat)
+def IoAcc (E : Env) (H : Heap) : Prop := ∃ z, H.streams E.i = some z ∧ SAcc E z
 
-/-- After `RESTORE()` (the stream record holds the locals), the accounting of the call is exact. -/
-theorem LI.ioAcc {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
-    (hn : z.next_in = l.next) (ha : z.avail_in = l.have_) (hpo : z.next_out = l.put) (hao : z.avail_out = l.left) :
-    IoAcc E H := by
-  obtain ⟨hlo, ob, hob1, hob2, hput⟩ := li.outAt
-  have hlo' : l.left.toNat ≤ l.out.toNat := hlo
-  have hsub : (l.out - l.left).toNat = l.out.toNat - l.left.toNat := UInt32.toNat_sub_of_le _ _ hlo
-  have hle : l.left.toNat ≤ E.O0.toNat := by omega
-  have hsub2 : (E.O0 - l.left).toNat = E.O0.toNat - l.left.toNat :=
-    UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr hle)
-  refine ⟨z, li.hz, by rw [hn, ha]; exact li.inAt, by rw [hao]; exact UInt32.le_iff_toNat_le.mpr hle, ?_⟩
-  rw [hpo, hput, hao, hsub, hsub2]
-  congr 1; omega
+theorem LI.ioAcc {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) : IoAcc E H :=
+  ⟨z, li.hz, li.sacc⟩
+
+theorem LIh.ioAcc {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (h : LIh E l H z S) : IoAcc E H := by
+  rcases h with li | ⟨-, v, li⟩
+  · exact li.ioAcc
+  · exact li.ioAcc
 
 /-- Why a trip went to `inf_leave`: `ret` was set, the input ran out or was read from, the output ran out (with `out`
 still the output count at entry), or `flush` asked to stop at a block boundary. -/
@@ -188,7 +204,7 @@ def Fin (E : Env) (H : Heap) : Prop := Inv H (some E.i) ∧ Frame E.H0 H [E.i] [
 def Post (E : Env) (m : Nat) : Except Ex Unit → IL → Heap → Prop
   | .ok (), l, H => ∃ z S, LIh E l H z S ∧ μ l S < m
   | .error .leave, l, H => LIx E l H ∧ Why E l
-  | .error (.ret v), _, H => Fin E H ∧ ((v = Z_NEED_DICT ∧ IoAcc E H) ∨ v = Z_STREAM_ERROR)
+  | .error (.ret v), _, H => Fin E H ∧ IoAcc E H ∧ (v = Z_NEED_DICT ∨ v = Z_STREAM_ERROR)
 
 theorem Post.mono {E : Env} {m m' : Nat} (hm : m ≤ m') {r : Except Ex Unit} {l : IL} {H : Heap}
     (p : Post E m r l H) : Post E m' r l H := by
@@ -208,7 +224,7 @@ theorem loop_ok {E : Env} (T : TripOK E) {l : IL} {H : Heap} {z : ZStream} {S : 
     SatX H l (xloopBrk (do dispatch E.c; return false)) (fun r l' H' => match r with
       | .ok () => False
       | .error .leave => LIx E l' H' ∧ Why E l'
-      | .error (.ret v) => Fin E H' ∧ ((v = Z_NEED_DICT ∧ IoAcc E H') ∨ v = Z_STREAM_ERROR)) := by
+      | .error (.ret v) => Fin E H' ∧ IoAcc E H' ∧ (v = Z_NEED_DICT ∨ v = Z_STREAM_ERROR)) := by
   unfold xloopBrk
   refine xwhileBrk_rank (fun l H => ∃ z S, LIh E l H z S) (fun l H => ?_) _ ?_ ⟨z, S, Or.inl li⟩ ?_
   · exact match H.istate E.b with | some S => μ l S | none => 0
