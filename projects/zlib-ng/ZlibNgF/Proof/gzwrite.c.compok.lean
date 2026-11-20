@@ -329,4 +329,102 @@ theorem wx_bufs {W : World} {H : Heap} {b : Nat} {s : GzState} {z : ZStream} (hx
   simp only [Ival.val.injEq, Ptr.ref.injEq, BRef.heap.injEq] at this
   exact ⟨this.1, this.2⟩
 
+/-! ## The loop body -/
+
+/-- The input of `z` is where `GzWBuf.inp` allows (inside the first `size` bytes of `in`, or none). -/
+def InOk (s : GzState) (z : ZStream) : Prop :=
+  ∃ c base, s.buffers = .val (.ref (.heap c) base) ∧ InpOk s c base z.next_in z.avail_in
+
+theorem adv_trans {p q r : BPtr} {k1 k2 : Nat} (a : Adv p q k1) (b : Adv q r k2) : Adv p r (k1 + k2) := by
+  cases p with
+  | null => obtain ⟨rfl, rfl⟩ := a; obtain ⟨rfl, rfl⟩ := b; exact ⟨rfl, rfl⟩
+  | ref r0 o => cases a; cases b; simp [Adv, Nat.add_assoc]
+
+theorem adv_zero (p : BPtr) : Adv p p 0 := by cases p <;> simp [Adv]
+
+theorem inOk_adv {s s' : GzState} {z z' : ZStream} (hd : s.direct = 0) (hb : s'.buffers = s.buffers)
+    (hsz : s'.size = s.size) (hd' : s'.direct = s.direct) (hi : InOk s z)
+    (h1 : z'.avail_in ≤ z.avail_in) (h3 : Adv z.next_in z'.next_in (z.avail_in.toNat - z'.avail_in.toNat)) :
+    InOk s' z' := by
+  obtain ⟨c, base, eb, hi⟩ := hi
+  refine ⟨c, base, by rw [hb]; exact eb, ?_⟩
+  have l1 := UInt32.le_iff_toNat_le.mp h1
+  simp only [InpOk] at hi ⊢; rw [hsz, hd']
+  rcases hi with ⟨k, ek, -, hk⟩ | ⟨e1, e2⟩
+  · rw [ek] at h3; simp only [Adv] at h3
+    exact Or.inl ⟨k + (z.avail_in.toNat - z'.avail_in.toNat), by rw [h3]; congr 1; omega, by omega, by omega⟩
+  · rcases e2 with e2 | e2
+    · exact absurd hd e2
+    · rw [e2] at h3; simp only [Adv] at h3
+      refine Or.inr ⟨?_, Or.inr h3.2⟩
+      have : z'.avail_in.toNat = 0 := by rw [e1] at l1; simp at l1; omega
+      exact UInt32.toNat_inj.mp (by simpa using this)
+
+/-- The fields of the `gz_state` that the loop of `gz_comp` keeps. -/
+structure LFix (s s' : GzState) : Prop where
+  fix : WFix s s'
+  size : s'.size = s.size
+  buffers : s'.buffers = s.buffers
+  inp : s'.«in» = s.«in»
+  out : s'.out = s.out
+  reset : s'.reset = s.reset
+
+theorem LFix.refl (s : GzState) : LFix s s := ⟨WFix.refl s, rfl, rfl, rfl, rfl, rfl⟩
+
+theorem LFix.trans {s1 s2 s3 : GzState} (a : LFix s1 s2) (b : LFix s2 s3) : LFix s1 s3 :=
+  ⟨a.1.trans b.1, b.2.trans a.2, b.3.trans a.3, b.4.trans a.4, b.5.trans a.5, b.6.trans a.6⟩
+
+theorem LFix.of_err {s s' : GzState} {e : Int32} (he : ErrOf s e s') : LFix s s' := by
+  obtain ⟨-, k2, k3, k4, k5, -, -, -, k9, -⟩ := errOf_keep he
+  exact ⟨WFix.of_err he, k2, k3, k4, k5, k9⟩
+
+theorem LFix.next (s : GzState) (nx : Ival BPtr) : LFix s { s with next := nx } :=
+  ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl, rfl, rfl⟩
+
+/-- What one trip of the loop body of `gz_comp` leaves, from `W`, `H`, `s`, `z`. -/
+def BPost (ψ : Int32 → C.DeflateState → Nat) (flush : Int32) (W : World) (H : Heap) (b : Nat) (s : GzState)
+    (z : ZStream) (l' : CompLoop) (W' : World) (H' : Heap) : Prop :=
+  ∃ s' z', GzWX W' H' b s' z' ∧ LFix s s' ∧ FdWrites s.fd W.fs W'.fs ∧
+    GStep W (setZ H s.strm (flatZ z)) W' (setZ H' s.strm (flatZ z')) b [] ∧
+    z'.avail_in ≤ z.avail_in ∧ Adv z.next_in z'.next_in (z.avail_in.toNat - z'.avail_in.toNat) ∧
+    (InOk s z → InOk s' z') ∧
+    (l'.ctl = .ret ∨ (l'.ctl = .go ∧ pot ψ flush s.size.toNat H' s.strm ≤ pot ψ flush s.size.toNat H s.strm ∧
+      (l'.hv ≠ 0 → pot ψ flush s.size.toNat H' s.strm < pot ψ flush s.size.toNat H s.strm) ∧
+      (l'.hv = 0 → z'.avail_out ≠ 0 ∧ (flush ≠ ZlibNg.Inflate.Z_FINISH → z'.avail_in = 0))))
+
+/-- A head that changes only the output fields and `x.next`, followed by `cTail`. -/
+theorem bpost_tail {ψ : Int32 → C.DeflateState → Nat} {flush : Int32} {W W2 W' : World} {H H2 H' : Heap}
+    {b : Nat} {s : GzState} {z z2 : ZStream} {nx : Ival BPtr} {l' : CompLoop} (hx : GzWX W H b s z)
+    (hd : s.direct = 0) (hs2 : W2.gz H2 b = some { s with next := nx })
+    (hfs : FdWrites s.fd W.fs W2.fs)
+    (g : GStep W (setZ H s.strm (flatZ z)) W2 (setZ H2 s.strm (flatZ z2)) b [])
+    (hin : z2.next_in = z.next_in) (hai : z2.avail_in = z.avail_in) (h0 : z2.avail_out ≠ 0)
+    (hpot : pot ψ flush s.size.toNat H2 s.strm = pot ψ flush s.size.toNat H s.strm)
+    (T : TailPost ψ flush W2 H2 b { s with next := nx } z2 l' W' H') : BPost ψ flush W H b s z l' W' H' := by
+  obtain ⟨s', z', hx', hfs', g', hadv, hr⟩ := T
+  have hsF : W.gz (setZ H s.strm (flatZ z)) b = some s := hx.1
+  have hs2F : W2.gz (setZ H2 s.strm (flatZ z2)) b = some { s with next := nx } := hs2
+  have gg := g.trans g' ⟨s, hsF⟩ ⟨_, hs2F⟩
+  obtain ⟨a1, a2, a3, -, -⟩ := hadv
+  rw [hin, hai] at a3; rw [hai] at a1
+  have hlf : LFix s s' := by
+    rcases hr with ⟨-, he⟩ | ⟨-, rfl, -⟩
+    · exact (LFix.next s nx).trans (LFix.of_err he)
+    · exact LFix.next s nx
+  refine ⟨s', z', hx', hlf, by rw [hfs']; exact hfs, gg, a1, a3,
+    fun hi => inOk_adv hd hlf.buffers hlf.size hlf.fix.direct hi a1 a3, ?_⟩
+  rcases hr with ⟨e1, -⟩ | ⟨e1, -, e3, p1, p2, p3⟩
+  · exact Or.inl e1
+  · refine Or.inr ⟨e1, by rw [← hpot]; exact p1, fun h => by rw [← hpot]; exact p2 h, fun h => ?_⟩
+    have e4 : z'.avail_out = z2.avail_out := by
+      rw [e3] at h
+      have := UInt32.le_iff_toNat_le.mp a2
+      have h' := congrArg UInt32.toNat h
+      rw [UInt32.toNat_sub_of_le _ _ a2] at h'
+      exact UInt32.toNat_inj.mp (by simp at h'; omega)
+    refine ⟨by rw [e4]; exact h0, fun hf => ?_⟩
+    rcases p3 hf with e5 | e5
+    · exact e5
+    · exact absurd (e4 ▸ e5) h0
+
 end ZlibNgF.Proof.GzWrite
