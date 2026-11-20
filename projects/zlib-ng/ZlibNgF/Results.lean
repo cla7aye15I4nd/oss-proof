@@ -92,14 +92,14 @@ def proved : List (Name × Name) := [
   (``ZlibNgF.Spec.Safety.Goal.deflateReset_safety, ``ZlibNgF.Proof.DeflatePublic.deflateReset_safety),
   (``ZlibNgF.Spec.Safety.Goal.deflateResetKeep_safety, ``ZlibNgF.Proof.DeflatePublic.deflateResetKeep_safety),
   (``ZlibNgF.Spec.Safety.Goal.deflateCopy_safety, ``ZlibNgF.Proof.DeflatePublic.deflateCopy_safety),
-  (``ZlibNgF.Spec.Safety.Goal.deflate_nonvacuous, ``ZlibNgF.Proof.Compress.deflate_nonvacuous)
+  (``ZlibNgF.Spec.Safety.Goal.deflate_nonvacuous, ``ZlibNgF.Proof.Compress.deflate_nonvacuous),
+  (``ZlibNgF.Spec.Safety.Goal.compress2_z_safety, ``ZlibNgF.Proof.Compress.compress2_z_safety),
+  (``ZlibNgF.Spec.Safety.Goal.compress2_safety, ``ZlibNgF.Proof.Compress.compress2_safety),
+  (``ZlibNgF.Spec.Safety.Goal.compress_safety, ``ZlibNgF.Proof.Compress.compress_safety),
+  (``ZlibNgF.Spec.Safety.Goal.compress_z_safety, ``ZlibNgF.Proof.Compress.compress_z_safety)
 ]
 
 def notDone : List Name := [
-  ``ZlibNgF.Spec.Safety.Goal.compress2_z_safety,
-  ``ZlibNgF.Spec.Safety.Goal.compress2_safety,
-  ``ZlibNgF.Spec.Safety.Goal.compress_safety,
-  ``ZlibNgF.Spec.Safety.Goal.compress_z_safety,
   ``ZlibNgF.Spec.Safety.Goal.gzbuffer_safety,
   ``ZlibNgF.Spec.Safety.Goal.gzsetparams_safety,
   ``ZlibNgF.Spec.Safety.Goal.gzgetc_safety,
@@ -219,7 +219,11 @@ def required : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.deflateReset_safety,
   ``ZlibNgF.Spec.Safety.Goal.deflateResetKeep_safety,
   ``ZlibNgF.Spec.Safety.Goal.deflateCopy_safety,
-  ``ZlibNgF.Spec.Safety.Goal.deflate_nonvacuous
+  ``ZlibNgF.Spec.Safety.Goal.deflate_nonvacuous,
+  ``ZlibNgF.Spec.Safety.Goal.compress2_z_safety,
+  ``ZlibNgF.Spec.Safety.Goal.compress2_safety,
+  ``ZlibNgF.Spec.Safety.Goal.compress_safety,
+  ``ZlibNgF.Spec.Safety.Goal.compress_z_safety
 ]
 
 #eval checkWith proved notDone required inLibrary

@@ -57,8 +57,8 @@
     "findings_count": 22,
     "patches_count": 20,
     "summary": {
-      "en": "The checksum, version, error-string and compressBound functions, inflate and inflateBack, the uncompress functions, the streaming deflate functions, and gzopen, gzopen64 and gzdopen of zlib-ng (develop branch, with twenty patches) are proved safe, and the checksum and utility functions functionally correct; compress, compress2, compress_z, compress2_z, the other gz* functions and the deflate/inflate round trip are not done.",
-      "zh": "zlib-ng（develop 分支，含二十个补丁）的校验和、版本、错误字符串与 compressBound 函数，inflate 与 inflateBack，uncompress 系列，流式 deflate 函数，以及 gzopen、gzopen64 与 gzdopen 已证明安全，其中校验和与辅助函数已证明功能正确；compress、compress2、compress_z、compress2_z、其余 gz* 函数以及 deflate/inflate 往返尚未完成。"
+      "en": "The checksum, version, error-string and compressBound functions, inflate and inflateBack, the compress and uncompress functions, the streaming deflate functions, and gzopen, gzopen64 and gzdopen of zlib-ng (develop branch, with twenty patches) are proved safe, and the checksum and utility functions functionally correct; the other gz* functions and the deflate/inflate round trip are not done.",
+      "zh": "zlib-ng（develop 分支，含二十个补丁）的校验和、版本、错误字符串与 compressBound 函数，inflate 与 inflateBack，compress 与 uncompress 系列，流式 deflate 函数，以及 gzopen、gzopen64 与 gzdopen 已证明安全，其中校验和与辅助函数已证明功能正确；其余 gz* 函数以及 deflate/inflate 往返尚未完成。"
     }
   }
 }
