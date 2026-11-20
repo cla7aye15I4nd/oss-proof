@@ -155,7 +155,7 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
         simp only [ownL, hsz, ite_false]; simp [stBlk_of hz hsb]
       refine W.nohdr sb st k hsb ?_
       simp only [Heap.dstate, hk.bytes sb hsbL, hk.dst sb hsbL] at hst ⊢; exact hst
-    refine ⟨c, base, z, hbufs c base hsz hb, by rw [hk.strm]; exact hz, ⟨fun hdir => ?_, hnh', W.inp, W.out⟩⟩
+    refine ⟨c, base, z, hbufs c base hsz hb, by rw [hk.strm]; exact hz, ⟨fun hdir => ?_, hnh', W.inp, W.nostate, W.out⟩⟩
     obtain ⟨hd, hsd⟩ := W.deflate hdir
     obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hd
     cases e
@@ -459,7 +459,7 @@ theorem shape_congr {h : Heap} {s s' : GzState} (sh : GzShape h s) (a : Agree s 
     refine ⟨fun hsz => ?_, fun hz0 => by rw [a.strm]; exact Wr.nobuf (by rw [← a.size]; exact hz0),
       by rw [a.hv]; exact Wr.have0⟩
     obtain ⟨c, base, z, hb, hz, W⟩ := Wr.bufs (by rw [← a.size]; exact hsz)
-    refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hz, ⟨?_, W.nohdr, ?_, ?_⟩⟩
+    refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hz, ⟨?_, W.nohdr, ?_, by rw [a.direct]; exact W.nostate, ?_⟩⟩
     · rw [a.direct, a.strm]; exact W.deflate
     · rw [a.size, a.direct]; exact W.inp
     · rw [a.direct, a.next, a.inS, a.size]; exact W.out

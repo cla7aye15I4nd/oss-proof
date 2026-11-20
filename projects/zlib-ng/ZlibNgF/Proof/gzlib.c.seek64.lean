@@ -338,7 +338,7 @@ theorem seekSkip_write {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
       ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => absurd (hr.symm.trans hw) read_ne_write,
       fun hw' => ⟨fun hsz => ?_, (sh.write hw').nobuf, (sh.write hw').have0⟩, fun hz => sh.dead hz⟩
     obtain ⟨c, base, z, hb, hz, W⟩ := (sh.write hw').bufs hsz
-    exact ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hz, ⟨W.1, W.2, W.3, W.4⟩⟩
+    exact ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hz, ⟨W.1, W.2, W.3, W.4, W.5⟩⟩
   exact ⟨⟨b, _, rfl, gz_upd_same hs _, sh', hn⟩, ⟨b, _, rfl, gz_upd_same hs _, hw⟩, wfw_store hv.2.2 hs _ rfl⟩
 
 /-- A change of the file system only is a step of a call. -/
@@ -813,7 +813,7 @@ theorem invW_skip0 {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvWS 
       ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => absurd (hr.symm.trans hw) read_ne_write,
       fun hw' => ⟨fun hsz => ?_, (sh.write hw').nobuf, (sh.write hw').have0⟩, fun hz => sh.dead hz⟩
     obtain ⟨c, base, z, hb, hz, W⟩ := (sh.write hw').bufs hsz
-    exact ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hz, ⟨W.1, W.2, W.3, W.4⟩⟩
+    exact ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hz, ⟨W.1, W.2, W.3, W.4, W.5⟩⟩
   exact ⟨⟨b, _, rfl, gz_upd_same hs _, sh', hn⟩, ⟨b, _, rfl, gz_upd_same hs _, hw⟩, wfw_store hv.2.2 hs _ rfl⟩
 
 theorem seekTail_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))

@@ -106,6 +106,8 @@ structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop wh
   `next_in` is `NULL` unless the file is direct (patch 0014: no pointer into a caller's buffer is left) -/
   inp : Inside c base 0 s.size.toNat z.next_in z.avail_in.toNat ∨
     (z.avail_in = 0 ∧ (s.direct ≠ 0 ∨ z.next_in = .null))
+  /-- direct: no deflate state (`gz_write_init` does not call `deflateInit2`) -/
+  nostate : s.direct ≠ 0 → z.state = none
   /-- not direct: `next_out + avail_out` is the end of `out`, and `x.next` lies in `out` at or before `next_out` -/
   out : s.direct = 0 → ∃ ko kx, z.next_out = .ref (.heap c) (base + inSize s + ko) ∧
     s.next = .val (.ref (.heap c) (base + inSize s + kx)) ∧ kx ≤ ko ∧ ko + z.avail_out.toNat = s.size.toNat
