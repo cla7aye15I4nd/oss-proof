@@ -621,4 +621,73 @@ theorem gz_load_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR
       refine GSat.pure (Or.inr ⟨rfl, k, hk, fs', s.eof, hfs, ?_, x⟩)
       rfl
 
+/-! ## One-byte stores and the copy loop of `gz_avail` -/
+
+theorem store8_heap {H : Heap} {c off : Nat} {a : Array UInt8} (ha : H.bytes c = some a) (hoff : off < a.size)
+    (v : UInt8) : store8 (.ref (.heap c) off) v H =
+      .ok ((), { H with bytes := H.bytes.modify c (Option.map fun a' => a'.set! off v) }) := by
+  have hg : Space.get H (BRef.heap c) = some a := ha
+  simp only [store8, Ptr.store, hg]
+  simp [Space.ro, Heap.isRo, hoff, Space.modify, Heap.modifyBytes]
+
+theorem HBuf.store8 {H : Heap} {c off lo hi : Nat} {a : Array UInt8} (ha : H.bytes c = some a) (hl : lo ≤ off)
+    (hh : off < hi) (v : UInt8) :
+    HBuf H { H with bytes := H.bytes.modify c (Option.map fun a' => a'.set! off v) } c lo hi := by
+  have hg := GzOpen.modify_some H.bytes c a (fun a' => a'.set! off v) ha
+  refine ⟨H.bytes.modify c (Option.map fun a' => a'.set! off v), rfl, fun c' hc' => (by rw [hg]; simp [hc']),
+    fun e => (by rw [ha] at e; cases e), fun a' ha' => ?_⟩
+  rw [ha] at ha'; cases ha'
+  refine ⟨a.set! off v, by rw [hg]; simp, by simp, fun j hj => ?_⟩
+  have : off ≠ j := by omega
+  simp [Array.set!_eq_setIfInBounds, getElem!_def, Array.getElem?_setIfInBounds, this]
+
+theorem load8_heap {H : Heap} {c off : Nat} {a : Array UInt8} (ha : H.bytes c = some a) (hoff : off < a.size) :
+    ∃ v, load8 (.ref (.heap c) off) H = .ok (v, H) := by
+  have hg : Space.get H (BRef.heap c) = some a := ha
+  exact ⟨a[off], by simp [load8, Ptr.load, hg, hoff]⟩
+
+/-- The body of the copy loop of `gz_avail` (copied from the translation). -/
+def copyBody (s : CopyLoop) : G CopyLoop := do
+  let v ← lm (load8 s.q)
+  lm (store8 s.p v)
+  return { s with p := ← lm (s.p.add 1), q := ← lm (s.q.add 1) }
+
+/-- The condition of the copy loop of `gz_avail` (copied from the translation). -/
+def copyCond (s : CopyLoop) : G (Bool × CopyLoop) := do
+  let n := s.n - 1
+  return (n != 0, { s with n := n })
+
+/-- The copy loop of `gz_avail`: `n` bytes from `base + j` to `base`, inside `[base, base + j + n)` of block `cb`. -/
+theorem copy_spec {w : World} {h : Heap} {cb base j : Nat} {a : Array UInt8} (ha : h.bytes cb = some a)
+    (n : UInt32) (hn : n ≠ 0) (hfit : base + j + n.toNat ≤ a.size) :
+    GSat w h (gdoWhile copyBody copyCond ⟨.ref (.heap cb) base, .ref (.heap cb) (base + j), n⟩)
+      (fun _ W H => W = w ∧ HBuf h H cb base (base + j + n.toNat)) := by
+  have hn0 : 0 < n.toNat := by
+    have : n.toNat ≠ 0 := fun e => hn (UInt32.toNat_inj.mp (by simpa using e))
+    omega
+  refine gsat_gdoWhile (fun (st : CopyLoop) W H => W = w ∧ ∃ i, i < n.toNat ∧ st.p = .ref (.heap cb) (base + i) ∧
+      st.q = .ref (.heap cb) (base + j + i) ∧ st.n.toNat = n.toNat - i ∧ HBuf h H cb base (base + j + n.toNat))
+    (fun st _ _ => st.n.toNat) _ ?_ ⟨rfl, 0, hn0, rfl, rfl, by simp, HBuf.refl _ _ _ _⟩
+    (by have := n.toNat_lt; simp [fuel]; omega)
+  rintro st W H ⟨rfl, i, hi, hp, hq, hcnt, x⟩
+  obtain ⟨a1, ha1, hsz⟩ := x.size ha
+  obtain ⟨v, ev⟩ := load8_heap ha1 (off := base + j + i) (by omega)
+  unfold copyBody
+  rw [hp, hq]
+  refine GSat.bind (GSat.lm ⟨v, H, ev, ?_⟩)
+  refine GSat.bind (GSat.lm ⟨(), _, store8_heap ha1 (off := base + i) (by omega) v, ?_⟩)
+  have x2 := x.trans (HBuf.store8 ha1 (off := base + i) (lo := base) (hi := base + j + n.toNat) (by omega) (by omega) v)
+    (Nat.le_refl _) (Nat.le_refl _)
+  obtain ⟨a2, ha2, hsz2⟩ := x2.size ha
+  refine GSat.bind (GSat.lm ⟨_, _, addH ha2 (off := base + i) 1 (by omega), ?_⟩)
+  refine GSat.bind (GSat.lm ⟨_, _, addH ha2 (off := base + j + i) 1 (by omega), ?_⟩)
+  refine GSat.pure (GSat.pure ?_)
+  have hsub : (st.n - 1).toNat = st.n.toNat - 1 := by
+    rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by simp; omega))]; simp
+  refine ⟨fun hc => ⟨⟨rfl, i + 1, ?_, by simp only [Nat.add_assoc], by simp only [Nat.add_assoc], by simp only; omega, x2⟩,
+    by simp only; omega⟩, fun _ => ⟨rfl, x2⟩⟩
+  have : (st.n - 1) ≠ 0 := by simpa using hc
+  have : (st.n - 1).toNat ≠ 0 := fun e => this (UInt32.toNat_inj.mp (by simpa using e))
+  omega
+
 end ZlibNgF.Proof.GzMode
