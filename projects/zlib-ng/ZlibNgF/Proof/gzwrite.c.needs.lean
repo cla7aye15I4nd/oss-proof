@@ -19,9 +19,15 @@ hypothesis here (as `DPending`) until they are theorems.
   input or filled the output (`zlib.h`: "if deflate returns with avail_out == 0, this function must be called
   again"); after the loop of `gz_comp`, which stops when no output was produced, the input is consumed, so
   `gz_write` can point `next_in` back at `in` (patch 0014).
-* `prog`: a measure `μ` of the deflate state, below `2^32`, that a call consuming no input does not increase and a
-  call producing output while consuming no input decreases: the loops of `gz_comp` (`do ... while (have)`) and of
-  `gzsetparams` end within the model's fuel.
+* `keep` (`DKeep`): every call keeps the saved pointers of the blocks other than the stream's state block (the gz
+  buffers are an aligned block whose saved pointer `zng_free_aligned` reads), `DFreshBlocks`, and registers no
+  `gz_header`; a successful `deflateInit2_` puts the state into a fresh block.
+* `prog`: a measure `μ flush` of the deflate state, below `2^64`: a call that consumes no input lowers it by the bytes
+  it produces, plus at most 5 when it fills the output (`CallOk`); `deflateParams` (which calls `deflate(Z_BLOCK)`)
+  with no such allowance. No measure of the state alone decreases on every call that produces output: with
+  `avail_out = 1`, `deflate(Z_SYNC_FLUSH)` emits one byte per call indefinitely. With the gz buffer of `size ≥ 8`
+  bytes, the loop of `gz_comp` ends by (`avail_in`, `3 μ + 2 (size - avail_out)`), and that of `gzsetparams` by
+  (`reset`, `2 μ + [avail_out = 0]`).
 -/
 
 set_option autoImplicit false
@@ -47,15 +53,20 @@ def BufSame (z z' : ZStream) : Prop :=
   z'.next_in = z.next_in ∧ z'.avail_in = z.avail_in ∧ z'.next_out = z.next_out ∧ z'.avail_out = z.avail_out ∧
     z'.state = z.state
 
-/-- The measure `μ` of the state of `s` in `h'` is at most (`strict`: below) that in `h`. -/
-def MuLe (μ : DeflateState → Nat) (h h' : Heap) (s : StreamPtr) (strict : Bool) : Prop :=
-  ∀ b st st', DStateOf h s b st → DStateOf h' s b st' → if strict then μ st' < μ st else μ st' ≤ μ st
-
-/-- The facts of a call `m` of the deflate stream `s` on `h` that ends in `r`, `h'`: the buffer fields move, and
-consuming no input it does not increase `μ`, decreasing it when it produced output. -/
-def CallOk (μ : DeflateState → Nat) (h h' : Heap) (s : StreamPtr) : Prop :=
+/-- The facts of a call of the deflate stream `s` from `h` to `h'`: the buffer fields move, and when it consumed no
+input, the measure `μ` of the state drops by at least the bytes produced, except that a call that fills the output
+may add up to `K` (the flush marker it may start: 5 for `Z_SYNC_FLUSH` / `Z_FULL_FLUSH`). -/
+def CallOk (μ : DeflateState → Nat) (K : Nat) (h h' : Heap) (s : StreamPtr) : Prop :=
   ∀ z, StreamAt h s z → ∃ z', StreamAt h' s z' ∧ BufAdv z z' ∧
-    (z'.avail_in = z.avail_in → MuLe μ h h' s (decide (z'.avail_out < z.avail_out)))
+    (z'.avail_in = z.avail_in → ∀ b st st', DStateOf h s b st → DStateOf h' s b st' →
+      μ st' + (z.avail_out.toNat - z'.avail_out.toNat) ≤ μ st + (if z'.avail_out = 0 then K else 0))
+
+/-- What a deflate call keeps besides its stream: the saved pointers of every block other than the stream's state
+block already handed out, `DFreshBlocks`, and no `gz_header` registered that was not registered before. -/
+def DKeep (h h' : Heap) (s : StreamPtr) : Prop :=
+  (∀ c, c < h.nextBlk → (∀ z, StreamAt h s z → z.state ≠ some c) → h'.savedPtrs c = h.savedPtrs c) ∧
+  (DFreshBlocks h → DFreshBlocks h') ∧
+  (∀ hp, DRegisteredHeader h' s hp → hp = none ∨ DRegisteredHeader h s hp)
 
 /-- **The obligations of the deflate side** that the write side uses (see the module comment). -/
 def DeflateGz : Prop :=
@@ -66,20 +77,22 @@ def DeflateGz : Prop :=
     ∃ z', StreamAt h' s z' ∧ z'.next_in = z.next_in ∧ z'.avail_in = z.avail_in ∧ z'.next_out = z.next_out ∧
       z'.avail_out = z.avail_out ∧
       (r ≠ Z_OK → z'.state = z.state ∧ (z'.zalloc = .null ∨ z'.zalloc = .zcalloc) ∧
-        (z'.zfree = .null ∨ z'.zfree = .zcfree))) ∧
+        (z'.zfree = .null ∨ z'.zfree = .zcfree)) ∧ DKeep h h' s ∧
+      (r = Z_OK → ∃ sb, z'.state = some sb ∧ h.nextBlk ≤ sb)) ∧
   -- `deflateReset`
   (∀ (h h' : Heap) (s : StreamPtr) (r : Int32) (z : ZStream), DInv h s → StreamAt h s z →
-    C.run (deflateReset s) h = .ok (r, h') → ∃ z', StreamAt h' s z' ∧ BufSame z z') ∧
-  ∃ μ : DeflateState → Nat,
+    C.run (deflateReset s) h = .ok (r, h') → ∃ z', StreamAt h' s z' ∧ BufSame z z' ∧ DKeep h h' s) ∧
+  ∃ μ : Int32 → DeflateState → Nat,
     -- the bound
-    (∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState), DInv h s → DStateOf h s b st → μ st < 2 ^ 32) ∧
+    (∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (f : Int32), DInv h s → DStateOf h s b st →
+      μ f st < 2 ^ 64) ∧
     -- `deflate`
     (∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), DInv h s → DSide h s → CrcGlobals h → DStreamIO h s →
       C.run (deflate s flush) h = .ok (r, h') →
-      CallOk μ h h' s ∧ (flush ≠ Z_FINISH → r ≠ Z_STREAM_ERROR →
+      CallOk (μ flush) 5 h h' s ∧ DKeep h h' s ∧ (flush ≠ Z_FINISH → r ≠ Z_STREAM_ERROR →
         ∀ z', StreamAt h' s z' → z'.avail_in = 0 ∨ z'.avail_out = 0)) ∧
     -- `deflateParams`
     (∀ (h h' : Heap) (s : StreamPtr) (level strategy r : Int32), DInv h s → DSide h s → CrcGlobals h →
-      DStreamIO h s → C.run (deflateParams s level strategy) h = .ok (r, h') → CallOk μ h h' s)
+      DStreamIO h s → C.run (deflateParams s level strategy) h = .ok (r, h') → CallOk (μ Z_BLOCK) 0 h h' s ∧ DKeep h h' s)
 
 end ZlibNgF.Proof.GzWriteNeeds
