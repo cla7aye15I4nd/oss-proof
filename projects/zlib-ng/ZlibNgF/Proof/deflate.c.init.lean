@@ -452,10 +452,10 @@ theorem RLay.post {b : Nat} {st : DeflateState} {D : Nat} (r : RLay b st D) (H :
       ho + 131072 ≤ pbo ∧ pbo + 4 * v.lit_bufsize.toNat + 64 ≤ d.size ∧
       v.sym_buf = .val (.ref (.heap b) (pbo + v.lit_bufsize.toNat + 8)) ∧
       ∃ poo, v.pending_out = .val (.ref (.heap b) poo) ∧ pbo ≤ poo ∧
-        poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9) ∧
+        poo - pbo + v.pending.toNat + v.bi_valid.toInt.toNat / 8 ≤ 4 * v.lit_bufsize.toNat + 9) ∧
     (v.pending = 0 → v.pending_out = v.pending_buf) ∧
     (v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0) ∧
-    (0 ≤ v.bi_valid ∧ v.bi_valid < 8) ∧
+    (0 ≤ v.bi_valid ∧ v.bi_valid < 64) ∧
     (v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat) ∧
     (0 ≤ v.strategy ∧ v.strategy ≤ 4) ∧
     ((∃ f, v.longest_match = .val f) ∧ (∃ f, v.insert_batch = .val f)) := by
@@ -663,7 +663,7 @@ theorem lb_one_le (l : Nat) {x : UInt32} (hx : x.toNat = l) (hl : 1 ≤ l) : 1 �
 and the first header state (`GZIP_STATE` only for a gzip stream). -/
 def FreshSt (st : DeflateState) : Prop :=
   st.sym_next = 0 ∧ st.strstart = 0 ∧ st.block_start = 0 ∧ st.lookahead = 0 ∧ st.last_flush = -2 ∧
-    (st.status = GZIP_STATE ∨ st.status = INIT_STATE) ∧ (st.status = GZIP_STATE → st.wrap = 2)
+    (st.status = GZIP_STATE ∨ st.status = INIT_STATE) ∧ (st.status = GZIP_STATE → st.wrap = 2) ∧ st.bi_valid = 0
 
 theorem fresh_lmS (b : Nat) (st : DeflateState) (A B C : Array Ct) (c : Config) (lm : Ival LongestMatchFn)
     (ib : Ival InsertBatchFn) : FreshSt (lmS (trS b (rkS st) A B C) c lm ib) := by
@@ -671,7 +671,8 @@ theorem fresh_lmS (b : Nat) (st : DeflateState) (A B C : Array Ct) (c : Config) 
   · have e : st.wrap = 2 := by simpa using hw
     simp [FreshSt, lmS, trS, rkS, e]
   · simp only [FreshSt, lmS, trS, rkS, hw, Bool.false_eq_true, ↓reduceIte]
-    exact ⟨trivial, trivial, trivial, trivial, trivial, Or.inr trivial, fun e => absurd e (by decide)⟩
+    exact ⟨trivial, trivial, trivial, trivial, trivial, Or.inr trivial, fun e => absurd e (by decide),
+      by first | trivial | rfl⟩
 
 /-- The state of stream `s` is a `FreshSt`. -/
 def DFreshOf (h : Heap) (s : StreamPtr) : Prop :=
