@@ -83,4 +83,27 @@ def GzReadSpec : Prop :=
     GzInvR w h (some b) → GzOut w h (some b) buf len.toNat →
     GSat w h (gz_read (some b) buf len) (ReadPost w h b buf len)
 
+/-! ## `LookIdle` across the calls
+
+Each of `gz_fetch`, `gz_skip` and `gz_read` that returns leaves `LookIdle` when it held at the call (stated on runs, so
+that they combine with the specifications above by determinism). -/
+
+/-- `gz_fetch` keeps `LookIdle`. -/
+def GzFetchIdle : Prop :=
+  ∀ (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : World) (H : Heap),
+    GzInvR w h (some b) → LookIdle w h (some b) → w.gz h b = some s → s.«have» = 0 →
+    GzRun (gz_fetch (some b)) w h r W H → LookIdle W H (some b)
+
+/-- `gz_skip` keeps `LookIdle`. -/
+def GzSkipIdle : Prop :=
+  ∀ (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : World) (H : Heap),
+    GzMid w h b s → LookIdle w h (some b) → s.skip ≠ 0 →
+    GzRun (gz_skip (some b)) w h r W H → LookIdle W H (some b)
+
+/-- `gz_read` keeps `LookIdle`. -/
+def GzReadIdle : Prop :=
+  ∀ (w : World) (h : Heap) (b : Nat) (buf : BPtr) (len r : UInt64) (W : World) (H : Heap),
+    GzInvR w h (some b) → LookIdle w h (some b) → GzOut w h (some b) buf len.toNat →
+    GzRun (gz_read (some b) buf len) w h r W H → LookIdle W H (some b)
+
 end ZlibNgF.Proof.GzMode
