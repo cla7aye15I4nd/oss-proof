@@ -32,6 +32,13 @@ state changes. The bound `B` comes from `PrevBelow d po st B` (every `prev` entr
 `B = strstart` gives `match_start < strstart` (so `strstart - match_start <= MAX_DIST`), but only where every `prev`
 entry is below `strstart`; that is not true of every reachable state (a `prev` slot not written since a reset of the
 positions, read through the offset search of the slow variants, can hold a position at or above `strstart`).
+
+Candidate sets. The walk also keeps every candidate in a set `Ch` closed under the chain step (`PrevCh`: a candidate of
+`Ch` at or above `limit_base` has `prev[c & w_mask]` 0 or in `Ch`), given the entry candidate in `Ch`; an accepted
+`match_start` of `longest_match_c` (which keeps `match_offset == 0`) is then in `Ch` (`BLC`, `PRC`). With `Ch` the
+positions of the hash chains (clause (C3) of `ChainOk`, which covers every candidate since `limit_base > strstart -
+w_size`) this bounds `match_start` without a bound on all of `prev`. The slow variants run with `Ch = fun _ => True`
+(their offset search moves to positions outside the walked chain).
 -/
 
 set_option autoImplicit false
@@ -90,6 +97,17 @@ def PrevBelow (d : Array UInt8) (po : Nat) (st : DeflateState) (B : Nat) : Prop 
 /-- Every `prev` entry is below 65536: `PrevBelow` with the bound 65536 holds of every state. -/
 theorem prevBelow_65536 (d : Array UInt8) (po : Nat) (st : DeflateState) : PrevBelow d po st 65536 :=
   ⟨Nat.le_refl _, fun _ _ => Or.inr (UInt16.toNat_lt _)⟩
+
+/-- The chain closure of a set `Ch` of candidate positions: for every candidate `c` of `Ch` at or above `limit_base`,
+the `prev` entry `prev[c & w_mask]` that `GOTO_NEXT_CHAIN` reads next is 0 or in `Ch`. With `Ch` the positions of the
+hash chains (`ChainOk`) this is clause (C3); `Ch = fun _ => True` holds of every state (`prevCh_true`). -/
+def PrevCh (d : Array UInt8) (po : Nat) (st : DeflateState) (Ch : Nat → Prop) : Prop :=
+  ∀ c : UInt32, Ch c.toNat → (limitBase st).toNat ≤ c.toNat →
+    (rd2 d (po + 2 * (c &&& (st.w_size - 1)).toNat)).toNat = 0 ∨
+      Ch (rd2 d (po + 2 * (c &&& (st.w_size - 1)).toNat)).toNat
+
+theorem prevCh_true (d : Array UInt8) (po : Nat) (st : DeflateState) : PrevCh d po st (fun _ => True) :=
+  fun _ _ _ => Or.inr trivial
 
 theorem limitBase_le (st : DeflateState) (hw : 512 ≤ st.w_size.toNat) :
     (limitBase st).toNat ≤ st.strstart.toNat ∧
@@ -186,6 +204,17 @@ theorem BL.pr {st : DeflateState} {bl0 : Nat} {best ms : UInt32} (h : BL st B bl
   · exact Or.inl (by omega)
   · exact Or.inr ⟨by omega, h3, h4⟩
 
+/-- `BL` with a written `match_start` in the candidate set `Ch`. -/
+def BLC (st : DeflateState) (B : Nat) (Ch : Nat → Prop) (bl0 : Nat) (best ms : UInt32) : Prop :=
+  BL st B bl0 best ms ∧ (bl0 < best.toNat → Ch ms.toNat)
+
+/-- `PR` with a written `match_start` in the candidate set `Ch`. -/
+def PRC (st : DeflateState) (B : Nat) (Ch : Nat → Prop) (bl0 : Nat) (r ms : UInt32) : Prop :=
+  PR st B bl0 r ms ∧ (bl0 < r.toNat → Ch ms.toNat)
+
+theorem BLC.pr {st : DeflateState} {Ch : Nat → Prop} {bl0 : Nat} {best ms : UInt32} (h : BLC st B Ch bl0 best ms) :
+    PRC st B Ch bl0 best ms := ⟨h.1.pr, h.2⟩
+
 section
 variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
 
@@ -196,29 +225,38 @@ theorem prev_idx {e : LMEnv} {wo po ho : Nat} (E : LE b wo po ho st e) (N : LN d
 /-- `GOTO_NEXT_CHAIN`: `chain_length` drops by one; on `continue` the new candidate is a `prev` entry above
 `limit`, hence (`PrevBelow`) below `B`. -/
 theorem goto_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
-    (hp : PrevBelow d po st B) (hcur : v.cur_match.toNat < 65536) (ms : UInt32) :
+    (hp : PrevBelow d po st B) {Ch : Nat → Prop} (hpc : PrevCh d po st Ch) (hcur : v.cur_match.toNat < 65536)
+    (hch : Ch v.cur_match.toNat) (hlb : (limitBase st).toNat ≤ v.cur_match.toNat) (ms : UInt32) :
     Sat (LH H i z b st d ms) (LM.GOTO_NEXT_CHAIN e v) (fun rv H' => H' = LH H i z b st d ms ∧
       rv.2 = { v with chain_length := v.chain_length - 1, cur_match := rv.2.cur_match } ∧
       rv.2.cur_match.toNat < 65536 ∧
       (rv.1 = none → v.chain_length - 1 ≠ 0 ∧ v.limit < rv.2.cur_match ∧
-        rv.2.cur_match.toNat < B) ∧
+        rv.2.cur_match.toNat < B ∧ Ch rv.2.cur_match.toNat) ∧
       (∀ x, rv.1 = some x → x = v.best_len)) := by
   unfold LM.GOTO_NEXT_CHAIN
   dsimp only
   by_cases hc : (v.chain_length - 1 != 0) = true
   · simp only [hc, ↓reduceIte, E.prev]
     have hk := prev_idx E N v.cur_match
+    have hq := hpc v.cur_match hch hlb
+    rw [← E.wmask] at hq
     refine Sat.bind (Sat.mono (posLoad_v (LH_get ms) _ (by have := N.pw; omega)) ?_)
     rintro p _ ⟨rfl, rfl⟩
     have hpv : (rd2 d (po + 2 * (v.cur_match &&& e.wmask).toNat)).toUInt32.toNat < 65536 := by
       rw [UInt16.toNat_toUInt32]; exact UInt16.toNat_lt _
     split
     · rename_i hg
-      refine Sat.pure ⟨rfl, rfl, hpv, fun _ => ⟨by simpa using hc, hg, ?_⟩, fun x hx => by simp at hx⟩
-      rw [UInt16.toNat_toUInt32]
-      rcases hp.2 _ hk with h0 | h0
-      · exfalso; have := UInt32.lt_iff_toNat_lt.mp hg; rw [UInt16.toNat_toUInt32] at this; omega
-      · exact h0
+      have hg' := UInt32.lt_iff_toNat_lt.mp hg
+      rw [UInt16.toNat_toUInt32] at hg'
+      refine Sat.pure ⟨rfl, rfl, hpv, fun _ => ⟨by simpa using hc, hg, ?_, ?_⟩, fun x hx => by simp at hx⟩
+      · rw [UInt16.toNat_toUInt32]
+        rcases hp.2 _ hk with h0 | h0
+        · exfalso; omega
+        · exact h0
+      · rw [UInt16.toNat_toUInt32]
+        rcases hq with h0 | h0
+        · exfalso; omega
+        · exact h0
     · exact Sat.pure ⟨rfl, rfl, hpv, fun hx => by simp at hx, fun x hx => by simp at hx; exact hx.symm⟩
   · simp only [Bool.not_eq_true] at hc
     simp only [hc, Bool.false_eq_true, ↓reduceIte]
@@ -226,20 +264,21 @@ theorem goto_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat} (E : LE b wo po ho st 
 
 end
 
-/-- A candidate below `B`, at or above `limit` (so `cur_match - match_offset` does not wrap). -/
-def CurOk (B : Nat) (v v' : LMVars) : Prop :=
-  v'.cur_match.toNat < B ∧ v.limit.toNat ≤ v'.cur_match.toNat
+/-- A candidate below `B`, in the candidate set `Ch`, at or above `limit` (so `cur_match - match_offset` does not
+wrap). -/
+def CurOk (B : Nat) (Ch : Nat → Prop) (v v' : LMVars) : Prop :=
+  v'.cur_match.toNat < B ∧ v.limit.toNat ≤ v'.cur_match.toNat ∧ Ch v'.cur_match.toNat
 
 /-- How a candidate filter that started from `v` may end in `v'`. -/
-def SelTail (B : Nat) (v : LMVars) : LMSel → LMVars → Prop
+def SelTail (B : Nat) (Ch : Nat → Prop) (v : LMVars) : LMSel → LMVars → Prop
   | .ret x, _ => x = v.best_len
-  | .accept len, v' => v.best_len < len ∧ len.toNat ≤ 8 ∧ CurOk B v v' ∧
+  | .accept len, v' => v.best_len < len ∧ len.toNat ≤ 8 ∧ CurOk B Ch v v' ∧
       chainLeft v'.chain_length ≤ chainLeft v.chain_length
-  | .compare, v' => CurOk B v v' ∧ chainLeft v'.chain_length ≤ chainLeft v.chain_length
+  | .compare, v' => CurOk B Ch v v' ∧ chainLeft v'.chain_length ≤ chainLeft v.chain_length
 
 /-- A candidate filter changes only `chain_length` and `cur_match`. -/
-def SelOk (B : Nat) (v : LMVars) (sel : LMSel) (v' : LMVars) : Prop :=
-  v' = { v with chain_length := v'.chain_length, cur_match := v'.cur_match } ∧ SelTail B v sel v'
+def SelOk (B : Nat) (Ch : Nat → Prop) (v : LMVars) (sel : LMSel) (v' : LMVars) : Prop :=
+  v' = { v with chain_length := v'.chain_length, cur_match := v'.cur_match } ∧ SelTail B Ch v sel v'
 
 theorem xor_ne {a c : UInt64} (h : a ≠ c) : a ^^^ c ≠ 0 := fun e => h (by
   have := congrArg (· ^^^ c) e
@@ -255,20 +294,21 @@ variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : A
 
 /-- The walk over the remaining short candidates (`match_tpl.h:169-180`). -/
 theorem short_walk_ok {e : LMEnv} {v : LMVars} {fm c : UInt64} {wo po ho : Nat}
-    (E : LE b wo po ho st e) (N : LN d wo po ho st) (hp : PrevBelow d po st B) (V : VI b wo st v)
+    (E : LE b wo po ho st e) (N : LN d wo po ho st) (hp : PrevBelow d po st B) {Ch : Nat → Prop}
+    (hpc : PrevCh d po st Ch) (V : VI b wo st v)
     (hbl : v.best_len.toNat + 1 ≤ 8) (hfm : fm.toNat = 2 ^ (8 * (v.best_len.toNat + 1)) - 1)
-    (hc : e.scan_start ≠ c) (hcur : CurOk B v v) (ms : UInt32) :
+    (hc : e.scan_start ≠ c) (hcur : CurOk B Ch v v) (ms : UInt32) :
     Sat (LH H i z b st d ms) (LM.short_walk e fm v c)
-      (fun sv H' => H' = LH H i z b st d ms ∧ SelOk B v sv.1 sv.2) := by
+      (fun sv H' => H' = LH H i z b st d ms ∧ SelOk B Ch v sv.1 sv.2) := by
   unfold LM.short_walk
   refine Sat.bind (Sat.mono (sat_cwhile
     (fun (s : LMVars × UInt64 × Option LMSel) H' => H' = LH H i z b st d ms ∧
       s.1 = { v with chain_length := s.1.chain_length, cur_match := s.1.cur_match } ∧
       (match s.2.2 with
-       | none => e.scan_start ≠ s.2.1 ∧ CurOk B v s.1 ∧ chainLeft s.1.chain_length ≤ chainLeft v.chain_length
-       | some sel => SelTail B v sel s.1))
+       | none => e.scan_start ≠ s.2.1 ∧ CurOk B Ch v s.1 ∧ chainLeft s.1.chain_length ≤ chainLeft v.chain_length
+       | some sel => SelTail B Ch v sel s.1))
     (fun s => if s.2.2.isNone then 1 + chainLeft s.1.chain_length else 0)
-    (fun s H' => H' = LH H i z b st d ms ∧ ∃ sel, s.2.2 = some sel ∧ SelOk B v sel s.1)
+    (fun s H' => H' = LH H i z b st d ms ∧ ∃ sel, s.2.2 = some sel ∧ SelOk B Ch v sel s.1)
     ?_ ⟨rfl, rfl, hc, hcur, Nat.le_refl _⟩
     (by have := chainLeft_lt v.chain_length; simp [fuel]; omega)) ?_)
   rotate_left
@@ -304,6 +344,8 @@ theorem short_walk_ok {e : LMEnv} {v : LMVars} {fm c : UInt64} {wo po ho : Nat}
       have h0' : v1.chain_length - 1 ≠ 0 := by simpa using h0
       have hdec := chainLeft_dec _ h0'
       have hk := prev_idx E N v1.cur_match
+      have hq := hpc v1.cur_match hco.2.2 (by have := V.lim; have := hco.2.1; omega)
+      rw [← E.wmask] at hq
       rw [E.prev]
       refine Sat.bind (Sat.mono (posLoad_v (LH_get ms) _ (by have := N.pw; omega)) ?_)
       rintro p _ ⟨rfl, rfl⟩
@@ -316,6 +358,10 @@ theorem short_walk_ok {e : LMEnv} {v : LMVars} {fm c : UInt64} {wo po ho : Nat}
         rw [UInt16.toNat_toUInt32] at hgt'
         have hlt : (rd2 d (po + 2 * (v1.cur_match &&& e.wmask).toNat)).toNat < B := by
           rcases hp.2 _ hk with h | h
+          · omega
+          · exact h
+        have hqc : Ch (rd2 d (po + 2 * (v1.cur_match &&& e.wmask).toNat)).toNat := by
+          rcases hq with h | h
           · omega
           · exact h
         have hB := hp.1
@@ -333,8 +379,9 @@ theorem short_walk_ok {e : LMEnv} {v : LMVars} {fm c : UInt64} {wo po ho : Nat}
         refine Sat.bind (Sat.mono (sat_memread8 (LH_get ms) (by have := N.big; omega)) ?_)
         rintro c2 _ rfl
         generalize hq : rd2 d (po + 2 * (v1.cur_match &&& e.wmask).toNat) = q at *
-        have hco2 : CurOk B v { v1 with chain_length := v1.chain_length - 1, cur_match := q.toUInt32 } :=
-          ⟨by simp only [UInt16.toNat_toUInt32]; exact hlt, by simp only [UInt16.toNat_toUInt32]; omega⟩
+        have hco2 : CurOk B Ch v { v1 with chain_length := v1.chain_length - 1, cur_match := q.toUInt32 } :=
+          ⟨by simp only [UInt16.toNat_toUInt32]; exact hlt, by simp only [UInt16.toNat_toUInt32]; omega,
+            by simp only [UInt16.toNat_toUInt32]; exact hqc⟩
         have hv2 : ({ v1 with chain_length := v1.chain_length - 1, cur_match := q.toUInt32 } : LMVars) =
             { v with chain_length := v1.chain_length - 1, cur_match := q.toUInt32 } := by
           rw [hv1]
@@ -349,9 +396,9 @@ theorem VI.upd {wo : Nat} {v : LMVars} (V : VI b wo st v) (c u : UInt32) (hu : u
   { V with cur := hu, le := hle }
 
 /-- A filter run from the state `v'` that `v` reached by a chain step is a filter run from `v`. -/
-theorem SelOk.trans {v v' v3 : LMVars} {sel : LMSel}
+theorem SelOk.trans {Ch : Nat → Prop} {v v' v3 : LMVars} {sel : LMSel}
     (h' : v' = { v with chain_length := v'.chain_length, cur_match := v'.cur_match }) (hc : chainLeft v'.chain_length ≤ chainLeft v.chain_length)
-    (h : SelOk B v' sel v3) : SelOk B v sel v3 := by
+    (h : SelOk B Ch v' sel v3) : SelOk B Ch v sel v3 := by
   obtain ⟨h3, ht⟩ := h
   have e1 : v'.best_len = v.best_len := by rw [h']
   have e2 : v'.limit = v.limit := by rw [h']
@@ -359,18 +406,19 @@ theorem SelOk.trans {v v' v3 : LMVars} {sel : LMSel}
   cases sel with
   | ret x => simp only [SelTail] at ht ⊢; rw [ht, e1]
   | accept len =>
-    obtain ⟨a1, a2, ⟨a3, a4⟩, a5⟩ := ht
-    exact ⟨by rw [← e1]; exact a1, a2, ⟨a3, by rw [← e2]; exact a4⟩, by omega⟩
+    obtain ⟨a1, a2, ⟨a3, a4, a6⟩, a5⟩ := ht
+    exact ⟨by rw [← e1]; exact a1, a2, ⟨a3, by rw [← e2]; exact a4, a6⟩, by omega⟩
   | compare =>
-    obtain ⟨⟨a3, a4⟩, a5⟩ := ht
-    exact ⟨⟨a3, by rw [← e2]; exact a4⟩, by omega⟩
+    obtain ⟨⟨a3, a4, a6⟩, a5⟩ := ht
+    exact ⟨⟨a3, by rw [← e2]; exact a4, a6⟩, by omega⟩
 
 /-- The candidate filter for `best_len < 8` (`match_tpl.h:150-183`). -/
 theorem short_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
-    (E : LE b wo po ho st e) (N : LN d wo po ho st) (hp : PrevBelow d po st B) (V : VI b wo st v)
-    (hbl : v.best_len.toNat < 8) (hcur : CurOk B v v) (ms : UInt32) :
+    (E : LE b wo po ho st e) (N : LN d wo po ho st) (hp : PrevBelow d po st B) {Ch : Nat → Prop}
+    (hpc : PrevCh d po st Ch) (V : VI b wo st v)
+    (hbl : v.best_len.toNat < 8) (hcur : CurOk B Ch v v) (ms : UInt32) :
     Sat (LH H i z b st d ms) (LM.short_filter e v)
-      (fun sv H' => H' = LH H i z b st d ms ∧ SelOk B v sv.1 sv.2) := by
+      (fun sv H' => H' = LH H i z b st d ms ∧ SelOk B Ch v sv.1 sv.2) := by
   have hB := hp.1
   unfold LM.short_filter
   have hsub := sub_mo V.lim V.le
@@ -403,6 +451,8 @@ theorem short_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
         have h0' : v.chain_length - 1 ≠ 0 := by simpa using h0
         have hdec := chainLeft_dec _ h0'
         have hk := prev_idx E N v.cur_match
+        have hqc0 := hpc v.cur_match hcur.2.2 (by have := V.lim; have := V.le; omega)
+        rw [← E.wmask] at hqc0
         rw [E.prev]
         refine Sat.bind (Sat.mono (posLoad_v (LH_get ms) _ (by have := N.pw; omega)) ?_)
         rintro p _ ⟨rfl, rfl⟩
@@ -429,14 +479,19 @@ theorem short_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
           rintro c2 _ rfl
           have hv2 : ({ v with chain_length := v.chain_length - 1, cur_match := q.toUInt32 } : LMVars) =
               { v with chain_length := v.chain_length - 1, cur_match := q.toUInt32 } := rfl
-          have hco2 : CurOk B v { v with chain_length := v.chain_length - 1, cur_match := q.toUInt32 } :=
-            ⟨by simp only [UInt16.toNat_toUInt32]; exact hlt, by simp only [UInt16.toNat_toUInt32]; omega⟩
+          have hqc : Ch q.toNat := by
+            rcases hqc0 with h | h
+            · omega
+            · exact h
+          have hco2 : CurOk B Ch v { v with chain_length := v.chain_length - 1, cur_match := q.toUInt32 } :=
+            ⟨by simp only [UInt16.toNat_toUInt32]; exact hlt, by simp only [UInt16.toNat_toUInt32]; omega,
+              by simp only [UInt16.toNat_toUInt32]; exact hqc⟩
           split
           · rename_i hne2
             have V2 := V.upd (v.chain_length - 1) q.toUInt32 (by simp only [UInt16.toNat_toUInt32]; omega)
               (by simp only [UInt16.toNat_toUInt32]; omega)
-            refine Sat.mono (short_walk_ok E N hp V2 (by simp only []; omega) hfm (by simpa using hne2)
-              ⟨hco2.1, hco2.2⟩ ms) ?_
+            refine Sat.mono (short_walk_ok E N hp hpc V2 (by simp only []; omega) hfm (by simpa using hne2)
+              ⟨hco2.1, hco2.2.1, hco2.2.2⟩ ms) ?_
             rintro ⟨sel, v3⟩ _ ⟨rfl, hs⟩
             exact ⟨rfl, SelOk.trans hv2 (by simp only []; omega) hs⟩
           · exact Sat.pure ⟨rfl, hv2, hco2, by simp only []; omega⟩
@@ -445,10 +500,11 @@ theorem short_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
 /-- The filter for `best_len >= 8` (`match_tpl.h:187-194`): the end and start sentinels of each candidate, then
 `GOTO_NEXT_CHAIN`. -/
 theorem long_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
-    (E : LE b wo po ho st e) (N : LN d wo po ho st) (hp : PrevBelow d po st B) (V : VI b wo st v)
-    (hcur : CurOk B v v) (ms : UInt32) :
+    (E : LE b wo po ho st e) (N : LN d wo po ho st) (hp : PrevBelow d po st B) {Ch : Nat → Prop}
+    (hpc : PrevCh d po st Ch) (V : VI b wo st v)
+    (hcur : CurOk B Ch v v) (ms : UInt32) :
     Sat (LH H i z b st d ms) (LM.long_filter e v)
-      (fun sv H' => H' = LH H i z b st d ms ∧ SelOk B v sv.1 sv.2) := by
+      (fun sv H' => H' = LH H i z b st d ms ∧ SelOk B Ch v sv.1 sv.2) := by
   have hB := hp.1
   unfold LM.long_filter
   have hst := N.look
@@ -459,10 +515,10 @@ theorem long_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
     (fun (s : LMVars × Option LMSel) H' => H' = LH H i z b st d ms ∧
       s.1 = { v with chain_length := s.1.chain_length, cur_match := s.1.cur_match } ∧
       (match s.2 with
-       | none => CurOk B v s.1 ∧ chainLeft s.1.chain_length ≤ chainLeft v.chain_length
-       | some sel => SelTail B v sel s.1))
+       | none => CurOk B Ch v s.1 ∧ chainLeft s.1.chain_length ≤ chainLeft v.chain_length
+       | some sel => SelTail B Ch v sel s.1))
     (fun s => if s.2.isNone then 1 + chainLeft s.1.chain_length else 0)
-    (fun s H' => H' = LH H i z b st d ms ∧ ∃ sel, s.2 = some sel ∧ SelOk B v sel s.1)
+    (fun s H' => H' = LH H i z b st d ms ∧ ∃ sel, s.2 = some sel ∧ SelOk B Ch v sel s.1)
     ?_ ⟨rfl, rfl, hcur, Nat.le_refl _⟩
     (by have := chainLeft_lt v.chain_length; simp [fuel]; omega)) ?_)
   rotate_left
@@ -486,7 +542,7 @@ theorem long_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
   have ho1 : v1.offset = v.offset := by rw [hv1]
   have hs1 : v1.mbase_start = v.mbase_start := by rw [hv1]
   have he1 : v1.mbase_end = v.mbase_end := by rw [hv1]
-  have hle1 : v1.limit.toNat ≤ v1.cur_match.toNat := by rw [hl1]; exact hco.2
+  have hle1 : v1.limit.toNat ≤ v1.cur_match.toNat := by rw [hl1]; exact hco.2.1
   have hsub := sub_mo (v := v1) (lb := (limitBase st).toNat) (by rw [hl1, hm1]; exact V.lim) hle1
   have hcl := hco.1
   have hmo : v1.match_offset.toNat ≤ v1.cur_match.toNat := by have := V.lim; rw [hl1] at hle1; rw [hm1]; omega
@@ -499,23 +555,24 @@ theorem long_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
       (fun s2 H2 => (H2 = LH H i z b st d ms ∧
         s2.1 = { v with chain_length := s2.1.chain_length, cur_match := s2.1.cur_match } ∧
         (match s2.2 with
-         | none => CurOk B v s2.1 ∧ chainLeft s2.1.chain_length ≤ chainLeft v.chain_length
-         | some sel => SelTail B v sel s2.1)) ∧
+         | none => CurOk B Ch v s2.1 ∧ chainLeft s2.1.chain_length ≤ chainLeft v.chain_length
+         | some sel => SelTail B Ch v sel s2.1)) ∧
         (if s2.2.isNone then 1 + chainLeft s2.1.chain_length else 0) <
           (if (none : Option LMSel).isNone then 1 + chainLeft v1.chain_length else 0)) := by
-    refine Sat.bind (Sat.mono (goto_ok E N hp (by rw [hv1]; simp only []; omega) ms) ?_)
+    have hlb1 : (limitBase st).toNat ≤ v1.cur_match.toNat := by have := V.lim; rw [hl1] at hle1; omega
+    refine Sat.bind (Sat.mono (goto_ok E N hp hpc (by rw [hv1]; simp only []; omega) hco.2.2 hlb1 ms) ?_)
     rintro ⟨x, v2⟩ _ ⟨rfl, h2, h2c, hn, hs⟩
     simp only at h2 h2c hn hs
     have hv2 : v2 = { v with chain_length := v2.chain_length, cur_match := v2.cur_match } := by
       rw [h2]; simp only []; rw [hv1]
     cases x with
     | none =>
-      obtain ⟨h0, hgt, hlt⟩ := hn rfl
+      obtain ⟨h0, hgt, hlt, hcq⟩ := hn rfl
       have hdec := chainLeft_dec _ h0
       have hc2 : v2.chain_length = v1.chain_length - 1 := by rw [h2]
       have hgt' := UInt32.lt_iff_toNat_lt.mp hgt
       rw [hl1] at hgt'
-      refine Sat.pure ⟨⟨rfl, hv2, ⟨hlt, Nat.le_of_lt hgt'⟩, by rw [hc2]; omega⟩, by simp only [Option.isNone_none]; rw [hc2]; simp <;> omega⟩
+      refine Sat.pure ⟨⟨rfl, hv2, ⟨hlt, Nat.le_of_lt hgt', hcq⟩, by rw [hc2]; omega⟩, by simp only [Option.isNone_none]; rw [hc2]; simp <;> omega⟩
     | some x =>
       have := hs x rfl
       refine Sat.pure ⟨⟨rfl, hv2, by simp only [SelTail]; rw [this, hb1]⟩, by simp <;> omega⟩
@@ -546,21 +603,23 @@ theorem long_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
   · split
     · rename_i h; exact absurd h (by decide)
     · exact G
-  exact Sat.pure ⟨⟨rfl, hv1, ⟨hcl, by rw [← hl1]; exact hle1⟩, hch⟩, by simp <;> omega⟩
+  exact Sat.pure ⟨⟨rfl, hv1, ⟨hcl, by rw [← hl1]; exact hle1, hco.2.2⟩, hch⟩, by simp <;> omega⟩
 
 end
 
 /-! ## The outer loop -/
 
-/-- The invariant of the outer `for (;;)`: only `match_start` changed in the heap; a running loop has `VI` and
-`BL`; `break` keeps `BL`; a `return r` has `PR`. -/
-def LI (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (B : Nat) (d : Array UInt8) (wo bl0 : Nat)
-    (s : LMExit × LMVars) (H' : Heap) : Prop :=
+/-- The invariant of the outer `for (;;)` with the candidate set `Ch`: only `match_start` changed in the heap; a
+running loop has `VI`, `BLC`, its candidate in `Ch`, and `match_offset = 0` unless `Ch` holds of every position;
+`break` keeps `BLC`; a `return r` has `PRC`. -/
+def LI (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (B : Nat) (Ch : Nat → Prop) (d : Array UInt8)
+    (wo bl0 : Nat) (s : LMExit × LMVars) (H' : Heap) : Prop :=
   ∃ ms, H' = LH H i z b st d ms ∧
     (match s.1 with
-     | .cont => VI b wo st s.2 ∧ BL st B bl0 s.2.best_len ms
-     | .brk => BL st B bl0 s.2.best_len ms
-     | .ret r => PR st B bl0 r ms)
+     | .cont => VI b wo st s.2 ∧ BLC st B Ch bl0 s.2.best_len ms ∧ Ch s.2.cur_match.toNat ∧
+        (s.2.match_offset = 0 ∨ ∀ n, Ch n)
+     | .brk => BLC st B Ch bl0 s.2.best_len ms
+     | .ret r => PRC st B Ch bl0 r ms)
 
 /-- The measure of the outer loop. -/
 def lmMu (s : LMExit × LMVars) : Nat :=
@@ -571,24 +630,27 @@ variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : A
 
 /-- `GOTO_NEXT_CHAIN` at `match_tpl.h:294`. -/
 theorem goto_outer_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e)
-    (N : LN d wo po ho st) (hp : PrevBelow d po st B) (V : VI b wo st v) {ms : UInt32}
-    (hb : BL st B bl0 v.best_len ms) :
-    Sat (LH H i z b st d ms) (LM.goto_next_chain_outer e v) (fun s H' => LI H i z b st B d wo bl0 s H' ∧
+    (N : LN d wo po ho st) (hp : PrevBelow d po st B) {Ch : Nat → Prop} (hpc : PrevCh d po st Ch)
+    (V : VI b wo st v) (hcc : Ch v.cur_match.toNat) (hmo : v.match_offset = 0 ∨ ∀ n, Ch n) {ms : UInt32}
+    (hb : BLC st B Ch bl0 v.best_len ms) :
+    Sat (LH H i z b st d ms) (LM.goto_next_chain_outer e v) (fun s H' => LI H i z b st B Ch d wo bl0 s H' ∧
       (s.1.isCont = true → chainLeft s.2.chain_length < chainLeft v.chain_length ∧ s.2.best_len = v.best_len)) := by
   unfold LM.goto_next_chain_outer
-  refine Sat.bind (Sat.mono (goto_ok E N hp V.cur ms) ?_)
+  refine Sat.bind (Sat.mono (goto_ok E N hp hpc V.cur hcc (by have := V.lim; have := V.le; omega) ms) ?_)
   rintro ⟨x, v2⟩ _ ⟨rfl, h2, h2c, hn, hs⟩
   simp only at h2 h2c hn hs
   cases x with
   | none =>
-    obtain ⟨h0, hgt, hlt⟩ := hn rfl
+    obtain ⟨h0, hgt, hlt, hcq⟩ := hn rfl
     have hdec := chainLeft_dec _ h0
     have hgt' := UInt32.lt_iff_toNat_lt.mp hgt
     have hc2 : v2.chain_length = v.chain_length - 1 := by rw [h2]
     have hb2 : v2.best_len = v.best_len := by rw [h2]
+    have hm2 : v2.match_offset = v.match_offset := by rw [h2]
     have V2 := V.upd (v.chain_length - 1) v2.cur_match h2c (Nat.le_of_lt hgt')
     rw [← h2] at V2
-    refine Sat.pure ⟨⟨ms, rfl, V2, by rw [hb2]; exact hb⟩, fun _ => ⟨by rw [hc2]; omega, hb2⟩⟩
+    refine Sat.pure ⟨⟨ms, rfl, V2, by rw [hb2]; exact hb, hcq, by rw [hm2]; exact hmo⟩,
+      fun _ => ⟨by rw [hc2]; omega, hb2⟩⟩
   | some x =>
     refine Sat.pure ⟨⟨ms, rfl, by simp only []; rw [hs x rfl]; exact hb.pr⟩, fun h => absurd h (by simp [LMExit.isCont])⟩
 
