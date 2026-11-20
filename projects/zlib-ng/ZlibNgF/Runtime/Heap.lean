@@ -161,6 +161,7 @@ structure InflateState where
   total : UInt64
   head : Ival HeaderPtr
   back : Int32
+  wide_len : Int32
   wbits : UInt32
   wsize : UInt32
   wbufsize : UInt32
@@ -197,7 +198,7 @@ structure InflateAllocs where
   deriving Inhabited
 
 /-- `sizeof(struct inflate_state)` on LP64 (`ALIGNED_(64)`), measured on the built configuration. -/
-def SIZEOF_INFLATE_STATE : Nat := 9088
+def SIZEOF_INFLATE_STATE : Nat := 9152
 /-- `_Alignof(struct inflate_state)`. -/
 def ALIGNOF_INFLATE_STATE : Nat := 64
 /-- `sizeof(inflate_allocs)` on LP64. -/

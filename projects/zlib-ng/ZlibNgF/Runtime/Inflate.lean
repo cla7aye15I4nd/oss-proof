@@ -140,6 +140,7 @@ def InflateState.garbage (g : Nat → UInt64) : InflateState where
   total := Junk.of (g 7)
   head := .uninit
   back := Junk.of (g 8)
+  wide_len := Junk.of (g 26)
   wbits := Junk.of (g 9)
   wsize := Junk.of (g 10)
   wbufsize := Junk.of (g 11)
