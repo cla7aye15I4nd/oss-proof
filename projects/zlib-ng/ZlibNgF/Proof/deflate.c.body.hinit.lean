@@ -34,9 +34,10 @@ theorem run_lf {h H : Heap} {i b : Nat} (R : Run h i b H) :
     rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'; rfl⟩
   refine run_SH (z' := z) (st' := { st with last_flush := -1 }) (d' := d) R hz hst hal
     (DCore.of_heap (by simp [hd]) c) rfl rfl rfl rfl rfl rfl ?_
-  obtain ⟨S1, S2, S3, S4, S5⟩ := R.side st hst
+  obtain ⟨S1, S2, S3, S4, S5, S6⟩ := R.side st hst
   refine ⟨S1, S2, ?_, ⟨by show (-2 : Int32) ≤ -1; decide, by show (-1 : Int32) ≤ 5; decide,
-    fun e => absurd e (by show ¬ ((-1 : Int32) = -2); decide)⟩, fun d' hd' => ?_⟩
+    fun e => absurd e (by show ¬ ((-1 : Int32) = -2); decide)⟩, fun d' hd' => ?_,
+    ⟨S6.1, S6.2.1, S6.2.2.1, fun e => absurd e (by show ¬ ((-1 : Int32) = -2); decide)⟩⟩
   · exact S3.move (DeflateSide.hdrMove_out rfl fun r hr => DeflateSetDict.space_SH_ne hr)
   · rw [SH_bytes] at hd'; obtain rfl := Option.some.inj hd'
     exact S5 d hd

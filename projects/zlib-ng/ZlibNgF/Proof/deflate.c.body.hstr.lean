@@ -64,9 +64,9 @@ theorem run_adler {h H : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d 
   obtain rfl := Option.some.inj (hd.symm.trans hd')
   refine run_SH R hz hst hal (DCore.of_heap (by simp [hd]) { c with zalloc := c.zalloc, zfree := c.zfree })
     rfl rfl rfl rfl rfl rfl ?_
-  obtain ⟨S1, S2, S3, S4, S5⟩ := R.side _ hst'
+  obtain ⟨S1, S2, S3, S4, S5, S6⟩ := R.side _ hst'
   exact ⟨S1, S2, S3.move (DeflateSide.hdrMove_out rfl fun r hr => DeflateSetDict.space_SH_ne hr), S4,
-    fun d' hd2 => by rw [SH_bytes] at hd2; obtain rfl := Option.some.inj hd2; exact S5 _ hd⟩
+    fun d' hd2 => by rw [SH_bytes] at hd2; obtain rfl := Option.some.inj hd2; exact S5 _ hd, S6⟩
 
 /-! ## Reading the string -/
 

@@ -25,7 +25,7 @@ open ZlibNgF.Proof.DeflateFlush (OutOnly FlushPost flush_work streamIO_out cstr_
 the hash chains). -/
 def SideR (H : Heap) (b : Nat) (st : DeflateState) : Prop :=
   SymsOk st ∧ (st.status = FINISH_STATE → st.sym_next = 0 ∧ st.lookahead = 0) ∧ HdrOk H b st ∧ FlushOk st ∧
-    ∀ d, H.bytes b = some d → ChainOk b d st
+    (∀ d, H.bytes b = some d → ChainOk b d st) ∧ LazyOk st
 
 /-- The running state of a `deflate` call (see the module comment). -/
 structure Run (h : Heap) (i b : Nat) (H : Heap) : Prop where
@@ -54,13 +54,13 @@ structure RunW (h : Heap) (i b : Nat) (H : Heap) : Prop where
 /-! ## Basic facts -/
 
 theorem SideR.zero {H : Heap} {b : Nat} {st : DeflateState} (S : SideR H b st) : SideR H b { st with bi_valid := 0 } := by
-  obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5⟩ := S
-  exact ⟨⟨a1, a2, a3, a4, fun e => absurd e (by show ¬ (8 : Int32) ≤ 0; decide)⟩, s2, s3, s4, s5⟩
+  obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5, s6⟩ := S
+  exact ⟨⟨a1, a2, a3, a4, fun e => absurd e (by show ¬ (8 : Int32) ≤ 0; decide)⟩, s2, s3, s4, s5, s6⟩
 
 theorem SideR.of_zero {H : Heap} {b : Nat} {st : DeflateState} (S : SideR H b { st with bi_valid := 0 })
     (h8 : st.bi_valid < 8) : SideR H b st := by
-  obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5⟩ := S
-  exact ⟨⟨a1, a2, a3, a4, fun e => absurd h8 (Int32.not_lt.mpr e)⟩, s2, s3, s4, s5⟩
+  obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5, s6⟩ := S
+  exact ⟨⟨a1, a2, a3, a4, fun e => absurd h8 (Int32.not_lt.mpr e)⟩, s2, s3, s4, s5, s6⟩
 
 theorem Run.w {h H : Heap} {i b : Nat} (R : Run h i b H) : RunW h i b H :=
   ⟨DWork.of_inv R.inv, R.io, R.set, R.crc, R.blk, R.blk0, R.frame, R.out, fun st hs => (R.side st hs).zero⟩
@@ -177,8 +177,8 @@ theorem Run.done {h H : Heap} {i b : Nat} (R : Run h i b H)
   obtain rfl := Option.some.inj e
   obtain rfl : z = z' := Option.some.inj (hz.symm.trans hz')
   obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
-  obtain ⟨s1, s2, s3, s4, s5⟩ := R.side st hst
-  exact ⟨s1, hl st hst, s2, s3, s4, s5⟩
+  obtain ⟨s1, s2, s3, s4, s5, s6⟩ := R.side st hst
+  exact ⟨s1, hl st hst, s2, s3, s4, s5, s6⟩
 
 /-! ## A change of the stream record, the state and the bytes of the block -/
 
@@ -270,10 +270,11 @@ theorem run_flush {h H : Heap} {i b : Nat} (R : RunW h i b H) :
       crc_frame F2 R.crc, ⟨z', hz', hb'⟩, R.blk0, out_frame R.frame R.out hz F2 hLo,
       out_tail R.out hz hz' hLo hadv hav, fun st2 hst2 => ?_⟩, fun z4 st4 hz4 hst4 => ?_⟩
   · obtain rfl := Option.some.inj (hst'.symm.trans hst2)
-    obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5⟩ := R.side st hst
+    obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5, s6⟩ := R.side st hst
     have hst'' := hsteq
     refine ⟨⟨by rw [hst'']; exact a1, by rw [hst'']; exact a2, by rw [hst'']; exact a3, by rw [hst'']; exact a4,
-      fun e8 => absurd hbits (Int32.not_lt.mpr e8)⟩, by rw [hst'']; exact s2, ?_, by rw [hst'']; exact s4, ?_⟩
+      fun e8 => absurd hbits (Int32.not_lt.mpr e8)⟩, by rw [hst'']; exact s2, ?_, by rw [hst'']; exact s4, ?_,
+      by rw [hst'']; exact s6⟩
     · have m := hdr_out R.io hz hb hst hno hLo O
       have := (s3.move m)
       rw [hst'']; exact this

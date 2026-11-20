@@ -118,8 +118,8 @@ theorem seg_run {h H0 : Heap} {i b : Nat} {z0 : ZStream} {st0 : DeflateState} {d
     (by rw [SH_SH]; exact c') rfl rfl rfl rfl rfl rfl ?_
   · rwa [SH_SH] at R'
   · rw [SH_SH]
-    obtain ⟨S1, -, -, S4, S5⟩ := R.side st0 (SH_dstate _ _ _ _ _ _)
-    refine ⟨S1, fun e => absurd e hfin, hdr, S4, fun d' hd' => ?_⟩
+    obtain ⟨S1, -, -, S4, S5, S6⟩ := R.side st0 (SH_dstate _ _ _ _ _ _)
+    refine ⟨S1, fun e => absurd e hfin, hdr, S4, fun d' hd' => ?_, S6⟩
     rw [SH_bytes] at hd'; obtain rfl := Option.some.inj hd'
     exact chain_keep c (SH_bytes _ _ _ _ _ _) (S5 d0 (SH_bytes _ _ _ _ _ _)) (fun pbo' hpb' j hj => by
       rw [hpb] at hpb'
@@ -153,8 +153,8 @@ theorem seg_run' {h H0 : Heap} {i b : Nat} {z0 : ZStream} {st0 : DeflateState} {
     (by rw [SH_SH]; exact c') rfl rfl rfl rfl rfl rfl ?_
   · rwa [SH_SH] at R'
   · rw [SH_SH]
-    obtain ⟨S1, -, -, S4, S5⟩ := R.side st0 (SH_dstate _ _ _ _ _ _)
-    refine ⟨S1, hfin, hdr, S4, fun d' hd' => ?_⟩
+    obtain ⟨S1, -, -, S4, S5, S6⟩ := R.side st0 (SH_dstate _ _ _ _ _ _)
+    refine ⟨S1, hfin, hdr, S4, fun d' hd' => ?_, S6⟩
     rw [SH_bytes] at hd'; obtain rfl := Option.some.inj hd'
     exact chain_keep c (SH_bytes _ _ _ _ _ _) (S5 d0 (SH_bytes _ _ _ _ _ _)) (fun pbo' hpb' j hj => by
       rw [hpb] at hpb'

@@ -38,9 +38,9 @@ theorem run_wrap {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) 
   have c' : DCore (SH H i z b { st with wrap := -st.wrap } d) (some i) z b (dview { st with wrap := -st.wrap }) al :=
     DCore.of_heap (by simp [hd]) { c with wrap := Or.inr (Or.inr (Or.inr hwr)) }
   refine run_SH R hz hst hal c' rfl rfl rfl rfl rfl rfl ?_
-  obtain ⟨S1, S2, -, S4, S5⟩ := R.side st hst
+  obtain ⟨S1, S2, -, S4, S5, S6⟩ := R.side st hst
   exact ⟨S1, S2, hdrOk_busy hs, S4, fun d' hd' => by
-    rw [SH_bytes] at hd'; obtain rfl := Option.some.inj hd'; exact S5 d hd⟩
+    rw [SH_bytes] at hd'; obtain rfl := Option.some.inj hd'; exact S5 d hd, S6⟩
 
 /-- The trailer's end: the flush, `wrap = -wrap`, the result. -/
 theorem trEnd_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
