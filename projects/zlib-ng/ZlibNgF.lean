@@ -244,3 +244,7 @@ import ZlibNgF.Proof.«deflate_quick.c.static»
 import ZlibNgF.Proof.«public-deflate»
 import ZlibNgF.Proof.«gzwrite.c.compdone»
 import ZlibNgF.Proof.«public-compress»
+import ZlibNgF.Proof.«public-gz-open»
+import ZlibNgF.Proof.«public-gzlib»
+import ZlibNgF.Proof.«public-gzread»
+import ZlibNgF.Proof.«public-gzwrite»
