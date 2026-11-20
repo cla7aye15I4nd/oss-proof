@@ -20,7 +20,8 @@ that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the 
 valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
 are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
 `strstart - block_start` bounded; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
-tree descriptors of `zng_tr_init`; `lit_bufsize` a multiple of 16; the sizes of the scratch arrays of `trees.c`.
+tree descriptors of `zng_tr_init`; `lit_bufsize` a multiple of 16; the sizes of the scratch arrays of `trees.c`;
+`opt_len`, `static_len` and the `bl_tree` frequencies 0 between blocks.
 -/
 
 set_option autoImplicit false
@@ -73,6 +74,9 @@ structure DView where
   pqlsize : Nat
   pqssize : Nat
   blcsize : Nat
+  opt_len : UInt32
+  static_len : UInt32
+  bltree : Array Ct
 
 /-- The constrained fields of `st`. -/
 def dview (st : DeflateState) : DView :=
@@ -81,7 +85,8 @@ def dview (st : DeflateState) : DView :=
     st.pending_buf_size, st.sym_buf, st.sym_end, st.sym_next, st.pending, st.pending_out, st.bi_valid, st.strstart,
     st.lookahead, st.strategy, st.longest_match, st.insert_batch, st.block_start, st.insert, st.fill_end,
     st.dyn_ltree, st.dyn_dtree, st.l_desc.dyn_tree, st.l_desc.stat_desc, st.d_desc.dyn_tree, st.d_desc.stat_desc,
-    st.bl_desc.dyn_tree, st.bl_desc.stat_desc, st.pq_leaves.size, st.pq_scratch.size, st.bl_count.size⟩
+    st.bl_desc.dyn_tree, st.bl_desc.stat_desc, st.pq_leaves.size, st.pq_scratch.size, st.bl_count.size, st.opt_len,
+    st.static_len, st.bl_tree⟩
 
 /-! ## The tallied symbols -/
 
@@ -224,6 +229,9 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   /-- the scratch arrays of `build_tree` / `gen_bitlen` have their C sizes: `pq_leaves` and `pq_scratch` `L_CODES + 1`
   entries, `bl_count` `MAX_BITS + 1` -/
   scratch : v.pqlsize = 287 ∧ v.pqssize = 287 ∧ v.blcsize = 16
+  /-- between blocks `opt_len`, `static_len` and the frequencies of `bl_tree` are 0: `init_block` sets them, and only
+  `zng_tr_flush_block` (which ends with `init_block`) writes them -/
+  blk : v.opt_len = 0 ∧ v.static_len = 0 ∧ ∀ c, c < 19 → (v.bltree[c]!).fc = 0
 
 /-- The clauses read the heap only through block `b`. -/
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}

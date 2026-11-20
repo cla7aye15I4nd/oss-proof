@@ -112,6 +112,7 @@ theorem dcore_fw {h H : Heap} {i : Nat} {z z' : ZStream} {b : Nat} {st st' : Def
     wpow := C.wpow
     lmod := c.lmod
     scratch := c.scratch
+    blk := c.blk
     fe_mod := C.fe_mod
     fe_hi := C.fe_hi
     bs_lo := hbl
