@@ -297,10 +297,14 @@ theorem fill_sum {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
   obtain ⟨-, w2, wsz, -, -, -, -⟩ := c.sizes
   obtain ⟨f, hf⟩ : ∃ f, st.insert_batch = .val f := ⟨_, c.fns.2⟩
   have C0 := ZlibNgF.Proof.FillFacts.wcore_of c
-  have S := ZlibNgF.Proof.FillWindow.fill_window_SH (H := H) (i := i) (z := z) (b := b) (d := d) f hb c.strm hf HL
+  have hfl : st.level ≠ 1 → f ≠ .insert_knuth_batch_head := fun hl e1 =>
+    ZlibNgF.Proof.FillFacts.insertBatchOf_ne hl (by
+      have e2 : st.insert_batch = .val (ZlibNgF.Proof.DeflateInv.insertBatchOf st.level) := c.fns.2
+      rw [hf, e1] at e2; injection e2 with e3; exact e3.symm)
+  have S := ZlibNgF.Proof.FillWindow.fill_window_SH (H := H) (i := i) (z := z) (b := b) (d := d) f hfl hb c.strm hf HL
     wsz hwo w2 C0 c.look hla (ZlibNgF.Proof.FillFacts.insrc_of hin0 (hdj _ (.inl rfl)).2 hni) (fun _ => hcrc.1)
   rw [ZlibNgF.Proof.DeflateReset.SH_self hz hsts hd] at S
-  obtain ⟨_, h', e', z', st', d', rfl, -, -, -, -, -, -, -, sum, -⟩ := S
+  obtain ⟨_, h', e', z', st', d', rfl, -, -, -, -, -, -, -, -, -, sum, -⟩ := S
   rw [e] at e'
   obtain ⟨-, rfl⟩ := Prod.mk.inj (Except.ok.inj e')
   exact ⟨z', st', SH_streams _ _ _ _ _ _, SH_dstate _ _ _ _ _ _, sum⟩

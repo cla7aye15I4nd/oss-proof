@@ -297,7 +297,7 @@ theorem fw_ok (W : WindowFacts) {H H1 : Heap} {i b : Nat} {z1 : ZStream} {st1 : 
     (hl3 : st1.lookahead.toNat < 3) (hp1 : pot z1 st1 ≤ 2 ^ 30 + 2 ^ 18) {st0 : DeflateState} (hk1 : SdK st0 st1) :
     Sat H1 (fill_window (some b)) (fun _ H2 => ∃ m', m' ≤ z1.avail_in.toNat ∧ LoopI H i b st0 m' () H2) := by
   obtain ⟨H2, e, hv2, hi2, f2, i2, z2, z2', b2, st2, st2', e2', hz2, hz2', hb2, hst2, hst2', hzz, hle2, hlk,
-      hcons, hdiff, -, -, hw2, hs2, hg2, hl2, hst2s, -, -, hsn2, hgi2, hlf2, hbv2⟩ :=
+      hcons, hdiff, -, -, hw2, hs2, hg2, hl2, hst2s, -, -, hsn2, hgi2, hlf2, hbv2, -⟩ :=
     W.fill_window H1 (some i) b st1 hv1 ⟨i, z1, rfl, hz1, hb1, hst1⟩ hi1
       (fun h2 => absurd (hw1 ▸ h2) (by decide)) (by omega)
   obtain rfl : i = i2 := Option.some.inj e2'

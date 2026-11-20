@@ -283,7 +283,10 @@ def DInvW (h : Heap) (s : StreamPtr) : Prop :=
 becomes 0 only if it was 0 (a slide lowers both by `slide_len`, or, patch 0018, only `strstart` when `block_start`
 would fall below `-(2^30 + 2^16)`, which leaves a gap above `2^30`); at the end the lookahead is full or the input empty; the state fields that the
 callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function pointers, `sym_next`, `gzindex`,
-`last_flush`, `bi_valid`) kept. -/
+`last_flush`, `bi_valid`) kept; the lazy-match fields: a `prev_length` of 3 or more after is the one before, with the
+same distance `strstart - match_start` and a `match_start` not above the one before (a slide lowers `strstart` and
+`match_start` together, or sets `match_start` and `prev_length` to 0), `prev_length` does not grow, `match_available`
+kept. -/
 def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
   DInvW h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
   ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
@@ -302,12 +305,16 @@ def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
     st'.wrap = st.wrap ∧ st'.status = st.status ∧ st'.gzhead = st.gzhead ∧ st'.level = st.level ∧
     st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch ∧
     st'.sym_next = st.sym_next ∧ st'.gzindex = st.gzindex ∧ st'.last_flush = st.last_flush ∧
-    st'.bi_valid = st.bi_valid
+    st'.bi_valid = st.bi_valid ∧
+    (3 ≤ st'.prev_length → st'.prev_length = st.prev_length ∧
+      (st.strstart.toNat : Int) - st.match_start.toNat = (st'.strstart.toNat : Int) - st'.match_start.toNat ∧
+      st'.match_start ≤ st.match_start) ∧
+    st'.prev_length ≤ st.prev_length ∧ st'.match_available = st.match_available
 
 /-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
 the translated C code: `fill_window` from `DInvW` (the invariant, or the state inside `deflateSetDictionary`'s
 insertion loop), a readable input (the CRC tables when it computes a CRC-32) and `lookahead < MIN_LOOKAHEAD` (every
-caller's condition), and the `insert_batch` functions of `lm_set_level` over `n >= 1` positions from `str` whose
+caller's condition) and that it keeps the hash chains (`ChainOk`) there, and the `insert_batch` functions of `lm_set_level` over `n >= 1` positions from `str` whose
 4-byte reads stay below `strstart + lookahead + 1`; they change only the bytes of the stream's block (`head`, `prev`)
 and `ins_h` (the result is the `SH` heap of `Proof/deflate.c.init.lean`). -/
 structure WindowFacts : Prop where
@@ -321,6 +328,10 @@ structure WindowFacts : Prop where
     ∃ st' d', C.run (ZlibNg.InsertString.call_insert_batch f (some b) (.ref (.heap b) wo) str n) h =
         .ok ((), DeflateInit.SH h i z b st' d') ∧
       DInvW (DeflateInit.SH h i z b st' d') (some i) ∧ st' = { st with ins_h := st'.ins_h } ∧ d'.size = d.size
+  fill_window_chain : ∀ (h h' : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (d : Array UInt8), DInv h s →
+    DStateIs h s b st → h.bytes b = some d → DInput h s → (st.wrap = 2 → CrcGlobals h) → st.lookahead.toNat < 262 →
+    ChainOk b d st → C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') →
+    ∀ st' d', DStateIs h' s b st' → h'.bytes b = some d' → ChainOk b d' st'
 
 /-! ## Interface lemmas -/
 
