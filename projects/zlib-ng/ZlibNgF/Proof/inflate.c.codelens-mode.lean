@@ -490,8 +490,7 @@ theorem bad_withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     {m : Nat} (S' : InflateState)
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view { S' with mode := BAD }) al)
     (hh : S'.head = S.head) (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) < m) (msg : String)
-    {i : Nat} (hi : strTable.findIdx? (· == msg) = some i) (hlast : S'.last = S.last := by rfl)
-    (hmS : S.mode ≠ HEAD ∧ S.mode ≠ TYPEDO) :
+    {i : Nat} (hi : strTable.findIdx? (· == msg) = some i) (hmS : S.mode ≠ HEAD ∧ S.mode ≠ TYPEDO) :
     SatX (withS H E.b S') { l with ret := v } (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ())
       (Post E m) := by
   have li1 := li.withS { S' with mode := BAD } keep hh (Or.inr fun _ => show rank BAD ≤ 2 by decide)
@@ -666,7 +665,8 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
         work := work'
         next := .val (.ref (.codes E.b) 0)
         lenbits := lb } (fun _ _ c => core_CLbad c hcs hws (o := 0) (by decide) lb S1.distcode S1.distbits hdc) rfl
-      hb1' "invalid literal/lengths set" (strIdx 23 (by decide) (by decide) (by decide)) (hmS := by rw [hm1]; decide)
+      hb1' "invalid literal/lengths set" (strIdx 23 (by decide) (by decide) (by decide))
+      (by rw [hm1]; decide)
   have h0 : ret = 0 := by simpa using hne
   obtain ⟨ho1, -, -, -, hct1⟩ := hok h0
   have ho1' : o' ≤ 1332 := by
@@ -718,7 +718,8 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
         next := .val (.ref (.codes E.b) o'')
         distbits := db } (fun _ _ c => core_CLbad c hcs2 hws2 (o := o'') (by rw [ho]; show o' ≤ 1924; omega) lb
       (.val (.ref (.codes E.b) o')) db ⟨o', rfl, by show o' ≤ 1924; omega⟩) rfl
-      hb1' "invalid distances set" (strIdx 21 (by decide) (by decide) (by decide)) (hmS := by rw [hm1]; decide)
+      hb1' "invalid distances set" (strIdx 21 (by decide) (by decide) (by decide))
+      (by rw [hm1]; decide)
   have h02 : ret2 = 0 := by simpa using hne2
   obtain ⟨ho2, -, -, -, hct2⟩ := hok2 h02
   rw [mOf_DISTS, dOf_DISTS] at hct2
