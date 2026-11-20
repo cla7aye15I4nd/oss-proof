@@ -192,8 +192,8 @@ def SFwrite : Prop := ∃ buf size nitems r, (size.toNat * nitems.toNat < 2 ^ 64
     GzRun (gzfwrite buf size nitems f) w h r w' h'
 def SPutc : Prop := ∃ c r, GzRun (gzputc f c) w h r w' h'
 def SPuts : Prop := ∃ s r, CStr h s ∧ OutsideGz w h f s ∧ GzRun (gzputs f s) w h r w' h'
-def SPrintf : Prop := ∃ fmt r, CStr h fmt ∧ GzRun (gzprintf f fmt) w h r w' h'
-def SVprintf : Prop := ∃ fmt r, CStr h fmt ∧ GzRun (gzvprintf f fmt) w h r w' h'
+def SPrintf : Prop := ∃ fmt r, CStr h fmt ∧ OutsideGz w h f fmt ∧ GzRun (gzprintf f fmt) w h r w' h'
+def SVprintf : Prop := ∃ fmt r, CStr h fmt ∧ OutsideGz w h f fmt ∧ GzRun (gzvprintf f fmt) w h r w' h'
 def SFlush : Prop := ∃ fl r, GzRun (gzflush f fl) w h r w' h'
 def SSetparams : Prop := ∃ l s r, GzRun (gzsetparams f l s) w h r w' h'
 def SSeek64 : Prop := ∃ off wh r, GzRun (gzseek64 f off wh) w h r w' h'
@@ -803,8 +803,8 @@ theorem keepsW_same {S : World → Heap → World → Heap → GzPtr → Prop}
 /-- The write-side calls return at the mode check on a read handle. -/
 theorem wstep_keepsR : KeepsR GzWStep := by
   refine keepsR_same fun w h w' h' b s hs hm hst => ?_
-  rcases hst with ⟨buf, len, r, -, e⟩ | ⟨buf, sz, ni, r, -, e⟩ | ⟨c, r, e⟩ | ⟨p, r, -, -, e⟩ | ⟨p, r, -, e⟩ |
-    ⟨p, r, -, e⟩ | ⟨fl, r, e⟩ | ⟨l, st, r, e⟩
+  rcases hst with ⟨buf, len, r, -, e⟩ | ⟨buf, sz, ni, r, -, e⟩ | ⟨c, r, e⟩ | ⟨p, r, -, -, e⟩ | ⟨p, r, -, -, e⟩ |
+    ⟨p, r, -, -, e⟩ | ⟨fl, r, e⟩ | ⟨l, st, r, e⟩
   · exact (gdet e (gzwrite_read hs hm buf len)).2
   · exact (gdet e (gzfwrite_read hs hm buf sz ni)).2
   · exact (gdet e (gzputc_read hs hm c)).2
@@ -1191,8 +1191,8 @@ theorem keeps_outsideI {S : World → Heap → World → Heap → GzPtr → Prop
 
 theorem wstep_keepsRI : KeepsRI GzWStep := by
   refine keepsRI_same fun w h w' h' b s hs hm hst => ?_
-  rcases hst with ⟨buf, len, r, -, e⟩ | ⟨buf, sz, ni, r, -, e⟩ | ⟨c, r, e⟩ | ⟨p, r, -, -, e⟩ | ⟨p, r, -, e⟩ |
-    ⟨p, r, -, e⟩ | ⟨fl, r, e⟩ | ⟨l, st, r, e⟩
+  rcases hst with ⟨buf, len, r, -, e⟩ | ⟨buf, sz, ni, r, -, e⟩ | ⟨c, r, e⟩ | ⟨p, r, -, -, e⟩ | ⟨p, r, -, -, e⟩ |
+    ⟨p, r, -, -, e⟩ | ⟨fl, r, e⟩ | ⟨l, st, r, e⟩
   · exact (gdet e (gzwrite_read hs hm buf len)).2
   · exact (gdet e (gzfwrite_read hs hm buf sz ni)).2
   · exact (gdet e (gzputc_read hs hm c)).2
