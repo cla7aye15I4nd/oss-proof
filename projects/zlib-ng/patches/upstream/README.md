@@ -67,7 +67,19 @@ All 18 runnable patch series were audited together for source overlap, test-file
 | [#2432](https://github.com/zlib-ng/zlib-ng/pull/2432) | `nmoinvaz` | Modifies `inffast_tpl.h` non-safe fast loop (two chunks per iteration); review `0007`'s non-safe `inffast_tpl.h` copy path against `#2432` depending on merge order. |
 | [#2517](https://github.com/zlib-ng/zlib-ng/pull/2517) | `Dead2` | Appends `gz*` NULL-argument tests to `test/test_gzfile_api_errors.cc`; only EOF context rebase needed for `0014`/`0015`. |
 
-### 4. Recommended Upstream Submission / Merge Order
+### 4. Cross-References to `madler/zlib` Submissions
+
+Several underlying bugs originate in shared `zlib` code and have parallel PRs on `madler/zlib`:
+
+| Entry | `zlib-ng` PR | Related `madler/zlib` PR | `madler/zlib` Status & Key Differences |
+| --- | --- | --- | --- |
+| [0003](0003/pr-summary.md) | [zlib-ng#2524](https://github.com/zlib-ng/zlib-ng/pull/2524) (open) | [madler/zlib#1369](https://github.com/madler/zlib/pull/1369) | **Accepted (`"Applied. Thanks."`)**, pending push to `develop`; `#1369` updates `lencode`, while `#2524` also updates `distcode` and adds GoogleTest cases. |
+| [0004](0004/pr-summary.md) | [zlib-ng#2525](https://github.com/zlib-ng/zlib-ng/pull/2525) (open) | [madler/zlib#1361](https://github.com/madler/zlib/pull/1361) | **Open**; corresponds to Commit 3/4 (`gzungetc` negative-position overflow hardening after `6995c67b`/`6ed77c48`). |
+| [0006](0006/pr-summary.md) | [zlib-ng#2523](https://github.com/zlib-ng/zlib-ng/pull/2523) (open) | [madler/zlib#1360](https://github.com/madler/zlib/pull/1360) | **Open**; `#1360` uses `(z_size_t)` before masking, whereas `0006` drops the cast per `nmoinvaz`'s inline feedback. |
+| [0016](0016/pr-summary.md) | Ready to submit | [madler/zlib#1405](https://github.com/madler/zlib/pull/1405) | **Open**; shares the `gz_room()` design in `gzread.c`, extended in `zlib-ng` for `state->x.pos < 0` and GoogleTest coverage. |
+| [0017](0017/pr-summary.md) | Ready to submit | [madler/zlib#1406](https://github.com/madler/zlib/pull/1406) | **Open**; `#1406` uses a `z_size_t` round-trip check, whereas `0017` compares directly in `uint64_t` plus adds a 4 GiB boundary test. |
+
+### 5. Recommended Upstream Submission / Merge Order
 
 1. **Update open PRs first**: `#2523` (`0006`), `#2525` (`0004` — should land before `0016` and `0017` so they reuse `GZ_OFF_MAX`), `#2527` (`0014`), `#2528` (`0011`); `#2524` (`0003`) is already ready.
 2. **After `#2525` (`0004`)**: submit `0016` (`gz_room` read bound) and `0017` (`uint64_t` write bound), plus `0022` (`gz_zero` accounting).

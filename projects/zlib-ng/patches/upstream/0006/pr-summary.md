@@ -3,6 +3,7 @@
 - **Proposed PR Title**: `Truncate gzhead->extra_len to 16 bits in deflateBound()`
 - **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
 - **Upstream PR**: https://github.com/zlib-ng/zlib-ng/pull/2523 (open; needs updated force-push)
+- **Related `madler/zlib` PR**: https://github.com/madler/zlib/pull/1360 (open; `#1360` retains `(z_size_t)` before bitwise mask, whereas this `zlib-ng` PR drops the cast per `nmoinvaz`'s inline feedback and adds GoogleTest coverage)
 - **Commits**: 1 (`upstream.patch`)
 - **Files**: `deflate.c`, `test/test_deflate_bound.cc`
 

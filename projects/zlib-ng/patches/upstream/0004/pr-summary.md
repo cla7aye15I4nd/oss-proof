@@ -3,6 +3,7 @@
 - **Proposed PR Title**: `Avoid signed overflow in gzseek() offset arithmetic`
 - **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
 - **Upstream PR**: https://github.com/zlib-ng/zlib-ng/pull/2525 (open; needs updated force-push)
+- **Related `madler/zlib` PR**: https://github.com/madler/zlib/pull/1361 (open; corresponds to Commit 3/4's negative-position `gzungetc` overflow handling after `6995c67b`/`6ed77c48`)
 - **Commits**: 4 (`upstream.patch`)
 - **Files**: `gzguts.h`, `gzlib.c`, `zlib.h.in`, `zlib-ng.h.in`, `test/test_gzseek.cc`
 

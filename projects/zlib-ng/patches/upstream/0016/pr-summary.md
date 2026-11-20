@@ -3,6 +3,7 @@
 - **Proposed PR Title**: `Bound gzip read position on every public read path`
 - **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
 - **Upstream PR**: Ready to submit (depends on `GZ_OFF_MAX` from `#2525` or drops `gzguts.h` hunk after `#2525` merges)
+- **Related `madler/zlib` PR**: https://github.com/madler/zlib/pull/1405 (open; shares the same `gz_room()` design in `gzread.c`, extended here with `state->x.pos < 0` handling and GoogleTest coverage)
 - **Commits**: 1 (`upstream.patch`)
 - **Files**: `gzguts.h`, `gzread.c`, `test/test_gzio.cc`
 

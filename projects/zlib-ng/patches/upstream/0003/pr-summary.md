@@ -3,6 +3,7 @@
 - **Proposed PR Title**: `Avoid cross-object pointer comparison in inflateCopy()`
 - **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
 - **Upstream PR**: https://github.com/zlib-ng/zlib-ng/pull/2524 (open)
+- **Related `madler/zlib` PR**: https://github.com/madler/zlib/pull/1369 (`Applied. Thanks.`, pending push to `develop`; `#1369` updates `state->lencode == state->codes`, while `zlib-ng#2524` also updates `state->distcode == distfix` and adds GoogleTest cases)
 - **Commits**: 1 (`upstream.patch`)
 - **Files**: `inflate.c`, `test/test_inflate_copy.cc`
 

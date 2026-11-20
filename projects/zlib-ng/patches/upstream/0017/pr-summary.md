@@ -3,6 +3,7 @@
 - **Proposed PR Title**: `Bound gzip write position without truncating remaining capacity`
 - **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
 - **Upstream PR**: Ready to submit (separated from `0022` `gz_zero` fix; reuses `GZ_OFF_MAX` from `#2525`)
+- **Related `madler/zlib` PR**: https://github.com/madler/zlib/pull/1406 (open; uses `z_size_t` round-trip check in `madler/zlib`, whereas this `zlib-ng` series uses explicit `uint64_t` comparison across `gz_write()` and `gzvprintf()` plus a 4 GiB boundary test)
 - **Commits**: 1 (`upstream.patch`)
 - **Files**: `gzguts.h`, `gzwrite.c`, `test/test_gzio.cc`
 
