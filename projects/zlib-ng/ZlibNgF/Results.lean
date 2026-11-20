@@ -18,6 +18,7 @@ def proved : List (Name × Name) := [
   (``ZlibNgF.Spec.Safety.Goal.zng_alloc_aligned_nonvacuous, ``ZlibNgF.Proof.Zutil.zng_alloc_aligned_nonvacuous),
   (``ZlibNgF.Spec.Safety.Goal.adler32_safety, ``ZlibNgF.Proof.Adler32Safe.adler32_safety),
   (``ZlibNgF.Spec.Safety.Goal.adler32_z_safety, ``ZlibNgF.Proof.Adler32Safe.adler32_z_safety),
+  (``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous, ``ZlibNgF.Proof.Adler32.adler32_nonvacuous),
   (``ZlibNgF.Spec.Safety.Goal.adler32_combine_safety, ``ZlibNgF.Proof.Adler32.adler32_combine_safety),
   (``ZlibNgF.Spec.Safety.Goal.adler32_combine64_safety, ``ZlibNgF.Proof.Adler32.adler32_combine64_safety),
   (``ZlibNgF.Spec.Safety.Goal.get_crc_table_safety, ``ZlibNgF.Proof.Crc32.get_crc_table_safety),
@@ -38,6 +39,8 @@ def proved : List (Name × Name) := [
   (``ZlibNgF.Spec.Functional.Goal.zlibCompileFlags_functional, ``ZlibNgF.Proof.Zutil.zlibCompileFlags_functional),
   (``ZlibNgF.Spec.Functional.Goal.zError_functional, ``ZlibNgF.Proof.Zutil.zError_functional),
   (``ZlibNgF.Spec.Functional.Goal.zng_alloc_aligned_alignment, ``ZlibNgF.Proof.Zutil.zng_alloc_aligned_alignment),
+  (``ZlibNgF.Spec.Functional.Goal.adler32_z_functional, ``ZlibNgF.Proof.Adler32.adler32_z_functional),
+  (``ZlibNgF.Spec.Functional.Goal.adler32_functional, ``ZlibNgF.Proof.Adler32.adler32_functional),
   (``ZlibNgF.Spec.Functional.Goal.adler32_combine_functional, ``ZlibNgF.Proof.Adler32.adler32_combine_functional),
   (``ZlibNgF.Spec.Functional.Goal.adler32_combine64_functional, ``ZlibNgF.Proof.Adler32.adler32_combine64_functional),
   (``ZlibNgF.Spec.Functional.Goal.crc32_combine_rejection_functional, ``ZlibNgF.Proof.Crc32.crc32_combine_rejection_functional),
@@ -77,9 +80,6 @@ def proved : List (Name × Name) := [
 ]
 
 def notDone : List Name := [
-  ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
-  ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
-  ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
   ``ZlibNgF.Spec.Safety.Goal.deflate_safety,
   ``ZlibNgF.Spec.Safety.Goal.deflate_nonvacuous,
   ``ZlibNgF.Spec.Safety.Goal.deflateEnd_safety,
@@ -139,6 +139,7 @@ def required : List Name := [
   ``ZlibNgF.Spec.Safety.Goal.null_memset_zero_ub,
   ``ZlibNgF.Spec.Safety.Goal.adler32_safety,
   ``ZlibNgF.Spec.Safety.Goal.adler32_z_safety,
+  ``ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous,
   ``ZlibNgF.Spec.Safety.Goal.zlibVersion_safety,
   ``ZlibNgF.Spec.Safety.Goal.zlibCompileFlags_safety,
   ``ZlibNgF.Spec.Safety.Goal.zError_safety,
@@ -168,6 +169,8 @@ def required : List Name := [
   ``ZlibNgF.Spec.Functional.Goal.zlibCompileFlags_functional,
   ``ZlibNgF.Spec.Functional.Goal.zError_functional,
   ``ZlibNgF.Spec.Functional.Goal.zng_alloc_aligned_alignment,
+  ``ZlibNgF.Spec.Functional.Goal.adler32_z_functional,
+  ``ZlibNgF.Spec.Functional.Goal.adler32_functional,
   ``ZlibNgF.Spec.Functional.Goal.adler32_combine_functional,
   ``ZlibNgF.Spec.Functional.Goal.adler32_combine64_functional,
   ``ZlibNgF.Spec.Functional.Goal.crc32_combine_rejection_functional,

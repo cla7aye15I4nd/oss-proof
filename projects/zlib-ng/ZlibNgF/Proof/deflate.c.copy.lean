@@ -319,7 +319,7 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Deflate
   have hdescs := c.descs
   simp only [dview] at hpbz hpsym hdescs
   refine Sat.pure ⟨?_, ?_, fun _ => ⟨?_, _, nb, _, SH_streams _ _ _ _ _ _, rfl, by omega, SH_dstate _ _ _ _ _ _,
-    ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, id⟩, fun b1 d1 d2 hb1 hb2 =>
+    ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, id, rfl, rfl, rfl, rfl⟩, fun b1 d1 d2 hb1 hb2 =>
       ⟨rfl, by rw [hwk']; omega, fun ho1 po1 hh1 hp1 => ?_⟩⟩⟩
   · refine dframe_of (fun k' hk => ?_) hBg.1 (fun c' hc => ?_) hBg.2.1 hBg.2.2.1 hBg.2.2.2.1 hBg.2.2.2.2.1
       hBg.2.2.2.2.2

@@ -1,4 +1,4 @@
-<!-- source-sha256: 408bfd875b236b654756f359afb7df154cde47a634e0b59b3e210671d9a73851 -->
+<!-- source-sha256: 4c9c6bf18ce0d930047e3ca7495c1a930003f1551023f2db14d37bdba7568693 -->
 # 结论的状态
 
 整体库验证状态：**未完成**。
@@ -9,7 +9,7 @@
 | `zlibVersion`、`zlibCompileFlags`、`zError`：安全性与返回值 | 公开 C 接口 | 完成 |
 | `zcalloc` / `zcfree`、`zng_alloc_aligned` / `zng_free_aligned`：安全性与对齐 | 内部辅助函数 | 完成 |
 | `adler32`、`adler32_z`：安全性 | 公开 C 接口 | 完成 |
-| `adler32`、`adler32_z`：校验和值 | 公开 C 接口 | 未完成 |
+| `adler32`、`adler32_z`：校验和值 | 公开 C 接口 | 完成 |
 | `adler32_combine`、`adler32_combine64`：安全性与合并值 | 公开 C 接口 | 完成 |
 | `get_crc_table`、`crc32`、`crc32_z`：安全性 | 公开 C 接口 | 完成 |
 | `crc32_combine`、`crc32_combine64`、`crc32_combine_gen`、`crc32_combine_gen64`、`crc32_combine_op`：安全性与拒绝值 | 公开 C 接口 | 完成 |

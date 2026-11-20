@@ -246,7 +246,7 @@ theorem win_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
           bstart := by simp only [dview]; omega
           bs_lo := by simp only [dview]; omega } : DCore H (some i) z b (dview { st with
             block_start := Int32.ofInt (st.block_start.toInt + ↑lf.toNat) }) al)
-        S.hd (SH_bytes _ _ _ _ _ _) rfl S.sym rfl rfl) ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl⟩
+        S.hd (SH_bytes _ _ _ _ _ _) rfl S.sym rfl rfl) ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl⟩
       ⟨Int32.le_iff_toInt_le.mpr
         (by show (0 : Int) ≤ (Int32.ofInt (st.block_start.toInt + ↑lf.toNat)).toInt; omega), S.sym, S.b8⟩
   · rw [SH_dstate] at h2; cases h2; exact hp
@@ -428,7 +428,7 @@ theorem hdr_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
     refine sf_next F S.hz S.hst S.hno S.hX (L := pend.toNat) hX4 hXo hAo rfl (Or.inl ⟨rfl, rfl⟩)
       (Nat.le_refl _) hno' hav' (fun al _ c => dcore_mv (dcore_flush c he hP hQ hb0' hb8')
         S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_
-    · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl⟩
+    · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl⟩
     · exact ⟨by rw [he]; exact (F.st st S.hst).1, by rw [he]; exact S.sym, hb8'⟩
   · rw [SH_dstate] at h2; cases h2; rw [hP, hp]
   · rw [S.hst] at h2; cases h2
