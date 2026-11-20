@@ -1,4 +1,5 @@
 import ZlibNgF.Proof.«gzread.c.init»
+import ZlibNgF.Proof.«gzlib.c.seek64»
 import ZlibNgF.Proof.«gzread.c.facts»
 
 /-!
@@ -1087,5 +1088,140 @@ theorem body_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : N
   · intro hai0
     have hin : z.avail_in ≠ 0 := by simpa using hai0
     exact rest_spec G M hP0 hw0 hsz h0 hgo hret m hout (fun e => absurd e hin) (Nat.le_refl _) hμ0 hfr
+
+/-- `p - j` for `j` bytes before `p` inside a live heap block. -/
+theorem addNeg {h : Heap} {c off j : Nat} {a : Array UInt8} (ha : h.bytes c = some a) (hoff : off ≤ a.size)
+    (hj : j ≤ off) : (Ptr.ref (BRef.heap c) off : BPtr).add (-(Int.ofNat j)) h = .ok (.ref (.heap c) (off - j), h) := by
+  have hg : Space.get h (BRef.heap c) = some a := ha
+  simp only [Ptr.add, hg, Int.ofNat_eq_natCast]
+  split
+  · congr; omega
+  · next hc => exact absurd ⟨hoff, by omega, by omega⟩ hc
+
+theorem rdLeft_lt {w : World} {h : Heap} (hw : GzWFr w h) (fd : Int32) : rdLeft w.fs fd < 2 ^ 63 := by
+  obtain ⟨-, -, -, -, hb, hn, -, -⟩ := hw
+  unfold rdLeft
+  split
+  · next o _ =>
+    have : (w.fs.nodes[o.node]?.getD #[]).size < 2 ^ 62 := by
+      cases e : w.fs.nodes[o.node]? with
+      | none => simp
+      | some d => simp only [Option.getD_some]; exact hn d (Array.mem_of_getElem? e)
+    exact Nat.lt_of_le_of_lt (Nat.add_le_add_left (Nat.sub_le _ _) _) (by omega)
+  · omega
+
+theorem shape_wide {s s1 : GzState} (h1 : s1 = { s with eof := s1.eof, err := s1.err, msg := s1.msg }) :
+    s1 = { s with «have» := s1.«have», next := s1.next, how := s1.how, eof := s1.eof, err := s1.err, msg := s1.msg } := by
+  cases s; cases s1; simp only [GzState.mk.injEq] at h1 ⊢; simp_all
+
+open ZlibNg.Inflate in
+/-- What `gz_decomp` leaves (see `gz_decomp_spec`). -/
+def DecompPost (w : World) (h : Heap) (b : Nat) (s : GzState) (z0 : ZStream) (bo oo : Nat) (r : Int32) (W : World)
+    (H : Heap) : Prop :=
+  (r = -1 ∨ r = 0) ∧ GStep w h W H b [(.ref (.heap bo) oo, z0.avail_out.toNat)] ∧ FsRd w.fs W.fs ∧
+  ∃ s', W.gz H b = some s' ∧ GzInvR { W with gzs := upd W.gzs b (some { s' with «have» := 0 }) } H (some b) ∧
+    s' = { s with «have» := s'.«have», next := s'.next, how := s'.how, eof := s'.eof, err := s'.err, msg := s'.msg } ∧
+    (r = -1 → s'.«have» = 0 ∧ s'.next = s.next ∧ s'.how = s.how) ∧
+    (r = 0 → ∃ z, H.streams s.strm = some z ∧ z.avail_out.toNat ≤ z0.avail_out.toNat ∧
+      s'.«have».toNat = z0.avail_out.toNat - z.avail_out.toNat ∧ s'.next = .val (.ref (.heap bo) oo) ∧
+      OutTgt W H b s' bo oo z0.avail_out.toNat ∧ dmu s W H ≤ dmu s w h ∧
+      (s'.how = LOOK ∨ s'.how = s.how) ∧
+      (s'.how = LOOK → InflateFresh → z0.avail_in ≠ 0 → InflFresh h s → dmu s W H < dmu s w h) ∧
+      (s'.how = s.how → s'.«have» ≠ 0 ∨ (s'.eof ≠ 0 ∧ z.avail_in = 0)))
+
+/-- The state at the end of `gz_decomp`. -/
+def decompSt (s1 : GzState) (hv : UInt32) (bo oo : Nat) (hw : Int32) : GzState :=
+  { s1 with «have» := hv, next := .val (.ref (.heap bo) oo), how := hw }
+
+theorem decompSt_shape {s s1 : GzState} (h1 : s1 = { s with eof := s1.eof, err := s1.err, msg := s1.msg })
+    (hv : UInt32) (bo oo : Nat) (hw : Int32) :
+    decompSt s1 hv bo oo hw = { s with «have» := hv, next := .val (.ref (.heap bo) oo), how := hw, eof := s1.eof, err := s1.err, msg := s1.msg } := by
+  cases s; cases s1; simp only [GzState.mk.injEq, decompSt] at h1 ⊢; simp_all
+
+open ZlibNg.Inflate in
+/-- The part of `gz_decomp` after the loop. -/
+theorem tail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} {z0 : ZStream} {bo oo : Nat} (hhow : s.how = GZIP)
+    (h0 : s.«have» = 0) (hw0 : ∃ s0, w.gz h b = some s0) (hout : z0.avail_out ≠ 0) {lp : DecompLoop} {W : World}
+    {H : Heap} (q : DExit w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s) lp W H) :
+    GSat W H (decompTail (some b) (some s.strm) z0.avail_out lp) (DecompPost w h b s z0 bo oo) := by
+  unfold decompTail
+  rcases q with ⟨hc, gD, fD, s1, hs1, hv1, hsh1⟩ | ⟨hc, s1, z, ⟨hv, g, hfs, hs1, hsh1, hz, hle, hno, ht⟩, hμ, hse, hnse⟩
+  · refine GSat.ite (fun _ => GSat.pure ?_) (fun hc' => absurd (by simp [hc]) hc')
+    have h01 : s1.«have» = 0 := by rw [hsh1]; exact h0
+    refine ⟨Or.inl rfl, gD, fD, s1, hs1, ?_, shape_wide hsh1, fun _ => ⟨h01, by rw [hsh1], by rw [hsh1]⟩,
+      fun e => absurd e (by decide)⟩
+    rw [have0_self h01, DeflateReset.upd_self W.gzs b s1 (gzs_of hs1)]; exact hv1
+  · refine GSat.ite (fun hc' => absurd (by simpa using hc') hc) (fun _ => ?_)
+    have hle' : z.avail_out ≤ z0.avail_out := UInt32.le_iff_toNat_le.mpr hle
+    have hsub : (z0.avail_out - z.avail_out).toNat = z0.avail_out.toNat - z.avail_out.toNat :=
+      UInt32.toNat_sub_of_le _ _ hle'
+    obtain ⟨d, hd, hds⟩ : ∃ d, H.bytes bo = some d ∧ oo + z0.avail_out.toNat ≤ d.size := by
+      rcases ht with ⟨c, base, hB, rfl, h1, h2⟩ | ⟨-, d, hd, hds⟩
+      · obtain ⟨d, hd, hds⟩ := hB.fits; exact ⟨d, hd, by omega⟩
+      · exact ⟨d, hd, hds⟩
+    obtain ⟨sh, -⟩ := inv_of hs1 hv.1
+    have P := sh.pos
+    have hhow1 : s1.how = GZIP := by rw [hsh1]; exact hhow
+    have hsh1' := shape_wide hsh1
+    -- the end: the state `sF` with the output count, its start and the new `how`
+    have fin : ∀ hw' : Int32, (hw' = LOOK ∨ hw' = s1.how) → (hw' = LOOK → lp.ret = Z_STREAM_END) →
+        (hw' = s1.how → lp.ret ≠ Z_STREAM_END) →
+        DecompPost w h b s z0 bo oo 0 { W with gzs := upd W.gzs b (some (decompSt s1 (z0.avail_out - z.avail_out) bo oo hw')) } H := by
+      intro hw' hw1 hw2 hw3
+      let sF : GzState := decompSt s1 (z0.avail_out - z.avail_out) bo oo hw'
+      have hsF := gz_upd_same hs1 sF
+      have hown : GzOwned { W with gzs := upd W.gzs b (some sF) } H (some b) = GzOwned W H (some b) := by
+        simp only [GzOwned, hsF, hs1]; rfl
+      refine ⟨Or.inr rfl, g.trans (GStep.widen (gstep_st (s' := sF) hs1 W.fs rfl rfl rfl rfl) _) hw0 ⟨s1, hs1⟩, hfs, sF, hsF,
+        ?_, ?_, fun e => absurd e (by decide), fun _ => ⟨z, hz, hle, hsub, rfl, ?_, hμ, ?_, ?_, ?_⟩⟩
+      · have hv2 := invR_seek hv hs1 0 (.val (.ref (.heap bo) oo)) s1.pos s1.skip hw'
+          (by rcases hw1 with e | e
+              · exact Or.inl e
+              · rw [e, hhow1]; exact Or.inr (Or.inr rfl)) P.1 P.2 P.3 (Or.inl rfl) (fun _ => rfl)
+        simp only [InflateInv.upd_upd]
+        exact hv2
+      · exact decompSt_shape hsh1 _ _ _ _
+      · rcases ht with ⟨c, base, hB, e1, h1, h2⟩ | ⟨hno', d', hd', hds'⟩
+        · exact Or.inl ⟨c, base, ⟨hB.size, hB.buffers, hB.inp, hB.out, hB.fits, hB.hdr⟩, e1, h1, h2⟩
+        · exact Or.inr ⟨by rw [hown]; exact hno', d', hd', hds'⟩
+      · rcases hw1 with e | e
+        · exact Or.inl e
+        · exact Or.inr (by show hw' = s.how; rw [e]; rw [hsh1])
+      · intro hl FF ha hf
+        exact hse (hw2 hl) FF ⟨ha, hf⟩
+      · intro hs2
+        have hw4 : hw' = s1.how := by rw [show s1.how = s.how by rw [hsh1]]; exact hs2
+        rcases hnse (hw3 hw4) with e | ⟨e1, e2⟩
+        · left; intro e'
+          change (z0.avail_out - z.avail_out) = 0 at e'
+          have := congrArg UInt32.toNat e'
+          have h5 : z0.avail_out.toNat ≠ 0 := fun e5 => hout (UInt32.toNat_inj.mp (by simpa using e5))
+          have h6 : z.avail_out.toNat = 0 := by rw [e]; rfl
+          rw [hsub] at this; simp only [UInt32.toNat_zero] at this; omega
+        · exact Or.inr ⟨e1, e2⟩
+    refine GSat.bind (GSat.lm ⟨_, H, rdZ_app hz _, ?_⟩)
+    refine GSat.bind (GSat.of_eq (wrG_app hs1 _) ?_)
+    have hs2 := gz_upd_same hs1 { s1 with «have» := z0.avail_out - z.avail_out }
+    refine GSat.bind (GSat.lm ⟨_, H, rdZ_app hz _, ?_⟩)
+    refine GSat.bind (GSat.of_eq (rdG_app' hs2 _) ?_)
+    refine GSat.bind (GSat.lm ⟨.ref (.heap bo) oo, H, ?_, ?_⟩)
+    · rw [hno]; show (Ptr.ref _ _ : BPtr).add (-(Int.ofNat (z0.avail_out - z.avail_out).toNat)) H = _
+      rw [hsub]
+      have := addNeg (j := z0.avail_out.toNat - z.avail_out.toNat) hd (off := oo + (z0.avail_out.toNat - z.avail_out.toNat))
+        (by omega) (by omega)
+      rw [this]; congr 3; omega
+    refine GSat.bind (GSat.of_eq (wrG_app hs2 _) ?_)
+    have hs3 := gz_upd_same hs2 { ({ s1 with «have» := z0.avail_out - z.avail_out } : GzState) with
+      next := .val (.ref (.heap bo) oo) }
+    apply GSat.ite
+    · intro hse'
+      refine GSat.bind (GSat.of_eq (wrG_app hs3 _) (GSat.pure ?_))
+      simp only [InflateInv.upd_upd]
+      exact fin LOOK (Or.inl rfl) (fun _ => by simpa using hse') (fun e => by rw [hhow1] at e; exact absurd e (by decide))
+    · intro hse'
+      refine GSat.pure ?_
+      simp only [InflateInv.upd_upd]
+      exact fin s1.how (Or.inr rfl) (fun e => by rw [hhow1] at e; exact absurd e (by decide))
+        (fun _ e => hse' (by simp [e]))
 
 end ZlibNgF.Proof.GzDecomp
