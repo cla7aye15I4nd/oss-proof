@@ -49,11 +49,13 @@ theorem wrD_SH' {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateSt
     wrD (some b) f (SH H i z b st d) = .ok ((), SH H i z b st' d) := by
   rw [wrD_SH, e]
 
-/-- `SLF` on a state with the same view of the invariant, `gzindex` and `last_flush`, at the levels of
-`deflate_slow`. -/
-theorem slf_view {h H0 : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateState} {d : Array UInt8}
-    (F : SLF h i b (SH H0 i z b st d)) (hv : dview st' = dview st) (hg : st'.gzindex = st.gzindex)
-    (hl : st'.last_flush = st.last_flush) (hT : TableAt 7 9 st) : SLF h i b (SH H0 i z b st' d) := by
+/-- `SLFe` on a state with the same view of the invariant, `gzindex` and `last_flush`, at the levels of
+`deflate_slow`, with the allowance `e'` (`hψ`: the change of `psiS`, through `match_available`). -/
+theorem slf_view {e e' : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateState} {d : Array UInt8}
+    (F : SLFe e h i b (SH H0 i z b st d)) (hv : dview st' = dview st) (hg : st'.gzindex = st.gzindex)
+    (hl : st'.last_flush = st.last_flush) (hT : TableAt 7 9 st)
+    (hψ : ∀ f, ZlibNgF.Proof.DeflatePsi.psiS f st' + e ≤ ZlibNgF.Proof.DeflatePsi.psiS f st + e') :
+    SLFe e' h i b (SH H0 i z b st' d) := by
   have e1 : st'.gzhead = st.gzhead := congrArg DView.gzhead hv
   have e2 : st'.level = st.level := congrArg DView.level hv
   have e3 : st'.status = st.status := congrArg DView.status hv
@@ -67,23 +69,57 @@ theorem slf_view {h H0 : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateState}
   obtain ⟨-, -, hg0⟩ := F.st st (SH_dstate _ _ _ _ _ _)
   refine slf_SH F (fun al _ c => by rw [hv]; exact DCore.of_heap (by rw [SH_bytes, SH_bytes]) c) e1 e2 e3 e4
     ⟨fun e => by rw [e9]; exact hg0.1 (by rw [← e7, ← e8]; exact e), by rw [e10]; exact hg0.2⟩
-    ⟨e3, e5, e1, hg, e2, e6, hl, fun hn => absurd hT hn⟩
+    ⟨e3, e5, e1, hg, e2, e6, hl, fun hn => absurd hT hn⟩ hψ
+
+/-- The fields of `psiS` other than `match_available` and `block_open` from the view. -/
+theorem view_eqs {st st' : DeflateState} (hv : dview st' = dview st) :
+    st'.lookahead = st.lookahead ∧ st'.strstart = st.strstart ∧ st'.block_start = st.block_start ∧
+      st'.sym_next = st.sym_next ∧ st'.status = st.status ∧ st'.wrap = st.wrap ∧ st'.pending = st.pending ∧
+      st'.bi_valid = st.bi_valid :=
+  ⟨congrArg DView.lookahead hv, congrArg DView.strstart hv, congrArg DView.block_start hv,
+    congrArg DView.sym_next hv, congrArg DView.status hv, congrArg DView.wrap hv, congrArg DView.pending hv,
+    congrArg DView.bi_valid hv⟩
+
+/-- `match_available` kept or cleared: `psiS` does not grow. -/
+theorem view_le {e : Nat} {st st' : DeflateState} (hv : dview st' = dview st) (hb : st'.block_open = st.block_open)
+    (hm : st'.match_available = 0 ∨ st'.match_available = st.match_available) :
+    ∀ f, ZlibNgF.Proof.DeflatePsi.psiS f st' + e ≤ ZlibNgF.Proof.DeflatePsi.psiS f st + e := fun f => by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8⟩ := view_eqs hv
+  have := ZlibNgF.Proof.DeflatePsi.psiS_view (f := f) a1 a2 a3 a4 a5 a6 hb a7 a8 hm
+  omega
+
+/-- `match_available` set: `psiS` grows by at most `2^18`. -/
+theorem view_set {st st' : DeflateState} (hv : dview st' = dview st) (hb : st'.block_open = st.block_open) :
+    ∀ f, ZlibNgF.Proof.DeflatePsi.psiS f st' + 0 ≤ ZlibNgF.Proof.DeflatePsi.psiS f st + 2 ^ 18 := fun f => by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8⟩ := view_eqs hv
+  have := ZlibNgF.Proof.DeflatePsi.psiS_view_set (f := f) a1 a2 a3 a4 a5 a6 hb a7 a8
+  omega
+
+/-- `match_available` cleared from a set one: `psiS` drops by `2^18`. -/
+theorem view_clear {st st' : DeflateState} (hv : dview st' = dview st) (hb : st'.block_open = st.block_open)
+    (hm : st.match_available ≠ 0) (hm' : st'.match_available = 0) :
+    ∀ f, ZlibNgF.Proof.DeflatePsi.psiS f st' + 2 ^ 18 ≤ ZlibNgF.Proof.DeflatePsi.psiS f st + 0 := fun f => by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8⟩ := view_eqs hv
+  have := ZlibNgF.Proof.DeflatePsi.psiS_view_clear (f := f) a1 a2 a3 a4 a5 a6 hb a7 a8 hm hm'
+  omega
 
 /-- `SLF` with `strstart` and `lookahead` moved within the window, `block_start` and `insert` not above `strstart`, and
 no symbols if `strstart` is at `block_start`. -/
-theorem slf_move {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
-    (F : SLF h i b (SH H0 i z b st d)) (ss la : UInt32) (hlook : ss.toNat + la.toNat ≤ st.window_size.toNat)
+theorem slf_move {e e' : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    (F : SLFe e h i b (SH H0 i z b st d)) (ss la : UInt32) (hlook : ss.toNat + la.toNat ≤ st.window_size.toNat)
     (hbs : st.block_start.toInt ≤ ss.toNat) (hins : st.insert ≤ ss)
-    (hgap : (ss.toNat : Int) = st.block_start.toInt → st.sym_next = 0) :
-    SLF h i b (SH H0 i z b { st with strstart := ss, lookahead := la } d) := by
+    (hgap : (ss.toNat : Int) = st.block_start.toInt → st.sym_next = 0)
+    (hψ : ∀ f, ZlibNgF.Proof.DeflatePsi.psiS f { st with strstart := ss, lookahead := la } + e ≤
+      ZlibNgF.Proof.DeflatePsi.psiS f st + e') :
+    SLFe e' h i b (SH H0 i z b { st with strstart := ss, lookahead := la } d) := by
   obtain ⟨-, -, hg0⟩ := F.st st (SH_dstate _ _ _ _ _ _)
   exact slf_SH F (fun al _ c => DCore.of_heap (by rw [SH_bytes, SH_bytes])
     (dcore_set c ss la st.insert st.block_start hlook hbs hins c.bs_lo)) rfl rfl rfl rfl ⟨hgap, hg0.2⟩
-    (StratKeeps.refl _)
+    (StratKeeps.refl _) hψ
 
 /-- The numbers of the invariant of an `SLF` state. -/
-theorem slf_nums {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
-    (F : SLF h i b (SH H0 i z b st d)) :
+theorem slf_nums {e : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    (F : SLFe e h i b (SH H0 i z b st d)) :
     st.strstart.toNat + st.lookahead.toNat ≤ st.window_size.toNat ∧ st.window_size.toNat ≤ 65536 ∧
       st.block_start.toInt ≤ st.strstart.toNat ∧ st.insert ≤ st.strstart ∧ 512 ≤ st.w_size.toNat ∧
       st.w_size.toNat ≤ 32768 ∧ 2 * st.w_size.toNat ≤ st.window_size.toNat ∧ 0 < st.sym_end.toNat := by
@@ -115,7 +151,7 @@ theorem slf_tally_lit0 {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
     (hbs : st.block_start.toInt < st.strstart.toNat) (c : UInt8) :
     Sat (SH H0 i z b st d) (zng_tr_tally_lit (some b) c) (fun r H' => ∃ lt d',
       H' = SH H0 i z b { st with sym_next := st.sym_next + 3, dyn_ltree := lt } d' ∧
-      SLF h i b H' ∧ SymWr b (SH H0 i z b st d) H' ∧ r = (st.sym_next + 3 == st.sym_end)) := by
+      SLFe (2 ^ 18) h i b H' ∧ SymWr b (SH H0 i z b st d) H' ∧ r = (st.sym_next + 3 == st.sym_end)) := by
   obtain ⟨sbo, hsb, hk, hlt, -⟩ := slf_sym F hle
   refine Sat.mono (tally_lit_SH c hsb hk hlt) ?_
   rintro r H' ⟨rfl, rfl⟩
@@ -144,7 +180,18 @@ theorem slf_tally_lit0 {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
     (fun sbo hk hs hm hn hb => symok_lit hs hm hn hk c hlt hb) hroom hstat
   refine ⟨_, _, rfl, ?_, ⟨sbo, sbo + st.sym_next.toNat + 4, d, _, SH_bytes _ _ _ _ _ _,
     SH_bytes _ _ _ _ _ _, fun st2 h2 => ?_, (W4_wr _ _ _).widen (by omega) (by omega)⟩, rfl⟩
-  · refine slf_SH F (fun al' hal' _ => ?_) rfl rfl rfl rfl ⟨fun e0 => ?_, hg.2⟩ (StratKeeps.refl _)
+  · have hsn3 : (st.sym_next + 3).toNat = st.sym_next.toNat + 3 := by
+      have hm := cc.syms.2
+      obtain ⟨-, -, -, -, hl2, -, hse⟩ := cc.sizes
+      simp only [dview] at hm hse hl2
+      have := UInt32.le_iff_toNat_le.mp hle
+      rw [UInt32.toNat_add]; simp; omega
+    refine slf_SH F (fun al' hal' _ => ?_) rfl rfl rfl rfl ⟨fun e0 => ?_, hg.2⟩ (StratKeeps.refl _)
+      (fun f => by
+        have := ZlibNgF.Proof.DeflatePsi.psiS_sym (f := f) (st := st)
+          (st' := { st with sym_next := st.sym_next + 3, dyn_ltree := incF st.dyn_ltree c.toNat })
+          rfl rfl rfl hsn3 rfl rfl rfl rfl rfl rfl
+        omega)
     · obtain rfl : al = al' := Option.some.inj (hal.symm.trans (by simpa [Heap.dallocsOf, SH] using hal'))
       exact c1
     · exfalso
@@ -156,8 +203,8 @@ theorem slf_tally_lit0 {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
 
 /-- The layout of an `SLF` state: the hash tables (`HLay`), `w_size` a power of two, the window before `prev`, the
 room of `longest_match`, and `pending_buf` / `sym_buf` after `head`. -/
-theorem slf_lay {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
-    (F : SLF h i b (SH H0 i z b st d)) :
+theorem slf_lay {e : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    (F : SLFe e h i b (SH H0 i z b st d)) :
     ∃ wo po ho pbo, HLay b d.size st wo po ho ∧ (∃ k, st.w_size.toNat = 2 ^ k) ∧ wo + st.window_size.toNat ≤ po ∧
       wo + 131400 ≤ d.size ∧ st.pending_buf = .val (.ref (.heap b) pbo) ∧ ho + 131072 ≤ pbo ∧
       st.sym_buf = .val (.ref (.heap b) (pbo + st.lit_bufsize.toNat + 8)) := by
@@ -190,7 +237,7 @@ theorem slf_insH {α : Type} {h H0 : Heap} {i b : Nat} {z : ZStream} {st : Defla
     exact w.widen (Nat.zero_le _) (Nat.le_refl _)
   refine ⟨d', x, rfl, ?_, fun ho' po' hh hpv => ?_⟩
   · exact slf_SH F1 (fun al _ c => DCore.of_heap (by rw [SH_bytes, SH_bytes]) c) rfl rfl rfl rfl
-      (F1.st _ (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _)
+      (F1.st _ (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _) (fun _ => Nat.le_refl _)
   · rw [L'.head] at hh; rw [L'.prev] at hpv
     obtain rfl : ho = ho' := by injection hh with e; injection e
     obtain rfl : po = po' := by injection hpv with e; injection e
@@ -321,7 +368,7 @@ theorem slf_flush_keep (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int3
 /-- `FLUSH_BLOCK_ONLY(s, window, last)` from `SLF` with no pending bytes keeps the fields of `FBKeeps` and the bytes
 of the block outside `pending_buf`. -/
 theorem slf_flush_only_keep (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M BPtr) (last : Int32)
-    (hl0 : 0 ≤ last) (hl1 : last ≤ 1) (F : SLF h i b H)
+    (hl0 : 0 ≤ last) (hl1 : last ≤ 1) {e : Nat} (F : SLFe e h i b H)
     (hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo))
     (hwm : window H = .ok (.ref (.heap b) wo, H)) :
     Sat H (FLUSH_BLOCK_ONLY (some b) window last) (fun _ H2 => ∀ st, H.dstate b = some st →
@@ -502,7 +549,7 @@ theorem tab_lv {st : DeflateState} (hT : TableAt 7 9 st) : 0 < st.level ∧ st.l
   rw [e] at a; exact absurd a (by decide)
 
 /-- The levels, strategy and `last_flush` at entry stay under `SLF`. -/
-theorem slf_table {h H : Heap} {i b : Nat} (F : SLF h i b H)
+theorem slf_table {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H)
     (hT : ∀ st0, h.dstate b = some st0 → TableAt 7 9 st0 ∧ 0 ≤ st0.last_flush) :
     ∀ st, H.dstate b = some st → TableAt 7 9 st ∧ 0 ≤ st.last_flush := by
   intro st hst
@@ -513,7 +560,7 @@ theorem slf_table {h H : Heap} {i b : Nat} (F : SLF h i b H)
 
 /-- `StratPost` from `SLF` and the exit facts, for a strategy entered at a level other than 1, with `LazyOk` after
 from `LazyOk` at entry; the symbols need to be gone after a flush only when the output has room. -/
-theorem slf_postW {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
+theorem slf_postW {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState)
     (hx : ExitIO H i flush bs) (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
     (hL : ∀ st0, h.dstate b = some st0 → LazyOk st0 → ∀ st, H.dstate b = some st →
       LazyOk st ∧ (bs = .block_done → st.match_available = 0))
@@ -521,14 +568,15 @@ theorem slf_postW {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs
       (bs = .block_done ∨ bs = .finish_done → st.pending = 0) ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt H (some i) z' → z'.avail_out ≠ 0) → st.sym_next = 0) ∧
       (bs = .finish_started ∨ bs = .finish_done → st.sym_next = 0 ∧ st.lookahead = 0) ∧
-      (bs = .block_done → st.sym_next = 0)) : StratPost h (some i) flush bs H := by
+      (bs = .block_done → st.sym_next = 0)) (he : e ≤ finSlack bs := by slack_tac) :
+    StratPost h (some i) flush bs H := by
   obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
     stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
     fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0),
-    fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
+    fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_, slf_psi F flush bs he⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
@@ -561,8 +609,8 @@ theorem slow_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Str
   have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hn1 (hg8 e8).1⟩
   refine ⟨st1, hst1, ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
-    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩,
-    fun st h1 => ?_⟩, hL, hlf, hT1⟩
+    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_,
+    ZlibNgF.Proof.DeflatePsi.PsiAcc.refl h i b⟩, fun st h1 => ?_⟩, hL, hlf, hT1⟩
   · have hio0 := hio
     obtain ⟨z2, b2, hp, ⟨i2, e2, hz2⟩, hb2, -, -, -, hout, hnb, -⟩ := hio0
     obtain rfl : i = i2 := Option.some.inj e2

@@ -232,7 +232,7 @@ theorem laOf_SH (H0 : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState
 
 /-- The facts of `Env` on the state of an `SLF` heap. -/
 theorem env_st {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {level : Int32}
-    (E : Env h b wo level) (F : SLF h i b (SH H0 i z b st d)) :
+    {e : Nat} (E : Env h b wo level) (F : SLFe e h i b (SH H0 i z b st d)) :
     st.window = .val (.ref (.heap b) wo) ∧ TableAt 7 9 st ∧ 0 ≤ st.last_flush ∧ st.level = level := by
   obtain ⟨st0, h0, hw⟩ := F.win
   obtain ⟨st1, h1, hk⟩ := F.keeps

@@ -35,7 +35,8 @@ form: `-1` or not negative. Linux files with unsigned offsets (`/dev/mem`, `/pro
 `2^63` and more as negative numbers, on which `gzoffset64`'s `offset - avail_in` can overflow; reads at those offsets
 fail (deviations page).
 
-**Narrowings** (deviations page): caller buffers lie outside the file's own blocks; the `vsnprintf` arguments of
+**Narrowings** (deviations page): caller buffers and strings (the `gzputs` string, the `gzprintf` format) lie
+outside the file's own blocks; the `vsnprintf` arguments of
 `gzprintf` match the format (as `zlib.h` requires of a `printf` format).
 -/
 
@@ -137,8 +138,8 @@ def GzStep (w : World) (h : Heap) (w' : World) (h' : Heap) (f : GzPtr) : Prop :=
     GzRun (gzfwrite buf size nitems f) w h r w' h') ∨
   (∃ c r, GzRun (gzputc f c) w h r w' h') ∨
   (∃ s r, CStr h s ∧ OutsideGz w h f s ∧ GzRun (gzputs f s) w h r w' h') ∨
-  (∃ fmt r, CStr h fmt ∧ GzRun (gzprintf f fmt) w h r w' h') ∨
-  (∃ fmt r, CStr h fmt ∧ GzRun (gzvprintf f fmt) w h r w' h') ∨
+  (∃ fmt r, CStr h fmt ∧ OutsideGz w h f fmt ∧ GzRun (gzprintf f fmt) w h r w' h') ∨
+  (∃ fmt r, CStr h fmt ∧ OutsideGz w h f fmt ∧ GzRun (gzvprintf f fmt) w h r w' h') ∨
   (∃ fl r, GzRun (gzflush f fl) w h r w' h') ∨
   (∃ l s r, GzRun (gzsetparams f l s) w h r w' h') ∨
   (∃ off wh r, GzRun (gzseek64 f off wh) w h r w' h') ∨

@@ -18,6 +18,7 @@ open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNgF.Proof.InflateDict (copyFold copyFold_size copyFold_get)
 open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f)
 open ZlibNg.DeflateStored
+open ZlibNgF.Proof.DeflatePsi (psiS G span owed)
 
 section parts
 open ZlibNg.DeflateP ZlibNg.Trees
@@ -84,11 +85,12 @@ def BlkIO (H H' : Heap) (i b : Nat) (len : UInt32) : Prop :=
 
 /-- The stored block of `len` window bytes from `block_start` through `pending_buf`, then `block_start += len` and
 `flush_pending`: `SF` after, and `BlkIO`. -/
-theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
+theorem blk_ok {e : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (len : UInt32) (last : Int32)
     (hl : ∀ st, H.dstate b = some st → (len.toNat : Int) ≤ st.strstart.toNat - st.block_start.toInt ∧
       len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 ≤ st.pending_buf_size.toNat)
-    {α : Type} (k : M α) (Q : α → Heap → Prop) (hk : ∀ H', SF h i b H' → BlkIO H H' i b len → Sat H' k Q) :
+    {α : Type} (k : M α) (Q : α → Heap → Prop)
+    (hk : ∀ H', SF (e + if len.toNat = 0 then 5 else 0) h i b H' → BlkIO H H' i b len → Sat H' k Q) :
     Sat H (blk_part (some b) (.ref (.heap b) wo) len last k) Q := by
   obtain ⟨z, st, d, ob, oo, X, pbo, S⟩ := F.facts hw0
   have e0 : SH (setB H ob X) i z b st d = H := by
@@ -130,7 +132,7 @@ theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   refine Sat.bind (Sat.of_eq (strmOf_SH (by rw [he3]; exact S.strm)) ?_)
   have hnb : (Int32.ofInt (st.block_start.toInt + ↑len.toNat)).toInt = st.block_start.toInt + len.toNat :=
     Int32.toInt_ofInt_of_le (by omega) (by omega)
-  refine Sat.bind (Sat.mono (flush_SH (lb := st.lit_bufsize.toNat) (pbo := pbo) (poo := pbo) (ad := X) (oo := oo)
+  refine Sat.bind (Sat.mono (flushO_SH (lb := st.lit_bufsize.toNat) (pbo := pbo) (poo := pbo) (ad := X) (oo := oo)
     (ob := ob) S.hb S.hob (by simp [setB]) S.hno hoo ?_ ?_ (Nat.le_refl _) ?_ ?_ lb2 ?_ ?_ ?_) ?_)
   · show st3.pending_buf = _; rw [he3]; exact S.hpb
   · show st3.pending_out = _; rw [he3]; exact hpo
@@ -140,10 +142,13 @@ theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   · show 0 ≤ st3.bi_valid.toInt; rw [hbv3]; decide
   · show st3.bi_valid.toInt < 64; rw [hbv3]; decide
   · intro _; show st3.pending_out = st3.pending_buf; rw [he3]; exact hpo.trans S.hpb.symm
-  rintro _ H4 ⟨np, bb, bv, d4, L, z', st', rfl, w4, hbv0, hbv8, hnp, hL, hst', hpn, hpz, hpnz, hz', hno', hav'⟩
+  rintro _ H4 ⟨⟨np, bb, bv, d4, L, z', st', rfl, w4, hbv0, hbv8, hnp, hL, hst', hpn, hpz, hpnz, hz', hno', hav'⟩, hO⟩
   have hnp' : np.toNat = pend.toNat := by
     rw [hnp]; show st3.pending.toNat + st3.bi_valid.toInt.toNat / 8 = _; rw [hp3, hbv3]; rfl
   clear hnp
+  have hO' := hO z' st' (by simp [OH]) (OH_dstate S.hob)
+  have ho3 : ∀ x : Int32, owed { st3 with block_start := x } = pend.toNat := fun x => by
+    unfold owed; dsimp only; rw [hp3, hbv3]; simp
   rw [OH_eq S.hob, setB_setB]
   obtain ⟨no, ao, tt, rfl⟩ : ∃ no ao tt, z' = { z with next_out := no, avail_out := ao, total_out := tt } :=
     ⟨_, _, _, hz'⟩
@@ -178,8 +183,8 @@ theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   have hLA : L ≤ z.avail_out.toNat := by omega
   refine hk _ (sf_next F S.hz S.hst S.hno S.hX (L := L) hX4 hXo hLA rfl (Or.inl ⟨rfl, rfl⟩) (Nat.le_refl _) hno' hav'
     (fun al _ c => dcore_mv (dcore_pend c he S.hpb hpo' hle' hroom' hpz' hb0' hb8' hbs1 hbs2 S.sym)
-      S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_) ?_
-  rotate_left 2
+      S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_ fun f => ?_) ?_
+  rotate_left 3
   · intro z1 st1 z2 h1 h2 h3
     rw [S.hz] at h1; cases h1
     rw [S.hst] at h2; cases h2
@@ -195,5 +200,15 @@ theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl, rfl⟩
   · refine ⟨Int32.le_iff_toInt_le.mpr (by rw [hbs', hnb]; show (0 : Int) ≤ _; omega), ?_, hb8'⟩
     rw [he]; exact S.sym
+  · refine psiS_pay (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he]) ?_
+    have s1 := span_eq (st := st) hbs
+    have hss : st'.strstart = st.strstart := by rw [he]
+    have s2 := span_eq (st := st') (by rw [hbs', hnb, hss]; omega)
+    rw [hbs', hnb, hss] at s2
+    have h0 := owed_p0 hp
+    rw [ho3] at hO'
+    simp only [] at hav' hO' ⊢
+    rw [Nat.sub_self, Nat.mul_zero]
+    split <;> omega
 
 end ZlibNgF.Proof.StoredBlk

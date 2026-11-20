@@ -19,7 +19,7 @@ open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNg.DeflateP ZlibNg.DeflateQuick
 
 /-- `s->strm` of a stream under `SLF`. -/
-theorem strmOf_slf {h H : Heap} {i b : Nat} (F : SLF h i b H) : strmOf (some b) H = .ok (some i, H) := by
+theorem strmOf_slf {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) : strmOf (some b) H = .ok (some i, H) := by
   obtain ⟨z, st, al, hz, hb, hst, -, c⟩ := F.live
   have hs : st.strm = .val (some i) := c.strm
   simp [strmOf, ldDState_app hst, bind_app, hs, Ival.get]
@@ -39,17 +39,21 @@ theorem qeb_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st :
     (ss : UInt32) (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1)
     (F : SLF h i b (SH H0 i z b st d)) (hp : st.pending = 0) (hw : st.window = .val (.ref (.heap b) wo)) :
     Sat (SH H0 i z b st d) (quick_end_block (some b) ss last 0) (fun r H2 => avIn H2 i = z.avail_in.toNat ∧
-      SLF h i b H2 ∧ (∀ st2, H2.dstate b = some st2 → st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
+      SLFe (lastSlack last) h i b H2 ∧ (∀ st2, H2.dstate b = some st2 → st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
         st2.sym_next < st2.sym_end ∧ (r = false → st2.pending = 0) ∧ st2.sym_next = 0) ∧ (r = true → O0 H2 i)) := by
-  have fl : Sat (SH H0 i z b st d) (do
+  have fl : (last = 0 → st.sym_next ≠ 0) → Sat (SH H0 i z b st d) (do
       FLUSH_BLOCK_ONLY (some b) (do (← rdD (some b) (·.window)).get) last
       return (← rdZ (← strmOf (some b)) (·.avail_out)) == 0) (fun r H2 => avIn H2 i = z.avail_in.toNat ∧
-      SLF h i b H2 ∧ (∀ st2, H2.dstate b = some st2 → st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
+      SLFe (lastSlack last) h i b H2 ∧ (∀ st2, H2.dstate b = some st2 → st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
         st2.sym_next < st2.sym_end ∧ (r = false → st2.pending = 0) ∧ st2.sym_next = 0) ∧ (r = true → O0 H2 i)) := by
-    refine Sat.bind (Sat.mono (slf_flush_only T (wo := wo) _ last hl0 hl1 F (fun st1 h1 => ?_) ?_) ?_)
+    intro hs0
+    refine Sat.bind (Sat.mono (slf_flush_only T (wo := wo) _ last hl0 hl1 F (fun st1 h1 => ?_) ?_
+      fun e0 st1 h1 => ?_) ?_)
     · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
       exact ⟨hp, hw⟩
     · simp [rdD_SH, hw, Ival.get, bind_app]
+    · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
+      exact hs0 e0
     rintro _ H2 ⟨hav, F2, hs2, hpz⟩
     obtain ⟨z2, st2, -, hz2, -, hst2, -, -⟩ := F2.live
     refine Sat.bind (Sat.of_eq (strmOf_slf F2) (Sat.bind (Sat.of_eq (rdZ_app hz2 _) (Sat.pure ?_))))
@@ -65,16 +69,16 @@ theorem qeb_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st :
   simp only [show ((0 : Int32) == 0) = true from rfl, ↓reduceIte]
   by_cases hl : (last != 0) = true
   · simp only [hl, ↓reduceIte, ZlibNgF.Proof.DeflateAlloc.pure_bind_M]
-    exact fl
+    exact fl fun e0 => absurd e0 (by simpa using hl)
   · simp only [hl, Bool.false_eq_true, ↓reduceIte]
     refine Sat.bind (Sat.bind (Sat.of_eq ldDState_SH (Sat.pure ?_)))
     by_cases hs : (st.sym_next != 0) = true
     · simp only [hs]
-      exact fl
+      exact fl fun _ => by simpa using hs
     · simp only [hs]
       have h0 : st.sym_next = 0 := by simpa using hs
       have hl' : last = 0 := by simpa using hl
-      refine Sat.pure ⟨avIn_SH _ _ _ _ _ _, F, fun st2 h2 => ?_, fun e => by cases e⟩
+      refine Sat.pure ⟨avIn_SH _ _ _ _ _ _, by rw [hl', lastSlack_zero]; exact F, fun st2 h2 => ?_, fun e => by cases e⟩
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
       have := symend_pos F (SH_dstate _ _ _ _ _ _)
       refine ⟨rfl, rfl, ?_, fun _ => hp, h0⟩

@@ -206,7 +206,17 @@ theorem quick_tally_ok (T : TreesFacts) :
           · exact exitIO_fin (.inr rfl) (fun e => by cases e)
       have post : ∀ bs, (bs = b1 ∧ r = true ∨ bs = b2 ∧ r = false) → StratPost h (some i) flush bs H3 := by
         rintro bs hbs
-        refine slf_post F3 _ _ hn (hio bs hbs) fun st3 h3 => ?_
+        have hle : lastSlack lst ≤ finSlack bs := lastSlack_fin fun hne => by
+          have a := Int32.le_iff_toInt_le.mp hl0'; have b := Int32.le_iff_toInt_le.mp hl1'
+          simp at a b
+          have e1 : lst = 1 := Int32.toInt_inj.mp (by
+            have : lst.toInt ≠ 0 := fun e => hne (Int32.toInt_inj.mp (by rw [e]; rfl))
+            show lst.toInt = 1; omega)
+          obtain ⟨x1, x2⟩ := h1 e1
+          rcases hbs with ⟨rfl, -⟩ | ⟨rfl, -⟩
+          · exact .inl x1
+          · exact .inr x2
+        refine slf_post F3 _ _ hn (hio bs hbs) (fun st3 h3 => ?_) hle
         obtain ⟨e1, e2, e3, e4, e5⟩ := hs3 st3 h3
         unfold ExitOk
         refine ⟨e3, fun hd => ?_, fun _ => e5, fun _ => ⟨e5, by rw [e1]; exact hla.trans hl0⟩, fun _ => e5⟩
