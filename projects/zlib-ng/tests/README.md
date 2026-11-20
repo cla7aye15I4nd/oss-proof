@@ -70,31 +70,45 @@ at `-O0`: with every patch but the case's own, and with every patch. The first m
 named sanitizer report, or no return within the timeout), the second must run without a report and
 print the expected result.
 
-| Case | Patch | Defect shown without the patch |
-| --- | --- | --- |
-| `inflate-copy-pointer-equality` | 0003 | invalid pointer pair in `inflateCopy` |
-| `gzseek-offset-overflow` | 0004 | signed overflow in `gzseek64` |
-| `deflatebound-gzip-extra-length` | 0006 | `deflateBound` too small for a gzip extra field with `extra_len > 0xffff` |
-| `inflate-window-copy` | 0007 | invalid pointer pair (window vs output) in `chunkcopy_safe` |
-| `infback-window-overlap` | 0007 | none: upstream is clean here; the case checks that `inflateBack`, whose output is the window, decodes matches into the previous window pass alike with and without the patch |
-| `inflatesync-null-next-in` | 0008 | none observable: `NULL + 0` is not reported by any sanitizer; the case checks the calls run alike |
-| `inflatesetdictionary-null` | 0009 | `inflateSetDictionary(strm, NULL, 0)` returns `Z_OK` instead of `Z_STREAM_ERROR` |
-| `inflate-fast-primed-bits` | 0010 | after `inflatePrime`, `inflate` returns with `avail_in` larger than the caller gave (`next_in` before the buffer) |
-| `longest-match-offset-base` | 0012 | none observable: forming `window - match_offset` is not reported by any sanitizer; the case checks that level 9 `deflate` gives the same output with and without the patch |
-| `deflate-medium-insert-count` | 0013 | division by zero in `insert_knuth_stepped` after `deflateTune` with `max_lazy = INT_MIN` (level 4) |
-| `gzwrite-clearerr-stale-input` | 0014 | invalid pointer pair (heap buffer overflow without the pair check) in `gz_write` after a failed direct `gzwrite` and `gzclearerr` |
-| `gzclose-after-failed-write` | 0014 | heap use after free: `gzclose` writes from the caller's freed buffer after a failed direct `gzwrite` |
-| `gzbuffer-alloc-null-offset` | 0015 | `NULL` plus an offset in `gz_buffer_alloc` when the allocation fails (clang's UBSan; GCC's does not report it, and the case then checks that the calls run alike) |
-| `gzread-position-overflow` | 0016 | signed overflow of `x.pos` in `gz_read` after `gzseek` to `INT64_MAX` on a descriptor that keeps delivering data |
-| `fixed-block-start-overflow` | 0018 | signed overflow of `block_start` in `fill_window` after `2^31` bytes of one `Z_FIXED` level-1 stream (about 20 s) |
-| `deflate-slow-match-start` | 0019 | level 8 `deflate_slow` takes a match at or after `strstart` (levels 5 then 8 after `Z_FULL_FLUSH`): the wrapped distance makes `d_code` read far outside `dist_code` (AddressSanitizer), and without a sanitizer the stream decodes to wrong data |
-| `gzdirect-pending-skip` | 0020 | `gzseek` to `INT64_MAX`, `gzdirect`, `gzgetc`, `gztell` on a file that is not gzip: signed overflow of `x.pos + skip` in `gztell64` |
-| `gzgets-pending-skip` | 0021 | `gzseek` to `INT64_MAX` and `gzdirect` on a file of 3 bytes that is not gzip, the file grows, then `gzgets` and `gztell`: signed overflow of `x.pos + skip` in `gztell64` |
-| `gzwrite-zero-retry` | 0022 | on a transparent writer whose descriptor is a full non-blocking pipe: `gzseek` to `INT64_MAX`, a failed `gzwrite`, `gztell`: signed overflow of `x.pos + skip` in `gztell64` (run `max`); `gzseek` to 10000, a failed `gzwrite`, the pipe drained, `gzclearerr`, `gzwrite` again: 14099 bytes in the file and `gztell` 14099 instead of 10003 (run `retry`) |
+The evidence column labels what a case shows. **Public API**: the case makes documented calls only and the defect is
+seen on the run (a sanitizer report, or a wrong result). **Letter of the standard**: the case makes documented calls
+only, but no sanitizer reports the undefined behaviour and nothing misbehaves; the case then only checks that the
+calls run alike with and without the patch, and the defect rests on the wording of ISO C17 (and, for the findings, on a
+traced run). **White-box**: a test that sets the library's internal state itself. No case here is white-box: none
+includes an internal header or touches `strm->state` or the `gz_state`; failures and devices come from ordinary
+descriptors, or, for `gzread-position-overflow` on a host that is not Linux, from an `lseek` that answers as Linux's
+`/dev/zero` does. A sanitizer report of the pointer-pair check (0003, 0007) is a report of undefined behaviour by the
+letter of the standard that misbehaves on no flat-memory target.
 
-Every case above uses documented calls only (**public API**); none sets the library's internal state itself
-(**white-box**). Their failures and devices come from ordinary descriptors, or, for `gzread-position-overflow` on a
-host that is not Linux, from an `lseek` that answers as Linux's `/dev/zero` does.
+| Case | Patch | Defect shown without the patch | Evidence |
+| --- | --- | --- | --- |
+| `inflate-copy-pointer-equality` | 0003 | invalid pointer pair in `inflateCopy` | public API (pointer-pair check) |
+| `gzseek-offset-overflow` | 0004 | signed overflow in `gzseek64` | public API; the `x.next + 0` that 0004 also removes is letter of the standard and not shown |
+| `deflatebound-gzip-extra-length` | 0006 | `deflateBound` too small for a gzip extra field with `extra_len > 0xffff` | public API (wrong result) |
+| `inflate-window-copy` | 0007 | invalid pointer pair (window vs output) in `chunkcopy_safe` | public API (pointer-pair check) |
+| `infback-window-overlap` | 0007 | none: upstream is clean here; the case checks that `inflateBack`, whose output is the window, decodes matches into the previous window pass alike with and without the patch | public API (no defect: same results) |
+| `inflatesync-null-next-in` | 0008 | none observable: `NULL + 0` is not reported by any sanitizer; the case checks the calls run alike | letter of the standard |
+| `inflatesetdictionary-null` | 0009 | `memcpy` from `NULL` (UBSan, where the C library declares `memcpy`'s arguments nonnull, as glibc does) or `inflateSetDictionary(strm, NULL, 0)` returning `Z_OK` instead of `Z_STREAM_ERROR` | public API (UBSan with GCC and clang on glibc; wrong result elsewhere) |
+| `inflate-fast-primed-bits` | 0010 | after `inflatePrime`, `inflate` returns with `avail_in` larger than the caller gave (`next_in` before the buffer) | public API (wrong result) |
+| `inflate-shared-header-extra` | 0011 | heap buffer overflow in `inflate` (state `EXTRA`) when two streams share one `gz_header` | public API |
+| `longest-match-offset-base` | 0012 | none observable: forming `window - match_offset` is not reported by any sanitizer; the case checks that level 9 `deflate` gives the same output with and without the patch | letter of the standard |
+| `deflate-medium-insert-count` | 0013 | division by zero in `insert_knuth_stepped` after `deflateTune` with `max_lazy = INT_MIN` (level 4) | public API |
+| `gzwrite-clearerr-stale-input` | 0014 | invalid pointer pair (heap buffer overflow without the pair check) in `gz_write` after a failed direct `gzwrite` and `gzclearerr` | public API |
+| `gzclose-after-failed-write` | 0014 | heap use after free: `gzclose` writes from the caller's freed buffer after a failed direct `gzwrite` | public API |
+| `gzbuffer-alloc-null-offset` | 0015 | `NULL` plus an offset in `gz_buffer_alloc` when the allocation fails: clang's UBSan only (see below) | public API (clang only) |
+| `gzread-position-overflow` | 0016 | signed overflow of `x.pos` in `gz_read` after `gzseek` to `INT64_MAX` on a descriptor that keeps delivering data | public API |
+| `fixed-block-start-overflow` | 0018 | signed overflow of `block_start` in `fill_window` after `2^31` bytes of one `Z_FIXED` level-1 stream (about 20 s) | public API |
+| `deflate-slow-match-start` | 0019 | level 8 `deflate_slow` takes a match at or after `strstart` (levels 5 then 8 after `Z_FULL_FLUSH`): the wrapped distance makes `d_code` read far outside `dist_code` (AddressSanitizer), and without a sanitizer the stream decodes to wrong data | public API |
+| `gzdirect-pending-skip` | 0020 | `gzseek` to `INT64_MAX`, `gzdirect`, `gzgetc`, `gztell` on a file that is not gzip: signed overflow of `x.pos + skip` in `gztell64` | public API |
+| `gzgets-pending-skip` | 0021 | `gzseek` to `INT64_MAX` and `gzdirect` on a file of 3 bytes that is not gzip, the file grows, then `gzgets` and `gztell`: signed overflow of `x.pos + skip` in `gztell64` | public API (the file grows between two calls) |
+| `gzwrite-zero-retry` | 0022 | on a transparent writer whose descriptor is a full non-blocking pipe: `gzseek` to `INT64_MAX`, a failed `gzwrite`, `gztell`: signed overflow of `x.pos + skip` in `gztell64` (run `max`); `gzseek` to 10000, a failed `gzwrite`, the pipe drained, `gzclearerr`, `gzwrite` again: 14099 bytes in the file and `gztell` 14099 instead of 10003 (run `retry`) | public API |
+
+`gzbuffer-alloc-null-offset` (0015) shows its defect only with clang: GCC's UndefinedBehaviorSanitizer does not
+report `NULL` plus an offset, so a GCC build without the patch prints the patched result and shows nothing. The case
+runs on the default compiler's builds, where a GCC run prints a `NOT SHOWN` line instead of passing as a
+reproduction, and then on two builds made with clang, where the build without 0015 must report the offset. Without
+clang that part prints a `SKIPPED` line (and the final line names the case); when `CI` is set a missing clang fails
+the run. The CI job installs clang.
 
 Patch 0017 (the writers' position) has no case here: its defect needs `2^31 + 1` failing `gzfwrite` calls of
 `2^32 - 1` bytes, each followed by `gzclearerr` (about 7 minutes with UndefinedBehaviorSanitizer alone, more under
