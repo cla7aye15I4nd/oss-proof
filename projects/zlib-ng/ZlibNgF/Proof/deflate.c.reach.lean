@@ -80,7 +80,7 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateSetDict.setDict_inv FillFacts.windowFacts hv hd hnb
     rw [det e e0]
     have hs' := DeflateSide.setDict_side hv hsd hdr hd hnb e (DeflateSetDict.setDict_chain hv hd hnb e
-      (fun b st d hs hd => (hsd b st hs).2.2.2.2.2 d hd))
+      (fun b st d hs hd => (hsd b st hs).2.2.2.2.2.1 d hd))
     exact ⟨hi, by rw [← det e e0]; exact hs'⟩
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateDict.getDict_inv hasLen hv hd hnb
     rw [det e e0]
