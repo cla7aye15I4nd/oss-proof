@@ -5,3 +5,4 @@ Mozjpeg.Jdmaster.adaptCompLoop._unsafe_rec
 Mozjpeg.Jdmaster.downsampleCompLoop._unsafe_rec
 Mozjpeg.Jdmaster.selectIdctScale.go._unsafe_rec
 Mozjpeg.Jdmaster.setCompScaledSizes._unsafe_rec
+Mozjpeg.Jmemmgr.allocSlopRetry._unsafe_rec

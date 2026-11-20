@@ -784,7 +784,7 @@ private theorem finish_calc_dims_safety (h2 : C.Heap) (bdc bmas : Nat)
     have hvalid3 : ValidDecompDimsInput h3 (.ref (C.DecompRef.decomp bdc) 0) false := by
       obtain ⟨⟨_rc2, _dcs2, _dc2, _rm2, _mems2, _rmas2, _masters2, _ric2, _ics2, _rmrk2, _mrks2,
         _hc2', _hgdc2, _hszdc2, _hdc2, _herr2, _hm2, _hgm2, _hzm2, _hmas2, _hgmas2, _hzmas2,
-        _hin2, _hgin2, _hzin2, _hmrk2, _hgmrk2, _hzmrk2⟩,
+        _hin2, _hgin2, _hzin2, _hmrk2, _hgmrk2, _hzmrk2, _hpsz2, _hpd2⟩,
         _rc2', _dcs2', _dc2', _, _, _, _hc2'', _hgdc2', _, _hdc2',
         _, _, _, _, _, _, _, _, _, hcomp3⟩ := hvalid2
       have hdc2_same : _dc2 = dc1 := by
@@ -797,11 +797,13 @@ private theorem finish_calc_dims_safety (h2 : C.Heap) (bdc bmas : Nat)
         rw [hrc_eq] at _hgdc2'
         have hdcs_eq : _dcs2' = dcs2 := Option.some.inj (_hgdc2'.symm.trans hgetdc2)
         rw [_hdc2', hdcs_eq, ← hdc2_bang]
-      rw [hdc2_same] at _herr2 _hm2 _hin2 _hmrk2
+      rw [hdc2_same] at _herr2 _hm2 _hmas2 _hin2 _hmrk2
       rw [hdc2'_same] at hcomp3
+      have hrmas2_eq : _rmas2 = .master bmas := C.Ptr.ref.inj (_hmas2.symm.trans hmas1) |>.1
+      subst hrmas2_eq
       exact ⟨⟨.decomp bdc, dcs2.set! 0 dc3, dc3, _rm2, _mems2, .master bmas, masters, _ric2, _ics2, _rmrk2, _mrks2,
         rfl, hgetdc3, hszdc3, hdc3_bang.symm, _herr2, _hm2, _hgm2, _hzm2, hmas1, hgetmas1, hszmas,
-        _hin2, _hgin2, _hzin2, _hmrk2, _hgmrk2, _hzmrk2⟩,
+        _hin2, _hgin2, _hzin2, _hmrk2, _hgmrk2, _hzmrk2, _hpsz2, _hpd2⟩,
         .decomp bdc, dcs2.set! 0 dc3, dc3, .master bmas, masters, mst,
         rfl, hgetdc3, hszdc3, hdc3_bang.symm, hmas1, hgetmas1, hszmas, hmst, rfl,
         hnc, hdim, hmaxh, hmaxv, hcomp3⟩
@@ -852,26 +854,27 @@ private theorem finish_calc_dims_safety (h2 : C.Heap) (bdc bmas : Nat)
 
 theorem jpeg_calc_output_dimensions_safety : Goal.jpeg_calc_output_dimensions_safety := by
   intro h cinfo hvalid
-  obtain ⟨hcore, rc, dcs, dc, rmas, masters, mst,
+  obtain ⟨⟨_rc0, _dcs0, _dc0, rm, mems, _rmas0, _masters0, ric, ics, rmrk, mrks,
+    hc', hgetdc', hszdc', hdc', herrValid, hmem, hgetmem, hszmem, hmas0, _, _,
+    hin, hgetin, hszin, hmrk, hgetmrk, hszmrk, hpsz, hpd⟩,
+    rc, dcs, dc, rmas, masters, mst,
     hc, hgetdc, hszdc, hdc, hmas, hgetmas, hszmas, hmst, _,
     hnc, hdim, hmaxh, hmaxv, hcomp⟩ := hvalid
-  have hcore_copy := hcore
-  obtain ⟨_rc, _dcs, _dc, rm, mems, _rmas, _masters, ric, ics, rmrk, mrks,
-    hc', hgetdc', hszdc', hdc', herrValid, hmem, hgetmem, hszmem, _, _, _,
-    hin, hgetin, hszin, hmrk, hgetmrk, hszmrk⟩ := hcore_copy
-  have hdc_same : _dc = dc := by
-    have hrc_eq : _rc = rc := C.Ptr.ref.inj (hc'.symm.trans hc) |>.1
+  have hdc_same : _dc0 = dc := by
+    have hrc_eq : _rc0 = rc := C.Ptr.ref.inj (hc'.symm.trans hc) |>.1
     rw [hrc_eq] at hgetdc'
-    have hdcs_eq : _dcs = dcs := Option.some.inj (hgetdc'.symm.trans hgetdc)
+    have hdcs_eq : _dcs0 = dcs := Option.some.inj (hgetdc'.symm.trans hgetdc)
     rw [hdc', hdcs_eq, ← hdc]
+  rw [hdc_same] at herrValid hmem hmas0 hin hmrk
   obtain ⟨rerr, errs, herr, hgeterr, hszerr⟩ := herrValid
-  rw [hdc_same] at herr hmem hin hmrk
   obtain ⟨rcomp, comps, hci, hgetcomp, hszcomp, hsamp⟩ := hcomp
   subst hc
   cases rc with | decomp bdc =>
   cases rerr with | err berr =>
   cases rmas with | master bmas =>
   cases rcomp with | comp bcomp =>
+  have hrmas0_eq : _rmas0 = .master bmas := C.Ptr.ref.inj (hmas0.symm.trans hmas) |>.1
+  subst hrmas0_eq
   have hdc0 : dcs[0] = dc := by rw [← getElem!_pos dcs 0 hszdc]; exact hdc.symm
   have hmst0 : masters[0] = mst := by rw [← getElem!_pos masters 0 hszmas]; exact hmst.symm
   unfold jpeg_calc_output_dimensions Mozjpeg.JerrorH.errexit1
@@ -979,7 +982,7 @@ theorem jpeg_calc_output_dimensions_safety : Goal.jpeg_calc_output_dimensions_sa
           hci1, hgetcomp1, hsz1, rfl, rfl, rfl, rfl, rfl, fun _ => ?_, hsamp1'⟩
         · refine ⟨⟨.decomp bdc, dcs.set! 0 dc1, dc1, rm, mems, .master bmas, masters, ric, ics, rmrk, mrks,
             rfl, hgetdc1, hszdc1a, hdc1_bang.symm, ⟨.err berr, errs, herr, hgeterr, hszerr⟩, hmem, hgetmem, hszmem, hmas, hgetmas, hszmas,
-            hin, hgetin, hszin, hmrk, hgetmrk, hszmrk⟩,
+            hin, hgetin, hszin, hmrk, hgetmrk, hszmrk, hpsz, hpd⟩,
             .decomp bdc, dcs.set! 0 dc1, dc1, .master bmas, masters, mst,
             rfl, hgetdc1, hszdc1a, hdc1_bang.symm, hmas, hgetmas, hszmas, hmst, rfl,
             by rw [hdc1_nc]; exact hnc, hdim, hmaxh, hmaxv,
@@ -1002,7 +1005,7 @@ theorem jpeg_calc_output_dimensions_safety : Goal.jpeg_calc_output_dimensions_sa
           hci, hgetcomp, rfl, rfl, rfl, rfl, rfl, rfl, fun h0 => False.elim (hll (beq_iff_eq.mpr h0)), hsamp⟩
         exact ⟨⟨.decomp bdc, dcs.set! 0 dc1, dc1, rm, mems, .master bmas, masters, ric, ics, rmrk, mrks,
           rfl, hgetdc1, hszdc1, hdc1_bang.symm, ⟨.err berr, errs, herr, hgeterr, hszerr⟩, hmem, hgetmem, hszmem, rfl, hgetmas, hszmas,
-          hin, hgetin, hszin, hmrk, hgetmrk, hszmrk⟩,
+          hin, hgetin, hszin, hmrk, hgetmrk, hszmrk, hpsz, hpd⟩,
           .decomp bdc, dcs.set! 0 dc1, dc1, .master bmas, masters, mst,
           rfl, hgetdc1, hszdc1, hdc1_bang.symm, rfl, hgetmas, hszmas, hmst, rfl,
           hnc, hdim, hmaxh, hmaxv, .comp bcomp, comps, hci, hgetcomp, hszcomp, hsamp⟩
@@ -1047,17 +1050,19 @@ theorem jpeg_calc_output_dimensions_safety : Goal.jpeg_calc_output_dimensions_sa
       have hvalid2 : ValidDecompDimsInput h2 (.ref (C.DecompRef.decomp bdc) 0) false := by
         obtain ⟨⟨_rc1, _dcs1, _dc1, _rm1, _mems1, _rmas1, _masters1, _ric1, _ics1, _rmrk1, _mrks1,
           _hc1', _hgdc1, _hszdc1, _hdc1, _herr1, _hm1, _hgm1, _hzm1, _hmas1, _hgmas1, _hzmas1,
-          _hin1, _hgin1, _hzin1, _hmrk1, _hgmrk1, _hzmrk1⟩,
+          _hin1, _hgin1, _hzin1, _hmrk1, _hgmrk1, _hzmrk1, _hpsz1, _hpd1⟩,
           _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _⟩ := hvalid1
         have hdc1_same : _dc1 = dc1 := by
           have hrc_eq : _rc1 = .decomp bdc := C.Ptr.ref.inj _hc1'.symm |>.1
           rw [hrc_eq] at _hgdc1
           have hdcs_eq : _dcs1 = dcs1 := Option.some.inj (_hgdc1.symm.trans hgetdc1)
           rw [_hdc1, hdcs_eq, ← hdc1]
-        rw [hdc1_same] at _herr1 _hm1 _hin1 _hmrk1
+        rw [hdc1_same] at _herr1 _hm1 _hmas1 _hin1 _hmrk1
+        have hrmas1_eq : _rmas1 = .master bmas := C.Ptr.ref.inj (_hmas1.symm.trans hmas1) |>.1
+        subst hrmas1_eq
         exact ⟨⟨.decomp bdc, dcs1, dc1, _rm1, _mems1, .master bmas, masters, _ric1, _ics1, _rmrk1, _mrks1,
           rfl, hgetdc1, hszdc1, hdc1, _herr1, _hm1, _hgm1, _hzm1, hmas1, hgetmas1, hszmas,
-          _hin1, _hgin1, _hzin1, _hmrk1, _hgmrk1, _hzmrk1⟩,
+          _hin1, _hgin1, _hzin1, _hmrk1, _hgmrk1, _hzmrk1, _hpsz1, _hpd1⟩,
           .decomp bdc, dcs1, dc1, .master bmas, masters, mst,
           rfl, hgetdc1, hszdc1, hdc1, hmas1, hgetmas1, hszmas, hmst, rfl,
           by rw [hnc1]; exact hnc, by rw [hw1, hh1]; exact hdim,
@@ -1245,7 +1250,8 @@ theorem jpeg_calc_output_dimensions_shrink_nonvacuous :
   have hvalid : ValidDecompDimsInput h (.ref (.decomp 0) 0) false := by
     refine ⟨⟨.decomp 0, dcs, dc, .mem 0, #[{}], .master 0, masters, .inputctl 0, #[{}], .marker 0, #[{}],
       rfl, rfl, (by decide), rfl, ⟨.err 0, #[{}], rfl, rfl, (by decide)⟩,
-      rfl, rfl, (by decide), rfl, rfl, (by decide), rfl, rfl, (by decide), rfl, rfl, (by decide)⟩,
+      rfl, rfl, (by decide), rfl, rfl, (by decide), rfl, rfl, (by decide), rfl, rfl, (by decide),
+      (by decide), (fun _ _ => by simp)⟩,
       .decomp 0, dcs, dc, .master 0, masters, mst,
       rfl, rfl, (by decide), rfl, rfl, rfl, (by decide), rfl, rfl,
       (by decide), (by decide), (by decide), (by decide),
@@ -1342,7 +1348,8 @@ theorem jpeg_calc_output_dimensions_shrink_nonvacuous :
   have hvalid2 : ValidDecompDimsInput h2 (.ref (.decomp 0) 0) false := by
     refine ⟨⟨.decomp 0, dcs.set! 0 dc1, dc1, .mem 0, #[{}], .master 0, masters, .inputctl 0, #[{}], .marker 0, #[{}],
       rfl, hgetdc2, hszdc1a, hdc1_bang, ⟨.err 0, #[{}], rfl, rfl, (by decide)⟩,
-      rfl, rfl, (by decide), rfl, hgetmas2, (by decide), rfl, rfl, (by decide), rfl, rfl, (by decide)⟩,
+      rfl, rfl, (by decide), rfl, hgetmas2, (by decide), rfl, rfl, (by decide), rfl, rfl, (by decide),
+      (by decide), (fun _ _ => by simp)⟩,
       .decomp 0, dcs.set! 0 dc1, dc1, .master 0, masters, mst,
       rfl, hgetdc2, hszdc1a, hdc1_bang, rfl, hgetmas2, (by decide), rfl, rfl,
       (by decide), (by decide), (by decide), (by decide),

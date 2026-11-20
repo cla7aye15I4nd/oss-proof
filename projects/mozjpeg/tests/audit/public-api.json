@@ -24,9 +24,15 @@
     },
     {
       "function": "jpeg_CreateDecompress",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 decompression setup is not done yet: pool/memory manager initialization (jdapimin.c, jmemmgr.c, jmemnobs.c) is not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_CreateDecompress",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_safety",
+      "other_goals": [
+        "MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_destroy_no_leak",
+        "MozjpegF.Spec.Functional.Goal.jpeg_CreateDecompress_establishes_valid"
+      ]
     },
     {
       "function": "jpeg_destroy_compress",
@@ -62,9 +68,14 @@
     },
     {
       "function": "jpeg_mem_src",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 memory source setup is not done yet: jdatasrc.c is not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdatasrc.c.lean",
+      "implementation": "Mozjpeg.Jdatasrc.jpeg_mem_src",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_mem_src_safety",
+      "other_goals": [
+        "MozjpegF.Spec.Functional.Goal.jpeg_mem_src_functional"
+      ]
     },
     {
       "function": "jpeg_set_defaults",
@@ -230,9 +241,11 @@
     },
     {
       "function": "jpeg_read_header",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 JPEG header parsing is not done yet: jdapimin.c (jpeg_read_header), jdinput.c, and jdmarker.c marker readers are not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_read_header",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety"
     },
     {
       "function": "jpeg_start_decompress",
@@ -284,9 +297,11 @@
     },
     {
       "function": "jpeg_finish_decompress",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 decompression teardown finish check is not done yet: jdapimin.c (jpeg_finish_decompress) is not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_finish_decompress",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety"
     },
     {
       "function": "jpeg_read_raw_data",
@@ -336,9 +351,11 @@
     },
     {
       "function": "jpeg_consume_input",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 incremental input consumption is not done yet: jdinput.c and jdmarker.c marker readers are not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_consume_input",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety"
     },
     {
       "function": "jpeg_core_output_dimensions",
@@ -426,9 +443,11 @@
     },
     {
       "function": "jpeg_resync_to_restart",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 restart-interval resynchronization is not done yet: jdmarker.c (jpeg_resync_to_restart) is not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdmarker.c.lean",
+      "implementation": "Mozjpeg.Jdmarker.jpeg_resync_to_restart",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_resync_to_restart_safety"
     },
     {
       "function": "jpeg_c_bool_param_supported",

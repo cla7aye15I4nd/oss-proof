@@ -20,6 +20,16 @@ root = "Driver.Jerror"
 srcDir = "lean"
 
 [[lean_exe]]
+name = "difftest_jdatasrc"
+root = "Driver.Jdatasrc"
+srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_jdapimin"
+root = "Driver.Jdapimin"
+srcDir = "lean"
+
+[[lean_exe]]
 name = "difftest_jdmarker"
 root = "Driver.Jdmarker"
 srcDir = "lean"

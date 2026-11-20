@@ -17,7 +17,10 @@ def DCTSIZE : Int32 := 8
 def DCTSIZE2 : Int32 := 64
 def NUM_QUANT_TBLS : Int32 := 4
 def NUM_HUFF_TBLS : Int32 := 4
+def NUM_ARITH_TBLS : Int32 := 16
+def MAX_COMPS_IN_SCAN : Int32 := 4
 def MAX_SAMP_FACTOR : Int32 := 4
+def D_MAX_BLOCKS_IN_MCU : Int32 := 10
 def JPEG_MAX_DIMENSION : Int64 := 65500
 
 def JPOOL_PERMANENT : Int32 := 0
@@ -25,8 +28,14 @@ def JPOOL_IMAGE : Int32 := 1
 def JPOOL_NUMPOOLS : Int32 := 2
 
 def JPEG_SUSPENDED : Int32 := 0
+def JPEG_REACHED_SOS : Int32 := 1
+def JPEG_REACHED_EOI : Int32 := 2
 def JPEG_HEADER_OK : Int32 := 1
 def JPEG_HEADER_TABLES_ONLY : Int32 := 2
+
+def JDCT_ISLOW : Int32 := 0
+def JDCT_DEFAULT : Int32 := JDCT_ISLOW
+def JDITHER_FS : Int32 := 2
 
 def JPEG_COM : Int32 := 0xfe
 def JPEG_APP0 : Int32 := 0xe0
@@ -62,5 +71,11 @@ def JCS_EXT_ARGB : Int32 := 15
 def JCS_RGB565 : Int32 := 16
 
 def sizeof_jpeg_marker_struct : Int64 := 32
+def sizeof_JQUANT_TBL : UInt64 := 132
+def sizeof_JHUFF_TBL : UInt64 := 280
+def sizeof_jpeg_component_info : UInt64 := 96
+def sizeof_jpeg_decompress_struct : UInt64 := 656
+def sizeof_my_decomp_master : UInt64 := 160
+def sizeof_jpeg_source_mgr : UInt64 := 56
 
 end Mozjpeg.JpeglibH

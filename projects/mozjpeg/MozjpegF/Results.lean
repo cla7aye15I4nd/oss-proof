@@ -17,29 +17,32 @@ def proved : List (Name × Name) := [
   (``MozjpegF.Spec.Safety.Goal.jpeg_std_error_nonvacuous, ``MozjpegF.Proof.Jerror.jpeg_std_error_nonvacuous),
   (``MozjpegF.Spec.Safety.Goal.jpeg_abort_safety, ``MozjpegF.Proof.Jdapimin.jpeg_abort_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_destroy_safety, ``MozjpegF.Proof.Jdapimin.jpeg_destroy_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_safety, ``MozjpegF.Proof.Jdapimin.jpeg_CreateDecompress_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_destroy_no_leak, ``MozjpegF.Proof.Jdapimin.jpeg_CreateDecompress_destroy_no_leak),
   (``MozjpegF.Spec.Safety.Goal.jpeg_abort_decompress_safety, ``MozjpegF.Proof.Jdapimin.jpeg_abort_decompress_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_destroy_decompress_safety, ``MozjpegF.Proof.Jdapimin.jpeg_destroy_decompress_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_mem_src_safety, ``MozjpegF.Proof.Jdatasrc.jpeg_mem_src_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_input_complete_safety, ``MozjpegF.Proof.Jdapimin.jpeg_input_complete_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_has_multiple_scans_safety, ``MozjpegF.Proof.Jdapimin.jpeg_has_multiple_scans_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_save_markers_safety, ``MozjpegF.Proof.Jdmarker.jpeg_save_markers_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_resync_to_restart_safety, ``MozjpegF.Proof.Jdmarker.jpeg_resync_to_restart_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety, ``MozjpegF.Proof.Jdapimin.jpeg_read_header_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety, ``MozjpegF.Proof.Jdapimin.jpeg_consume_input_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety, ``MozjpegF.Proof.Jdapimin.jpeg_finish_decompress_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_core_output_dimensions_safety, ``MozjpegF.Proof.Jdmaster.jpeg_core_output_dimensions_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_safety, ``MozjpegF.Proof.Jdmaster.jpeg_calc_output_dimensions_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_shrink_nonvacuous, ``MozjpegF.Proof.Jdmaster.jpeg_calc_output_dimensions_shrink_nonvacuous),
   (``MozjpegF.Spec.Functional.Goal.jdiv_round_up_functional, ``MozjpegF.Proof.Jutils.jdiv_round_up_functional),
   (``MozjpegF.Spec.Functional.Goal.jpeg_std_error_functional, ``MozjpegF.Proof.Jerror.jpeg_std_error_functional),
-  (``MozjpegF.Spec.Functional.Goal.jpeg_core_output_dimensions_shrink_functional, ``MozjpegF.Proof.Jdmaster.jpeg_core_output_dimensions_shrink_functional)
+  (``MozjpegF.Spec.Functional.Goal.jpeg_core_output_dimensions_shrink_functional, ``MozjpegF.Proof.Jdmaster.jpeg_core_output_dimensions_shrink_functional),
+  (``MozjpegF.Spec.Functional.Goal.jpeg_CreateDecompress_establishes_valid, ``MozjpegF.Proof.Jdapimin.jpeg_CreateDecompress_establishes_valid),
+  (``MozjpegF.Spec.Functional.Goal.jpeg_mem_src_functional, ``MozjpegF.Proof.Jdatasrc.jpeg_mem_src_functional)
 ]
 
 def notDone : List Name := [
-  ``MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_mem_src_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_resync_to_restart_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_start_decompress_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_read_scanlines_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_read_raw_data_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety
+  ``MozjpegF.Spec.Safety.Goal.jpeg_read_raw_data_safety
 ]
 
 def required : List Name := [
@@ -55,17 +58,26 @@ def required : List Name := [
   ``MozjpegF.Spec.Safety.Goal.jpeg_std_error_nonvacuous,
   ``MozjpegF.Spec.Safety.Goal.jpeg_abort_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_destroy_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_destroy_no_leak,
   ``MozjpegF.Spec.Safety.Goal.jpeg_abort_decompress_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_destroy_decompress_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_mem_src_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_input_complete_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_has_multiple_scans_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_save_markers_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_resync_to_restart_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_core_output_dimensions_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_shrink_nonvacuous,
   ``MozjpegF.Spec.Functional.Goal.jdiv_round_up_functional,
   ``MozjpegF.Spec.Functional.Goal.jpeg_std_error_functional,
-  ``MozjpegF.Spec.Functional.Goal.jpeg_core_output_dimensions_shrink_functional
+  ``MozjpegF.Spec.Functional.Goal.jpeg_core_output_dimensions_shrink_functional,
+  ``MozjpegF.Spec.Functional.Goal.jpeg_CreateDecompress_establishes_valid,
+  ``MozjpegF.Spec.Functional.Goal.jpeg_mem_src_functional
 ]
 
 #eval checkWith proved notDone required inLibrary
