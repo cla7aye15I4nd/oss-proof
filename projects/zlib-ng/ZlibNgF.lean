@@ -151,6 +151,7 @@ import ZlibNgF.Proof.«deflate_medium.c.base»
 import ZlibNgF.Proof.«deflate_medium.c.emit»
 import ZlibNgF.Proof.«deflate_medium.c.cont»
 import ZlibNgF.Proof.«deflate_medium.c.trip»
+import ZlibNgF.Proof.«deflate_medium.c.safety»
 import ZlibNgF.Proof.«slide_hash_c.c.safety»
 import ZlibNgF.Proof.«deflate_p.h.readbuf»
 import ZlibNgF.Math.WinMask
