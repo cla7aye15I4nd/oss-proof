@@ -1,4 +1,4 @@
-import ZlibNgF.Proof.«gzlib.c.error»
+import ZlibNgF.Proof.«gzread.c.look»
 
 /-!
 # `gz_error` on a write handle (`ZlibNgF`)
@@ -142,5 +142,73 @@ theorem gz_error_invW {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
       · simp [s', e'] at h3; omega
     · exact Or.inl (Or.inr h4)
     · exact Or.inr h5
+
+end ZlibNgF.Proof.GzMode
+
+namespace ZlibNgF.Proof.GzMode
+open C ZlibNgF.Spec ZlibNgF.Spec.Safety ZlibNg.Gz ZlibNgF.Proof.GzInv ZlibNgF.Proof.GzSat
+
+/-! ## `gz_buffer_alloc` on a write handle -/
+
+/-- The bytes of the buffers of a write handle: `2 * want` of `in` and `want` of `out` unless direct. -/
+def wBytes (s : GzState) : Nat := 2 * s.want.toNat + (if s.direct ≠ 0 then 0 else s.want.toNat)
+
+/-- The state after a successful `gz_buffer_alloc` on a write handle into the block `c` at offset `o`. -/
+def baStW (s : GzState) (c o : Nat) : GzState :=
+  { s with buffers := .val (.ref (.heap c) o), «in» := .val (.ref (.heap c) o),
+           out := if s.direct ≠ 0 then s.out else .val (.ref (.heap c) (o + 2 * s.want.toNat)), size := s.want }
+
+theorem wsize_eq {s : GzState} (hw : s.want.toNat ≤ 2 ^ 30) :
+    (s.want * 2 + (if s.direct ≠ 0 then 0 else s.want)).toNat = wBytes s := by
+  unfold wBytes
+  by_cases hd : s.direct ≠ 0
+  · simp only [hd, ite_true, UInt32.add_zero, ne_eq, not_false_eq_true]
+    rw [UInt32.toNat_mul]; simp; omega
+  · simp only [hd, ite_false]
+    rw [UInt32.toNat_add, UInt32.toNat_mul]; simp; omega
+
+theorem gz_buffer_alloc_okW {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (hwm : s.mode = GZ_WRITE) (hlo : 8 ≤ s.want.toNat) (hw : s.want.toNat ≤ 2 ^ 30)
+    (hfr : h.bytes h.nextBlk = none) (hok : h.allocOk h.nalloc = true) :
+    gz_buffer_alloc (some b) w h =
+      .ok ((0, { w with gzs := upd w.gzs b (some (baStW s h.nextBlk (alOff (h.baseAddr (.heap h.nextBlk))))) }),
+        alH h (8 + wBytes s + 64) (alOff (h.baseAddr (.heap h.nextBlk)))) := by
+  obtain ⟨d, hd⟩ := gz_live hs
+  have hbn : b ≠ h.nextBlk := fun e => by rw [e, hfr] at hd; cases hd
+  have h3 := wsize_eq (s := s) hw
+  have hwb : wBytes s ≤ 3 * 2 ^ 30 := by unfold wBytes; split <;> omega
+  have hal := alloc_aligned_ok (h := h) (s.want * 2 + (if s.direct ≠ 0 then 0 else s.want)) (by rw [h3]; omega) hok
+  rw [h3] at hal
+  generalize hO : alOff (h.baseAddr (.heap h.nextBlk)) = o at hal ⊢
+  have ho := alOff_bounds (h.baseAddr (.heap h.nextBlk))
+  rw [hO] at ho
+  generalize hH : alH h (8 + wBytes s + 64) o = H at hal ⊢
+  have hdA : H.bytes b = some d := by rw [← hH]; simp [alH, upd_ne _ _ _ _ hbn, hd]
+  have hcA : H.bytes h.nextBlk = some (Array.ofFn (n := 8 + wBytes s + 64)
+      fun i => Junk.of (h.garbage h.nalloc i.val)) := by rw [← hH]; simp [alH]
+  have hsA : w.gz H b = some s := by
+    unfold World.gz at hs ⊢; rw [hdA]; rw [hd] at hs; exact hs
+  have hw2 : (s.want * 2).toNat = 2 * s.want.toNat := by rw [UInt32.toNat_mul]; simp; omega
+  have hk2 : ((s.want.toNat : Int) * 2 % 4294967296) = ((2 * s.want.toNat : Nat) : Int) := by omega
+  have hadd : s.direct = 0 → Ptr.add (.ref (.heap h.nextBlk) o : BPtr) (2 * (s.want.toNat : Int)) H =
+      .ok (.ref (.heap h.nextBlk) (o + 2 * s.want.toNat), H) := by
+    intro hdir
+    have hk : (2 * (s.want.toNat : Int)) = ((2 * s.want.toNat : Nat) : Int) := by omega
+    rw [hk]
+    have hg : Space.get H (BRef.heap h.nextBlk) = some (Array.ofFn (n := 8 + wBytes s + 64)
+        fun i => Junk.of (h.garbage h.nalloc i.val)) := hcA
+    have hwb' : wBytes s = 3 * s.want.toNat := by unfold wBytes; simp [hdir]; omega
+    have := Inftrees.add_ok (r := BRef.heap h.nextBlk) (off := o) (k := ((2 * s.want.toNat : Nat) : Int)) (h := H) hg
+      (by rw [Array.size_ofFn]; omega) (by omega) (by rw [Array.size_ofFn]; omega)
+    rw [this]; congr 3; try omega
+  by_cases hdir : s.direct = 0
+  · have hm : ¬ (s.want = 0) := by
+      intro e; have := congrArg UInt32.toNat e; simp at this; omega
+    simp only [hdir, ne_eq, not_true_eq_false, ite_false] at hal
+    simp [gz_buffer_alloc, rdG_app' hs, hwm, GZ_READ, GZ_WRITE, hal, wrG_app hsA, ldGz_upd hdA, wrG_upd hdA,
+      rdG_upd hdA, Ival.get, liftM, monadLift, MonadLift.monadLift, hk2, hadd hdir, hdir, hm, InflateInv.upd_upd, baStW]
+  · simp only [hdir, ne_eq, not_false_eq_true, ite_true, UInt32.add_zero] at hal
+    simp [gz_buffer_alloc, rdG_app' hs, hwm, GZ_READ, GZ_WRITE, hal, wrG_app hsA, ldGz_upd hdA, wrG_upd hdA,
+      rdG_upd hdA, Ival.get, liftM, monadLift, MonadLift.monadLift, hdir, InflateInv.upd_upd, baStW]
 
 end ZlibNgF.Proof.GzMode

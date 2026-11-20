@@ -116,9 +116,11 @@ structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop wh
 structure GzWrite (h : Heap) (s : GzState) : Prop where
   bufs : s.size ≠ 0 → ∃ c base z, GzBufs h s c base ∧ h.streams s.strm = some z ∧ GzWBuf h s c base z
   /-- before the buffers exist there is no input (`gz_reset`), and the stream is ready for `deflateInit2` (the default
-  allocator: `gz_state_init` sets `zalloc` and `zfree` to `NULL`, a failed `deflateInit2` to `zcalloc` / `zcfree`) -/
+  allocator: `gz_state_init` sets `zalloc` and `zfree` to `NULL`, a failed `deflateInit2` to `zcalloc` / `zcfree`); a
+  direct file has no deflate state -/
   nobuf : s.size = 0 → ∃ z, h.streams s.strm = some z ∧ z.avail_in = 0 ∧
-    (z.zalloc = .null ∨ z.zalloc = .zcalloc) ∧ (z.zfree = .null ∨ z.zfree = .zcfree)
+    (z.zalloc = .null ∨ z.zalloc = .zcalloc) ∧ (z.zfree = .null ∨ z.zfree = .zcfree) ∧
+    (s.direct ≠ 0 → z.state = none)
   /-- no output is buffered for reading (`gz_reset`; only `gz_error` changes `x.have` on a write handle) -/
   have0 : s.«have» = 0
 

@@ -456,7 +456,7 @@ theorem shape_congr {h : Heap} {s s' : GzState} (sh : GzShape h s) (a : Agree s 
     · rw [a.inS]; exact hai
     · rw [a.strm]; exact hreg
   · have Wr := sh.write (by rw [← a.mode]; exact hw)
-    refine ⟨fun hsz => ?_, fun hz0 => by rw [a.strm]; exact Wr.nobuf (by rw [← a.size]; exact hz0),
+    refine ⟨fun hsz => ?_, fun hz0 => by rw [a.strm, a.direct]; exact Wr.nobuf (by rw [← a.size]; exact hz0),
       by rw [a.hv]; exact Wr.have0⟩
     obtain ⟨c, base, z, hb, hz, W⟩ := Wr.bufs (by rw [← a.size]; exact hsz)
     refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hz, ⟨?_, W.nohdr, ?_, by rw [a.direct]; exact W.nostate, ?_⟩⟩

@@ -832,7 +832,8 @@ theorem finish_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
       fun _ => ⟨fun e => absurd hsz0 e, fun _ => by
           obtain ⟨z, hz⟩ := o'.wf.2.2.2.2.1 b st' hst'
           have hz' : H'.streams i = some z := by rw [hstm, t.p0.strm] at hz; exact hz
-          exact ⟨z, hz, hav z hz', Or.inl (o'.snone z hz').2.1, Or.inl (o'.snone z hz').2.2⟩,
+          exact ⟨z, hz, hav z hz', Or.inl (o'.snone z hz').2.1, Or.inl (o'.snone z hz').2.2,
+            fun _ => (o'.snone z hz').1⟩,
         hhv⟩, fun _ c hc => by
         rw [hbu, t.p0.buffers] at hc
         obtain ⟨z, hz⟩ := o'.wf.2.2.2.2.1 b st' hst'
