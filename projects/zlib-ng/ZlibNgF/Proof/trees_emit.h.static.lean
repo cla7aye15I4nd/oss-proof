@@ -87,13 +87,24 @@ theorem memcpy_SH {od os n : Nat} (h1 : od + n ≤ d.size) (hdis : os + n ≤ od
   rw [ChunkMem.modify_heap _ _ d (SH_bytes H i z b st d), InflateDict.memcpy_loop]
   simp [SH, InflateInv.upd_upd]
 
-theorem stored_block_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
+/-- What `zng_tr_stored_block` leaves: the bit buffer empty, the header bits and the padding up to the byte boundary
+(`np2` pending bytes, at most 10 bits more than before), then `LEN` and `NLEN` at `pbo + np2 .. pbo + np2 + 4` and the
+`len` data bytes: `pending = np2 + 4 + len`; the bytes changed only after the pending bytes of `st`. -/
+def StoredPost (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8) (pbo : Nat)
+    (len : UInt32) (H' : Heap) : Prop :=
+  ∃ (np2 pend : UInt32) (bu : Int32) (d' : Array UInt8),
+    H' = SH H i z b { st with pending := pend, bi_used := bu, bi_buf := 0, bi_valid := 0 } d' ∧
+    pend.toNat = np2.toNat + 4 + len.toNat ∧ st.pending.toNat ≤ np2.toNat ∧
+    np2.toNat * 8 ≤ st.pending.toNat * 8 + st.bi_valid.toInt.toNat + 10 ∧
+    WrIn d (pbo + st.pending.toNat) (pbo + pend.toNat) d'
+
+theorem stored_block_X_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
     (h64 : st.bi_valid.toInt < 64) (buf : BPtr) (len : UInt32)
     (hbuf : (buf = .null ∧ len = 0) ∨ ∃ os, buf = .ref (.heap b) os ∧ os + len.toNat ≤ pbo)
     (hroom : pbo + st.pending.toNat + len.toNat + 16 ≤ d.size) (hp : st.pending.toNat + len.toNat + 64 < 2 ^ 32)
     (last : Int32) :
     Sat (SH H i z b st d) (ZlibNg.Trees.zng_tr_stored_block (some b) buf len last)
-      (fun _ H' => EPost H i z b st d pbo (storedRoom st len) H') := by
+      (fun _ H' => StoredPost H i z b st d pbo len H') := by
   have hsr : storedRoom st len = len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 := rfl
   unfold ZlibNg.Trees.zng_tr_stored_block
   have hl := last.toInt_lt
@@ -129,9 +140,7 @@ theorem stored_block_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b)
   · subst hz
     have hc : ¬ ((0 : UInt32) != 0) = true := by decide
     rw [ite_f hc]
-    refine Sat.pure ⟨_, d4, rfl, by dsimp only; rw [hp4]; exact w14, rfl, rfl, by dsimp only; omega,
-      by dsimp only; rw [hp4, hz0, hsr, UInt32.toNat_zero]; omega,
-      show 0 ≤ (0 : Int32).toInt by decide, show (0 : Int32).toInt < 64 by decide⟩
+    exact Sat.pure ⟨np2, _, bu, d4, rfl, by rw [hp4]; rfl, Nat.le_trans hle1 hle2, hb2, by rw [hp4]; exact w14⟩
   · have hc : (len != 0) = true := by simpa using hz
     simp only [hc, ↓reduceIte]
     have hl0 : len.toNat ≠ 0 := fun e => hz (UInt32.toNat_inj.mp (by rw [e]; rfl))
@@ -151,9 +160,21 @@ theorem stored_block_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b)
     have wc := copy_wrin d4 (pbo + (np2 + 2 + 2).toNat) os len.toNat
     have w15 : WrIn d (pbo + st.pending.toNat) (pbo + (np2.toNat + 4 + len.toNat)) _ :=
       WrIn.cat w14 (wc.widen (by omega) (by omega)) (by omega) (by omega)
-    refine ⟨_, _, rfl, by dsimp only; rw [hp5]; exact w15, rfl, rfl, by dsimp only; omega,
-      by dsimp only; rw [hp5, hz0, hsr]; omega, show 0 ≤ (0 : Int32).toInt by decide,
-      show (0 : Int32).toInt < 64 by decide⟩
+    exact ⟨np2, _, bu, _, rfl, hp5, Nat.le_trans hle1 hle2, hb2, by rw [hp5]; exact w15⟩
+
+theorem stored_block_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
+    (h64 : st.bi_valid.toInt < 64) (buf : BPtr) (len : UInt32)
+    (hbuf : (buf = .null ∧ len = 0) ∨ ∃ os, buf = .ref (.heap b) os ∧ os + len.toNat ≤ pbo)
+    (hroom : pbo + st.pending.toNat + len.toNat + 16 ≤ d.size) (hp : st.pending.toNat + len.toNat + 64 < 2 ^ 32)
+    (last : Int32) :
+    Sat (SH H i z b st d) (ZlibNg.Trees.zng_tr_stored_block (some b) buf len last)
+      (fun _ H' => EPost H i z b st d pbo (storedRoom st len) H') := by
+  have hsr : storedRoom st len = len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 := rfl
+  have hz0 : (0 : Int32).toInt.toNat = 0 := rfl
+  refine Sat.mono (stored_block_X_SH hpb h0 h64 buf len hbuf hroom hp last) ?_
+  rintro _ _ ⟨np2, pend, bu, d', rfl, hpe, hle, hb2, w⟩
+  exact ⟨_, d', rfl, w, rfl, rfl, by dsimp only; omega, by dsimp only; rw [hz0, hsr]; omega,
+    show 0 ≤ (0 : Int32).toInt by decide, show (0 : Int32).toInt < 64 by decide⟩
 
 end
 
