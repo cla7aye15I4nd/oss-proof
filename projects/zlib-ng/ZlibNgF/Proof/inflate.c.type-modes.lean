@@ -86,7 +86,10 @@ theorem hcrcHead_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {
     dsimp (config := { zeta := false }) only
     split
     · exact bad_ok li1 (by rw [hleft]; omega) "header crc mismatch"
-        (strIdx 11 (by decide) (by decide) (by decide))
+        (strIdx 11 (by decide) (by decide) (by decide)) (fun h => h.mono rfl (FrS.no_bits (by
+          have h16' : (16 : UInt32).toNat ≤ l1.bits.toNat := h16
+          have e16 : (16 : UInt32).toNat = 16 := rfl
+          omega)))
     · refine SatX.bind (initbits_ok ?_)
       have e0 : (0 : UInt8).toNat = 0 := rfl
       exact hk _ _ _ (li1.setBits rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide)) rfl
@@ -167,7 +170,8 @@ theorem run_TYPE (E : Env) (hX : ModeRun E inflate_TYPEDO (fun S => S.mode = TYP
   split
   · rename_i h
     have h' : E.flush = Z_BLOCK ∨ E.flush = Z_TREES := by simpa [Env.c] using h
-    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, h'.elim Why.block Why.trees⟩)
+    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, h'.elim (fun h => Why.block h (li.frL (by rw [hm]; decide)))
+      (fun h => Why.trees h (li.frL (by rw [hm]; decide)))⟩)
   · exact hX l H z S li (Or.inr hm) m hμ
 
 theorem run_DICT (E : Env) (hX : ModeRun E inflate_TYPE (·.mode = TYPE)) :
@@ -180,9 +184,10 @@ theorem run_DICT (E : Env) (hX : ModeRun E inflate_TYPE (·.mode = TYPE)) :
   dsimp (config := { zeta := false }) only
   split
   · refine SatX.bind (SatX.mono li.restore ?_)
-    rintro r l1 H1 ⟨rfl, rfl, z1, S1, li1, -, hn, ha, hpo, hao⟩
+    rintro r l1 H1 ⟨rfl, rfl, z1, S1, li1, hm1, hn, ha, hpo, hao⟩
     exact SatX.bind (SatX.throw ⟨⟨li1.inv, li1.frame, _, _, li1.hz, li1.hb, li1.hs, li1.head⟩,
-      li1.ioAcc, Or.inl rfl⟩)
+      li1.ioAcc, Or.inl rfl, fun _ hf hA => ⟨_, li1.hz, by
+        rw [ha]; exact li1.frLt (FrS.no_mode (by rw [hm1, hm]; decide)) hf⟩⟩)
   · refine SatX.bind (SatX.lift (Sat.mono (li.wrS (fun s => { s with check := ADLER32_INITIAL_VALUE })
       (fun _ _ c => c) rfl) ?_))
     intro _ H1 li1
@@ -402,7 +407,8 @@ theorem run_TYPEDO (E : Env) (eo : EnvOK E) :
       split
       · rename_i h
         refine SatX.bind (dropbits_ok 2 (by decide) ?_)
-        exact SatX.throw ⟨⟨_, _, (e2 _ _ _ li5).1⟩, Why.trees (by simpa [Env.c] using h)⟩
+        exact SatX.throw ⟨⟨_, _, (e2 _ _ _ li5).1⟩, Why.trees (by simpa [Env.c] using h)
+          ((e2 _ _ _ li5).1.frL (by show LEN_ ≠ HEAD ∧ LEN_ ≠ TYPEDO; decide))⟩
       · exact fin _ _ _ li5
     split
     · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet TABLE (by decide) (by decide) (Or.inl (by decide))

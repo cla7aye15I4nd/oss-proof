@@ -1,0 +1,14 @@
+--- a/gzwrite.c
++++ b/gzwrite.c
+@@ -384,7 +384,11 @@
+        buffer is double-sized just for this function, so there is guaranteed to
+        be state->size bytes available after the current contents */
+     if (strm->avail_in == 0)
+         strm->next_in = state->in;
++    else if (strm->next_in != state->in) {
++        memmove(state->in, strm->next_in, strm->avail_in);
++        strm->next_in = state->in;
++    }
+     next = (char *)(state->in + (strm->next_in - state->in) + strm->avail_in);
+     next[state->size - 1] = 0;
+     len = vsnprintf(next, state->size, format, va);

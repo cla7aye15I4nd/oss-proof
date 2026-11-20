@@ -28,7 +28,8 @@ so that a proof about one function opens only the clauses it needs.
   it to `gz_error`); without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
   (`FreshStrm`) and `how` is `LOOK`; a pending skip and the bytes `gzungetc` pushed back
   after it keep `pos + skip + have ≤ GZ_OFF_MAX`; `pos + have ≤ GZ_OFF_MAX` (patch 0016), so that the `gzgetc()`
-  macro cannot overflow `pos`; while looking at the start of transparent-capable input, `pos + have ≤ 0`;
+  macro cannot overflow `pos`; while looking at the start of transparent-capable input, `pos + have ≤ 0`; a gzip
+  stream is not transparent; in `COPY` mode the input buffer is empty;
 * writing: `x.have` is 0; without buffers `avail_in` is 0; with buffers and not `direct`, the deflate stream has the
   deflate invariant and the between-call facts (`gz_write_init`), no `gz_header` registered, `next_out + avail_out`
   is the end of `out` and `x.next` lies in `out` at or before `next_out`; `avail_in` bytes from `next_in` lie inside
@@ -109,6 +110,9 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   /-- a gzip stream is never transparent (`gz_look` sets `direct = 0` with `how = GZIP`), so a gzip member that ends
   (`how` back to `LOOK`) does not look like the start of the input -/
   gzip_direct : s.how = GZIP → s.direct = 0
+  /-- in `COPY` mode the input buffer is empty: `gz_look` empties it when it switches to `COPY`, `gzseek64`'s seek on
+  the descriptor empties it, and only `gz_avail` (called from `gz_look` and `gz_decomp`, never in `COPY` mode) fills it -/
+  copy_in : s.how = COPY → ∀ z, h.streams s.strm = some z → z.avail_in = 0
 
 /-- The write buffers and the embedded stream `z` once the buffers exist (block `c`, `in` at `base`). -/
 structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop where

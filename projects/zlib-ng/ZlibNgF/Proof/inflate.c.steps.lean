@@ -223,22 +223,24 @@ theorem trip_of_modes {E : Env} (hm : ∀ M, ModeRun E (modeFn M) (fun S => S.mo
     show SatX H l (inflate_BAD E.c) (Post E (μ l S))
     unfold inflate_BAD
     refine SatX.bind (SatX.modify ?_)
-    exact SatX.throw ⟨⟨z, S, li.setRet Z_DATA_ERROR (by decide)⟩, Or.inl (show Z_DATA_ERROR ≠ Z_OK by decide)⟩
+    have li1 := li.setRet Z_DATA_ERROR (by decide)
+    exact SatX.throw ⟨⟨z, S, li1⟩, Why.ret (show Z_DATA_ERROR ≠ Z_OK by decide) (li1.frL (by rw [hm0]; decide))⟩
 
 /-! ## `BAD`, `DONE`, `SYNC` / `MEM` -/
 
-theorem run_BAD (E : Env) : ModeRun E inflate_BAD (fun _ => True) := by
-  intro l H z S li _ m _
+theorem run_BAD (E : Env) : ModeRun E inflate_BAD (·.mode = BAD) := by
+  intro l H z S li hm m _
   unfold inflate_BAD
   refine SatX.bind (SatX.modify ?_)
-  exact SatX.throw ⟨⟨z, S, li.setRet Z_DATA_ERROR (by decide)⟩, Or.inl (show Z_DATA_ERROR ≠ Z_OK by decide)⟩
+  have li1 := li.setRet Z_DATA_ERROR (by decide)
+  exact SatX.throw ⟨⟨z, S, li1⟩, Why.ret (show Z_DATA_ERROR ≠ Z_OK by decide) (li1.frL (by rw [hm]; decide))⟩
 
 theorem run_DONE (E : Env) : ModeRun E inflate_DONE (·.mode = DONE) := by
   intro l H z S li hm m _
   unfold inflate_DONE
   refine SatX.bind (SatX.modify ?_)
-  exact SatX.throw ⟨⟨z, S, li.setRet Z_STREAM_END (by decide) (fun h => h.mono rfl (FrS.no_mode (by rw [hm]; decide)))⟩,
-    Or.inl (show Z_STREAM_END ≠ Z_OK by decide)⟩
+  have li1 := li.setRet Z_STREAM_END (by decide) (fun h => h.mono rfl (FrS.no_mode (by rw [hm]; decide)))
+  exact SatX.throw ⟨⟨z, S, li1⟩, Why.ret (show Z_STREAM_END ≠ Z_OK by decide) (li1.frLEnd rfl)⟩
 
 /-- A mode value outside the cases of the `switch` (`SYNC`, `MEM`): `return Z_STREAM_ERROR`. -/
 theorem run_default (E : Env) (M : UInt32) (hM : M = SYNC ∨ M = 16210) :
@@ -247,7 +249,8 @@ theorem run_default (E : Env) (M : UInt32) (hM : M = SYNC ∨ M = 16210) :
   have e : modeFn M E.c = throw (Ex.ret Z_STREAM_ERROR) := by
     rcases hM with rfl | rfl <;> rfl
   rw [e]
-  exact SatX.throw ⟨⟨li.inv, li.frame, _, _, li.hz, li.hb, li.hs, li.head⟩, li.ioAcc, Or.inr rfl⟩
+  exact SatX.throw ⟨⟨li.inv, li.frame, _, _, li.hz, li.hb, li.hs, li.head⟩, li.ioAcc, Or.inr rfl,
+    fun e => absurd e (by decide)⟩
 
 /-! ## The input buffer -/
 
@@ -441,10 +444,11 @@ theorem strIdx {msg : String} (i : Nat) (hi : i < strTable.size) (he : (strTable
 
 /-- `SET_BAD(msg)` for a message of the string table. -/
 theorem LI.setBad {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
-    (msg : String) {i : Nat} (hm : strTable.findIdx? (· == msg) = some i) :
+    (msg : String) {i : Nat} (hm : strTable.findIdx? (· == msg) = some i)
+    (hfr : Fr E l S → Fr E l { S with mode := BAD } := by frt) :
     Sat H (SET_BAD E.c msg) (fun _ H' => ∃ z', LI E l H' z' { S with mode := BAD }) := by
   unfold SET_BAD
-  refine Sat.bind (Sat.mono (li.setQuiet BAD (by decide) (by decide) (Or.inr (by decide))) ?_)
+  refine Sat.bind (Sat.mono (li.setQuiet BAD (by decide) (by decide) (Or.inr (by decide)) (hfr := hfr)) ?_)
   intro _ H1 li1
   refine Sat.bind (Sat.of_eq (show strLitRef msg H1 = .ok (.ref (.str i) 0, H1) by simp [strLitRef, hm]) ?_)
   exact Sat.mono (li1.wrZio (fun z => { z with msg := .ref (.str i) 0 }) rfl rfl rfl li1.sacc

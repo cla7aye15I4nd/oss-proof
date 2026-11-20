@@ -128,9 +128,9 @@ def Fresh (E : Env) : Prop :=
   ∀ S0, E.H0.istate E.b = some S0 → (S0.mode = HEAD ∨ S0.mode = TYPEDO) ∧ S0.bits = 0 ∧ S0.last = 0
 
 /-- What a trip holds while it has read nothing of the input of a fresh call: no bits held, not the last block, the
-mode `HEAD`, `TYPEDO` or `BAD`, and `ret` not `Z_STREAM_END`. -/
+mode `HEAD` or `TYPEDO`, and `ret` not `Z_STREAM_END`. -/
 def FrS (l : IL) (S : InflateState) : Prop :=
-  l.bits = 0 ∧ S.last = 0 ∧ (S.mode = HEAD ∨ S.mode = TYPEDO ∨ S.mode = BAD) ∧ l.ret ≠ Z_STREAM_END
+  l.bits = 0 ∧ S.last = 0 ∧ (S.mode = HEAD ∨ S.mode = TYPEDO) ∧ l.ret ≠ Z_STREAM_END
 
 /-- A fresh call that has consumed no input holds `FrS`. -/
 def Fr (E : Env) (l : IL) (S : InflateState) : Prop := Fresh E → l.have_ = E.A0 → FrS l S
@@ -150,29 +150,27 @@ theorem Fr.lt {E : Env} {l : IL} {S : InflateState} (h : Fr E l S) (hle : l.have
     (hf : Fresh E) : l.have_ < E.A0 :=
   UInt32.lt_of_le_of_ne hle (fun e => hn (h hf e))
 
-theorem FrS.no_mode {l : IL} {S : InflateState} {P : Prop} (h : S.mode ≠ HEAD ∧ S.mode ≠ TYPEDO ∧ S.mode ≠ BAD) :
+theorem FrS.no_mode {l : IL} {S : InflateState} {P : Prop} (h : S.mode ≠ HEAD ∧ S.mode ≠ TYPEDO) :
     FrS l S → P := fun ⟨_, _, hm, _⟩ => by
-  rcases hm with e | e | e
+  rcases hm with e | e
   · exact absurd e h.1
-  · exact absurd e h.2.1
-  · exact absurd e h.2.2
+  · exact absurd e h.2
 
 theorem FrS.no_bits {l : IL} {S : InflateState} {P : Prop} (h : 0 < l.bits.toNat) : FrS l S → P :=
   fun ⟨hb, _⟩ => absurd h (by rw [hb]; decide)
 
 /-- A step that only lowers the bits (`DROPBITS`, `INITBITS`, `BYTEBITS`), keeps `last`, keeps the mode or goes to
-`TYPEDO` or `BAD`, and keeps `ret` or sets another code than `Z_STREAM_END`, keeps `FrS`. -/
+`TYPEDO`, and keeps `ret` or sets another code than `Z_STREAM_END`, keeps `FrS`. -/
 theorem FrS.keep {l l' : IL} {S S' : InflateState} (hb : l'.bits.toNat ≤ l.bits.toNat) (hl : S'.last = S.last)
-    (hm : S'.mode = S.mode ∨ S'.mode = TYPEDO ∨ S'.mode = BAD) (hr : l'.ret = l.ret ∨ l'.ret ≠ Z_STREAM_END) :
+    (hm : S'.mode = S.mode ∨ S'.mode = TYPEDO) (hr : l'.ret = l.ret ∨ l'.ret ≠ Z_STREAM_END) :
     FrS l S → FrS l' S' := fun ⟨a, b, c, d⟩ => by
   refine ⟨UInt8.toNat_inj.mp ?_, hl ▸ b, ?_, ?_⟩
   · have : l.bits.toNat = 0 := by rw [a]; rfl
     show l'.bits.toNat = 0
     omega
-  · rcases hm with e | e | e
+  · rcases hm with e | e
     · rw [e]; exact c
-    · exact Or.inr (Or.inl e)
-    · exact Or.inr (Or.inr e)
+    · exact Or.inr e
   · rcases hr with e | e
     · rw [e]; exact d
     · exact e
@@ -191,8 +189,7 @@ syntax "fr_mode" : tactic
 macro_rules
   | `(tactic| fr_mode) => `(tactic| first
       | exact Or.inl rfl
-      | exact Or.inr (Or.inl rfl)
-      | exact Or.inr (Or.inr rfl))
+      | exact Or.inr rfl)
 syntax "fr_ret" : tactic
 macro_rules
   | `(tactic| fr_ret) => `(tactic| first
@@ -289,19 +286,37 @@ theorem LIh.ioAcc {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
   · exact li.ioAcc
   · exact li.ioAcc
 
-/-- Why a trip went to `inf_leave`: `ret` was set, the input ran out or was read from, the output ran out (with `out`
-still the output count at entry), or `flush` asked to stop at a block boundary. -/
-def Why (E : Env) (l : IL) : Prop :=
-  l.ret ≠ Z_OK ∨ l.have_ = 0 ∨ l.have_ < E.A0 ∨ (l.left = 0 ∧ l.out = E.O0) ∨ E.flush = Z_BLOCK ∨
-    E.flush = Z_TREES
+/-- A fresh call that leaves without having consumed input had no input. -/
+def FrL (E : Env) (l : IL) : Prop := Fresh E → l.have_ = E.A0 → E.A0 = 0
 
-theorem Why.ret {E : Env} {l : IL} (h : l.ret ≠ Z_OK) : Why E l := Or.inl h
-theorem Why.have0 {E : Env} {l : IL} (h : l.have_ = 0) : Why E l := Or.inr (Or.inl h)
-theorem Why.read {E : Env} {l : IL} (h : l.have_ < E.A0) : Why E l := Or.inr (Or.inr (Or.inl h))
-theorem Why.full {E : Env} {l : IL} (h : l.left = 0) (h' : l.out = E.O0) : Why E l :=
-  Or.inr (Or.inr (Or.inr (Or.inl ⟨h, h'⟩)))
-theorem Why.block {E : Env} {l : IL} (h : E.flush = Z_BLOCK) : Why E l := Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h))))
-theorem Why.trees {E : Env} {l : IL} (h : E.flush = Z_TREES) : Why E l := Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h))))
+/-- In a mode other than `HEAD` and `TYPEDO`, a fresh call that has consumed no input had none. -/
+theorem LI.frL {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
+    (h : S.mode ≠ HEAD ∧ S.mode ≠ TYPEDO) : FrL E l :=
+  fun hf ha => FrS.no_mode h (li.fr hf ha)
+
+/-- With `ret` set to `Z_STREAM_END`, a fresh call that has consumed no input had none. -/
+theorem LI.frLEnd {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
+    (h : l.ret = Z_STREAM_END) : FrL E l :=
+  fun hf ha => absurd h (li.fr hf ha).2.2.2
+
+/-- Why a trip went to `inf_leave`: `ret` was set, the input ran out or was read from, the output ran out (with `out`
+still the output count at entry), or `flush` asked to stop at a block boundary; and a fresh call leaves only after
+consuming input, or without input (`FrL`). -/
+def Why (E : Env) (l : IL) : Prop :=
+  (l.ret ≠ Z_OK ∨ l.have_ = 0 ∨ l.have_ < E.A0 ∨ (l.left = 0 ∧ l.out = E.O0) ∨ E.flush = Z_BLOCK ∨
+    E.flush = Z_TREES) ∧ FrL E l
+
+theorem Why.ret {E : Env} {l : IL} (h : l.ret ≠ Z_OK) (hf : FrL E l) : Why E l := ⟨Or.inl h, hf⟩
+theorem Why.have0 {E : Env} {l : IL} (h : l.have_ = 0) : Why E l :=
+  ⟨Or.inr (Or.inl h), fun _ ha => ha.symm.trans h⟩
+theorem Why.read {E : Env} {l : IL} (h : l.have_ < E.A0) : Why E l :=
+  ⟨Or.inr (Or.inr (Or.inl h)), fun _ ha => absurd ha (UInt32.ne_of_lt h)⟩
+theorem Why.full {E : Env} {l : IL} (h : l.left = 0) (h' : l.out = E.O0) (hf : FrL E l) : Why E l :=
+  ⟨Or.inr (Or.inr (Or.inr (Or.inl ⟨h, h'⟩))), hf⟩
+theorem Why.block {E : Env} {l : IL} (h : E.flush = Z_BLOCK) (hf : FrL E l) : Why E l :=
+  ⟨Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h)))), hf⟩
+theorem Why.trees {E : Env} {l : IL} (h : E.flush = Z_TREES) (hf : FrL E l) : Why E l :=
+  ⟨Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h)))), hf⟩
 
 /-- The measure of the loop. -/
 def μ (l : IL) (S : InflateState) : Nat :=
@@ -320,11 +335,15 @@ header kept. -/
 def Fin (E : Env) (H : Heap) : Prop := Inv H (some E.i) ∧ Frame E.H0 H [E.i] [E.b] E.G E.W ∧
   ∃ z S, H.streams E.i = some z ∧ z.state = some E.b ∧ H.istate E.b = some S ∧ S.head = .val E.hp
 
+/-- A fresh call with input has consumed some: the stream record in `H` holds less input than at entry. -/
+def InFr (E : Env) (H : Heap) : Prop := Fresh E → E.A0 ≠ 0 → ∃ z, H.streams E.i = some z ∧ z.avail_in < E.A0
+
 /-- The outcome of one trip of the loop started below the measure `m`. -/
 def Post (E : Env) (m : Nat) : Except Ex Unit → IL → Heap → Prop
   | .ok (), l, H => ∃ z S, LIh E l H z S ∧ μ l S < m
   | .error .leave, l, H => LIx E l H ∧ Why E l
-  | .error (.ret v), _, H => Fin E H ∧ IoAcc E H ∧ (v = Z_NEED_DICT ∨ v = Z_STREAM_ERROR)
+  | .error (.ret v), _, H => Fin E H ∧ IoAcc E H ∧ (v = Z_NEED_DICT ∨ v = Z_STREAM_ERROR) ∧
+      (v = Z_NEED_DICT → InFr E H)
 
 theorem Post.mono {E : Env} {m m' : Nat} (hm : m ≤ m') {r : Except Ex Unit} {l : IL} {H : Heap}
     (p : Post E m r l H) : Post E m' r l H := by
@@ -344,7 +363,8 @@ theorem loop_ok {E : Env} (T : TripOK E) {l : IL} {H : Heap} {z : ZStream} {S : 
     SatX H l (xloopBrk (do dispatch E.c; return false)) (fun r l' H' => match r with
       | .ok () => False
       | .error .leave => LIx E l' H' ∧ Why E l'
-      | .error (.ret v) => Fin E H' ∧ IoAcc E H' ∧ (v = Z_NEED_DICT ∨ v = Z_STREAM_ERROR)) := by
+      | .error (.ret v) => Fin E H' ∧ IoAcc E H' ∧ (v = Z_NEED_DICT ∨ v = Z_STREAM_ERROR) ∧
+        (v = Z_NEED_DICT → InFr E H')) := by
   unfold xloopBrk
   refine xwhileBrk_rank (fun l H => ∃ z S, LIh E l H z S) (fun l H => ?_) _ ?_ ⟨z, S, Or.inl li⟩ ?_
   · exact match H.istate E.b with | some S => μ l S | none => 0

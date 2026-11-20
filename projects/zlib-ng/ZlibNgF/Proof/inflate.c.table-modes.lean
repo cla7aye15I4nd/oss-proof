@@ -375,6 +375,7 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
         next := .val (.ref (.codes E.b) 0)
         lenbits := lb } (fun _ _ c => core_LLtab (o := 0) c hm2 hcs hws (by decide) lb) rfl) ret
         (by show 32 * (8 * l2.have_.toNat + l2.bits.toNat + l2.left.toNat) < m; omega) "invalid code lengths set" (strIdx 18 (by decide) (by decide) (by decide))
+        (fun h => h.mono rfl (FrS.no_mode (by show S2.mode ≠ HEAD ∧ S2.mode ≠ TYPEDO; rw [hm2]; decide)))
   · have h0 : ret = 0 := by simpa using hne
     obtain ⟨ho1, ho2, -, -, hct⟩ := hok h0
     have hct' : CodeTable codes' 0 o' lb.toNat 25 false := hct

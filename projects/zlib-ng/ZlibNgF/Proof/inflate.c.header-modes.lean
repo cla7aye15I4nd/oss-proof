@@ -108,7 +108,8 @@ theorem headZ2_ok {E : Env} {m : Nat} {l : IL} {H : Heap} {z : ZStream} {S : Inf
   by_cases hw : (decide (v.toUInt32 + 8 > MAX_WBITS.toUInt32) || S.wbits != 0 && decide (v.toUInt32 + 8 > S.wbits))
       = true
   · simp only [hw, ↓reduceIte]
-    refine SatX.bind (SatX.lift (Sat.mono (li2.setBad "invalid window size" (strIdx 25 (by decide) (by decide) (by decide))) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li2.setBad "invalid window size" (strIdx 25 (by decide) (by decide) (by decide))
+      (fun h => h.mono rfl (FrS.no_bits (by show 0 < (l.bits - (4 : UInt32).toUInt8).toNat; rw [hb4]; omega)))) ?_))
     rintro _ H1 ⟨z1, li3⟩
     refine SatX.pure (post_ok li3 ?_)
     unfold μ; dsimp only; rw [rank_BAD]; omega

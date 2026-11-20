@@ -6,7 +6,7 @@ unsafe.
 
 ## Every call
 
-- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the twenty patches, built for x86_64
+- The library is the zlib-ng `develop` branch at commit `5f1f4899` with the twenty-one patches, built for x86_64
   Linux LP64 with `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF`,
   so that `adler32` and `adler32_z` run `adler32_c`, and `crc32` and `crc32_z` run `crc32_braid`. A build that
   dispatches to SIMD kernels or to the Chorba CRC-32 kernel (the default) is not covered.
@@ -102,7 +102,7 @@ also accepted. Every goal holds for every result of `open`, `read`, `write`, `ls
 | `gzprintf`, `gzvprintf` | The arguments match the format. | `vsnprintf` oracle (`Runtime/Gz.lean`) | `zlib.h` describes the format as that of `printf`; a mismatch is undefined in `vsnprintf` itself. |
 | Every gz function (it matters to `gzoffset`, `gzoffset64`) | `lseek` returns `-1` or an offset that is not negative. | `GzWF` | POSIX: `lseek` returns the resulting offset or `-1`. Linux lets a few device files with unsigned offsets (`/dev/mem`, `/proc/<pid>/mem`) reach offsets of `2^63` and more, which come back as negative numbers; `gzoffset64` subtracts the buffered input from the offset, which overflows within that many bytes of `2^63`. Reads at such offsets fail, so input is buffered there only when the program itself moves the descriptor there, behind the file's back, after a read. |
 | Every gz function (what a call may change) | Besides the file's own memory, its fresh blocks, the caller's output buffer and the file system, a call may add static strings: a string literal of the gz* files at its first use, and the text of each `strerror` call. Static strings already there do not change. | `GzFrame` | In C these strings are static data that exist before the call; the model makes each one when it is first used. |
-| Every gz function | The read results deliver finitely many bytes, and the inputs (files, delivered bytes) are below `2^62` bytes. | `GzWF` | On an endless input `gzread` may wait forever, as any reader would; the bound only keeps the model's loop fuel from being the limit. |
+| Every gz function | The read results deliver finitely many bytes, and the inputs (files, delivered bytes) are below `2^61` bytes. | `GzWF` | On an endless input `gzread` may wait forever, as any reader would; the bound only keeps the model's loop fuel from being the limit: the readers' loop counts stay below the model's `2^64` iterations. |
 
 ## Behaviour of the verified source
 
