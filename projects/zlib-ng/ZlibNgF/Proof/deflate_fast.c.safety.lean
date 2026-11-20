@@ -185,6 +185,14 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
       exact hl0 st1 (SH_dstate _ _ _ _ _ _)
     unfold strat_tail at TL
+    set_option pp.oneline false in
+    run_tac Lean.Elab.Tactic.withMainContext do
+      let g ← Lean.Elab.Tactic.getMainTarget
+      let tl ← Lean.Meta.inferType (← Lean.Elab.Term.elabTerm (← `(TL)) none)
+      Lean.logInfo m!"GOALH {g.getAppArgs[1]!}"
+      Lean.logInfo m!"TLH {tl.getAppArgs[1]!}"
+      Lean.logInfo m!"GOALM {g.getAppArgs[2]!}"
+      Lean.logInfo m!"TLM {tl.getAppArgs[2]!}"
     exact TL
 
 end ZlibNgF.Proof.FastP
