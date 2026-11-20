@@ -508,7 +508,8 @@ def gzgets (file : GzPtr) (buf : BPtr) (len : Int32) : G BPtr := do
   lm (store8 (← lm (buf.add 0)) 0)
   return str
 
-/-- `z_int32_t Z_EXPORT PREFIX(gzdirect)(gzFile file)` (`gzread.c:572-588`). -/
+/-- `z_int32_t Z_EXPORT PREFIX(gzdirect)(gzFile file)` (`gzread.c:572-588`, with patch 0020: after `gz_look`, a
+pending skip first skips the output that `gz_look` buffered). -/
 def gzdirect (file : GzPtr) : G Int32 := do
   if file == none then
     return 0
@@ -517,6 +518,17 @@ def gzdirect (file : GzPtr) : G Int32 := do
     if (← rdG state (·.how)) == LOOK then
       if (← rdG state (·.«have»)) == 0 then
         let _ ← gz_look state
+        if (← rdG state (·.skip)) != 0 && (← rdG state (·.«have»)) != 0 then
+          let hv ← rdG state (·.«have»)
+          let sk ← rdG state (·.skip)
+          let n : UInt32 := if GT_OFF hv || Int64.ofNat hv.toNat > sk then sk.toUInt64.toUInt32 else hv
+          wrG state fun s => { s with «have» := s.«have» - n }
+          let nx ← lm ((← (← ldGz state).next.get).add (Int.ofNat n.toNat))
+          wrG state fun s => { s with next := .val nx }
+          let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + n.toNat))
+          wrG state fun s => { s with pos := np }
+          let sk ← lm (chkI64 ((← rdG state (·.skip)).toInt - n.toNat))
+          wrG state fun s => { s with skip := sk }
   return if (← rdG state (·.direct)) == 1 then 1 else 0
 
 /-- `z_int32_t Z_EXPORT PREFIX(gzclose_r)(gzFile file)` (`gzread.c:591-616`). -/

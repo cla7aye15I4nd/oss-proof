@@ -17,7 +17,8 @@ A schedule entry A<k> makes the library's malloc call number k of the line (0-ba
 
 Every input on which the C ran into undefined behaviour before patches 0014-0016 is generated: write errors on the
 direct path of gz_write followed by further writes, flushes and closes, gzclearerr after write errors, allocation
-failures (gz_state, path, buffers, inflate and deflate state, error message), and reads after gzseek to near 2^63.
+failures (gz_state, path, buffers, inflate and deflate state, error message), reads after gzseek to near 2^63, and
+gzdirect while a seek is pending (patch 0020).
 Patch 0017 refuses a write past GZ_OFF_MAX before it reads the buffer: gzfwrite lengths above it are generated with
 a one-byte buffer (nothing else can reach that position in a test's time).
 """
@@ -276,6 +277,17 @@ for b in (8, 64):
 for c in (gz(text(2000)), gz(b"short")):
     line(c, [], ["open:r", "buffer:8", "seek:9223372036854775807:0", "read:5", "tell", "getc", "gets:5", "eof", "error",
                  "close"])
+
+# ---- gzdirect while a seek is pending (patch 0020): the output gz_look buffers is skipped first ----
+for c in (text(300), b"hello, world\n", gz(text(300))):
+    for b in (8, 64, None):
+        pre = [] if b is None else ["buffer:%d" % b]
+        for ops in (["seek:9223372036854775807:0", "direct", "getc", "tell", "getc_", "tell", "read:5", "eof"],
+                    ["seek:5:0", "direct", "getc", "tell", "gets:10", "tell"],
+                    ["seek:200:0", "direct", "getc", "tell", "ungetc:65", "getc", "tell"],
+                    ["read:3", "seek:2:0", "direct", "getc", "tell", "read:4"],
+                    ["seek:3:1", "direct", "seek:4:1", "direct", "getc", "tell"]):
+            line(c, [], ["open:r"] + pre + ops + ["error", "close"])
 
 # ---- a write that would move the position past GZ_OFF_MAX is refused (patch 0017); the driver's buffer is not read ----
 for m in ("w", "wT"):

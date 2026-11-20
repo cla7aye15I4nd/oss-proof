@@ -1,0 +1,26 @@
+--- a/gzread.c
++++ b/gzread.c
+@@ -597,8 +597,22 @@
+ 
+     /* if the state is not known, but we can find out, then do so (this is
+        mainly for right after a gzopen() or gzdopen()) */
+-    if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0)
++    if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0) {
+         (void)gz_look(state);
++
++        /* a pending seek comes before the data gz_look() just put in the
++           output buffer: skip what is there (gzgetc() takes bytes from the
++           output buffer without checking for a skip request) */
++        if (state->skip && state->x.have) {
++            unsigned n = GT_OFF(state->x.have) ||
++                (z_off64_t)state->x.have > state->skip ?
++                (unsigned)state->skip : state->x.have;
++            state->x.have -= n;
++            state->x.next += n;
++            state->x.pos += n;
++            state->skip -= n;
++        }
++    }
+ 
+     /* return 1 if transparent, 0 if processing a gzip stream */
+     return state->direct == 1;
