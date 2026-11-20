@@ -151,7 +151,8 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   al_buf : al.buf_start = .val (.ref (.heap b) 0)
   status_lo : INIT_STATE ≤ v.status
   status_hi : v.status ≤ MAX_STATE
-  wrap : v.wrap = 0 ∨ v.wrap = 1 ∨ v.wrap = 2
+  /-- `wrap` is 0 (raw), 1 (zlib) or 2 (gzip), negated by `deflate` once the trailer is written (`Z_FINISH`) -/
+  wrap : v.wrap = 0 ∨ v.wrap = 1 ∨ v.wrap = 2 ∨ v.wrap = -1 ∨ v.wrap = -2
   gzhead : ∃ hp, v.gzhead = .val hp
   /-- `w_size = 1 << w_bits` is not zero (`W_BITS` takes its trailing zeros) -/
   w_size : v.w_size ≠ 0
