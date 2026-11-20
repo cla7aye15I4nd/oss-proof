@@ -367,7 +367,7 @@ success. -/
 def InitPost (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : World) (H : Heap) : Prop :=
   GzInvR W H (some b) ∧ GStep w h W H b [] ∧ W.fs = w.fs ∧
     ∃ s', W.gz H b = some s' ∧ SameBut s s' ∧ (r = 0 ∧ s'.size ≠ 0 ∧ s'.err = s.err ∨ r = -1) ∧
-      (∀ z', H.streams s.strm = some z' → z'.avail_in = 0)
+      (∀ z', H.streams s.strm = some z' → z'.avail_in = 0) ∧ (r = -1 → ¬(s'.err = ZlibNg.Inflate.Z_OK ∨ s'.err = ZlibNg.Inflate.Z_BUF_ERROR))
 
 /-- A read handle without buffers has no input (`FreshStrm`). -/
 theorem fresh_avail {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvR W H (some b))
@@ -403,7 +403,8 @@ theorem gz_read_init_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : G
     have hz3 : s3.size = 0 := by rw [he3.1]; exact hz1
     have hst3 : s3.strm = s.strm := by rw [hsb]
     exact ⟨hv3, g1.trans g3 ⟨s, hs⟩ ⟨s1, hs1⟩, hf3.trans hf1, s3, hs3, hsb, Or.inr rfl,
-      fun z' hz' => fresh_avail hv3 hs3 hz3 z' (by rw [hst3]; exact hz')⟩
+      fun z' hz' => fresh_avail hv3 hs3 hz3 z' (by rw [hst3]; exact hz'),
+      fun _ => by rcases he3.2 with e | e <;> rw [e] <;> decide⟩
   unfold gz_read_init
   refine GSat.bind ?_
   cases hok : h.allocOk h.nalloc
@@ -519,7 +520,7 @@ theorem gz_read_init_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : G
         simp [InflateInv.setZS] at hz2; exact hz2.symm
       obtain ⟨hvI, gI⟩ := ok_inv hv hs h0 x ha (by simp [arr, n]) ho hsv (hinv rfl) hz2 hzs2 hst2 hhd2
         (by rw [hai2]; exact hai) (by rw [hz2']; exact hzm)
-      refine ⟨hvI, gI, rfl, baSt s c0 o, ?_, rfl, Or.inl ⟨rfl, ?_, rfl⟩, fun z3 hz3 => ?_⟩
+      refine ⟨hvI, gI, rfl, baSt s c0 o, ?_, rfl, Or.inl ⟨rfl, ?_, rfl⟩, fun z3 hz3 => ?_, fun e => absurd e (by decide)⟩
       · have hb2 : b ≠ h.nextBlk + 1 := by omega
         unfold World.gz
         simp [InflateInv.setZS, allocHeap, H1, alH, upd_ne _ _ _ _ hb2, upd_ne _ _ _ _ hbc, hdb]; rfl
