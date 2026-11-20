@@ -38,7 +38,7 @@ def OI (h : Heap) (i b : Nat) (W : UInt32) (flush : Int32) (fz : Bool) (v : Ctl 
     Prop :=
   match v.1 with
   | .cont => MG h i b H ∧ WS b W H ∧ NI b v.2.2 H ∧ (fz = false → v.2.2.match_length = 0)
-  | .brk => MG h i b H ∧ (∀ st, H.dstate b = some st → st.lookahead = 0) ∧ avIn H i = 0
+  | .brk => MG h i b H ∧ (∀ st, H.dstate b = some st → st.lookahead = 0) ∧ avIn H i = 0 ∧ flush ≠ Z_NO_FLUSH
   | .ret r => StratPost h (some i) flush r H ∧ ChainAll b H
 
 /-- The part of the measure from the carried match. -/
@@ -597,9 +597,11 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
     · refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       refine sat_ite (fun h0 => ?_) (fun h0 => ?_)
       · refine Sat.pure ⟨⟨G1, fun st2 h2 => ?_,
-          avIn_fill hfull (by rw [show st1.lookahead = 0 by simpa using h0]; decide)⟩, by simp only [OM]; omega⟩
-        obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
-        simpa using h0
+          avIn_fill hfull (by rw [show st1.lookahead = 0 by simpa using h0]; decide), fun hf => hnm ?_⟩,
+          by simp only [OM]; omega⟩
+        · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
+          simpa using h0
+        · rw [show st1.lookahead = 0 by simpa using h0, hf]; decide
       · have h1 : 1 ≤ st1.lookahead.toNat := by
           have : st1.lookahead ≠ 0 := fun e => h0 (by simp [e])
           have h2 : st1.lookahead.toNat ≠ 0 := fun e => this (UInt32.toNat_inj.mp (by rw [e]; rfl))

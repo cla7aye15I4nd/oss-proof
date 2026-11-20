@@ -194,7 +194,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {level : Int32} (fl
     refine Sat.bind (Sat.mono (slc_fill C hl' Ch L) ?_)
     rintro _ _ ⟨H1, z', st', d', rfl, C', Ch', L', hsum, -, hend⟩
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
-    refine sat_ite (fun hc => ?_) (fun _ => ?_)
+    refine sat_ite (fun hc => ?_) (fun hc => ?_)
     · simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hc
       obtain ⟨hlt3, hf⟩ := hc
       obtain ⟨-, hT', -, -⟩ := env_st E C'.1
@@ -215,8 +215,8 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {level : Int32} (fl
     · refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       refine sat_ite (fun hz => ?_) (fun hz => ?_)
       · have hz' : st'.lookahead = 0 := by simpa using hz
-        refine Sat.pure ⟨⟨C', fun s3 d3 hs3 hd3 => ?_, fun s3 hs3 => ?_, avIn_fill hend (by rw [hz']; decide)⟩,
-          by simp [RM]⟩
+        refine Sat.pure ⟨⟨C', fun s3 d3 hs3 hd3 => ?_, fun s3 hs3 => ?_, avIn_fill hend (by rw [hz']; decide),
+          fun hf => hc (by rw [hz', hf]; decide)⟩, by simp [RM]⟩
         · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hs3)
           obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd3)
           exact ⟨Ch', L'⟩

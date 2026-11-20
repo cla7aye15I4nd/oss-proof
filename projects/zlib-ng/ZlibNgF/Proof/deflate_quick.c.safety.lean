@@ -91,7 +91,8 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss last : UInt3
       by_cases hz : (st.lookahead == 0) = true
       · simp only [hz, ↓reduceIte]
         have hz0 : st.lookahead = 0 := by simpa using hz
-        exact Sat.pure ⟨⟨I2, hz0, avIn_fill hfull (by rw [hz0]; decide)⟩, by simp [QM]⟩
+        exact Sat.pure ⟨⟨I2, hz0, avIn_fill hfull (by rw [hz0]; decide), fun hf => hx (by rw [hz0, hf]; decide)⟩,
+          by simp [QM]⟩
       · simp only [hz, Bool.false_eq_true, ↓reduceIte]
         have := ZlibNgF.Proof.DeflateRleP.ne0 (by simpa using hz)
         refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
@@ -155,7 +156,7 @@ theorem quick_tally_ok (T : TreesFacts) :
   | cont => cases hc
   | ret r => exact Sat.pure hI
   | brk =>
-    obtain ⟨hI, hl0, hin⟩ := hI
+    obtain ⟨hI, hl0, hin, hnf⟩ := hI
     simp only []
     refine Sat.bind (Sat.mono (sli_wb hI) ?_)
     rintro _ H1 ⟨C1, hav1, H0, z1, st1, d1, rfl, hla, hss⟩
@@ -172,11 +173,11 @@ theorem quick_tally_ok (T : TreesFacts) :
     have hp2 : st1.pending = 0 := (C2.2 _ (SH_dstate _ _ _ _ _ _)).1
     have fin : ∀ (lst : Int32) (b1 b2 : BlockState), 0 ≤ lst → lst ≤ 1 →
         (lst = 0 → b1 = .need_more ∧ b2 = .block_done) → (lst = 1 → b1 = .finish_started ∧ b2 = .finish_done) →
-        (lst = 1 → flush = Z_FINISH) →
+        (lst = 1 → flush = Z_FINISH) → (b2 = .block_done → flush ≠ Z_FINISH) →
         Sat (SH H0 i z1 b { st1 with insert := if ss < STD_MIN_MATCH - 1 then ss else STD_MIN_MATCH - 1 } d1) (do
           if ← quick_end_block (some b) ss lst 0 then return b1
           return b2) (fun r H' => StratPost h (some i) flush r H') := by
-      intro lst b1 b2 hl0' hl1' h0 h1 hlf
+      intro lst b1 b2 hl0' hl1' h0 h1 hlf hbd
       refine Sat.bind (Sat.mono (qeb_ok T ss lst hl0' hl1' C2.1 hp2 hwin2) ?_)
       rintro r H3 ⟨hav3, F3, hs3, hcf3⟩
       have hb12' : (b1 = .need_more ∧ b2 = .block_done) ∨
@@ -199,7 +200,7 @@ theorem quick_tally_ok (T : TreesFacts) :
         rcases hb12' with ⟨rfl, rfl⟩ | ⟨rfl, rfl, hF⟩
         · rcases hbs with ⟨rfl, hr⟩ | ⟨rfl, -⟩
           · exact exitIO_nm (hcf3 hr)
-          · exact exitIO_bd (cf_of_avIn (by rw [hav3]; exact hin1))
+          · exact exitIO_bd hnf (hbd rfl) (by rw [hav3]; exact hin1)
         · rw [hF]
           rcases hbs with ⟨rfl, hr⟩ | ⟨rfl, -⟩
           · exact exitIO_fin (.inl rfl) (fun _ => hcf3 hr)
@@ -229,9 +230,9 @@ theorem quick_tally_ok (T : TreesFacts) :
     by_cases hf : flush == Z_FINISH
     · simp only [hf, ↓reduceIte, show ((1 : UInt32) != 0) = true from rfl]
       exact fin 1 .finish_started .finish_done (by decide) (by decide) (fun e => by cases e) (fun _ => ⟨rfl, rfl⟩)
-        (fun _ => by simpa using hf)
+        (fun _ => by simpa using hf) (fun e => by cases e)
     · simp only [hf, Bool.false_eq_true, ↓reduceIte, show ((0 : UInt32) != 0) = false from rfl]
       exact fin 0 .need_more .block_done (by decide) (by decide) (fun _ => ⟨rfl, rfl⟩) (fun e => by cases e)
-        (fun e => by cases e)
+        (fun e => by cases e) (fun _ => by simpa using hf)
 
 end ZlibNgF.Proof.QuickP

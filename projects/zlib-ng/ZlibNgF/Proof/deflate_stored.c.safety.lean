@@ -40,7 +40,8 @@ theorem fin_bu {e : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H)
     (he : e ≤ finSlack r)
     (hp0 : r = .block_done ∨ r = .finish_done → ∀ st, H.dstate b = some st → st.pending = 0)
     (hB : r = .need_more ∨ r = .block_done → CF H i) (hF : r = .finish_started ∨ r = .finish_done → flush = Z_FINISH)
-    (hP : flush = Z_FINISH → r = .need_more ∨ r = .finish_started → Prog h H i) :
+    (hP : flush = Z_FINISH → r = .need_more ∨ r = .finish_started → Prog h H i)
+    (hD : r ≠ .block_done) :
     Sat H (do
       wrD (some b) fun s => { s with bi_used := 8 }
       return r) (fun r' H' => StratPost h (some i) flush r' H') := by
@@ -55,7 +56,8 @@ theorem fin_bu {e : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H)
   refine Sat.pure (sf_post (sf_state (st' := { st with bi_used := 8 }) F S rfl hss hb0 hbs S.ins rfl
     (Nat.le_refl _)) flush r
     (fun e z' hz' => hB e z' ((streamAt_congr ee z').mp hz')) hF
-    (fun hf e z0 z' hz0 hz' => hP hf e z0 z' hz0 ((streamAt_congr ee z').mp hz')) (fun e st2 h2 => ?_) he)
+    (fun hf e z0 z' hz0 hz' => hP hf e z0 z' hz0 ((streamAt_congr ee z').mp hz')) (fun e st2 h2 => ?_)
+    (fun e => absurd e hD) he)
   rw [SH_dstate] at h2; cases h2; exact hp0 e st S.hst
 
 /-- Progress after the stored block through `pending_buf`: input consumed since the entry, or the output emptied
@@ -159,11 +161,12 @@ theorem tail_ok {h H : Heap} {i b wo : Nat} (F : SF 0 h i b H) (hp0 : ∀ st, H.
     · simp only [hl, ↓reduceIte]
       have hl' : l ≠ 0 := by simpa using hl
       exact fin_bu F' hw0 flush _ (by unfold finSlack; rw [ite_eq_left (Or.inl rfl)]; omega) (fun e => by rcases e with e | e <;> cases e)
-        (fun _ => hcf) (fun _ => hlf hl') (fun hf _ => hpg hf)
+        (fun _ => hcf) (fun _ => hlf hl') (fun hf _ => hpg hf) (by decide)
     · simp only [hl, Bool.false_eq_true, ↓reduceIte]
       have hl' : l = 0 := by simpa using hl
       exact Sat.pure (sf_post F' flush _ (fun _ => hcf) (fun e => by rcases e with e | e <;> cases e)
-        (fun hf _ => hpg hf) (fun e => by rcases e with e | e <;> cases e) (by rw [hl0 hl']; exact Nat.zero_le _))
+        (fun hf _ => hpg hf) (fun e => by rcases e with e | e <;> cases e) (fun e => by cases e)
+        (by rw [hl0 hl']; exact Nat.zero_le _))
   unfold tail_part
   refine Sat.bind (Sat.of_eq ehv ?_)
   refine Sat.bind (Sat.of_eq (erd _) ?_)
@@ -344,7 +347,7 @@ theorem stored_ok (_T : TreesFacts) : StratOkP (fun st => st.level = 0) deflate_
     have hl' : last ≠ 0 := by simpa using hl
     exact fin_bu F2 hw0 flush _ (by simp only [finSlack]; split <;> simp) (fun _ => hp2)
       (fun e => by rcases e with e | e <;> cases e) (fun _ => hfl1 hl')
-      (fun _ e => by rcases e with e | e <;> cases e)
+      (fun _ e => by rcases e with e | e <;> cases e) (by decide)
   simp only [hl, Bool.false_eq_true, ↓reduceIte]
   have hl0 : last = 0 := by simpa using hl
   rw [hl0] at F1 F2
@@ -388,11 +391,16 @@ theorem stored_ok (_T : TreesFacts) : StratOkP (fun st => st.level = 0) deflate_
     by_cases hc2 : (st2.strstart.toInt32 == st2.block_start) = true
     · rw [ite_t hc2]
       have h0 : z2.avail_in = 0 := by simp only [Bool.and_eq_true, beq_iff_eq] at hc; exact hc.2
+      have hnf : flush ≠ Z_NO_FLUSH ∧ flush ≠ Z_FINISH := by
+        simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at hc; exact ⟨hc.1.1, hc.1.2⟩
       refine Sat.pure (sf_post F2 flush _ (fun _ => ?_) (fun e => by rcases e with e | e <;> cases e)
-        (fun _ e => by rcases e with e | e <;> cases e) fun _ => hp2)
-      rintro z' ⟨i', e', h'⟩
-      obtain rfl := Option.some.inj e'
-      rw [S2.hz] at h'; cases h'; exact .inl h0
+        (fun _ e => by rcases e with e | e <;> cases e) (fun _ => hp2) fun _ => ⟨hnf.1, hnf.2, fun z' hz' => ?_⟩)
+      · rintro z' ⟨i', e', h'⟩
+        obtain rfl := Option.some.inj e'
+        rw [S2.hz] at h'; cases h'; exact .inl h0
+      · obtain ⟨i', e', h'⟩ := hz'
+        obtain rfl := Option.some.inj e'
+        rw [S2.hz] at h'; cases h'; exact h0
     · rw [ite_f hc2]
       exact hfill
   · rw [ite_f hc]
