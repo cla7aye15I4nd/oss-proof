@@ -27,7 +27,7 @@ theorem slf_insert {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {
     (F.st st (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _) (fun _ => Nat.le_refl _)
 
 /-- `StratPost` at an exit with no symbols, no lookahead, no pending match or literal. -/
-theorem exit_ok {h H2 : Heap} {i b wo : Nat} {level : Int32} (E : Env h b wo level) (F2 : SLF h i b H2)
+theorem exit_ok {e : Nat} {h H2 : Heap} {i b wo : Nat} {level : Int32} (E : Env h b wo level) (F2 : SLFe e h i b H2)
     (flush : Int32) (bs : BlockState) (hx : ExitIO H2 i flush bs)
     (hs : ∀ s2, H2.dstate b = some s2 → s2.sym_next = 0 ∧ s2.sym_next < s2.sym_end ∧ s2.lookahead = 0 ∧
       LazyOk s2 ∧ s2.match_available = 0)
@@ -43,8 +43,9 @@ hash chains kept, no pending bytes when it does not return, and its return value
 theorem end_flush (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sT : DeflateState}
     {dT : Array UInt8} {level : Int32} (E : Env h b wo level) (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1)
     (F : SLF h i b (SH H0 i z b sT dT)) (hp0 : sT.pending = 0) (hla : sT.lookahead = 0)
-    (hpl : sT.prev_length < 3) (hma : sT.match_available = 0) (Ch : ChainOk b dT sT) :
-    Sat (SH H0 i z b sT dT) (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H2 => SLF h i b H2 ∧
+    (hpl : sT.prev_length < 3) (hma : sT.match_available = 0) (Ch : ChainOk b dT sT)
+    (hsy0 : last = 0 → sT.sym_next ≠ 0) :
+    Sat (SH H0 i z b sT dT) (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H2 => SLFe (lastSlack last) h i b H2 ∧
       (∀ s2, H2.dstate b = some s2 → s2.sym_next = 0 ∧ s2.sym_next < s2.sym_end ∧ s2.lookahead = 0 ∧
         LazyOk s2 ∧ s2.match_available = 0) ∧
       (∀ s2 d2, H2.dstate b = some s2 → H2.bytes b = some d2 → ChainOk b d2 s2) ∧
@@ -56,7 +57,7 @@ theorem end_flush (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {s
     fun st hst => by obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst); exact ⟨hp0, hwin⟩
   obtain ⟨pbo, hpb⟩ : ∃ pbo, sT.pending_buf = .val (.ref (.heap b) pbo) := by
     obtain ⟨-, -, -, pbo, -, -, -, -, hpb, -⟩ := slf_lay F; exact ⟨pbo, hpb⟩
-  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T last hl0 hl1 F hp)
+  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T last hl0 hl1 F hp fun e => nz_SH (hsy0 e))
     (slf_flush_keep T last hl0 hl1 F hp)) ?_
   rintro r H2 ⟨⟨hav, F2, hs2, hn2, hsm, hcf⟩, hk2⟩
   obtain ⟨H1, z2, s2, d2, rfl⟩ := slf_sh F2
@@ -104,7 +105,7 @@ theorem slowEnd_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
     ZlibNgF.Proof.DeflateSide.ChainOk.of_state Ch rfl rfl rfl rfl rfl rfl rfl
   have fin : ∀ (last : Int32) (bs : BlockState), 0 ≤ last → last ≤ 1 → (bs = .block_done ∨ bs = .finish_done) →
       (bs = .finish_done → flush = Z_FINISH) → (last ≠ 0 → flush = Z_FINISH) → (r : Option BlockState) → ∀ H2,
-      (SLF h i b H2 ∧ (∀ s2, H2.dstate b = some s2 → s2.sym_next = 0 ∧ s2.sym_next < s2.sym_end ∧
+      (SLFe (lastSlack last) h i b H2 ∧ (∀ s2, H2.dstate b = some s2 → s2.sym_next = 0 ∧ s2.sym_next < s2.sym_end ∧
         s2.lookahead = 0 ∧ LazyOk s2 ∧ s2.match_available = 0) ∧
         (∀ s2 d2, H2.dstate b = some s2 → H2.bytes b = some d2 → ChainOk b d2 s2) ∧
         (r = none → ∀ s2, H2.dstate b = some s2 → s2.pending = 0) ∧
@@ -125,15 +126,17 @@ theorem slowEnd_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
     split at e2 <;> rcases e2 with e2 | e2 <;> cases e2
   refine sat_ite (fun hf => ?_) (fun _ => ?_)
   · have hf' : flush = Z_FINISH := by simpa using hf
-    refine Sat.bind (Sat.mono (end_flush T E 1 (by decide) (by decide) F1 hp0 hla hpl hma Ch1) ?_)
+    refine Sat.bind (Sat.mono (end_flush T E 1 (by decide) (by decide) F1 hp0 hla hpl hma Ch1
+      (fun e => absurd e (by decide))) ?_)
     rintro r H2 q
     have K := fin 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf') (fun _ => hf') r H2 q
     cases r with
     | none => exact Sat.pure (K.1 rfl)
     | some v => exact Sat.pure (K.2 v rfl)
   · refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
-    refine sat_ite (fun _ => ?_) (fun hs => ?_)
-    · refine Sat.bind (Sat.mono (end_flush T E 0 (by decide) (by decide) F1 hp0 hla hpl hma Ch1) ?_)
+    refine sat_ite (fun hs => ?_) (fun hs => ?_)
+    · refine Sat.bind (Sat.mono (end_flush T E 0 (by decide) (by decide) F1 hp0 hla hpl hma Ch1
+        (fun _ => by simpa using hs)) ?_)
       rintro r H2 q
       have K := fin 0 .block_done (by decide) (by decide) (.inl rfl) (fun e => by cases e) (fun e => absurd rfl e)
         r H2 q
@@ -190,7 +193,7 @@ theorem slowTail_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} 
     obtain rfl : pbo + sT.lit_bufsize.toNat + 8 = sbo := by injection hsb2 with e; injection e
     refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sT with
       sym_next := sT.sym_next + 3, dyn_ltree := lt, match_available := 0 }) rfl) ?_)
-    exact slowEnd_ok T E flush (slf_view F2 rfl rfl rfl hT) hp0 hla hpl rfl
+    exact slowEnd_ok T E flush (slf_view F2 rfl rfl rfl hT (view_clear rfl rfl hm' rfl)) hp0 hla hpl rfl
       (chain_keep C.1 Ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (Nat.le_refl _) fun pbo' hpb' j hj => by
         rw [hpb] at hpb'
         obtain rfl : pbo = pbo' := by injection hpb' with e; injection e

@@ -411,6 +411,10 @@ def lastSlack (last : Int32) : Nat := if last = 0 then 0 else 2 ^ 18
 
 theorem lastSlack_zero : lastSlack 0 = 0 := rfl
 
+/-- A larger allowance. -/
+theorem SLFe.mono {e e' : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (he : e ≤ e') : SLFe e' h i b H :=
+  { F with psi := F.psi.mono he }
+
 /-- `avail_out` and `avail_in` do not grow from the entry heap under `SLFe`. -/
 theorem SLFe.avail {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) :
     ∀ z0 z, h.streams i = some z0 → H.streams i = some z →
@@ -452,11 +456,12 @@ theorem fb_psi {h h' : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {al :
 
 /-- The potential from the entry heap after `FLUSH_BLOCK_ONLY(s, window, last)` from `SLF`: the allowance
 `lastSlack last` (a block flushed with `last == 0` has symbols). -/
-theorem fb_acc {h H h' : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {al : DeflateAllocs} (F : SLF h i b H)
+theorem fb_acc {e : Nat} {h H h' : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {al : DeflateAllocs}
+    (F : SLFe e h i b H)
     (P : FBPost H h' i b z st) (hz : H.streams i = some z) (hst : H.dstate b = some st)
     (c : DCore H (some i) z b (dview st) al) (last : Int32) (hsy0 : last = 0 → st.sym_next ≠ 0) :
-    PsiAcc (lastSlack last) h h' i b := by
-  refine (F.psi.step F.avail ⟨z, hz⟩ ⟨st, hst⟩ (e' := lastSlack last) ?_).mono (Nat.le_of_eq (Nat.zero_add _))
+    PsiAcc (lastSlack last + e) h h' i b := by
+  refine (F.psi.step F.avail ⟨z, hz⟩ ⟨st, hst⟩ (e' := lastSlack last) ?_).mono (Nat.le_of_eq (Nat.add_comm _ _))
   intro z5 z6 st5 st6 h5 h6 s5 s6
   obtain rfl := Option.some.inj (hz.symm.trans h5)
   obtain rfl := Option.some.inj (hst.symm.trans s5)

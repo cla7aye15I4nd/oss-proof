@@ -21,11 +21,11 @@ open ZlibNg.DeflateP
 /-- `FLUSH_BLOCK_ONLY(s, window, last)` from `SLF` with no pending bytes, the window expression evaluating to the
 state's window: `SLF` after, no symbols, `lookahead`, `strstart` and `window` kept, the input kept, and no pending bytes
 when the output has room. -/
-theorem slf_flush_only (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M BPtr) (last : Int32) (hl0 : 0 ≤ last)
-    (hl1 : last ≤ 1) (F : SLF h i b H) (hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo))
+theorem slf_flush_only (T : TreesFacts) {e : Nat} {h H : Heap} {i b wo : Nat} (window : M BPtr) (last : Int32)
+    (hl0 : 0 ≤ last) (hl1 : last ≤ 1) (F : SLFe e h i b H) (hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo))
     (hwm : window H = .ok (.ref (.heap b) wo, H)) (hsy0 : last = 0 → ∀ st, H.dstate b = some st → st.sym_next ≠ 0) :
     Sat H (FLUSH_BLOCK_ONLY (some b) window last) (fun _ H2 => avIn H2 i = avIn H i ∧
-      SLFe (lastSlack last) h i b H2 ∧
+      SLFe (lastSlack last + e) h i b H2 ∧
       (∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
         ∃ st, H.dstate b = some st ∧ st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
           st2.window = st.window) ∧
