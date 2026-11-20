@@ -2,6 +2,20 @@ import ZlibNgF.Proof.«gzread.c.skip»
 
 /-!
 # `gz_read` on a read handle (`ZlibNgF`)
+
+`gz_read` (`gzread.c:308-388`, patch 0016) does a pending skip first (`gz_skip`), then loops while the caller still
+asks for bytes: it caps the count `n` at `UINT_MAX` and at the room `GZ_OFF_MAX - x.pos` (failing at `x.pos ==
+GZ_OFF_MAX`), then copies buffered output, stops at the end of the input (`past = 1`), fetches output (`gz_fetch`) when
+looking for a header or asked for less than `2 * size` bytes, or reads (`COPY`) or decompresses (`GZIP`) directly into
+the caller's buffer. Every byte it delivers lies in `[buf, buf + len)`, and `x.pos + n <= GZ_OFF_MAX` keeps `x.pos`
+from overflowing.
+
+**Termination.** The measure is `smu`, the potential `Phi` of the read handle plus 1 while output is buffered (as for
+`gz_skip`). A copy keeps `Phi`; one that leaves output behind delivered all the caller asked for (the room cannot be the
+smaller count, since `x.pos + x.have <= GZ_OFF_MAX`), so the loop ends. A fetch lowers the measure (`FetchMu`). A direct
+read of `k >= 1` bytes lowers the input still to come by `k`, and of no byte reaches the end of the input. A direct
+decompression ends a member (`GZIP` to `LOOK`), fills the caller's range of at least `2 * size >= 16` bytes (one block
+of 16 bytes of room less), or reaches the end of the input.
 -/
 
 set_option autoImplicit false
@@ -608,5 +622,261 @@ theorem readDecompC_spec {w : World} {h : Heap} {b cb o L : Nat} (hL : L < 2 ^ 6
         have := Phi_end' hat (Nat.le_trans (Nat.le_of_eq hD4) hDle) (Nat.le_of_eq hp4)
         rw [hx] at this
         omega
+
+/-! ## One trip of the loop -/
+
+/-- **A trip of the loop of `gz_read` after the room test**, with `1 <= n <= len` and `x.pos + n <= GZ_OFF_MAX`; `n`
+is below `len` only when it is `UINT_MAX` or reaches `GZ_OFF_MAX`. -/
+theorem readMain_spec {w : World} {h : Heap} {b cb o L : Nat} (hL : L < 2 ^ 64) (hw0 : ∃ s0, w.gz h b = some s0)
+    (hcbn : cb < h.nextBlk) (hno0 : cb ∉ GzOwned w h (some b)) {data : Array UInt8} (hd0 : h.bytes cb = some data)
+    (hfit0 : o + L ≤ data.size) {st : ReadLoop} {W : World} {H : Heap} (hI : RInv w h b cb o L st W H)
+    {s1 : GzState} (hs1 : W.gz H b = some s1) (n : UInt32) (hn1 : 1 ≤ n.toNat) (hnl : n.toNat ≤ st.len.toNat)
+    (hpn : s1.pos.toInt + n.toNat ≤ GZ_OFF_MAX.toInt)
+    (hnx : n.toNat < st.len.toNat → n.toNat = 4294967295 ∨ s1.pos.toInt + n.toNat = GZ_OFF_MAX.toInt) :
+    GSat W H (readMain (some b) st n) (RTrip w h b cb o L (smu b W H)) := by
+  have hI0 := hI
+  obtain ⟨hgo, hl0, hbk, hgl, hv, ⟨s0', hs0', hsk⟩, g, hf, hi⟩ := hI
+  rw [hs1] at hs0'; cases hs0'
+  obtain ⟨dc, hdc, hdcs, hno⟩ := caller_blk g hcbn hno0 hd0
+  obtain ⟨sh, -⟩ := inv_of hs1 hv.1
+  have R := sh.read (modeOf hs1 hv.2.1)
+  have hmx := gzmax
+  have hμ := smu_of hs1
+  unfold readMain
+  refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
+  apply GSat.ite
+  · intro hh
+    have hh' : s1.«have» ≠ 0 := by simpa using hh
+    have hh'' : s1.«have».toNat ≠ 0 := fun e => hh' (UInt32.toNat_inj.mp (by simpa using e))
+    have hk0 : s1.skip = 0 := hsk.resolve_right fun e => hh' e.1
+    have hph := R.pos_have
+    have deliver : ∀ m : UInt32, 1 ≤ m.toNat → m.toNat ≤ s1.«have».toNat → m.toNat ≤ n.toNat →
+        (m.toNat < s1.«have».toNat → m.toNat = n.toNat) →
+        GSat W H (readCopy (some b) st m) (RTrip w h b cb o L (smu b W H)) := by
+      intro m hm1 hmh hmn hmx'
+      refine (readCopy_spec hv hs1 hk0 st hbk m hm1 hmh (L := L) (by omega) hdc (by omega) hno).mono
+        fun st1 W1 H1 q => ?_
+      obtain ⟨rfl, hv1, g1, hfs1, hi1, s', hs', hh2, hk2, hP⟩ := q
+      refine trip_adv hgo hgl hL m (by omega) hv1 ⟨s', hs', by rw [hk2]; exact hk0⟩ (g.trans g1 hw0 ⟨s1, hs1⟩)
+        (by rw [hfs1]; exact hf) (fun hi0 => hi1 (hi hi0)) (fun hlt => ?_)
+      have hz : s'.«have».toNat = 0 := by
+        rw [hh2]
+        rcases Nat.lt_or_ge m.toNat s1.«have».toNat with hc | hc
+        · have e1 := hmx' hc
+          rcases hnx (by omega) with e2 | e2
+          · have := s1.«have».toNat_lt; omega
+          · omega
+        · omega
+      have hz' : s'.«have» = 0 := UInt32.toNat_inj.mp (by simpa using hz)
+      rw [smu_of hs', hμ, hP]
+      simp [hz', hh']
+    refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
+    apply GSat.ite
+    · intro hlt
+      have hlt' : s1.«have».toNat < n.toNat := UInt32.lt_iff_toNat_lt.mp hlt
+      refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
+      exact deliver _ (by omega) (Nat.le_refl _) (by omega) (fun e => absurd e (Nat.lt_irrefl _))
+    · intro hlt
+      have hge : n.toNat ≤ s1.«have».toNat := by
+        have := mt UInt32.lt_iff_toNat_lt.mpr hlt; omega
+      exact deliver n hn1 hge (Nat.le_refl _) (fun _ => rfl)
+  · intro hh
+    have h0 : s1.«have» = 0 := by simpa using hh
+    obtain ⟨z, hz⟩ := sh.strm
+    refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
+    refine GSat.bind (GSat.of_eq (strmOf_app hs1) ?_)
+    refine GSat.bind (GSat.lm ⟨_, H, rdZ_app hz _, ?_⟩)
+    apply GSat.ite
+    · intro _
+      obtain ⟨hvP, gP⟩ := invR_past hv hs1 1
+      refine GSat.bind (GSat.of_eq (wrG_app hs1 _) (GSat.pure ?_))
+      exact trip_stop (st := st) hgl .brk (by decide) hvP (g.trans (GStep.widen gP _) hw0 ⟨s1, hs1⟩) hf
+        (fun hi0 => idle_upd (hi hi0) hs1 _ rfl rfl rfl)
+    · intro hc
+      have hne : ¬ AtEnd H s1 := by
+        rintro ⟨e1, z', hz', e2⟩
+        rw [hz] at hz'; cases hz'
+        exact hc (by simp [e1, e2])
+      have hk0 : s1.skip = 0 := hsk.resolve_right fun e => hne e.2
+      refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
+      refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
+      apply GSat.ite
+      · intro _
+        refine GSat.bind (GSat.mono (gz_fetch_specM hv hs1 h0) fun r W1 H1 q => ?_)
+        obtain ⟨⟨⟨hr1, g1, hf1, s', hm', -, hk', -, hinv, -⟩, hid⟩, hmu, -⟩ := q
+        have hv1 := hinv hk0
+        have g' := g.trans (GStep.widen g1 _) hw0 ⟨s1, hs1⟩
+        apply GSat.ite
+        · intro _
+          exact GSat.pure (trip_stop (st := st) hgl .ret (by decide) hv1 g' (hf.trans hf1) (fun hi0 => hid (hi hi0)))
+        · intro e
+          have hr : r = 0 := hr1.resolve_left (by simpa using e)
+          refine GSat.pure ⟨⟨by omega, hv1, g', hf.trans hf1, fun hi0 => hid (hi hi0)⟩, fun _ _ =>
+            ⟨⟨hgo, hl0, hbk, hgl, hv1, ⟨s', hm'.1, Or.inl (by rw [hk']; exact hk0)⟩, g', hf.trans hf1,
+              fun hi0 => hid (hi hi0)⟩, ?_⟩⟩
+          rw [smu_of hm'.1, hμ]
+          have hd := hmu hr hne s' hm'.1
+          by_cases hh2 : s'.«have» = 0
+          · have := hd.2 hh2; simp [hh2, h0]; omega
+          · have := hd.1 hh2; simp [hh2, h0]; omega
+      · intro hc2
+        have hc2' : ¬ (s1.how = LOOK ∨ n < s1.size <<< 1) := by simpa using hc2
+        have hlk : s1.how ≠ LOOK := fun e => hc2' (Or.inl e)
+        have hns : ¬ n < s1.size <<< 1 := fun e => hc2' (Or.inr e)
+        have hsz1 : s1.size ≠ 0 := fun e => hlk (R.look e)
+        obtain ⟨c, base, z0, hB, -⟩ := R.bufs hsz1
+        have hsw : s1.size.toNat = s1.want.toNat := by rw [hB.size]
+        have hwh := sh.want_hi
+        have h2s := shl1_toNat s1.size (by omega)
+        have hn2 : 2 * s1.size.toNat ≤ n.toNat := by
+          have := mt UInt32.lt_iff_toNat_lt.mpr hns; omega
+        refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
+        apply GSat.ite
+        · intro hcp
+          exact readLoadC_spec hL hw0 hcbn hno0 hd0 hfit0 hI0 hs1 h0 hk0 hne (by simpa using hcp) n hn1 hnl hpn
+        · intro hcp
+          have hcp' : s1.how ≠ ZlibNg.Gz.COPY := by simpa using hcp
+          have hgz : s1.how = GZIP := by
+            rcases R.how with e | e | e
+            · exact absurd e hlk
+            · exact absurd e hcp'
+            · exact e
+          exact readDecompC_spec hL hw0 hcbn hno0 hd0 hfit0 hI0 hs1 h0 hk0 hne hgz n hn2 hnl hpn
+
+/-- **A trip of the loop of `gz_read` from the room test on**, with `1 <= n <= len` and `n` below `len` only when it
+is `UINT_MAX`. -/
+theorem readRoom_spec {w : World} {h : Heap} {b cb o L : Nat} (hL : L < 2 ^ 64) (hw0 : ∃ s0, w.gz h b = some s0)
+    (hcbn : cb < h.nextBlk) (hno0 : cb ∉ GzOwned w h (some b)) {data : Array UInt8} (hd0 : h.bytes cb = some data)
+    (hfit0 : o + L ≤ data.size) {st : ReadLoop} {W : World} {H : Heap} (hI : RInv w h b cb o L st W H)
+    (n : UInt32) (hn1 : 1 ≤ n.toNat) (hnl : n.toNat ≤ st.len.toNat)
+    (hnx0 : n.toNat < st.len.toNat → n.toNat = 4294967295) :
+    GSat W H (readRoom (some b) st n) (RTrip w h b cb o L (smu b W H)) := by
+  have hI0 := hI
+  obtain ⟨hgo, hl0, hbk, hgl, hv, ⟨s1, hs1, hsk⟩, g, hf, hi⟩ := hI
+  obtain ⟨sh, -⟩ := inv_of hs1 hv.1
+  have P := sh.pos
+  have hmx := gzmax
+  unfold readRoom
+  refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
+  obtain ⟨hA, hB⟩ := room_n s1.pos n P.3 (by have := P.1; have := P.2; omega)
+  apply GSat.ite
+  · intro hc
+    obtain ⟨e1, e2⟩ := hA hc
+    apply GSat.ite
+    · intro _
+      refine GSat.bind (GSat.mono (errlit_strm hv hs1 ZlibNg.Inflate.Z_DATA_ERROR _ 14 lit_readpos (by decide))
+        fun p W2 H2 q => GSat.bind (GSat.mono q fun _ W3 H3 q3 => ?_))
+      obtain ⟨s2, hs2, herr, hv2, hfs2, g2, hstr⟩ := q3
+      exact GSat.pure (trip_stop (st := st) hgl .brk (by decide) hv2 (g.trans (GStep.widen g2 _) hw0 ⟨s1, hs1⟩)
+        (by rw [hfs2]; exact hf) (fun hi0 => idle_same (hi hi0) hs1 hs2 ((congrArg GzState.how herr.1).trans rfl)
+          ((congrArg GzState.direct herr.1).trans rfl) ((congrArg GzState.strm herr.1).trans rfl) (by rw [hstr])))
+    · intro hz
+      have hx0 : (GZ_OFF_MAX - s1.pos).toUInt64.toUInt32 ≠ 0 := by simpa using hz
+      have hx1 : ((GZ_OFF_MAX - s1.pos).toUInt64.toUInt32).toNat ≠ 0 := fun e =>
+        hx0 (UInt32.toNat_inj.mp (by simpa using e))
+      exact readMain_spec hL hw0 hcbn hno0 hd0 hfit0 hI0 hs1 _ (by omega) (by omega) (Int.le_of_eq e1)
+        (fun _ => Or.inr e1)
+  · intro hc
+    exact readMain_spec hL hw0 hcbn hno0 hd0 hfit0 hI0 hs1 n hn1 hnl (hB hc) (fun hlt => Or.inl (hnx0 hlt))
+
+/-- **One trip of the loop of `gz_read`** and its condition. -/
+theorem readBody_spec {w : World} {h : Heap} {b cb o L : Nat} (hL : L < 2 ^ 64) (hw0 : ∃ s0, w.gz h b = some s0)
+    (hcbn : cb < h.nextBlk) (hno0 : cb ∉ GzOwned w h (some b)) {data : Array UInt8} (hd0 : h.bytes cb = some data)
+    (hfit0 : o + L ≤ data.size) {st : ReadLoop} {W : World} {H : Heap} (hI : RInv w h b cb o L st W H) :
+    GSat W H (readBody (some b) st) (fun st1 W1 H1 => GSat W1 H1 (readCond st1) (fun cs W2 H2 =>
+      (cs.1 = true → RInv w h b cb o L cs.2 W2 H2 ∧ smu b W2 H2 < smu b W H) ∧
+      (cs.1 = false → RQ w h b cb o L cs.2 W2 H2))) := by
+  have hl0 := hI.2.1
+  have hl0' : st.len.toNat ≠ 0 := fun e => hl0 (UInt64.toNat_inj.mp (by simpa using e))
+  unfold readBody
+  apply GSat.ite
+  · intro hc
+    have hc' : st.len.toNat < 4294967295 := by have := UInt64.lt_iff_toNat_lt.mp hc; simpa using this
+    have e : st.len.toUInt32.toNat = st.len.toNat := by rw [UInt64.toNat_toUInt32]; omega
+    exact (readRoom_spec hL hw0 hcbn hno0 hd0 hfit0 hI _ (by omega) (by omega) (fun _ => by omega)).mono
+      fun _ _ _ q => readCond_spec q
+  · intro hc
+    have hc' : 4294967295 ≤ st.len.toNat := by
+      have := mt UInt64.lt_iff_toNat_lt.mpr hc; simp at this; omega
+    exact (readRoom_spec hL hw0 hcbn hno0 hd0 hfit0 hI 4294967295 (by decide) (by simpa using hc')
+      (fun _ => rfl)).mono fun _ _ _ q => readCond_spec q
+
+/-! ## `gz_read` -/
+
+/-- **The loop of `gz_read`** into the caller's `len` bytes at offset `o` of block `cb`, from a read handle with no
+skip pending unless at the end of the input with no output. -/
+theorem readLoop_spec {w : World} {h : Heap} {b cb o : Nat} (hw0 : ∃ s0, w.gz h b = some s0)
+    (hcbn : cb < h.nextBlk) (hno0 : cb ∉ GzOwned w h (some b)) {data : Array UInt8} (hd0 : h.bytes cb = some data)
+    (len : UInt64) (hfit0 : o + len.toNat ≤ data.size) (hl0 : len ≠ 0) {W : World} {H : Heap} {s : GzState}
+    (hv : GzInvR W H (some b)) (hs : W.gz H b = some s) (hsk : s.skip = 0 ∨ (s.«have» = 0 ∧ AtEnd H s))
+    (g : GStep w h W H b [(.ref (.heap cb) o, len.toNat)]) (hf : FsRd w.fs W.fs)
+    (hi : LookIdle w h (some b) → LookIdle W H (some b)) :
+    GSat W H (readLoop (some b) (.ref (.heap cb) o) len) (fun r W' H' => r.toNat ≤ len.toNat ∧
+      GzInvR W' H' (some b) ∧ GStep w h W' H' b [(.ref (.heap cb) o, len.toNat)] ∧ FsRd w.fs W'.fs ∧
+      (LookIdle w h (some b) → LookIdle W' H' (some b))) := by
+  have hI : RInv w h b cb o len.toNat ⟨.ref (.heap cb) o, len, 0, .go⟩ W H :=
+    ⟨rfl, hl0, by simp, by simp, hv, ⟨s, hs, hsk⟩, g, hf, hi⟩
+  have hfuel : smu b W H < fuel := by
+    rw [smu_of hs]
+    have := Phi_lt (W := W) (fun fd => rdLeft_lt hv.2.2 fd) H s
+    split <;> omega
+  unfold readLoop
+  refine GSat.bind (GSat.mono (gsat_gdoWhile (RInv w h b cb o len.toNat) (fun _ W H => smu b W H)
+    (RQ w h b cb o len.toNat) (fun _ _ _ hI' => readBody_spec len.toNat_lt hw0 hcbn hno0 hd0 hfit0 hI') hI hfuel)
+    fun lp W' H' q => ?_)
+  obtain ⟨hgot, hv', g', hf', hi'⟩ := q
+  apply GSat.ite
+  · intro _; exact GSat.pure ⟨by simp, hv', g', hf', hi'⟩
+  · intro _; exact GSat.pure ⟨hgot, hv', g', hf', hi'⟩
+
+/-- **`gz_read`** on a read handle, with `LookIdle` kept. -/
+theorem gz_read_specI {w : World} {h : Heap} {b : Nat} {buf : BPtr} {len : UInt64} (hv : GzInvR w h (some b))
+    (hout : GzOut w h (some b) buf len.toNat) :
+    GSat w h (gz_read (some b) buf len) (fun r W H => ReadPost w h b buf len r W H ∧
+      (LookIdle w h (some b) → LookIdle W H (some b))) := by
+  obtain ⟨b0, s, e0, hs, -, -⟩ := hv.1
+  cases e0
+  rw [gz_read_eq]
+  apply GSat.ite
+  · intro _; exact GSat.pure ⟨⟨by simp, hv, GStep.refl _ _ _ _, FsRd.refl _⟩, id⟩
+  intro hl
+  have hl' : len ≠ 0 := by simpa using hl
+  have hl'' : len.toNat ≠ 0 := fun e => hl' (UInt64.toNat_inj.mp (by simpa using e))
+  obtain ⟨⟨cb, o, data, rfl, hd, hfit⟩, hout'⟩ : WriteSlice h buf len.toNat ∧ OutsideGz w h (some b) buf :=
+    hout.resolve_left hl''
+  have hno : cb ∉ GzOwned w h (some b) := fun m => hout' cb m o rfl
+  have hcbn : cb < h.nextBlk := live_lt hv.2.2.2.1.1 ⟨data, hd⟩
+  have loop : ∀ (W : World) (H : Heap) (s1 : GzState), GzInvR W H (some b) → W.gz H b = some s1 →
+      (s1.skip = 0 ∨ (s1.«have» = 0 ∧ AtEnd H s1)) → GStep w h W H b [] → FsRd w.fs W.fs →
+      (LookIdle w h (some b) → LookIdle W H (some b)) →
+      GSat W H (readLoop (some b) (.ref (.heap cb) o) len) (fun r W H =>
+        ReadPost w h b (.ref (.heap cb) o) len r W H ∧ (LookIdle w h (some b) → LookIdle W H (some b))) := by
+    intro W H s1 hvW hs1 hsk gW hfW hiW
+    exact (readLoop_spec ⟨s, hs⟩ hcbn hno hd len hfit hl' hvW hs1 hsk (GStep.widen gW _) hfW hiW).mono
+      fun r W' H' q => ⟨⟨q.1, q.2.1, q.2.2.1, q.2.2.2.1⟩, q.2.2.2.2⟩
+  refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
+  apply GSat.ite
+  · intro hk
+    have hk' : s.skip ≠ 0 := by simpa using hk
+    refine GSat.bind (GSat.mono (gz_skip_specI (mid_of hv hs) hk') fun r W H q => ?_)
+    obtain ⟨⟨hr, hvW, gW, hfW, s', hs', -, -, hend⟩, hiW⟩ := q
+    apply GSat.ite
+    · intro _; exact GSat.pure ⟨⟨by simp, hvW, GStep.widen gW _, hfW⟩, hiW⟩
+    · intro hr1
+      have hr0 : r = 0 := hr.resolve_left (by simpa using hr1)
+      exact loop W H s' hvW hs' (hend hr0) gW hfW hiW
+  · intro hk
+    exact loop w h s hv hs (Or.inl (by simpa using hk)) (GStep.refl _ _ _ _) (FsRd.refl _) id
+
+/-- **`gz_read`** on a read handle. -/
+theorem gz_read_spec : GzReadSpec :=
+  fun _ _ _ _ _ hv hout => (gz_read_specI hv hout).mono fun _ _ _ q => q.1
+
+/-- **`gz_read` keeps `LookIdle`.** -/
+theorem gz_read_idle : GzReadIdle := by
+  intro w h b buf len r W H hv hi hout e
+  obtain ⟨r2, W2, H2, e2, q⟩ := (gz_read_specI hv hout).run
+  obtain ⟨-, rfl, rfl⟩ := gdet e2 e
+  exact q.2 hi
 
 end ZlibNgF.Proof.GzMode
