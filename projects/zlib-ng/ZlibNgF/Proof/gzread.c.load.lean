@@ -295,4 +295,113 @@ theorem gz_error_inv0 {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz 
   obtain ⟨r, W, H, eq, s', q1, q2, q3, q4, q5, q6⟩ := gz_error_inv hv hs0 e msg hmsg hmk
   exact ⟨r, W, H, by rw [e1]; exact eq, s', q1, q2, q3, q4, q5, GStep.of_have0 hs q6⟩
 
+/-! ## `gz_load` with a local count -/
+
+/-- The body of the read loop of `gz_load` with `toX = false` (copied from the translation). -/
+def loadBody (state : GzPtr) (buf : BPtr) (len : UInt32) (s : LoadLoop) : G LoadLoop := do
+  let h0 ← (pure s.hv : G UInt32)
+  let ret ← readG (← rdG state (·.fd)) (← lm (buf.add (Int.ofNat h0.toNat))) (len - (← (pure s.hv : G UInt32))).toUInt64
+  if ret ≤ 0 then
+    return { s with ret := ret, ctl := .brk }
+  let hv ← (pure ((← (pure s.hv : G UInt32)) + ret.toUInt64.toUInt32) : G UInt32)
+  return { s with ret := ret, hv := hv }
+
+/-- The condition of the read loop of `gz_load` with `toX = false`. -/
+def loadCond (len : UInt32) (s : LoadLoop) : G (Bool × LoadLoop) := do
+  if s.ctl != .go then return (false, s)
+  return ((← (pure s.hv : G UInt32)) < len, s)
+
+open ZlibNg.Inflate in
+/-- The part of `gz_load` after the loop. -/
+def loadTail (state : GzPtr) (lp : LoadLoop) : G (Int32 × UInt32) := do
+  if lp.ret < 0 then
+    gz_error state Z_ERRNO (← zstrerror)
+    return (-1, lp.hv)
+  if lp.ret == 0 then
+    wrG state fun s => { s with eof := 1 }
+  return (0, lp.hv)
+
+theorem gz_load_false (state : GzPtr) (buf : BPtr) (len : UInt32) : gz_load state buf len false = (do
+    let hv ← (pure 0 : G UInt32)
+    let lp ← gdoWhile (loadBody state buf len) (loadCond len) ⟨0, hv, .go⟩
+    loadTail state lp) := rfl
+
+theorem addH {h : Heap} {c off : Nat} {a : Array UInt8} (ha : h.bytes c = some a) (k : Nat) (hk : off + k ≤ a.size) :
+    (Ptr.ref (BRef.heap c) off : BPtr).add (Int.ofNat k) h = .ok (.ref (.heap c) (off + k), h) := by
+  have hg : Space.get h (BRef.heap c) = some a := ha
+  simp only [Ptr.add, hg, Int.ofNat_eq_natCast]
+  split
+  · congr
+  · next hc => exact absurd ⟨by omega, by omega, by omega⟩ hc
+
+theorem HBuf.bytes_ne {H H' : Heap} {cb lo hi : Nat} (x : HBuf H H' cb lo hi) {c : Nat} (hc : c ≠ cb) :
+    H'.bytes c = H.bytes c := by
+  obtain ⟨t, rfl, hne, -, -⟩ := x; exact hne c hc
+
+theorem HBuf.size {H H' : Heap} {cb lo hi : Nat} (x : HBuf H H' cb lo hi) {a : Array UInt8} (ha : H.bytes cb = some a) :
+    ∃ a', H'.bytes cb = some a' ∧ a'.size = a.size := by
+  obtain ⟨t, rfl, -, -, hs⟩ := x; obtain ⟨a', e1, e2, -⟩ := hs a ha; exact ⟨a', e1, e2⟩
+
+theorem HBuf.gz {W : World} {H H' : Heap} {cb lo hi b : Nat} (x : HBuf H H' cb lo hi) (hb : b ≠ cb) :
+    W.gz H' b = W.gz H b := by
+  unfold World.gz; rw [x.bytes_ne hb]
+
+/-- The loop of `gz_load` with `toX = false`: it reads into `[p, p + len)` of block `cb`, lowers the read budget, and
+counts at most `len` bytes. -/
+theorem loadLoop_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) {cb p : Nat}
+    {a : Array UInt8} (ha : h.bytes cb = some a) (len : UInt32) (hp : p + len.toNat ≤ a.size) (hcb : b ≠ cb) :
+    GSat w h (gdoWhile (loadBody (some b) (.ref (.heap cb) p) len) (loadCond len) ⟨0, 0, .go⟩)
+      (fun lp W H => lp.hv.toNat ≤ len.toNat ∧ ∃ fs', FsRd w.fs fs' ∧ W = { w with fs := fs' } ∧
+        HBuf h H cb p (p + len.toNat)) := by
+  refine gsat_gdoWhile (fun (st : LoadLoop) W H => st.hv.toNat ≤ len.toNat ∧ ∃ fs', FsRd w.fs fs' ∧
+      W = { w with fs := fs' } ∧ HBuf h H cb p (p + len.toNat))
+    (fun st _ _ => len.toNat - st.hv.toNat) _ ?_ ⟨by simp, w.fs, FsRd.refl _, rfl, HBuf.refl _ _ _ _⟩
+    (by have := len.toNat_lt; simp [fuel]; omega)
+  intro st W H ⟨hle, fs', hfs, hW, x⟩
+  subst hW
+  have hsW : ({ w with fs := fs' } : World).gz H b = some s := by rw [x.gz hcb]; exact hs
+  obtain ⟨a1, ha1, hsz⟩ := x.size ha
+  unfold loadBody
+  refine GSat.bind (GSat.pure ?_)
+  refine GSat.bind (GSat.of_eq (rdG_app' hsW _) ?_)
+  refine GSat.bind (GSat.lm ⟨_, H, addH ha1 st.hv.toNat (by omega), ?_⟩)
+  refine GSat.bind (GSat.pure ?_)
+  have hn : (len - st.hv).toUInt64.toNat = len.toNat - st.hv.toNat := by
+    rw [UInt32.toNat_toUInt64, UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr hle)]
+  have hlen := len.toNat_lt
+  refine GSat.bind (GSat.mono (readG_spec ha1 s.fd (len - st.hv).toUInt64 (by rw [hn]; omega)
+    (by rw [hn]; omega)) fun r W1 H1 q => ?_)
+  obtain ⟨rfl, hr, x1⟩ := q
+  have x2 : HBuf h H1 cb p (p + len.toNat) := x.trans x1 (by omega) (by rw [hn]; omega)
+  have hfs2 : FsRd w.fs (fs'.readCall s.fd (len - st.hv).toUInt64).2.2 := hfs.trans (readCall_rd _ _ _)
+  have hres := readCall_res fs' s.fd (len - st.hv).toUInt64 (by rw [hn]; omega)
+  rw [← hr, hn] at hres
+  apply GSat.ite
+  · intro _
+    refine GSat.pure (GSat.of_eq rfl ⟨fun e => absurd e (by simp), fun _ => ⟨hle, _, hfs2, rfl, x2⟩⟩)
+  · intro hr0
+    have h0 : (0 : Int64) ≤ r := by
+      rw [Int64.le_iff_toInt_le] at hr0 ⊢; simp at hr0 ⊢; omega
+    have hpos : 0 < r.toInt := by
+      rw [Int64.le_iff_toInt_le] at hr0; simp at hr0; omega
+    have hle2 : r.toInt ≤ (len.toNat - st.hv.toNat : Nat) := by
+      rcases hres with ⟨e, -⟩ | ⟨-, e, -⟩
+      · rw [e] at hpos; simp at hpos
+      · exact e
+    have hk : r.toUInt64.toUInt32.toNat = r.toInt.toNat := by
+      rw [UInt64.toNat_toUInt32, Int64.toNat_toUInt64_of_le h0, ← Int64.toNat_toInt]; omega
+    have hsum : (st.hv + r.toUInt64.toUInt32).toNat = st.hv.toNat + r.toInt.toNat := by
+      rw [UInt32.toNat_add, hk]; omega
+    refine GSat.bind (GSat.pure ?_)
+    refine GSat.bind (GSat.pure ?_)
+    refine GSat.pure ?_
+    unfold loadCond
+    apply GSat.ite
+    · intro _
+      exact GSat.pure ⟨fun e => absurd e (by simp), fun _ => ⟨by simp only; omega, _, hfs2, rfl, x2⟩⟩
+    · intro _
+      refine GSat.bind (GSat.pure ?_)
+      refine GSat.pure ⟨fun _ => ⟨⟨by simp only; omega, _, hfs2, rfl, x2⟩, by simp only; omega⟩,
+        fun _ => ⟨by simp only; omega, _, hfs2, rfl, x2⟩⟩
+
 end ZlibNgF.Proof.GzMode
