@@ -87,6 +87,7 @@ print the expected result.
 | `gzbuffer-alloc-null-offset` | 0015 | `NULL` plus an offset in `gz_buffer_alloc` when the allocation fails (clang's UBSan; GCC's does not report it, and the case then checks that the calls run alike) |
 | `gzread-position-overflow` | 0016 | signed overflow of `x.pos` in `gz_read` after `gzseek` to `INT64_MAX` on a descriptor that keeps delivering data |
 | `fixed-block-start-overflow` | 0018 | signed overflow of `block_start` in `fill_window` after `2^31` bytes of one `Z_FIXED` level-1 stream (about 20 s) |
+| `deflate-slow-match-start` | 0019 | level 8 `deflate_slow` takes a match at or after `strstart` (levels 5 then 8 after `Z_FULL_FLUSH`): the wrapped distance makes `d_code` read far outside `dist_code` (AddressSanitizer), and without a sanitizer the stream decodes to wrong data |
 
 Patch 0017 (the writers' position) has no case here: its defect needs about `2^32` calls of `gzwrite` (minutes to
 hours). It was shown once on the real C (findings page); the `gz` differential test covers the refusal it adds.

@@ -177,4 +177,10 @@ for level in range(1, 10):
             d(level, 15, 8, 0, data(kind, n, 7 if kind == "z" else 59), n,
               ["T8/%d/128/64" % lazy] + finish(), method=8)
 
+# 11. A Z_FULL_FLUSH that empties the lookahead at level 2, more input, deflateParams to level 7: levels 2-6 leave
+# prev slots of the earlier input, and before patch 0019 deflate_slow took a match at or after strstart here
+# (found with an instrumented copy of match_tpl.h). The case runs deflate_slow's test of match_start against strstart.
+d(2, -15, 8, 0, data("b", 100000, 940932758), 100000,
+  ["o%d" % (1 << 30), "i55128", "f3", "i16582", "f0", "Q7/0", "L4/%d/%d" % (1 << 30, 1 << 30)])
+
 print("\n".join(out))
