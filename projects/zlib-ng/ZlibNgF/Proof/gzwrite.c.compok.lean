@@ -1,11 +1,13 @@
 import ZlibNgF.Proof.«gzwrite.c.compspec»
 
 /-!
-# The pieces of `gz_comp` (`ZlibNgF`)
+# The loop of `gz_comp` (`ZlibNgF`)
 
 `gz_comp` with its loop split out (`compAll`, `compBody`, `compCond`; the body's join points `cTail` and `cRT`),
-`write` on a descriptor as an `FdWrites` step (`writeG_fd`), and the change of the output fields and `x.next` of a
-write handle in the state `GzWX` (`wx_out`).
+`write` on a descriptor as an `FdWrites` step (`writeG_fd`), the change of the output fields and `x.next` of a write
+handle in the state `GzWX` (`wx_out`), `gz_error` in that state (`wx_err`), the potential across a `deflate` call
+(`pot_call`), one trip of the body (`body_spec`: `tail_spec` for `deflate`, `rt_spec` for the reset of a full output
+buffer) and the loop (`loop_spec`, by the potential `pot`).
 -/
 
 set_option autoImplicit false
@@ -643,5 +645,51 @@ theorem lfacts_step {w0 W W' : World} {h0 H H' : Heap} {b : Nat}
     have e : z0.avail_in.toNat - z.avail_in.toNat + (z.avail_in.toNat - z'.avail_in.toNat) =
         z0.avail_in.toNat - z'.avail_in.toNat := by omega
     rw [e] at this; exact this
+
+/-- **The loop of `gz_comp`** on a write handle in the state `GzWX` (not direct). -/
+theorem loop_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → Nat} {Gr : Nat}
+    (hP : DeflatePsi ψ Gr) {w0 : World} {h0 : Heap} {b : Nat} {s0 : GzState} {z0 : ZStream}
+    (hx : GzWX w0 h0 b s0 z0) (hd : s0.direct = 0) (flush : Int32) :
+    GSat w0 h0 (gdoWhile (compBody (some b) (some s0.strm) flush) compCond ⟨ZlibNg.Inflate.Z_OK, 0, .go⟩)
+      (LPost ψ flush w0 h0 b s0 z0) := by
+  have hs0 : w0.gz h0 b = some s0 := hx.1
+  refine gsat_gdoWhile (LInv ψ flush w0 h0 b s0 z0) (fun _ _ H => pot ψ flush s0.size.toNat H s0.strm) _
+    (fun l W H hI => ?_) ⟨rfl, s0, z0, ⟨hx, LFix.refl s0, FdWrites.refl _ _, GStep.refl _ _ _ _,
+      UInt32.le_refl _, by simpa using adv_zero z0.next_in, id⟩, Nat.le_refl _⟩ ?_
+  · obtain ⟨hl, s, z, F, hp⟩ := hI
+    have hx1 := F.1
+    have hd' : s.direct = 0 := F.2.1.fix.direct.trans hd
+    have hstrm : s.strm = s0.strm := F.2.1.fix.strm
+    have hsize : s.size = s0.size := F.2.1.size
+    have B := body_spec P hP hx1 hd' flush l hl
+    rw [hstrm] at B
+    refine GSat.mono B fun l1 W1 H1 q => ?_
+    obtain ⟨s1, z1, hx2, hlf, hfs, g, h1, h2, h3, hr⟩ := q
+    have F1 := lfacts_step hs0 F hx2 hlf hfs g h1 h2 h3
+    unfold compCond
+    apply GSat.ite
+    · intro hc
+      refine GSat.pure ⟨fun e => absurd e (by simp), fun _ => ⟨s1, z1, F1, Or.inl ?_⟩⟩
+      rcases hr with e | ⟨e, -⟩
+      · exact e
+      · simp [e] at hc
+    · intro hc
+      have hgo : l1.ctl = .go := by simpa using hc
+      rcases hr with e | ⟨-, pl, plt, p0⟩
+      · rw [hgo] at e; cases e
+      rw [hstrm, hsize] at pl plt
+      refine GSat.pure ⟨fun e => ⟨⟨hgo, s1, z1, F1, Nat.le_trans pl hp⟩, ?_⟩, fun e => ⟨s1, z1, F1, Or.inr ?_⟩⟩
+      · exact Nat.lt_of_lt_of_le (plt (by simpa using e)) (Nat.le_refl _)
+      · have e' : l1.hv = 0 := by simpa using e
+        exact ⟨hgo, Nat.le_trans pl hp, (p0 e').1, (p0 e').2⟩
+  · obtain ⟨sb, st, hsb, hst, hdi, hreg, hS8, hS, hle⟩ := wx_facts hx hd
+    have hz := hx.2.1
+    rw [pot_eq ψ flush _ hz hsb hst]
+    have h48 := hP.2.1 h0 (some s0.strm) sb st flush hdi hreg ⟨⟨z0, ⟨_, rfl, hz⟩, hsb⟩, hst⟩
+    have hai := z0.avail_in.toNat_lt
+    have hif : (if z0.avail_out = 0 then s0.size.toNat else z0.avail_out.toNat) ≤ s0.size.toNat := by
+      split <;> omega
+    show _ < 2 ^ 64
+    omega
 
 end ZlibNgF.Proof.GzWrite
