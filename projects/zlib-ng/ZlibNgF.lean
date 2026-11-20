@@ -20,6 +20,7 @@ import ZlibNgF.Proof.«trees.c.compress»
 import ZlibNgF.Proof.«trees.c.flush»
 import ZlibNgF.Proof.«trees.c.prims»
 import ZlibNgF.Proof.«trees.c.scan»
+import ZlibNgF.Proof.«trees.c.force»
 import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Gz
