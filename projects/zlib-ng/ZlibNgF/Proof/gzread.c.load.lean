@@ -907,3 +907,60 @@ theorem availTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
       have es : ({ s with eof := s.eof } : GzState) = s := rfl
       rw [es, DeflateReset.upd_self w.gzs b s (gzs_of hs)] at t
       exact GSat.pure t
+
+theorem AvailPost.pre {w : World} {h H : Heap} {b : Nat} {s : GzState} {r : Int32} {W : World} {H' : Heap}
+    (g : GStep w h w H b []) (hs : w.gz h b = some s) (hsH : w.gz H b = some s) (p : AvailPost w H b s r W H') :
+    AvailPost w h b s r W H' :=
+  ⟨p.1, p.2.1, g.trans p.2.2.1 ⟨s, hs⟩ ⟨s, hsH⟩, p.2.2.2⟩
+
+/-- **`gz_avail`** on a read handle with buffers and `x.have == 0`: returns `-1` or `0`, leaves a read handle whose
+state differs at most in `eof`, `err` and `msg`, and only reads the file system. -/
+theorem gz_avail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) :
+    GSat w h (gz_avail (some b)) (AvailPost w h b s) := by
+  obtain ⟨sh, hn⟩ := inv_of hs hv.1
+  have hr := modeOf hs hv.2.1
+  obtain ⟨c, base, z, hB, -, hz, -, hai, -⟩ := (sh.read hr).bufs hsz
+  obtain ⟨hcb, hpath, hst, hown⟩ := buf_facts hs hn hsz hB
+  obtain ⟨d, hd, hds⟩ := hB.fits
+  have done0 : AvailPost w h b s 0 w h := ⟨Or.inr rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩
+  have tail : ∀ H, HBuf h H c base (base + inSize s) →
+      GSat w H (availTail (some b) (some s.strm)) (AvailPost w h b s) := by
+    intro H x
+    have hsH : w.gz H b = some s := by rw [x.gz hcb]; exact hs
+    have g : GStep w h w H b [] := by
+      have := gstep_hbuf hs x hcb hown w.fs s rfl rfl rfl rfl
+      rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
+      exact this
+    exact (availTail_spec hv hs h0 hsz hB hz hai x).mono fun r W H' p => AvailPost.pre g hs hsH p
+  unfold gz_avail
+  refine GSat.bind (GSat.of_eq (strmOf_app hs) ?_)
+  refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
+  refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
+  apply GSat.ite
+  · intro _; exact GSat.pure ⟨Or.inl rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩
+  · intro _
+    refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
+    apply GSat.ite
+    · intro _
+      refine GSat.bind (GSat.lm ⟨_, h, rdZ_app hz _, ?_⟩)
+      apply GSat.ite
+      · intro hne
+        have hne' : z.avail_in ≠ 0 := by simpa using hne
+        obtain ⟨k, hnx, -, hkn⟩ := hai.resolve_left hne'
+        refine GSat.bind (GSat.of_eq (ldGz_app hs) ?_)
+        refine GSat.bind (GSat.lm ⟨.ref (.heap c) base, h, (by show Ival.get s.«in» _ = _; rw [hB.inp]; rfl), ?_⟩)
+        refine GSat.bind (GSat.lm ⟨_, h, rdZ_app hz _, ?_⟩)
+        apply GSat.ite
+        · intro _
+          refine GSat.bind (GSat.lm ⟨_, h, rdZ_app hz _, ?_⟩)
+          rw [hnx]
+          refine GSat.bind (GSat.mono (copy_spec hd (base := base) (j := k) z.avail_in hne' (by omega))
+            fun _ W H q => ?_)
+          obtain ⟨rfl, x⟩ := q
+          exact tail H ((HBuf.refl h c base (base + inSize s)).trans x (Nat.le_refl _) (by omega))
+        · intro _; exact tail h (HBuf.refl _ _ _ _)
+      · intro _; exact tail h (HBuf.refl _ _ _ _)
+    · intro _; exact GSat.pure done0
+
+end ZlibNgF.Proof.GzMode
