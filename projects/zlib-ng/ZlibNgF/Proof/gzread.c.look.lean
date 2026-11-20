@@ -29,14 +29,13 @@ theorem alD_lt (a : UInt64) : (alD a).toNat < 64 := by
   exact Nat.lt_of_le_of_lt Nat.and_le_right (by decide)
 
 theorem alOff_bounds (a : UInt64) : 8 ≤ alOff a ∧ alOff a < 72 := by
-  have := alD_lt a
+  have h1 := alD_lt a
   have h64 : (64 : UInt32).toNat = 64 := rfl
+  have hq : alD a < 8 ↔ (alD a).toNat < 8 := UInt64.lt_iff_toNat_lt
   unfold alOff
-  by_cases hd : alD a < 8
-  · rw [if_pos hd, h64]; omega
-  · rw [if_neg hd]
-    have : ¬ (alD a).toNat < 8 := fun e => hd (UInt64.lt_iff_toNat_lt.mpr (by simpa using e))
-    omega
+  split
+  · rw [h64]; omega
+  · next hd => have := mt hq.mpr hd; omega
 
 /-- The heap after a successful `zng_alloc_aligned(size, 64)`. -/
 def alH (h : Heap) (n : Nat) (off : Nat) : Heap :=
@@ -56,8 +55,7 @@ theorem alloc_aligned_ok {h : Heap} (size : UInt32) (hw : 8 + size.toNat + 64 < 
   let c := h.nextBlk
   let A : Array UInt8 := Array.ofFn (n := 8 + size.toNat + 64) fun i => Junk.of (h.garbage h.nalloc i.val)
   have hA : A.size = 8 + size.toNat + 64 := Array.size_ofFn
-  let H1 : Heap := { h with bytes := upd h.bytes c (some A), savedPtrs := upd h.savedPtrs c none,
-    nextBlk := c + 1, nalloc := h.nalloc + 1 }
+  let H1 : Heap := { h with bytes := upd h.bytes c (some A), savedPtrs := upd h.savedPtrs c none, nextBlk := c + 1, nalloc := h.nalloc + 1 }
   have e1 : allocB ((8 : UInt64) + size.toUInt64 + (64 : UInt32).toUInt64).toUInt32.toNat h =
       .ok (.ref (.heap c) 0, H1) := by
     rw [hsz]; simp only [allocB, hok, ite_true]; rfl
@@ -190,7 +188,7 @@ theorem gz_buffer_alloc_ok {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : 
     have hg : Space.get H (BRef.heap h.nextBlk) = some (Array.ofFn (n := 8 + 3 * s.want.toNat + 64)
         fun i => Junk.of (h.garbage h.nalloc i.val)) := hcA
     have := Inftrees.add_ok (r := BRef.heap h.nextBlk) (off := o) (k := Int.ofNat s.want.toNat) (h := H) hg
-      (by rw [Array.size_ofFn]; omega) (by simp) (by rw [Array.size_ofFn]; simp; omega)
+      (by rw [Array.size_ofFn]; omega) (by omega) (by rw [Array.size_ofFn]; omega)
     rw [this]; congr 3; simp
   have hm2 : ¬ (s.want * 2 = 0) := by
     intro e; have := congrArg UInt32.toNat e; rw [UInt32.toNat_mul] at this; simp at this; omega
