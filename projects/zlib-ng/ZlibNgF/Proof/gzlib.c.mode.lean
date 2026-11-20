@@ -1025,7 +1025,7 @@ theorem macro_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
       by_cases hk : s.skip = 0
       · rw [hk]; simp; rw [hmax]; omega
       · have := R.skip_have hk; omega
-    · show -(2 ^ 31 : Int) ≤ (s.pos + 1).toInt
+    · show -GZ_OFF_MAX.toInt ≤ (s.pos + 1).toInt
       rw [hp1]; have := P.3; omega
     · right
       refine ⟨.ref (.heap c) (base + (k + 1)), by show Ival.val (Ptr.ref (BRef.heap c) _) = _; rw [hk1], k + 1, rfl, ?_, ?_⟩

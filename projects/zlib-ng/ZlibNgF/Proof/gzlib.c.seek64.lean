@@ -181,7 +181,7 @@ range, the output stays inside the `out` buffer, and a pending skip has no outpu
 theorem shape_seek {h : Heap} {s : GzState} (sh : GzShape h s) (hr : s.mode = GZ_READ) (hv : UInt32)
     (nx : Ival BPtr) (p k : Int64) (hw : Int32) (hhow : hw = LOOK ∨ hw = ZlibNg.Gz.COPY ∨ hw = GZIP)
     (hk0 : 0 ≤ k.toInt) (hpk : p.toInt + k.toInt ≤ GZ_OFF_MAX.toInt)
-    (hp : -(2 ^ 31 : Int) ≤ p.toInt)
+    (hp : -GZ_OFF_MAX.toInt ≤ p.toInt)
     (hout : hv = 0 ∨ (s.size ≠ 0 ∧ ∀ c base, GzBufs h s c base →
       ∃ q, nx = .val q ∧ Inside c base (inSize s) (inSize s + outSize s) q hv.toNat))
     (hkh : k ≠ 0 → hv = 0) (hlook : s.size = 0 → hw = LOOK) :
@@ -206,7 +206,7 @@ theorem shape_seek {h : Heap} {s : GzState} (sh : GzShape h s) (hr : s.mode = GZ
 theorem invR_seek {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (hvv : UInt32) (nx : Ival BPtr) (p k : Int64) (hw : Int32)
     (hhow : hw = LOOK ∨ hw = ZlibNg.Gz.COPY ∨ hw = GZIP) (hk0 : 0 ≤ k.toInt)
-    (hpk : p.toInt + k.toInt ≤ GZ_OFF_MAX.toInt) (hp : -(2 ^ 31 : Int) ≤ p.toInt)
+    (hpk : p.toInt + k.toInt ≤ GZ_OFF_MAX.toInt) (hp : -GZ_OFF_MAX.toInt ≤ p.toInt)
     (hout : hvv = 0 ∨ (s.size ≠ 0 ∧ ∀ c base, GzBufs h s c base →
       ∃ q, nx = .val q ∧ Inside c base (inSize s) (inSize s + outSize s) q hvv.toNat))
     (hkh : k ≠ 0 → hvv = 0) (hlook : s.size = 0 → hw = LOOK) :
@@ -650,7 +650,7 @@ theorem seekCur2_gen {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h
     (I : World → Heap → Prop) (hI : I w h) (off cur : Int64)
     (hC : ∀ pos : Int64, 0 ≤ pos.toInt → GSat { w with gzs := upd w.gzs b (some { s with skip := 0 }) } h
       (seekTail (some b) off pos) (SPost I { w with gzs := upd w.gzs b (some { s with skip := 0 }) } h b))
-    (hc1 : -(2 ^ 31 : Int) ≤ cur.toInt) (hc2 : cur.toInt ≤ GZ_OFF_MAX.toInt)
+    (hc1 : -GZ_OFF_MAX.toInt ≤ cur.toInt) (hc2 : cur.toInt ≤ GZ_OFF_MAX.toInt)
     (hcp : 0 < cur.toInt → off.toInt ≤ GZ_OFF_MAX.toInt - cur.toInt) :
     GSat w h (seekCur2 (some b) off cur) (SPost I w h b) := by
   have hmx' := gzmax
@@ -705,7 +705,7 @@ theorem seekCur_gen {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h 
     (I : World → Heap → Prop) (hI : I w h) (off cur : Int64)
     (hC : ∀ pos : Int64, 0 ≤ pos.toInt → GSat { w with gzs := upd w.gzs b (some { s with skip := 0 }) } h
       (seekTail (some b) off pos) (SPost I { w with gzs := upd w.gzs b (some { s with skip := 0 }) } h b))
-    (hc1 : -(2 ^ 31 : Int) ≤ cur.toInt) (hc2 : cur.toInt ≤ GZ_OFF_MAX.toInt) :
+    (hc1 : -GZ_OFF_MAX.toInt ≤ cur.toInt) (hc2 : cur.toInt ≤ GZ_OFF_MAX.toInt) :
     GSat w h (seekCur (some b) off cur) (SPost I w h b) := by
   have hmx' := gzmax
   unfold seekCur
@@ -761,7 +761,7 @@ theorem gzseek64_gen {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h
     · intro hnn
       exact hT off off (by have := mt Int64.lt_iff_toInt_lt.mpr hnn; simp at this; omega)
   · intro _
-    have hCur : ∀ cur : Int64, -(2 ^ 31 : Int) ≤ cur.toInt → cur.toInt ≤ GZ_OFF_MAX.toInt →
+    have hCur : ∀ cur : Int64, -GZ_OFF_MAX.toInt ≤ cur.toInt → cur.toInt ≤ GZ_OFF_MAX.toInt →
         GSat w h (seekCur (some b) off cur) (SPost I w h b) :=
       fun cur h1 h2 => seekCur_gen hs I hI off cur (hC off) h1 h2
     have hb : -(2 ^ 63 : Int) ≤ s.pos.toInt + s.skip.toInt ∧ s.pos.toInt + s.skip.toInt < 2 ^ 63 := by
