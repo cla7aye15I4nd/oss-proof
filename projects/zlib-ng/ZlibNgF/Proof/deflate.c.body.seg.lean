@@ -126,4 +126,39 @@ theorem seg_run {h H0 : Heap} {i b : Nat} {z0 : ZStream} {st0 : DeflateState} {d
       obtain rfl : pbo = pbo' := by injection hpb' with e; injection e with _ e
       exact hlo j hj) rfl rfl rfl rfl rfl rfl rfl
 
+/-- A segment from `SH H0 i z0 b st0 d0` (no symbols, `pending_out` at `pending_buf`) keeps `Run`, given the header
+facts of the new state, and no lookahead in `FINISH_STATE`. -/
+theorem seg_run' {h H0 : Heap} {i b : Nat} {z0 : ZStream} {st0 : DeflateState} {d0 d : Array UInt8} {pbo : Nat}
+    (R : Run h i b (SH H0 i z0 b st0 d0)) (hpb : st0.pending_buf = .val (.ref (.heap b) pbo))
+    (h0 : st0.sym_next = 0) (hpo : st0.pending_out = st0.pending_buf) (a : UInt64) (p : UInt32) (s : Int32)
+    (g : UInt32) (hsz : d.size = d0.size) (hlo : ∀ j, j < pbo → d[j]! = d0[j]!)
+    (hp : p.toNat ≤ 4 * st0.lit_bufsize.toNat) (hs1 : INIT_STATE ≤ s) (hs2 : s ≤ MAX_STATE)
+    (hfin : s = FINISH_STATE → st0.sym_next = 0 ∧ st0.lookahead = 0)
+    (hdr : HdrOk (SH H0 i { z0 with adler := a } b { st0 with pending := p, status := s, gzindex := g } d) b
+      { st0 with pending := p, status := s, gzindex := g }) :
+    Run h i b (SH H0 i { z0 with adler := a } b { st0 with pending := p, status := s, gzindex := g } d) := by
+  have hv := R.inv
+  obtain ⟨z1, hz1, hb⟩ := R.blk
+  obtain rfl : z0 = z1 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz1)
+  obtain ⟨al, hal, c⟩ := inv_SH hv hb
+  have hb8 := c.bits
+  simp only [dview] at hb8
+  have hb8' : st0.bi_valid.toInt.toNat / 8 ≤ 7 := by
+    have a1 : st0.bi_valid.toInt < 64 := Int32.lt_iff_toInt_lt.mp hb8.2
+    omega
+  have c' := dcore_hdr (H' := SH H0 i { z0 with adler := a } b { st0 with pending := p, status := s, gzindex := g } d)
+    (z' := { z0 with adler := a }) c (SH_bytes _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _) hsz h0 hpo s p (by simp only [dview]; omega) hs1 hs2 rfl rfl
+  have R' := run_SH (z' := { z0 with adler := a }) (st' := { st0 with pending := p, status := s, gzindex := g })
+    (d' := d) R (SH_streams _ _ _ _ _ _) (SH_dstate _ _ _ _ _ _) hal
+    (by rw [SH_SH]; exact c') rfl rfl rfl rfl rfl rfl ?_
+  · rwa [SH_SH] at R'
+  · rw [SH_SH]
+    obtain ⟨S1, -, -, S4, S5⟩ := R.side st0 (SH_dstate _ _ _ _ _ _)
+    refine ⟨S1, hfin, hdr, S4, fun d' hd' => ?_⟩
+    rw [SH_bytes] at hd'; obtain rfl := Option.some.inj hd'
+    exact chain_keep c (SH_bytes _ _ _ _ _ _) (S5 d0 (SH_bytes _ _ _ _ _ _)) (fun pbo' hpb' j hj => by
+      rw [hpb] at hpb'
+      obtain rfl : pbo = pbo' := by injection hpb' with e; injection e with _ e
+      exact hlo j hj) rfl rfl rfl rfl rfl rfl rfl
+
 end ZlibNgF.Proof.DeflateBody
