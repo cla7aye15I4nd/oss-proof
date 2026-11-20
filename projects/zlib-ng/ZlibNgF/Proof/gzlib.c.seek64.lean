@@ -184,13 +184,13 @@ theorem shape_seek {h : Heap} {s : GzState} (sh : GzShape h s) (hr : s.mode = GZ
     (hp : -GZ_OFF_MAX.toInt ≤ p.toInt)
     (hout : hv = 0 ∨ (s.size ≠ 0 ∧ ∀ c base, GzBufs h s c base →
       ∃ q, nx = .val q ∧ Inside c base (inSize s) (inSize s + outSize s) q hv.toNat))
-    (hkh : k ≠ 0 → hv = 0) :
+    (hkh : k ≠ 0 → hv = 0) (hlook : s.size = 0 → hw = LOOK) :
     GzShape h { s with «have» := hv, next := nx, pos := p, skip := k, how := hw } := by
   have R := sh.read hr
   refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size,
     ⟨hk0, hpk, hp, fun e => absurd (hr.symm.trans e) read_ne_write⟩, ⟨sh.msg.msg, sh.msg.mem⟩,
-    fun _ => ⟨hhow, fun hsz => ?_, fun hsz => ?_, fun hk => ?_, fun hz => (R.fresh hz).of_strm rfl⟩, fun e => absurd (hr.symm.trans e) read_ne_write,
-    fun hz => sh.dead hz⟩
+    fun _ => ⟨hhow, fun hsz => ?_, fun hsz => ?_, fun hk => ?_, fun hz => (R.fresh hz).of_strm rfl, hlook⟩,
+    fun e => absurd (hr.symm.trans e) read_ne_write, fun hz => sh.dead hz⟩
   · obtain ⟨c, base, z, hb, hi, hz, -, hai, hreg, hmsg⟩ := R.bufs hsz
     refine ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz, ?_, hai, hreg, hmsg⟩
     rcases hout with e | ⟨-, hq⟩
@@ -209,12 +209,12 @@ theorem invR_seek {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w 
     (hpk : p.toInt + k.toInt ≤ GZ_OFF_MAX.toInt) (hp : -GZ_OFF_MAX.toInt ≤ p.toInt)
     (hout : hvv = 0 ∨ (s.size ≠ 0 ∧ ∀ c base, GzBufs h s c base →
       ∃ q, nx = .val q ∧ Inside c base (inSize s) (inSize s + outSize s) q hvv.toNat))
-    (hkh : k ≠ 0 → hvv = 0) :
+    (hkh : k ≠ 0 → hvv = 0) (hlook : s.size = 0 → hw = LOOK) :
     GzInvR { w with gzs := upd w.gzs b (some { s with «have» := hvv, next := nx, pos := p, skip := k, how := hw }) } h
       (some b) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   exact (keeps_store hs (HLess.refl h) (fun _ e => e)
-    (shape_seek sh (modeOf hs hv.2.1) hvv nx p k hw hhow hk0 hpk hp hout hkh) hn rfl rfl).1 hv
+    (shape_seek sh (modeOf hs hv.2.1) hvv nx p k hw hhow hk0 hpk hp hout hkh hlook) hn rfl rfl).1 hv
 
 /-! ## `seekSkip` -/
 
@@ -253,7 +253,7 @@ theorem seekSkip_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
         { s with «have» := s.«have», next := s.next, pos := s.pos, skip := off, how := s.how } := rfl
     refine ⟨?_, ?_⟩
     · rw [e]
-      refine invR_seek hv hs s.«have» s.next s.pos off s.how R.how h0 hmx P.3 ?_ hkh
+      refine invR_seek hv hs s.«have» s.next s.pos off s.how R.how h0 hmx P.3 ?_ hkh R.look
       by_cases hz : s.«have» = 0
       · exact Or.inl hz
       · have hsz : s.size ≠ 0 := fun e => hz (R.nobuf e)
@@ -303,7 +303,7 @@ theorem seekSkip_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
     refine ⟨?_, gstep_st hs w.fs rfl rfl rfl rfl⟩
     refine invR_seek hv hs (s.«have» - n) (.val (.ref (.heap c) (base + k + n.toNat)))
       (Int64.ofInt (s.pos.toInt + (n.toNat : Int))) (Int64.ofInt (off.toInt - (n.toNat : Int))) s.how R.how
-      (by rw [e3]; omega) (by rw [e2, e3]; omega) (by rw [e2]; have := P.3; omega) ?_ ?_
+      (by rw [e3]; omega) (by rw [e2, e3]; omega) (by rw [e2]; have := P.3; omega) ?_ ?_ R.look
     · by_cases hz2 : s.«have» - n = 0
       · exact Or.inl hz2
       · refine Or.inr ⟨hsz, fun c' base' hb' => ?_⟩
@@ -520,7 +520,7 @@ theorem seekRaw_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR
   have e3 := toInt_ofInt' hb3.1 hb3.2
   obtain ⟨sh', hn'⟩ := reset_keep sh hr hn hz
   have shG := shape_seek sh' hr 0 s.next (Int64.ofInt (s.pos.toInt + d.toInt)) 0 s.how R.how (by simp)
-    (by rw [e3]; simp; omega) (by rw [e3]; omega) (Or.inl rfl) (fun _ => rfl)
+    (by rw [e3]; simp; omega) (by rw [e3]; omega) (Or.inl rfl) (fun _ => rfl) R.look
   have hl : HLess h (avail0 (freeMsg h s) s.strm z) := (HLess.free h s).trans (HLess.av0 _ _ _)
   have hsG := gz_upd_same (w := { w with fs := fs1 }) (h := avail0 (freeMsg h s) s.strm z) (s := s)
     (by unfold World.gz; rw [hdb2]; unfold World.gz at hs; rw [hdb] at hs; exact hs)
@@ -800,7 +800,7 @@ theorem invR_skip0 {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
   have R := sh.read (modeOf hs hv.2.1)
   have P := sh.pos
   exact invR_seek hv hs s.«have» s.next s.pos 0 s.how R.how (by simp) (by have := P.1; have := P.2; simp; omega)
-    P.3 (hout_self R) (fun e => absurd rfl e)
+    P.3 (hout_self R) (fun e => absurd rfl e) R.look
 
 theorem invW_skip0 {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvWS w h (some b))
     (hs : w.gz h b = some s) : GzInvWS { w with gzs := upd w.gzs b (some { s with skip := 0 }) } h (some b) := by
