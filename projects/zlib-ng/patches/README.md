@@ -1,6 +1,6 @@
 # Patches
 
-The verified source is the zlib-ng `develop` branch at commit `5f1f4899` (the `zlib-ng/` submodule) plus the patch
+The verified source is the zlib-ng `develop` branch at commit `e591472c` (the `zlib-ng/` submodule) plus the patch
 series in this directory.
 
 ## Layout and application rule

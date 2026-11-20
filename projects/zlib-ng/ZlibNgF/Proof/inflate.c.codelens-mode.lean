@@ -18,6 +18,78 @@ open ZlibNgF.Proof.InflateX
 open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.mono Sat.of_eq St Touch)
 open ZlibNgF.Proof.InflateTab (TabAt CodeTable EntryOK)
 
+/-! ## `setWideLen` -/
+
+private theorem setWideLen_go {H : Heap} {b : Nat} {S : InflateState} (hs : H.istate b = some S)
+    (hlen : S.lens.size = 320) (hn : S.nlen.toNat ≤ 320) :
+    ∀ (k : Nat) (sym : UInt32) (brk : Bool) (w0 : Int32),
+      (if brk then 1 else S.nlen.toNat - sym.toNat + 1) ≤ k →
+      ∃ r w, cwhile.go (σ := UInt32 × Bool)
+        (fun (sym, brk) => do
+          if brk then return (false, (sym, true))
+          let nlen ← rdS (some b) (·.nlen)
+          return (sym < nlen, (sym, false)))
+        (fun (sym, _) => do
+          if (← Ptr.index (Ptr.ref (WRef.lens b) 0 : WPtr) (Int.ofNat sym.toNat)) != (0 : UInt16) then
+            wrS (some b) fun s => { s with wide_len := 1 }
+            return (sym, true)
+          else
+            return (sym + 1, false))
+        k (sym, brk) (withS H b { S with wide_len := w0 }) =
+          .ok (r, withS H b { S with wide_len := w })
+  | 0, _, brk, _, hk => by cases brk <;> simp at hk
+  | k + 1, sym, true, w0, _ =>
+    ⟨(sym, true), w0, by simp [cwhile.go, bind_app]⟩
+  | k + 1, sym, false, w0, hk => by
+    simp only [Bool.false_eq_true, ↓reduceIte] at hk
+    have hpure : ∀ {α : Type} (a : α) (h : Heap), (pure a : M α) h = .ok (a, h) := fun _ _ => rfl
+    have hrd := rdS_withS hs { S with wide_len := w0 } (·.nlen)
+    by_cases hlt : sym < S.nlen
+    · have hlt' : sym.toNat < S.nlen.toNat := by simpa [UInt32.lt_iff_toNat_lt] using hlt
+      have hltb : decide (sym < S.nlen) = true := decide_eq_true hlt
+      have hidx : Ptr.index (Ptr.ref (WRef.lens b) 0 : WPtr) (Int.ofNat sym.toNat)
+          (withS H b { S with wide_len := w0 }) = .ok (S.lens[sym.toNat]'(by omega), withS H b { S with wide_len := w0 }) := by
+        simp only [Ptr.index, bind_app, addLens_withS hs { S with wide_len := w0 } (by show sym.toNat ≤ S.lens.size; omega),
+          Ptr.load, getWords_withS hs { S with wide_len := w0 }]
+        have hlt320 : sym.toNat < S.lens.size := by omega
+        simp [hlt320]
+      by_cases hnz : (S.lens[sym.toNat]'(by omega)) != (0 : UInt16)
+      · obtain ⟨r, w, hr⟩ := setWideLen_go hs hlen hn k sym true 1 (by simp only [↓reduceIte]; omega)
+        refine ⟨r, w, ?_⟩
+        rw [cwhile.go, bind_app]
+        simp only [Bool.false_eq_true, ↓reduceIte, bind_app, hpure, hrd, hltb, hidx, hnz,
+          wrS_withS hs { S with wide_len := w0 }]
+        exact hr
+      · have hsym1 : (sym + 1).toNat = sym.toNat + 1 := by
+          rw [UInt32.toNat_add]; show (sym.toNat + 1) % 2 ^ 32 = sym.toNat + 1; omega
+        obtain ⟨r, w, hr⟩ := setWideLen_go hs hlen hn k (sym + 1) false w0 (by simp only [Bool.false_eq_true, ↓reduceIte]; omega)
+        refine ⟨r, w, ?_⟩
+        rw [cwhile.go, bind_app]
+        simp only [Bool.false_eq_true, ↓reduceIte, bind_app, hpure, hrd, hltb, hidx, hnz]
+        exact hr
+    · have hltb : decide (sym < S.nlen) = false := decide_eq_false hlt
+      refine ⟨(sym, false), w0, ?_⟩
+      rw [cwhile.go, bind_app]
+      simp only [Bool.false_eq_true, ↓reduceIte, bind_app, hpure, hrd, hltb]
+
+/-- `setWideLen` updates only `wide_len` when `lens` has size 320 and `nlen ≤ 320`. -/
+theorem setWideLen_eq {H : Heap} {b : Nat} {S : InflateState} (hs : H.istate b = some S)
+    (hlen : S.lens.size = 320) (hn : S.nlen.toNat ≤ 320) :
+    ∃ w : Int32, setWideLen (some b) (Ptr.ref (WRef.lens b) 0 : WPtr) H = .ok ((), withS H b { S with wide_len := w }) := by
+  obtain ⟨r, w, hr⟩ := setWideLen_go hs hlen hn C.fuel 273 false 0 (by
+    simp only [Bool.false_eq_true, ↓reduceIte, C.fuel]; omega)
+  refine ⟨w, ?_⟩
+  simp only [setWideLen, bind_app, wrS_app hs, cwhile, hr]
+  rfl
+
+theorem setWideLen_withS {H : Heap} {b : Nat} {S : InflateState} (hs : H.istate b = some S) (S1 : InflateState)
+    (hlen : S1.lens.size = 320) (hn : S1.nlen.toNat ≤ 320) :
+    ∃ w : Int32, setWideLen (some b) (Ptr.ref (WRef.lens b) 0 : WPtr) (withS H b S1) =
+      .ok ((), withS H b { S1 with wide_len := w }) := by
+  obtain ⟨w, hw⟩ := setWideLen_eq (istate_withS hs S1) hlen hn
+  rw [withS_withS] at hw
+  exact ⟨w, hw⟩
+
 /-! ## `PULLBYTE` and the decoding loop -/
 
 /-- `PULLBYTE()` with room for 8 more bits: one input byte moves into the bit buffer, or the call leaves. -/
@@ -678,12 +750,15 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
     work := work'
     next := .val (.ref (.codes E.b) o')
     lenbits := lb }
-  refine SatX.bind (SatX.lift_eq (rdS_withS hs1 S5 (·.next)) ?_)
+  obtain ⟨w, hw⟩ := setWideLen_withS hs1 S5 c1.lens_size (by show S1.nlen.toNat ≤ 320; omega)
+  let S5w : InflateState := { S5 with wide_len := w }
+  refine SatX.bind (SatX.lift (Sat.of_eq hw ?_))
+  refine SatX.bind (SatX.lift_eq (rdS_withS hs1 S5w (·.next)) ?_)
   refine SatX.bind (SatX.lift_eq (a := (.ref (.codes E.b) o' : CodePtr)) rfl ?_)
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
   refine SatX.bind (SatX.lift_eq (ldState_withS hs1 _) ?_)
-  let S6 : InflateState := { S5 with
+  let S6 : InflateState := { S5w with
     distcode := .val (.ref (.codes E.b) o')
     distbits := 9 }
   have hsz6 : S6.lens.size = 320 := c1.lens_size

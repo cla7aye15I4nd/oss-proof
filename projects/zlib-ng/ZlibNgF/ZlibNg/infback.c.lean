@@ -447,6 +447,7 @@ def back_TABLE (c : BCtx) : X Unit := do
   if ret != 0 then
     SET_BAD c.ctx "invalid literal/lengths set"
     return
+  setWideLen c.st lens
   let nx ← (← rdS c.st (·.next)).get
   wrS c.st fun s => { s with distcode := .val nx }
   wrS c.st fun s => { s with distbits := 9 }

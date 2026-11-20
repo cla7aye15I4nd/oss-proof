@@ -15,7 +15,7 @@ The series is one commit with the library change and one GoogleTest case.
 ## Related Upstream References
 
 - Not yet submitted upstream.
-- https://github.com/zlib-ng/zlib-ng/pull/2432 (merged into `develop` after the pinned commit) changes the non-safe copy path of `inffast_tpl.h`; the series will need a rebase there when it is submitted.
+- https://github.com/zlib-ng/zlib-ng/pull/2432 (included in the pinned commit) changes the non-safe copy path of `inffast_tpl.h` (`else` branch); this series still applies cleanly.
 
 ## Review Feedback Addressed
 

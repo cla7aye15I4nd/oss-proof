@@ -1,7 +1,7 @@
 {
   "version": 1,
   "header": "zlib-ng/zlib.h.in",
-  "source_pin": "5f1f489934a5b298a835acf22db84d480ac14c22",
+  "source_pin": "e591472c37b22019c0e18f11e12200bb677a0f1d",
   "target": "x86_64 Linux LP64, cmake -DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF",
   "undocumented": {
     "header_comment": "/* undocumented functions */",

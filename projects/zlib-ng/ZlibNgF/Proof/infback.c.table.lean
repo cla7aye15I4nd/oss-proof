@@ -840,6 +840,7 @@ theorem tb_tail {E : BEnv} (cb : E.CB) {z : ZStream} {S0 : InflateState} {M0 m :
       if ret != 0 then
         SET_BAD E.c.ctx "invalid literal/lengths set"
         return
+      setWideLen E.c.st (Ptr.ref (WRef.lens E.b) 0 : WPtr)
       let nx ← (← rdS E.c.st (·.next)).get
       wrS E.c.st fun s => { s with distcode := .val nx }
       wrS E.c.st fun s => { s with distbits := 9 }
@@ -935,14 +936,19 @@ theorem tb_tail {E : BEnv} (cb : E.CB) {z : ZStream} {S0 : InflateState} {M0 m :
   have ho1' : o' ≤ 1332 := by
     have e2 : (if ZlibNg.Inftrees.LENS = ZlibNg.Inftrees.DISTS then 592 else 1332) = 1332 := by decide
     omega
+  -- set wide_len
+  obtain ⟨w, hw⟩ := InflateLoop.setWideLen_eq bm5r.sh.istate hls (by show S.nlen.toNat ≤ 320; rw [hnl]; omega)
+  let S5w : InflateState := { S5 with wide_len := w }
+  have bm5w := bm5r.wS cb (S' := S5w) ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  refine SatX.bind (SatX.lift (Sat.of_eq hw ?_))
   -- the distance table
-  refine SatX.bind (liftEq (bm5r.sh.rdS _) ?_)
+  refine SatX.bind (liftEq (bm5w.sh.rdS _) ?_)
   refine SatX.bind (liftEq (ival_get _ _) ?_)
-  obtain ⟨e6, bm6⟩ := bm5r.wS' cb (S' := { S5 with distcode := .val (.ref (.codes E.b) o') })
+  obtain ⟨e6, bm6⟩ := bm5w.wS' cb (S' := { S5w with distcode := .val (.ref (.codes E.b) o') })
     ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
     (fun s => { s with distcode := .val (.ref (.codes E.b) o') }) rfl
   refine SatX.bind (SatX.lift (Sat.of_eq e6 ?_))
-  let S6 : InflateState := { S5 with
+  let S6 : InflateState := { S5w with
     distcode := .val (.ref (.codes E.b) o')
     distbits := 9 }
   obtain ⟨e7, bm7⟩ := bm6.wS' cb (S' := S6) ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
@@ -952,7 +958,7 @@ theorem tb_tail {E : BEnv} (cb : E.CB) {z : ZStream} {S0 : InflateState} {M0 m :
   refine SatX.bind (liftEq (bm7.sh.addLens (k := S.nlen.toNat) (by rw [hnl]; omega)) ?_)
   refine SatX.bind (liftEq (ival_get _ _) ?_)
   refine SatX.bind (liftEq (a := (.ref (.work E.b) 0 : WPtr)) rfl ?_)
-  generalize hH7 : withS (withS (withS (withS H3 E.b _) E.b _) E.b _) E.b S6 = H7 at bm7
+  generalize hH7 : withS (withS (withS (withS (withS H3 E.b _) E.b _) E.b _) E.b _) E.b S6 = H7 at bm7
   have hcs6 : S6.codes.size = ENOUGH := by rw [hcs1]
   have hws6 : S6.work.size = 288 := hws1
   obtain ⟨ret2, o'', db, codes'', work'', e2, hcs2, hws2, hkeep2, -, hok2, herr2⟩ :=
