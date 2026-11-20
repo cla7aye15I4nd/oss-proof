@@ -91,3 +91,5 @@ import ZlibNgF.Proof.«gzlib.c.gsat»
 import ZlibNgF.Proof.«gzlib.c.open»
 import ZlibNgF.Proof.«public-gzopen»
 import ZlibNgF.Proof.«gzlib.c.mode»
+import ZlibNgF.Proof.«gzlib.c.seek»
+import ZlibNgF.Proof.«gzlib.c.handles»
