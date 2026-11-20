@@ -221,7 +221,8 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
     (hF : bs = .finish_started ∨ bs = .finish_done → flush = Z_FINISH)
     (hP : flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → ∀ z z', StreamAt h (some i) z →
       StreamAt H (some i) z' → z.avail_out ≠ 0 → z'.avail_in < z.avail_in ∨ z'.avail_out < z.avail_out)
-    (hp : bs = .block_done ∨ bs = .finish_done → ∀ st, H.dstate b = some st → st.pending = 0) :
+    (hp : bs = .block_done ∨ bs = .finish_done → ∀ st, H.dstate b = some st → st.pending = 0)
+    (hψ : PsiPost h (some i) bs H) :
     StratPost h (some i) flush bs H := by
   obtain ⟨z, hz, hb⟩ := F.blk
   obtain ⟨i', z', b', st, al, e, hz', hb', hst, -, c⟩ := F.inv
@@ -236,7 +237,7 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
       obtain ⟨z1, z2, h1, h2, hle, ht⟩ := F.inp
       exact ZlibNgF.Proof.FillFacts.inTail_of_win h1 h2 hle ht, hB, hF, hP,
     fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, hp e st hst⟩,
-    ?_⟩
+    ?_, hψ⟩
   rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i2, z2, e2, hz2, hb2, hst2⟩
   obtain rfl : i = i1 := Option.some.inj e1
   obtain rfl : i = i2 := Option.some.inj e2
