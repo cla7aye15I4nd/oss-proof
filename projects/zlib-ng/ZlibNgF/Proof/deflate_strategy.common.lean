@@ -445,7 +445,7 @@ theorem fill_keeps {h h' : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateStat
     (hz : h.streams i = some z) (hb : z.state = some b) (hst : h.dstate b = some st)
     (hst' : h'.dstate b = some st') : StratKeeps st st' := by
   obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, -, hb6, hst6, hst7, -, -, -, -, -, -, -, x1, x2, x3, x4, x5,
-    -, -, -, x6, x7, -, -, hpl, hma⟩ := FI.post
+    -, -, -, x6, x7, -, -, hpl, hma, -⟩ := FI.post
   obtain rfl : i = i6 := Option.some.inj e6
   obtain rfl : z = z6 := Option.some.inj (hz.symm.trans hz6)
   obtain rfl : b = b6 := Option.some.inj (hb.symm.trans hb6)

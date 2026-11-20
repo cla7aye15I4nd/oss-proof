@@ -304,7 +304,7 @@ callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function
 `last_flush`, `bi_valid`) kept; the lazy-match fields: a `prev_length` of 3 or more after is the one before, with the
 same distance `strstart - match_start` and a `match_start` not above the one before (a slide lowers `strstart` and
 `match_start` together, or sets `match_start` and `prev_length` to 0), `prev_length` does not grow, `match_available`
-kept. -/
+kept; the lookahead does not drop, and a `strstart` of 1 or more stays so (a slide leaves at least `MAX_DIST`). -/
 def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
   DInvW h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
   ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
@@ -327,7 +327,8 @@ def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
     (3 ≤ st'.prev_length → st'.prev_length = st.prev_length ∧
       (st.strstart.toNat : Int) - st.match_start.toNat = (st'.strstart.toNat : Int) - st'.match_start.toNat ∧
       st'.match_start ≤ st.match_start) ∧
-    st'.prev_length ≤ st.prev_length ∧ st'.match_available = st.match_available
+    st'.prev_length ≤ st.prev_length ∧ st'.match_available = st.match_available ∧
+    st.lookahead.toNat ≤ st'.lookahead.toNat ∧ (1 ≤ st.strstart.toNat → 1 ≤ st'.strstart.toNat)
 
 /-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
 the translated C code: `fill_window` from `DInvW` (the invariant, or the state inside `deflateSetDictionary`'s
