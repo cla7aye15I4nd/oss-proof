@@ -490,4 +490,123 @@ theorem readLoadC_spec {w : World} {h : Heap} {b cb o L : Nat} (hL : L < 2 ^ 64)
       rw [hx] at this
       omega
 
+/-! ## The direct decompression into the caller's buffer -/
+
+/-- **A trip that decompresses directly into the caller's buffer** (`GZIP`, at least `2 * size >= 16` bytes asked
+for): the end of a member lowers the phase by 2; otherwise the output range is full (`n >= 16` bytes, one block of 16
+bytes less room) or the input has ended. -/
+theorem readDecompC_spec {w : World} {h : Heap} {b cb o L : Nat} (hL : L < 2 ^ 64) (hw0 : ∃ s0, w.gz h b = some s0)
+    (hcbn : cb < h.nextBlk) (hno0 : cb ∉ GzOwned w h (some b)) {data : Array UInt8} (hd0 : h.bytes cb = some data)
+    (hfit0 : o + L ≤ data.size) {st : ReadLoop} {W : World} {H : Heap} (hI : RInv w h b cb o L st W H)
+    {s1 : GzState} (hs1 : W.gz H b = some s1) (h0 : s1.«have» = 0) (hk0 : s1.skip = 0) (hne : ¬ AtEnd H s1)
+    (hgz : s1.how = GZIP) (n : UInt32) (hn2 : 2 * s1.size.toNat ≤ n.toNat) (hnl : n.toNat ≤ st.len.toNat)
+    (hpn : s1.pos.toInt + n.toNat ≤ GZ_OFF_MAX.toInt) :
+    GSat W H (readDecompC (some b) st n) (RTrip w h b cb o L (smu b W H)) := by
+  obtain ⟨hgo, hl0, hbk, hgl, hv, -, g, hf, hi⟩ := hI
+  obtain ⟨dc, hdc, hdcs, hno⟩ := caller_blk g hcbn hno0 hd0
+  obtain ⟨sh, -⟩ := inv_of hs1 hv.1
+  have R := sh.read (modeOf hs1 hv.2.1)
+  have hmx := gzmax
+  have hwl := sh.want_lo
+  have hsz1 : s1.size ≠ 0 := fun e => by have := R.look e; rw [hgz] at this; exact absurd this (by decide)
+  obtain ⟨c, base, z, hB, -, hz, -, hai, -, -⟩ := R.bufs hsz1
+  have hsw : s1.size.toNat = s1.want.toNat := by rw [hB.size]
+  have hμ := smu_of hs1
+  have hdir0 : s1.direct = 0 := R.gzip_direct hgz
+  obtain ⟨buf0, len0, got0, ctl0⟩ := st
+  dsimp only at hgo hl0 hbk hgl hnl ⊢
+  subst hbk
+  unfold readDecompC
+  let z1 : ZStream := { z with avail_out := n }
+  let z2 : ZStream := { z with avail_out := n, next_out := .ref (.heap cb) (o + got0.toNat) }
+  let H3 : Heap := { H with streams := upd H.streams s1.strm (some z2) }
+  refine GSat.bind (GSat.of_eq (strmOf_app hs1) ?_)
+  refine GSat.bind (GSat.lm ⟨(), { H with streams := upd H.streams s1.strm (some z1) }, wrZ_app hz _, ?_⟩)
+  refine GSat.bind (GSat.of_eq (strmOf_app (show W.gz { H with streams := upd H.streams s1.strm (some z1) } b = some s1
+    from hs1)) ?_)
+  refine GSat.bind (GSat.lm ⟨(), H3, (by rw [wrZ_app (z := z1) (by simp)]; simp [InflateInv.upd_upd, z1, z2, H3]), ?_⟩)
+  have hz3 : H3.streams s1.strm = some z2 := by simp [H3]
+  have hv3 : GzInvR W H3 (some b) := invR_strm (z' := z2) hv hs1 hsz1 hz rfl (fun c' base' hB' => by
+    have e1 := hB'.buffers; rw [hB.buffers] at e1; cases e1; exact hai) (fun e => absurd (hgz.symm.trans e) (by decide))
+  have hs3 : W.gz H3 b = some s1 := hs1
+  have g3 : GStep W H W H3 b [] := gstep_strm hs1 z2 hz rfl
+  have hcbH : cb < H.nextBlk := live_lt hv.2.2.2.1.1 ⟨dc, hdc⟩
+  have hno3 : cb ∉ GzOwned W H3 (some b) := fun m => hno (g3.own _ m hcbH)
+  have hao : z2.avail_out.toNat = n.toNat := rfl
+  have hao0 : z2.avail_out ≠ 0 := fun e => by
+    have := congrArg UInt32.toNat e; rw [hao] at this; simp at this; omega
+  have ht : OutTgt W H3 b s1 cb (o + got0.toNat) z2.avail_out.toNat := Or.inr ⟨hno3, dc, hdc, by rw [hao]; omega⟩
+  refine GSat.bind (GSat.mono (gz_decomp_spec hv3 hs3 h0 hsz1 hgz hz3 hao0 rfl ht) fun r W1 H1 q => ?_)
+  obtain ⟨hr1, gD, fD, s', hs', hv0, hshape, herr, hok⟩ := q
+  have gD' : GStep W H3 W1 H1 b [(.ref (.heap cb) o, L)] := gD.cover (by omega) (by rw [hao]; omega)
+  have gAll : GStep w h W1 H1 b [(.ref (.heap cb) o, L)] :=
+    (g.trans (GStep.widen g3 _) hw0 ⟨s1, hs1⟩).trans gD' hw0 ⟨s1, hs3⟩
+  have hf' : FsRd w.fs W1.fs := hf.trans fD
+  have hk' : s'.skip = 0 := by rw [hshape]; exact hk0
+  have hdir' : s'.direct = 0 := by rw [hshape]; exact hdir0
+  have hp' : s'.pos = s1.pos := by rw [hshape]
+  have hfd' : s'.fd = s1.fd := by rw [hshape]
+  have hst' : s'.strm = s1.strm := by rw [hshape]
+  apply GSat.ite
+  · intro e
+    have he : r = -1 := by simpa using e
+    obtain ⟨h0', -, -⟩ := herr he
+    have hv1 : GzInvR W1 H1 (some b) := by
+      rw [have0_self h0', DeflateReset.upd_self W1.gzs b s' (gzs_of hs')] at hv0; exact hv0
+    exact GSat.pure (trip_stop (st := ⟨_, len0, got0, ctl0⟩) hgl .ret (by decide) hv1 gAll hf'
+      (fun _ => idle_mk hs' fun _ _ _ hd => absurd hdir' hd))
+  · intro e
+    have hr0 : r = 0 := hr1.resolve_left (by simpa using e)
+    obtain ⟨z', hz1', hle, hhv, -, -, -, hhow', -, -, hDle, -, hao0'⟩ := hok hr0
+    refine GSat.bind (GSat.of_eq (rdG_app' hs' _) ?_)
+    refine GSat.bind (GSat.of_eq (wrG_app hs' _) ?_)
+    let s4 : GzState := { s' with «have» := 0 }
+    have hs4 := gz_upd_same hs' s4
+    obtain ⟨dc1, hdc1, hdcs1, -⟩ := caller_blk gAll hcbn hno0 hd0
+    have hk : s'.«have».toNat ≤ n.toNat := by rw [hhv, hao]; exact Nat.sub_le _ _
+    have g4 : GStep W1 H1 { W1 with gzs := upd W1.gzs b (some s4) } H1 b [] := gstep_st hs' W1.fs rfl rfl rfl rfl
+    refine (readAdv_spec hv0 hs4 hk' _ rfl s'.«have» hdc1 (by omega)
+      (by show s'.pos.toInt + _ + ((0 : UInt32).toNat : Int) ≤ _; rw [hp']; simp; omega)
+      (fun _ hd => absurd hdir' hd)).mono fun st1 W2 H2 q => ?_
+    obtain ⟨rfl, rfl, rfl, hv2, g2⟩ := q
+    let s5 : GzState := { s4 with pos := Int64.ofInt (s4.pos.toInt + s'.«have».toNat) }
+    have hs5 := gz_upd_same hs4 s5
+    refine trip_adv hgo hgl hL s'.«have» (by show _ ≤ len0.toNat; omega) hv2 ⟨s5, hs5, hk'⟩
+      ((gAll.trans (GStep.widen g4 _) hw0 ⟨s', hs'⟩).trans (GStep.widen g2 _) hw0 ⟨s4, hs4⟩) hf'
+      (fun _ => idle_mk hs5 fun _ _ _ hd => absurd hdir' hd) (fun _ => ?_)
+    rw [smu_of hs5, hμ]
+    have h05 : s5.«have» = 0 := rfl
+    simp only [h05, h0, ite_true, Nat.add_zero]
+    have hb1 : -(2 ^ 63 : Int) ≤ s1.pos.toInt + (s'.«have».toNat : Int) ∧
+        s1.pos.toInt + (s'.«have».toNat : Int) < 2 ^ 63 := by
+      have := sh.pos.3; constructor <;> omega
+    suffices key : ∀ W' : World, W'.fs = W1.fs → Phi W' H2 s5 < Phi W H s1 from key _ rfl
+    intro W' hW'
+    have hP5 : Phi W' H2 s5 + 2 * (s'.«have».toNat / 16) ≤ Phi W' H2 s4 :=
+      Phi_pos (by show (Int64.ofInt (s'.pos.toInt + _)).toInt = s'.pos.toInt + _; rw [hp']; exact toInt_ofInt' hb1.1 hb1.2)
+        (by show s'.pos.toInt + _ + ((0 : UInt32).toNat : Int) ≤ _; rw [hp']; simp; omega)
+    have hD4 : dD s4 W' H2 = dD s1 W1 H2 := by
+      rw [dD_congr W' H2 (s' := s4) hfd' hst']; unfold dD; rw [hW']
+    have hD3 : dD s1 W H3 = dD s1 W H := by rw [dD_of hz3, dD_of hz]
+    rw [hD3] at hDle
+    have hx : xq s4 = xq s1 := by
+      unfold xq; rw [show s4.pos = s1.pos from hp', show s4.«have» = (0 : UInt32) from rfl, h0]
+    have hp1 : ph2 s1 = 4 := ph2_gz hgz
+    rw [Phi_ne hne, hp1]
+    rcases hhow' with e1 | e1
+    · have hp4 : ph2 s4 = 2 := ph2_look0 e1 hdir'
+      have := Phi_le' (Nat.le_trans (Nat.le_of_eq hD4) hDle) (Nat.le_of_eq hp4)
+      rw [hx] at this
+      omega
+    · have hp4 : ph2 s4 = 4 := ph2_gz (e1.trans hgz)
+      rcases hao0' e1 with e2 | ⟨e2, e3⟩
+      · have hk2 : s'.«have».toNat = n.toNat := by rw [hhv, hao, e2]; rfl
+        have := Phi_le' (Nat.le_trans (Nat.le_of_eq hD4) hDle) (Nat.le_of_eq hp4)
+        rw [hx] at this
+        omega
+      · have hat : AtEnd H2 s4 := ⟨e2, z', by rw [show s4.strm = s1.strm from hst']; exact hz1', e3⟩
+        have := Phi_end' hat (Nat.le_trans (Nat.le_of_eq hD4) hDle) (Nat.le_of_eq hp4)
+        rw [hx] at this
+        omega
+
 end ZlibNgF.Proof.GzMode
