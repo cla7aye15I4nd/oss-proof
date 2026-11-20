@@ -1,4 +1,4 @@
-import ZlibNgF.Proof.«gzlib.c.seek»
+import ZlibNgF.Proof.«gzread.c.close»
 
 /-!
 # The induction over reachable files, and the goals proved on every handle (`ZlibNgF`)
@@ -205,5 +205,18 @@ theorem gzrewind_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzrewind_
         simp [upd_ne _ _ _ _ hcb]
   · obtain ⟨b, s, rfl, hs, sh, hn⟩ := hv.1
     exact ⟨_, _, _, gzrewind_write hs (modeOf hs hv.2), gzframe_refl w h _ []⟩
+
+theorem gzclose_r_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzclose_r_safety := by
+  intro w h f _ hh
+  rcases handle W R hh with rfl | hv | hv
+  · exact ⟨_, w, h, rfl, gzframe_refl w h none [], fun ⟨_, _, e, _⟩ => by cases e⟩
+  · obtain ⟨b, s, rfl, hs, sh, hn⟩ := hv.1
+    obtain ⟨r, w', h', e, fr, rel⟩ := gzclose_r_read hs sh hn (modeOf hs hv.2.1)
+    exact ⟨r, w', h', e, fr, fun _ => rel⟩
+  · obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+    have hw := modeOf hs hv.2
+    refine ⟨_, _, _, gzclose_r_write hs hw, gzframe_refl w h _ [], fun ⟨b', s', e, hs', hm⟩ => ?_⟩
+    cases e; rw [hs] at hs'; cases hs'
+    exact absurd (hm.symm.trans hw) read_ne_write
 
 end ZlibNgF.Proof.GzMode
