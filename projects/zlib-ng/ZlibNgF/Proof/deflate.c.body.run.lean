@@ -57,13 +57,13 @@ structure RunW (h : Heap) (i b : Nat) (H : Heap) : Prop where
 /-! ## Basic facts -/
 
 theorem SideR.zero {H : Heap} {b : Nat} {st : DeflateState} (S : SideR H b st) : SideR H b { st with bi_valid := 0 } := by
-  obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5, s6⟩ := S
-  exact ⟨⟨a1, a2, a3, a4, fun e => absurd e (by show ¬ (8 : Int32) ≤ 0; decide)⟩, s2, s3, s4, s5, s6⟩
+  obtain ⟨⟨a1, a2, a3, a3b, a4, -⟩, s2, s3, s4, s5, s6⟩ := S
+  exact ⟨⟨a1, a2, a3, a3b, a4, fun e => absurd e (by show ¬ (8 : Int32) ≤ 0; decide)⟩, s2, s3, s4, s5, s6⟩
 
 theorem SideR.of_zero {H : Heap} {b : Nat} {st : DeflateState} (S : SideR H b { st with bi_valid := 0 })
     (h8 : st.bi_valid < 8) : SideR H b st := by
-  obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5, s6⟩ := S
-  exact ⟨⟨a1, a2, a3, a4, fun e => absurd h8 (Int32.not_lt.mpr e)⟩, s2, s3, s4, s5, s6⟩
+  obtain ⟨⟨a1, a2, a3, a3b, a4, -⟩, s2, s3, s4, s5, s6⟩ := S
+  exact ⟨⟨a1, a2, a3, a3b, a4, fun e => absurd h8 (Int32.not_lt.mpr e)⟩, s2, s3, s4, s5, s6⟩
 
 theorem Run.w {h H : Heap} {i b : Nat} (R : Run h i b H) : RunW h i b H :=
   ⟨DWork.of_inv R.inv, R.io, R.set, R.crc, R.blk, R.blk0, R.frame, R.out, R.inp, fun st hs => (R.side st hs).zero⟩
@@ -275,9 +275,10 @@ theorem run_flush {h H : Heap} {i b : Nat} (R : RunW h i b H) :
       out_tail R.out hz hz' hLo hadv hav, R.inp.keep hz hz' (by rw [hzeq]) (by rw [hzeq]), fun st2 hst2 => ?_⟩,
       fun z4 st4 hz4 hst4 => ?_⟩
   · obtain rfl := Option.some.inj (hst'.symm.trans hst2)
-    obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5, s6⟩ := R.side st hst
+    obtain ⟨⟨a1, a2, a3, a3b, a4, -⟩, s2, s3, s4, s5, s6⟩ := R.side st hst
     have hst'' := hsteq
-    refine ⟨⟨by rw [hst'']; exact a1, by rw [hst'']; exact a2, by rw [hst'']; exact a3, by rw [hst'']; exact a4,
+    refine ⟨⟨by rw [hst'']; exact a1, by rw [hst'']; exact a2, by rw [hst'']; exact a3, by rw [hst'']; exact a3b,
+      by rw [hst'']; exact a4,
       fun e8 => absurd hbits (Int32.not_lt.mpr e8)⟩, by rw [hst'']; exact s2, ?_, by rw [hst'']; exact s4, ?_,
       by rw [hst'']; exact s6⟩
     · have m := hdr_out R.io hz hb hst hno hLo O

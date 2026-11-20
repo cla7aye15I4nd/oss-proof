@@ -48,7 +48,7 @@ theorem dcore_pend {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' : 
     (hroom : poo - pbo + st'.pending.toNat ≤ 4 * st.lit_bufsize.toNat + 9)
     (hpz : st'.pending = 0 → st'.pending_out = st.pending_buf) (h0 : 0 ≤ st'.bi_valid) (h8 : st'.bi_valid < 8)
     (hbs : st'.block_start.toInt ≤ st.strstart.toNat)
-    (hlo : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt) (hsym : st.sym_next = 0) :
+    (hlo : (st.strstart.toNat : Int) - st'.block_start.toInt ≤ 2 ^ 30) (hsym : st.sym_next = 0) :
     DCore H s z b (dview st') al := by
   have hz : st'.bi_valid.toInt.toNat / 8 = 0 := by
     have a := Int32.le_iff_toInt_le.mp h0
@@ -179,7 +179,7 @@ theorem blk_ok {e : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H) (hp0 : �
   have hb8' : st'.bi_valid < 8 := Int32.lt_iff_toInt_lt.mpr (by rw [hbv, show (8 : Int32).toInt = 8 from rfl]; exact hbv8)
   have hd4 : d4.size = d.size := by rw [w4.1, hd1]
   have hbs1 : st'.block_start.toInt ≤ st.strstart.toNat := by rw [hbs', hnb]; omega
-  have hbs2 : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt := by rw [hbs', hnb]; omega
+  have hbs2 : (st.strstart.toNat : Int) - st'.block_start.toInt ≤ 2 ^ 30 := by rw [hbs', hnb]; omega
   have hLA : L ≤ z.avail_out.toNat := by omega
   refine hk _ (sf_next F S.hz S.hst S.hno S.hX (L := L) hX4 hXo hLA rfl (Or.inl ⟨rfl, rfl⟩) (Nat.le_refl _) hno' hav'
     (fun al _ c => dcore_mv (dcore_pend c he S.hpb hpo' hle' hroom' hpz' hb0' hb8' hbs1 hbs2 S.sym)

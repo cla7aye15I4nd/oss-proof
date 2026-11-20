@@ -236,7 +236,7 @@ theorem sh_of {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} (
 theorem dinvW_at {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} (hv : DInvW H (some i))
     (hz : H.streams i = some z) (hb : z.state = some b) (hst : H.dstate b = some st) :
     ∃ al, H.dallocsOf b = some al ∧ DCore H (some i) z b (dview { st with block_start := st.strstart.toInt32 }) al ∧
-      st.block_start.toInt ≤ st.strstart.toNat ∧ -(2 ^ 30 + 2 ^ 16) ≤ st.block_start.toInt := by
+      st.block_start.toInt ≤ st.strstart.toNat ∧ (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30 + 2 ^ 16 := by
   obtain ⟨i0, z0, b0, st0, al, e0, hz0, hb0, hst0, hal, c, h1, h2⟩ := hv
   obtain rfl : i = i0 := Option.some.inj e0
   obtain rfl : z = z0 := Option.some.inj (hz.symm.trans hz0)
@@ -252,7 +252,7 @@ theorem dinvW_SH {H : Heap} {i : Nat} {z z' : ZStream} {b : Nat} {st st' : Defla
     (F : ∀ al, DCore H (some i) z b (dview { st with block_start := st.strstart.toInt32 }) al →
       DCore H (some i) z' b (dview { st' with block_start := st'.strstart.toInt32 }) al)
     (h1 : st'.block_start.toInt ≤ st'.strstart.toNat)
-    (h2 : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt) :
+    (h2 : (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ 2 ^ 30 + 2 ^ 16) :
     DInvW (SH H i z' b st' d) (some i) := by
   obtain ⟨al, hal, c, -, -⟩ := dinvW_at hv hz hb hst
   have hda : H.dallocs b = some al := by simpa [Heap.dallocsOf, hd] using hal
@@ -276,7 +276,7 @@ kernel does not unfold state records field by field). -/
 theorem DCore.mv {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
     (c : DCore h s z b v al) (hza : z'.zalloc = z.zalloc) (hzf : z'.zfree = z.zfree) (ss la : UInt32) (bs : Int32)
     (ins : UInt32) (wr : Int32) (hlook : ss.toNat + la.toNat ≤ v.window_size.toNat) (hbs : bs.toInt ≤ ss.toNat)
-    (hins : ins ≤ ss) (hlo : -(2 ^ 30 + 2 ^ 16) ≤ bs.toInt) (hwr : wr = 0 ∨ wr = 1 ∨ wr = 2 ∨ wr = -1 ∨ wr = -2) :
+    (hins : ins ≤ ss) (hlo : (ss.toNat : Int) - bs.toInt ≤ 2 ^ 30) (hwr : wr = 0 ∨ wr = 1 ∨ wr = 2 ∨ wr = -1 ∨ wr = -2) :
     DCore h s z' b { v with strstart := ss, lookahead := la, block_start := bs, insert := ins, wrap := wr } al :=
   { c with
     zalloc := hza.trans c.zalloc
@@ -320,14 +320,14 @@ def SdOut (i : Nat) (st0 : DeflateState) (H' : Heap) : Prop :=
 def LoopI (H : Heap) (i b : Nat) (st0 : DeflateState) (Cin : Prop) (m : Nat) (_ : Unit) (H' : Heap) : Prop :=
   DInvW H' (some i) ∧ DInput H' (some i) ∧ DFrame H H' [i] [b] [] [] ∧
     ∃ z' st', H'.streams i = some z' ∧ z'.state = some b ∧ H'.dstate b = some st' ∧ st'.wrap = 0 ∧
-      m = z'.avail_in.toNat + (if 3 ≤ st'.lookahead.toNat then 1 else 0) ∧ pot z' st' ≤ 2 ^ 30 + 2 ^ 18 ∧
+      m = z'.avail_in.toNat + (if 3 ≤ st'.lookahead.toNat then 1 else 0) ∧ pot z' st' ≤ 2 ^ 30 + 2 ^ 16 ∧
       SdK st0 st' ∧ (Cin → ∀ d', H'.bytes b = some d' → ChainOk b d' st')
 
 /-- `fill_window` inside the insertion loop. -/
 theorem fw_ok (W : WindowFacts) {H H1 : Heap} {i b : Nat} {z1 : ZStream} {st1 : DeflateState}
     (f1 : DFrame H H1 [i] [b] [] []) (hv1 : DInvW H1 (some i)) (hz1 : H1.streams i = some z1)
     (hb1 : z1.state = some b) (hst1 : H1.dstate b = some st1) (hi1 : DInput H1 (some i)) (hw1 : st1.wrap = 0)
-    (hl3 : st1.lookahead.toNat < 3) (hp1 : pot z1 st1 ≤ 2 ^ 30 + 2 ^ 18) {st0 : DeflateState} (hk1 : SdK st0 st1)
+    (hl3 : st1.lookahead.toNat < 3) (hp1 : pot z1 st1 ≤ 2 ^ 30 + 2 ^ 16) {st0 : DeflateState} (hk1 : SdK st0 st1)
     {Cin : Prop} (hc1 : Cin → ∀ d1, H1.bytes b = some d1 → ChainOk b d1 st1) :
     Sat H1 (fill_window (some b)) (fun _ H2 => ∃ m', m' ≤ z1.avail_in.toNat ∧ LoopI H i b st0 Cin m' () H2) := by
   obtain ⟨H2, e, hv2, hi2, f2, i2, z2, z2', b2, st2, st2', e2', hz2, hz2', hb2, hst2, hst2', hzz, hle2, hlk,
@@ -363,8 +363,10 @@ theorem body_rest (W : WindowFacts) {H H' : Heap} {i b : Nat} {z' : ZStream} {st
     {d'' : Array UInt8} (u : Unit) (f' : DFrame H H' [i] [b] [] []) (hi' : DInput H' (some i))
     (hz' : H'.streams i = some z') (hb' : z'.state = some b) (hw' : st'.wrap = 0) (hge : 3 ≤ st'.lookahead.toNat)
     (hp2 : (st'.strstart.toNat : Int) - st'.block_start.toInt + st'.lookahead.toNat + z'.avail_in.toNat ≤
-      2 ^ 30 + 2 ^ 18)
-    (hbs1 : st'.block_start.toInt ≤ st'.strstart.toNat) (hbs2 : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt) (hlook : st'.strstart.toNat + st'.lookahead.toNat ≤ 65536)
+      2 ^ 30 + 2 ^ 16)
+    (hbs1 : st'.block_start.toInt ≤ st'.strstart.toNat)
+    (hbs2 : (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ 2 ^ 30 + 2 ^ 16)
+    (hlook : st'.strstart.toNat + st'.lookahead.toNat ≤ 65536)
     (hins : st'.insert ≤ st'.strstart)
     (hv'' : DInvW (SH H' i z' b st'' d'') (some i)) (hst'' : st'' = { st' with ins_h := st''.ins_h })
     {st0 : DeflateState} (hk : SdK st0 st') {Cin : Prop}
@@ -403,7 +405,7 @@ theorem body_rest (W : WindowFacts) {H H' : Heap} {i b : Nat} {z' : ZStream} {st
         (by rw [hS]; exact Int.le_refl _)
         (by rw [UInt32.le_iff_toNat_le, hsum]; have := UInt32.le_iff_toNat_le.mp hins; omega)
         (by rw [hS]; omega) hw)
-    (by simp only []; rw [hsum]; omega) hbs2
+    (by simp only []; rw [hsum]; omega) (by simp only []; rw [hsum]; omega)
   rw [SH_SH] at hv3
   refine Sat.bind (Sat.mono (fw_ok W (DFrame.trans f' dframe_SH') hv3
     (SH_streams _ _ _ _ _ _) hb' (SH_dstate _ _ _ _ _ _) (input_SH hi' hz' hb') hw'
@@ -424,7 +426,7 @@ theorem body_ok (W : WindowFacts) {H H' : Heap} {i b m : Nat} {sk : DeflateState
   obtain rfl : st' = st0 := Option.some.inj (hst'.symm.trans hst0)
   have e2 : (STD_MIN_MATCH - 1 : UInt32) = 2 := rfl
   have hp2 : (st'.strstart.toNat : Int) - st'.block_start.toInt + st'.lookahead.toNat + z'.avail_in.toNat ≤
-      2 ^ 30 + 2 ^ 18 := hp'
+      2 ^ 30 + 2 ^ 16 := hp'
   obtain ⟨d', hd', e'⟩ := sh_of hz' hst'
   obtain ⟨al', -, cv, hbs1, hbs2⟩ := dinvW_at hv' hz' hb' hst'
   have hlook := cv.look
@@ -561,7 +563,7 @@ theorem sdC_ok (W : WindowFacts) {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {s
   have hv3 := dinv_SH (z' := { z with avail_in := dl, next_in := .ref r o }) (st' := st) hv hz hb hst hd rfl
     (fun _ c => { c with zalloc := c.zalloc, zfree := c.zfree })
   have hrefl : DFrame H H [i] [b] [] [] := ⟨InflateInit.frame_refl H _ _ _ _, fun _ _ _ => ⟨rfl, rfl⟩⟩
-  have hbs : -(2 ^ 30 + 2 ^ 16) ≤ st.block_start.toInt ∧ st.strstart.toNat ≤ 65536 := by
+  have hbs : (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30 ∧ st.strstart.toNat ≤ 65536 := by
     obtain ⟨i5, z5, b5, st5, al5, e5, L5, -, c5⟩ := live hv
     obtain rfl : i = i5 := Option.some.inj e5
     obtain rfl : z = z5 := Option.some.inj (hz.symm.trans L5.hz)
@@ -601,7 +603,7 @@ theorem inv_cut {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
     (hdd : h.bytes b = some d) (hst : h.dstates b = some st) (hda : h.dallocs b = some al) (a : UInt64)
     (hla : st.lookahead = 0) {ho : Nat} (hh : st.head = .val (.ref (.heap b) ho)) (ss : UInt32) (bs : Int32)
     (ins : UInt32) (h1 : bs.toInt ≤ ss.toNat) (h2 : ins ≤ ss) (h3 : ss ≤ st.strstart)
-    (h4 : -(2 ^ 30 + 2 ^ 16) ≤ bs.toInt) (hsz : d2.size = d.size)
+    (h4 : (ss.toNat : Int) - bs.toInt ≤ 2 ^ 30) (hsz : d2.size = d.size)
     (hout : ∀ j, (j < ho ∨ ho + 131072 ≤ j) → d2[j]! = d[j]!) :
     DInv (SH h i { z with adler := a } b
       { st with
@@ -695,7 +697,7 @@ theorem sdB_ok (W : WindowFacts) {h : Heap} {i : Nat} {z z1 : ZStream} {b : Nat}
       Space.get (SH h i { z with adler := a } b st' d') r = some data := fun _ _ => by rw [space_SH_ne hrb]; exact hg
   -- the tail from the `SH` heap after the cut
   have T : ∀ (ss : UInt32) (bs : Int32) (ins : UInt32) (d2 : Array UInt8) (o2 : Nat) (dl : UInt32),
-      bs.toInt ≤ ss.toNat → ins ≤ ss → ss ≤ st.strstart → -(2 ^ 30 + 2 ^ 16) ≤ bs.toInt →
+      bs.toInt ≤ ss.toNat → ins ≤ ss → ss ≤ st.strstart → (ss.toNat : Int) - bs.toInt ≤ 2 ^ 30 →
       d2.size = d.size → (∀ j, (j < ho ∨ ho + 131072 ≤ j) → d2[j]! = d[j]!) → o2 + dl.toNat ≤ data.size →
       dl.toNat ≤ 32768 →
       (ChainOk b d st → ChainOk b d2 { st with

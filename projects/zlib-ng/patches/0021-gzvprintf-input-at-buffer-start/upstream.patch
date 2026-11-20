@@ -46,7 +46,7 @@ index 14b241c..e8b4352 100644
  }
  #endif
 +
-+#ifdef __linux__
++#if defined(__linux__) && !defined(NO_GZCOMPRESS) && !defined(TEST_STOCK_ZLIB) && defined(F_SETPIPE_SZ)
 +/* gzprintf() rounds whose writes fail, with gzclearerr() between them: a
 + * failed write leaves input in the buffer behind the place gzprintf() formats
 + * at, and the gzip stream written in the end must still be valid. The

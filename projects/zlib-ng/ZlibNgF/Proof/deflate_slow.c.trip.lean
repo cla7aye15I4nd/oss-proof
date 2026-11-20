@@ -86,7 +86,7 @@ theorem slowB_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sB
       rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_of_lt hg)]; omega
     · simp
   refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := s2) rfl) ?_)
-  have F2 := slf_view (st' := s2) P.slc.1 rfl rfl rfl hT (view_le rfl rfl (.inr rfl))
+  have F2 := slf_view (st' := s2) P.slc.1 rfl rfl rfl hT (view_le rfl rfl (.inr rfl)) (.inl rfl)
   refine Sat.bind (Sat.mono (slf_match F2 lm hh hcm hlb) ?_)
   rintro r _ ⟨ms, rfl, hpr⟩
   refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sB with prev_match := sB.match_start, match_start := ms })

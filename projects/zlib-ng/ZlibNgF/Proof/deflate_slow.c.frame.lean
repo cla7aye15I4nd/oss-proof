@@ -51,9 +51,11 @@ theorem wrD_SH' {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateSt
 
 /-- `SLFe` on a state with the same view of the invariant, `gzindex` and `last_flush`, at the levels of
 `deflate_slow`, with the allowance `e'` (`hψ`: the change of `psiS`, through `match_available`). -/
-theorem slf_view {e e' : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateState} {d : Array UInt8}
+theorem slf_view_gap {e e' : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateState} {d : Array UInt8}
     (F : SLFe e h i b (SH H0 i z b st d)) (hv : dview st' = dview st) (hg : st'.gzindex = st.gzindex)
     (hl : st'.last_flush = st.last_flush) (hT : TableAt 7 9 st)
+    (hgap : (st'.strstart.toNat : Int) - st'.block_start.toInt ≤
+      86 * st'.sym_next.toNat + (if st'.match_available ≠ 0 then 1 else 0))
     (hψ : ∀ f, ZlibNgF.Proof.DeflatePsi.psiS f st' + e ≤ ZlibNgF.Proof.DeflatePsi.psiS f st + e') :
     SLFe e' h i b (SH H0 i z b st' d) := by
   have e1 : st'.gzhead = st.gzhead := congrArg DView.gzhead hv
@@ -68,8 +70,24 @@ theorem slf_view {e e' : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st st' : 
   have e10 : st'.bi_valid = st.bi_valid := congrArg DView.bi_valid hv
   obtain ⟨-, -, hg0⟩ := F.st st (SH_dstate _ _ _ _ _ _)
   refine slf_SH F (fun al _ c => by rw [hv]; exact DCore.of_heap (by rw [SH_bytes, SH_bytes]) c) e1 e2 e3 e4
-    ⟨fun e => by rw [e9]; exact hg0.1 (by rw [← e7, ← e8]; exact e), by rw [e10]; exact hg0.2⟩
+    ⟨fun e => by rw [e9]; exact hg0.1 (by rw [← e7, ← e8]; exact e), by rw [e10]; exact hg0.2.1, hgap⟩
     ⟨e3, e5, e1, hg, e2, e6, hl, fun hn => absurd hT hn⟩ hψ
+
+theorem slf_view {e e' : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateState} {d : Array UInt8}
+    (F : SLFe e h i b (SH H0 i z b st d)) (hv : dview st' = dview st) (hg : st'.gzindex = st.gzindex)
+    (hl : st'.last_flush = st.last_flush) (hT : TableAt 7 9 st)
+    (hψ : ∀ f, ZlibNgF.Proof.DeflatePsi.psiS f st' + e ≤ ZlibNgF.Proof.DeflatePsi.psiS f st + e')
+    (hma : st'.match_available = st.match_available ∨ st'.match_available ≠ 0 := by simp) :
+    SLFe e' h i b (SH H0 i z b st' d) := by
+  have e7 : st'.strstart = st.strstart := congrArg DView.strstart hv
+  have e8 : st'.block_start = st.block_start := congrArg DView.block_start hv
+  have e9 : st'.sym_next = st.sym_next := congrArg DView.sym_next hv
+  obtain ⟨-, -, -, -, hgap0⟩ := F.st st (SH_dstate _ _ _ _ _ _)
+  refine slf_view_gap F hv hg hl hT ?_ hψ
+  rw [e7, e8, e9]
+  rcases hma with h1 | h1
+  · rw [h1]; exact hgap0
+  · rw [ite_eq_left h1]; split at hgap0 <;> omega
 
 /-- The fields of `psiS` other than `match_available` and `block_open` from the view. -/
 theorem view_eqs {st st' : DeflateState} (hv : dview st' = dview st) :
@@ -109,13 +127,18 @@ theorem slf_move {e e' : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st : Defl
     (F : SLFe e h i b (SH H0 i z b st d)) (ss la : UInt32) (hlook : ss.toNat + la.toNat ≤ st.window_size.toNat)
     (hbs : st.block_start.toInt ≤ ss.toNat) (hins : st.insert ≤ ss)
     (hgap : (ss.toNat : Int) = st.block_start.toInt → st.sym_next = 0)
+    (hgap2 : (ss.toNat : Int) - st.block_start.toInt ≤
+      86 * st.sym_next.toNat + (if st.match_available ≠ 0 then 1 else 0))
     (hψ : ∀ f, ZlibNgF.Proof.DeflatePsi.psiS f { st with strstart := ss, lookahead := la } + e ≤
       ZlibNgF.Proof.DeflatePsi.psiS f st + e') :
     SLFe e' h i b (SH H0 i z b { st with strstart := ss, lookahead := la } d) := by
   obtain ⟨-, -, hg0⟩ := F.st st (SH_dstate _ _ _ _ _ _)
-  exact slf_SH F (fun al _ c => DCore.of_heap (by rw [SH_bytes, SH_bytes])
-    (dcore_set c ss la st.insert st.block_start hlook hbs hins c.bs_lo)) rfl rfl rfl rfl ⟨hgap, hg0.2⟩
-    (StratKeeps.refl _) hψ
+  refine slf_SH F (fun al _ c => ?_) rfl rfl rfl rfl ⟨hgap, hg0.2.1, hgap2⟩ (StratKeeps.refl _) hψ
+  have hsy := c.syms_le
+  obtain ⟨-, -, -, -, hl2, -, -⟩ := c.sizes
+  simp only [dview] at hsy hl2
+  exact DCore.of_heap (by rw [SH_bytes, SH_bytes])
+    (dcore_set c ss la st.insert st.block_start hlook hbs hins (by split at hgap2 <;> omega))
 
 /-- The numbers of the invariant of an `SLF` state. -/
 theorem slf_nums {e : Nat} {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
@@ -166,7 +189,7 @@ theorem slf_tally_lit0 {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
     have hpo := cc.pout hp0
     simp only [dview] at hpb hpo
     refine ⟨pbo, pbo, hpb, by rw [hpo, hpb], ?_⟩
-    have h8 : st.bi_valid.toInt < (8 : Int32).toInt := Int32.lt_iff_toInt_lt.mp hg.2
+    have h8 : st.bi_valid.toInt < (8 : Int32).toInt := Int32.lt_iff_toInt_lt.mp hg.2.1
     have h0 : (8 : Int32).toInt = 8 := rfl
     have hz8 : st.bi_valid.toInt.toNat / 8 = 0 := by omega
     rw [hp0, hz8]; simp
@@ -186,7 +209,7 @@ theorem slf_tally_lit0 {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
       simp only [dview] at hm hse hl2
       have := UInt32.le_iff_toNat_le.mp hle
       rw [UInt32.toNat_add]; simp; omega
-    refine slf_SH F (fun al' hal' _ => ?_) rfl rfl rfl rfl ⟨fun e0 => ?_, hg.2⟩ (StratKeeps.refl _)
+    refine slf_SH F (fun al' hal' _ => ?_) rfl rfl rfl rfl ⟨fun e0 => ?_, hg.2.1, ?_⟩ (StratKeeps.refl _)
       (fun f => by
         have := ZlibNgF.Proof.DeflatePsi.psiS_sym (f := f) (st := st)
           (st' := { st with sym_next := st.sym_next + 3, dyn_ltree := incF st.dyn_ltree c.toNat })
@@ -197,6 +220,7 @@ theorem slf_tally_lit0 {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
     · exfalso
       have e1 : (st.strstart.toNat : Int) = st.block_start.toInt := e0
       omega
+    · have hg3 := hg.2.2; show (st.strstart.toNat : Int) - st.block_start.toInt ≤ 86 * (st.sym_next + 3).toNat + (if st.match_available ≠ 0 then 1 else 0); omega
   · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2); exact hsb
 
 /-! ## Layout, insertions, the matcher -/
@@ -357,7 +381,7 @@ theorem slf_flush_keep (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int3
         PbufOnly H H2 b pbo (4 * st.lit_bufsize.toNat + 9)) := by
   obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨hp0, hwin⟩ := hp st hst
-  obtain ⟨hlv, -, -, h8⟩ := F.st st hst
+  obtain ⟨hlv, -, -, h8, -⟩ := F.st st hst
   obtain ⟨r, h', e, P, -⟩ := ZlibNgF.Proof.FlushBlock.flush_block_ok T last hl0 hl1 F.inv F.io F.set hz hb hst hp0
     hlv h8 hwin
   refine ⟨r, h', e, fun st1 h1 => ?_⟩
@@ -376,7 +400,7 @@ theorem slf_flush_only_keep (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window
         PbufOnly H H2 b pbo (4 * st.lit_bufsize.toNat + 9)) := by
   obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨hp0, hwin⟩ := hp st hst
-  obtain ⟨hlv, -, -, h8⟩ := F.st st hst
+  obtain ⟨hlv, -, -, h8, -⟩ := F.st st hst
   obtain ⟨h', e, P⟩ := ZlibNgF.Proof.FlushBlock.flush_block_only_ok T window last hl0 hl1 F.inv F.io F.set hz hb hst
     hp0 hlv h8 hwin hwm
   refine ⟨(), h', e, fun st1 h1 => ?_⟩
@@ -589,7 +613,8 @@ theorem slf_postW {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush
     obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans hst1)
     have K := hk st hst
     obtain ⟨x1, x2, x3, x4, x5⟩ := hs st hst
-    refine ⟨⟨x1, fun e0 => ?_, fun e1 _ => ?_, hg2.1, fun e8 => absurd hg2.2 (Int32.not_lt.mpr e8)⟩, K,
+    refine ⟨⟨x1, fun e0 => ?_, fun e1 _ => ?_, fun _ _ => hg2.2.2, hg2.1,
+      fun e8 => absurd hg2.2.1 (Int32.not_lt.mpr e8)⟩, K,
       x3, x4, x5, fun L => hL st0 h0 L st hst⟩
     · rw [e0] at hlv; exact absurd hlv (by decide)
     · exact absurd (K.2.2.2.2.1.symm.trans e1) (hn st0 h0)
@@ -599,14 +624,15 @@ theorem slow_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Str
     (hz : h.streams i = some z) (hb : z.state = some b)
     (hT : ∀ b' st, DStateIs h (some i) b' st → TableAt 7 9 st) :
     ∃ st, h.dstate b = some st ∧ SLC h i b h ∧ LazyOk st ∧ 0 ≤ st.last_flush ∧ TableAt 7 9 st := by
-  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, hs1, ⟨hsym, -, -, hg2, hg8⟩, hL,
+  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, hs1, ⟨hsym, -, -, hg3, hg2, hg8⟩, hL,
     hlf⟩ := P
   obtain rfl : i = i1 := Option.some.inj e1
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   have hT1 := hT b st1 ⟨i, z, rfl, hz, hb, hst1⟩
   obtain ⟨hlv, hn1, -⟩ := tab_lv hT1
-  have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hn1 (hg8 e8).1⟩
+  have hlv0 : st1.level ≠ 0 := fun e => by rw [e] at hlv; exact absurd hlv (by decide)
+  have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hn1 (hg8 e8).1, hg3 hlv0 fun ⟨e1, _⟩ => hn1 e1⟩
   refine ⟨st1, hst1, ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_,

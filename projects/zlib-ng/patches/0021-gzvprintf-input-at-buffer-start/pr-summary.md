@@ -16,11 +16,11 @@ Add `gzip.printf_after_failed_writes` in `test/test_gzio.cc` (Linux only): a `"w
 
 - madler/zlib `81cc0be` ("Support non-blocking devices in the gz* routines.", in zlib 1.3.1.2): `gz_vacate()`, described above.
 - Note: https://github.com/zlib-ng/zlib-ng/pull/2517 (open) adds a `NULL` `format` check to `gzvprintf()`, unrelated.
-- Not yet submitted to zlib-ng.
+- Submitted as https://github.com/zlib-ng/zlib-ng/pull/2534.
 
 ## Review Feedback Addressed
 
-- None yet (not submitted).
+- Guarded the new `test/test_gzio.cc` test with `!defined(TEST_STOCK_ZLIB)` so stock-zlib CI passes.
 
 ## Testing
 

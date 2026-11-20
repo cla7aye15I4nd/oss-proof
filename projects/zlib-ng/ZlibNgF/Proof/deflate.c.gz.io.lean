@@ -250,6 +250,9 @@ theorem params_bufadv (SF : StrategyFacts) :
     by_cases ha : (z1.avail_in != 0) = true
     · rw [ite_t ha]; exact Sat.pure ba1
     rw [ite_f ha]
+    by_cases hbo : (st1.block_open != 0) = true
+    · rw [ite_t hbo]; exact Sat.pure ba1
+    rw [ite_f hbo]
     have ss := DeflateFacts.strstart_toInt32 c1
     have hb1 := c1.bstart
     have hb2 := c1.bs_lo

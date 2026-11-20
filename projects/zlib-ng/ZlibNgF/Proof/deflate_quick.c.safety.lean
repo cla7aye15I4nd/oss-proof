@@ -79,6 +79,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss last : UInt3
     refine Sat.bind (Sat.mono (sli_fill I hl') fun _ H1 h1 => Sat.bind (Sat.mono h1 ?_))
     rintro _ H2 ⟨H0, z, st, d, rfl, I2, hm1, -, hfull⟩
     refine Sat.bind (Sat.of_eq (rdD_SH _) (Sat.bind (Sat.of_eq (rdD_SH _) ?_)))
+    simp only [show ((0 : Int32) != 0) = false from rfl, Bool.false_eq_true, ↓reduceIte]
     by_cases hx : (decide (st.lookahead < MIN_LOOKAHEAD) && flush == Z_NO_FLUSH) = true
     · simp only [hx, ↓reduceIte]
       have hf' : flush = Z_NO_FLUSH := by simp at hx; exact hx.2

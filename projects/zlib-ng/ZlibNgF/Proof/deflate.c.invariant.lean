@@ -229,9 +229,9 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   `fill_window` adds `w_size`) within the window -/
   fe_mod : (v.fill_end.toNat + 262) % v.w_size.toNat = 0
   fe_hi : v.fill_end.toNat + 262 ≤ v.window_size.toNat
-  /-- `block_start` stays far from `INT_MIN` (patch 0015: `fill_window` lowers it only while it stays at or above
-  `-(2^30 + 2^16)`; every other store writes `strstart`, 0, or a value at least 0) -/
-  bs_lo : -(2 ^ 30 + 2 ^ 16) ≤ v.block_start.toInt
+  /-- `strstart - block_start` stays far below `INT_MAX` (`2^30`, so `fill_window`'s `block_start -= slide_len`,
+  `deflateParams`, and `FLUSH_BLOCK_ONLY` cannot overflow `int`) -/
+  bs_lo : (v.strstart.toNat : Int) - v.block_start.toInt ≤ 2 ^ 30
   /-- the tree descriptors that `zng_tr_init` sets -/
   descs : v.l_dyn = .val (.ref (.dyn_ltree b) 0) ∧ v.l_stat = .val .static_l_desc ∧
     v.d_dyn = .val (.ref (.dyn_dtree b) 0) ∧ v.d_stat = .val .static_d_desc ∧

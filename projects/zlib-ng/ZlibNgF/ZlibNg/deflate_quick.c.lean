@@ -206,6 +206,8 @@ def quick_trip (st : StatePtr) (window : BPtr) (flush : Int32) (last : UInt32) (
       Deflate.fill_window st
       let lookahead ← rdD st (·.lookahead)
       let strstart ← rdD st (·.strstart)
+      if static_emit != 0 then
+        wrD st fun s => { s with block_start := strstart.toInt32 }
       if lookahead < MIN_LOOKAHEAD && flush == Z_NO_FLUSH then
         return (strstart, lookahead, QuickExit.ret .need_more)
       if lookahead == 0 then
