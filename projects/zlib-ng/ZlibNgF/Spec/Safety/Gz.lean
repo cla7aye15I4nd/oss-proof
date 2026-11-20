@@ -200,16 +200,20 @@ def Goal.gzputs_safety : Prop :=
     GzWF w h → GzHandle w h f → CStr h s → OutsideGz w h f s →
     ∃ r w' h', GzRun (gzputs f s) w h r w' h' ∧ GzFrame w h w' h' f []
 
-/-- `int gzprintf(gzFile file, const char *format, ...)`: `format` is a string; the arguments match it (the `vsnprintf` oracle). Accepted file, no fault, frame. -/
+/-- `int gzprintf(gzFile file, const char *format, ...)`: `format` is a string outside the file's blocks; the
+arguments match it (the `vsnprintf` oracle). Accepted file, no fault, frame. Narrower than `zlib.h` (deviations page):
+the format must not lie in the file's own buffers, which the call writes (`gz_zero`, `gz_comp`) before `vsnprintf`
+reads the format; the public `next` field of `struct gzFile_s` points into them. -/
 def Goal.gzprintf_safety : Prop :=
   ∀ (w : World) (h : Heap) (f : GzPtr) (format : BPtr),
-    GzWF w h → GzHandle w h f → CStr h format →
+    GzWF w h → GzHandle w h f → CStr h format → OutsideGz w h f format →
     ∃ r w' h', GzRun (gzprintf f format) w h r w' h' ∧ GzFrame w h w' h' f []
 
-/-- `int gzvprintf(gzFile file, const char *format, va_list va)`: as `gzprintf`. Accepted file, no fault, frame. -/
+/-- `int gzvprintf(gzFile file, const char *format, va_list va)`: as `gzprintf` (`format` outside the file's
+blocks). Accepted file, no fault, frame. -/
 def Goal.gzvprintf_safety : Prop :=
   ∀ (w : World) (h : Heap) (f : GzPtr) (format : BPtr),
-    GzWF w h → GzHandle w h f → CStr h format →
+    GzWF w h → GzHandle w h f → CStr h format → OutsideGz w h f format →
     ∃ r w' h', GzRun (gzvprintf f format) w h r w' h' ∧ GzFrame w h w' h' f []
 
 /-! ## Closing -/
