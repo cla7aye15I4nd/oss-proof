@@ -125,13 +125,24 @@ theorem insrc_of {h : Heap} {b : Nat} {z : ZStream} (hr : NullOrRead h z.next_in
   · exact Or.inl (Classical.byContradiction fun h0 => hnn h0 hn)
   · refine Or.inr ⟨r, off, data, hp, fun e => hnb off (by rw [hp, e]), hg, hle⟩
 
+/-- The function that `lm_set_level` stores below level 1 or above it is not the `head`-only batch. -/
+theorem insertBatchOf_ne {l : Int32} (h : l ≠ 1) :
+    ZlibNgF.Proof.DeflateInv.insertBatchOf l ≠ .insert_knuth_batch_head := by
+  unfold ZlibNgF.Proof.DeflateInv.insertBatchOf
+  split
+  · exact fun e => by cases e
+  · split
+    · rename_i h1; exact absurd (by simpa using h1) h
+    · exact fun e => by cases e
+
 /-- `fill_window` on an invariant stream: `FillPost`, and the heap after is an `SH` heap whose stream record has
 only the input fields changed, the input a tail of the input before (`ZR`), and the state changed in
 `fill_window`'s fields only (`FWS`). -/
 theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (hv : DInvW h s)
     (hs : DStateIs h s b st) (hin : DInput h s) (hc : st.wrap = 2 → CrcGlobals h) (hla : st.lookahead.toNat < 262) :
     ∃ h', C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') ∧ FillPost h h' s ∧
-      ∃ i z z' st' d', s = some i ∧ h.streams i = some z ∧ h' = SH h i z' b st' d' ∧ ZR z z' ∧ FWS st st' := by
+      ∃ i z z' st' d', s = some i ∧ h.streams i = some z ∧ h' = SH h i z' b st' d' ∧ ZR z z' ∧ FWS st st' ∧
+        ∀ d0, h.bytes b = some d0 → ChainOk b d0 st → ChainOk b d' st' := by
   obtain ⟨i, z, b0, st0, al, rfl, hz0, hb0, hst0, hal, c, hbs1, hbs2⟩ := hv
   obtain ⟨i1, z1, e1, hz1, hb1, hst1⟩ := hs
   obtain rfl : i = i1 := Option.some.inj e1
@@ -151,10 +162,13 @@ theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState)
   obtain ⟨f, hf⟩ : ∃ f, st.insert_batch = .val f := ⟨_, c.fns.2⟩
   have hda : h.dallocs b = some al := by simpa [Heap.dallocsOf, hd] using hal
   have C0 : WCore st := ⟨c.wpow, c.fe_mod, c.fe_hi, UInt32.le_iff_toNat_le.mp c.ins, hbs1, hbs2⟩
-  have S := fill_window_SH (H := h) (i := i) (z := z) (b := b) (d := d) f hb0 c.strm hf HL wsz hwo w2 C0
+  have hfl : st.level ≠ 1 → f ≠ .insert_knuth_batch_head := fun hl e => insertBatchOf_ne hl (by
+    have e2 : st.insert_batch = .val (ZlibNgF.Proof.DeflateInv.insertBatchOf st.level) := c.fns.2
+    rw [hf, e] at e2; injection e2 with e3; exact e3.symm)
+  have S := fill_window_SH (H := h) (i := i) (z := z) (b := b) (d := d) f hfl hb0 c.strm hf HL wsz hwo w2 C0
     c.look hla (insrc_of hnr hnb hnn) (fun e => (hc e).1)
   rw [ZlibNgF.Proof.DeflateReset.SH_self hz0 hsts hd] at S
-  obtain ⟨_, h', e, z', st', d', rfl, W, zr, inz, F, C, lk, hend, sum, df⟩ := S
+  obtain ⟨_, h', e, z', st', d', rfl, W, ck, lz, zr, inz, F, C, lk, hend, sum, df⟩ := S
   have hst := ZR.state zr
   have zr0 := zr
   obtain ⟨hle, ⟨ni, ai, ti, ad, rfl⟩, -⟩ := zr
@@ -176,7 +190,8 @@ theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState)
       ⟨C.wpow, C.fe_mod, C.fe_hi, C.ins, by show ss.toInt32.toInt ≤ ss.toNat; omega,
         by show -(2 ^ 30 + 2 ^ 16) ≤ ss.toInt32.toInt; rw [hss]; omega⟩ lk (fun ho' hh' => ?_),
     C.bs_hi, C.bs_lo⟩, ?_, ?_, ?_⟩, i, z, _, _, d', rfl, hz0, rfl, zr0,
-    ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩⟩
+    ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, fun d0 hd0 => by
+      obtain rfl := Option.some.inj (hd.symm.trans hd0); exact ck⟩
   · rw [HL.head] at hh'
     obtain rfl : ho = ho' := by injection hh' with e; injection e
     exact W
@@ -201,7 +216,7 @@ theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState)
     have hle' : ai.toNat ≤ z.avail_in.toNat := hle
     refine ⟨i, z, _, b, st, _, rfl, hz0, SH_streams _ _ _ _ _ _, hb0, hst0, SH_dstate _ _ _ _ _ _, rfl, hle,
       fun hne => ?_, show la.toNat + ai.toNat ≤ st.lookahead.toNat + z.avail_in.toNat by omega, df.1, df.2, hend,
-      rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+      rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, lz.1, lz.2, rfl⟩
     have hne' : la ≠ st.lookahead := hne
     have : ¬ la.toNat = st.lookahead.toNat := fun e' => hne' (UInt32.toNat_inj.mp e')
     show ai.toNat < z.avail_in.toNat
@@ -254,7 +269,33 @@ theorem insert_batch_ok (h : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : Defla
     obtain rfl : ho = ho' := by injection hh' with e; injection e
     exact W
 
+/-- `fill_window` keeps the hash chains (`ChainOk`), from `DInvW` (the invariant, or the state inside
+`deflateSetDictionary`'s insertion loop). -/
+theorem fill_window_chainW (h h' : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (d : Array UInt8)
+    (hv : DInvW h s) (hs : DStateIs h s b st) (hd : h.bytes b = some d) (hin : DInput h s)
+    (hc : st.wrap = 2 → CrcGlobals h) (hla : st.lookahead.toNat < 262) (Ch : ChainOk b d st)
+    (e : C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h')) :
+    ∀ st' d', DStateIs h' s b st' → h'.bytes b = some d' → ChainOk b d' st' := by
+  obtain ⟨h2, e2, -, i, z, z', st2, d2, rfl, -, rfl, -, -, ck⟩ := fill_window_ok2 h s b st hv hs hin hc hla
+  rw [e] at e2
+  obtain rfl : h' = SH h i z' b st2 d2 := by injection e2 with e3; injection e3
+  intro st' d' hs' hd'
+  obtain ⟨i1, z1, e1, hz1, hb1, hst1⟩ := hs'
+  obtain rfl := Option.some.inj e1
+  have hst2 : (SH h i z' b st2 d2).dstate b = some st2 := SH_dstate _ _ _ _ _ _
+  obtain rfl := Option.some.inj (hst1.symm.trans hst2)
+  obtain rfl := Option.some.inj (hd'.symm.trans (SH_bytes _ _ _ _ _ _))
+  exact ck d hd Ch
+
+/-- `fill_window` keeps the hash chains (`WindowFacts.fill_window_chain`). -/
+theorem fill_window_chain (h h' : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (d : Array UInt8)
+    (hv : DInv h s) (hs : DStateIs h s b st) (hd : h.bytes b = some d) (hin : DInput h s)
+    (hc : st.wrap = 2 → CrcGlobals h) (hla : st.lookahead.toNat < 262) (Ch : ChainOk b d st)
+    (e : C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h')) :
+    ∀ st' d', DStateIs h' s b st' → h'.bytes b = some d' → ChainOk b d' st' :=
+  fill_window_chainW h h' s b st d (DInvW.of_inv hv) hs hd hin hc hla Ch e
+
 /-- The window facts. -/
-theorem windowFacts : WindowFacts := ⟨fill_window_ok, insert_batch_ok⟩
+theorem windowFacts : WindowFacts := ⟨fill_window_ok, insert_batch_ok, fill_window_chain⟩
 
 end ZlibNgF.Proof.FillFacts

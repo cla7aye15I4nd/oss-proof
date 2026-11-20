@@ -136,7 +136,7 @@ theorem fill_io {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
   obtain ⟨ob, oo, ad, hno, had, hoo⟩ := hout.resolve_left hnn
   have hob : ob ≠ b := fun e => hnb oo (by rw [hno, e])
   have hdin : DInput h (some i) := ⟨z, b, ⟨i, rfl, hz⟩, hb, hin0, (hdj _ (.inl rfl)).2, hni⟩
-  obtain ⟨h', e, P, i4, z4, z', st', d', e4, hz4, rfl, zr, fws⟩ :=
+  obtain ⟨h', e, P, i4, z4, z', st', d', e4, hz4, rfl, zr, fws, -⟩ :=
     fill_window_ok2 h (some i) b st (DInvW.of_inv hv) ⟨i, z, rfl, hz, hb, hst⟩ hdin (fun _ => hcrc) hla
   obtain rfl : i = i4 := Option.some.inj e4
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans hz4)
