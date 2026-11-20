@@ -803,4 +803,90 @@ theorem compress_static_SH {pbo sbo n : Nat} (hpb : st.pending_buf = .val (.ref 
 
 end
 
+/-! ## Exact bit counts of the static emitters of `deflate_quick` -/
+
+section
+variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+
+/-- `zng_tr_emit_lit` with the static literal tree, from up to 63 bits waiting: exactly `static_ltree[c].Len` bits
+(at most 9), at most one 8-byte store. -/
+theorem emit_lit_exact {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
+    (h64 : st.bi_valid.toInt < 64) (hroom : pbo + st.pending.toNat + 8 ≤ d.size) (hp : st.pending.toNat + 8 < 2 ^ 32)
+    (c : UInt32) (hc : c.toNat < 256) :
+    Sat (SH H i z b st d) (ZlibNg.TreesEmit.zng_tr_emit_lit (some b) ZlibNg.DeflateQuick.static_ltree_p c)
+      (fun _ H' => APost H i z b st d pbo (static_ltree[c.toNat]!).dl.toNat 8 H') := by
+  unfold ZlibNg.TreesEmit.zng_tr_emit_lit ZlibNg.TreesEmit.zng_emit_lit ZlibNg.TreesEmit.send_code
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  have hv := toU32 _ h0
+  have hl : (static_ltree[c.toNat]!).dl.toNat ≤ 9 := UInt16.le_iff_toNat_le.mp (sl_len ⟨c.toNat, by omega⟩)
+  refine Sat.bind (Sat.bind (Sat.of_eq (ctFc_sl _ _ (by omega)) (Sat.bind (Sat.of_eq (ctDl_sl _ _ (by omega)) ?_))))
+  refine Sat.mono (send_bits_SH hpb _ _ _ _ (by omega) (by simp only [UInt16.toNat_toUInt32]; omega) hroom hp) ?_
+  rintro ⟨r1, r2⟩ _ ⟨np, d1, rfl, w, hacc, hr, hle, hge⟩
+  refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
+  refine Sat.bind (Sat.of_eq (ctDl_sl _ _ (by omega)) ?_)
+  simp only [UInt16.toNat_toUInt32] at hacc; rw [hv] at hacc
+  exact Sat.pure ⟨np, r1, r2, d1, rfl, w, by omega, hr, hle, hge⟩
+
+/-- `zng_tr_emit_dist` with the static trees, from up to 63 bits waiting: exactly
+`matchCost static_ltree static_dtree lc (dist - 1)` bits (length code, length extra bits, 5-bit distance code,
+distance extra bits: at most 31), at most one 8-byte store. -/
+theorem emit_dist_exact {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
+    (h64 : st.bi_valid.toInt < 64) (hroom : pbo + st.pending.toNat + 8 ≤ d.size) (hp : st.pending.toNat + 8 < 2 ^ 32)
+    (lc dist : UInt32) (hlc : lc.toNat < 256) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768) :
+    Sat (SH H i z b st d) (ZlibNg.TreesEmit.zng_tr_emit_dist (some b) (.ref .static_ltree 0) (.ref .static_dtree 0)
+      lc dist) (fun _ H' => APost H i z b st d pbo (matchCost static_ltree static_dtree lc.toNat (dist.toNat - 1)) 8 H') := by
+  have hmc : matchCost static_ltree static_dtree lc.toNat (dist.toNat - 1) ≤ 31 :=
+    TreesOverlayP.staticMatchCost_le _ _ hlc (dCodeOf_lt _ (by omega))
+  unfold ZlibNg.TreesEmit.zng_tr_emit_dist ZlibNg.TreesEmit.zng_emit_dist
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  have hv := toU32 _ h0
+  have hcode : (zng_length_code[lc.toNat]!).toNat < 29 := UInt8.lt_iff_toNat_lt.mp (lc_lt ⟨_, hlc⟩)
+  refine Sat.bind (Sat.bind (Sat.mono (assemble_gen (F := fun _ => True) (fun H' _ k hk => ctGet_sl H' k (by omega))
+    (treeRd_sd _) trivial lc dist hlc hd1 hd2 (static_l15 _ (by omega)) (static_d15 _ (dCodeOf_lt _ (by omega)))) ?_))
+  rintro ⟨mb, ml⟩ _ ⟨rfl, hml⟩
+  dsimp only at hml
+  refine Sat.bind (Sat.mono (send_bits_SH hpb _ _ _ _ (by omega) (by dsimp only; omega) hroom hp) ?_)
+  rintro ⟨r1, r2⟩ _ ⟨np, d1, rfl, w, hacc, hr, hle, hge⟩
+  refine Sat.pure ?_
+  refine Sat.of_eq (wrD_SH _) ⟨np, r1, r2, d1, rfl, w, ?_, hr, hle, hge⟩
+  rw [hv] at hacc; dsimp only at hacc; omega
+
+/-- `zng_tr_emit_end_block` with the static literal tree and `last != 0`, from up to 63 bits waiting: the 7 bits of
+`END_BLOCK` and `bi_windup`: the bit buffer empty, `pending` grown by `(bi_valid + 7 + 7) / 8` bytes at most. For
+`last == 0`, `end_block_SH` gives exactly 7 bits (`APost … 7 8`). -/
+theorem end_block_last_exact {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
+    (h0 : 0 ≤ st.bi_valid.toInt) (h64 : st.bi_valid.toInt < 64) (hroom : pbo + st.pending.toNat + 16 ≤ d.size)
+    (hp : st.pending.toNat + 16 < 2 ^ 32) (last : Int32) (hl : last ≠ 0) :
+    Sat (SH H i z b st d) (ZlibNg.TreesEmit.zng_tr_emit_end_block (some b) (.ref .static_ltree 0) last)
+      (fun _ H' => WDPost H i z b st d pbo ((st.bi_valid.toInt.toNat + 7 + 7) / 8) H') := by
+  unfold ZlibNg.TreesEmit.zng_tr_emit_end_block ZlibNg.TreesEmit.zng_emit_end_block ZlibNg.TreesEmit.send_code
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  have hl7 : (static_ltree[256]!).dl.toNat = 7 := by decide +kernel
+  have hv := toU32 _ h0
+  refine Sat.bind (Sat.bind (Sat.of_eq (ctFc_sl _ 256 (by decide)) (Sat.bind (Sat.of_eq (ctDl_sl _ 256 (by decide))
+    ?_))))
+  refine Sat.mono (send_bits_SH hpb _ _ _ _ (by omega) (by simp only [UInt16.toNat_toUInt32]; omega) (by omega)
+    (by omega)) ?_
+  rintro ⟨r1, r2⟩ _ ⟨np, d1, rfl, w, hacc, hr, hle, hge⟩
+  simp only [UInt16.toNat_toUInt32, hl7, hv] at hacc
+  dsimp only at hr
+  refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
+  have c' : (last != 0) = true := by simpa using hl
+  rw [ite_t c']
+  have e := toInt32_toInt r2 hr
+  unfold ZlibNg.TreesEmit.zng_tr_emit_align
+  refine Sat.mono (windup_SH (pbo := pbo) (by exact hpb) (by dsimp only; omega) (by dsimp only; omega)
+    (by dsimp only; rw [w.1]; omega) (by dsimp only; omega)) ?_
+  rintro _ _ ⟨np', bu', d', rfl, w', h1, h2⟩
+  dsimp only at w' h1 h2
+  rw [e] at h2
+  refine ⟨np', bu', d', rfl, (w.widen (Nat.le_refl _) (by omega)).trans (w'.widen (by omega) (Nat.le_refl _))
+    (Nat.le_refl _) (Nat.le_refl _), by omega, ?_⟩
+  omega
+
+end
+
 end ZlibNgF.Proof.TreesCompress
