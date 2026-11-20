@@ -346,6 +346,37 @@ theorem loop_body_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo 
         | brk => simp [LMExit.isCont] at h
         | ret r => simp [LMExit.isCont] at h
 
+theorem lmMu_lt_fuel (s : LMExit × LMVars) : lmMu s < fuel := by
+  have := chainLeft_lt s.2.chain_length
+  have h2 := Nat.mul_le_mul_right 131072 (Nat.le_of_lt this)
+  unfold lmMu fuel; split <;> omega
+
+/-- The outer `for (;;)` of `LONGEST_MATCH` (`match_tpl.h:139-294`) with `strstart <= B`: it ends with `break` or
+`return`, keeping `LI`. -/
+theorem main_loop_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
+    (hp : PrevBelow d po st B) (hBs : st.strstart.toNat ≤ B) (V : VI b wo st v) {ms : UInt32}
+    (hb : BL st B bl0 v.best_len ms) :
+    Sat (LH H i z b st d ms) (cwhile
+      (fun ((x, v) : LMExit × LMVars) => pure (x.isCont, (x, v)))
+      (fun ((_, v) : LMExit × LMVars) => LM.loop_body e v)
+      (LMExit.cont, v))
+      (fun s H' => LI H i z b st B d wo bl0 s H' ∧ s.1.isCont = false) := by
+  refine sat_cwhile (fun s H' => LI H i z b st B d wo bl0 s H') lmMu _ ?_ ⟨ms, rfl, V, hb⟩ (lmMu_lt_fuel _)
+  rintro ⟨x, v1⟩ _ hI
+  refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨hI, hc⟩⟩
+  cases x with
+  | cont =>
+    obtain ⟨ms1, rfl, V1, hb1⟩ := hI
+    refine Sat.mono (loop_body_ok E N hp hBs V1 hb1) ?_
+    rintro ⟨x2, v2⟩ _ ⟨hL, hm⟩
+    refine ⟨hL, ?_⟩
+    cases x2 with
+    | cont => exact hm rfl
+    | brk => simp [lmMu, LMExit.isCont]; omega
+    | ret r => simp [lmMu, LMExit.isCont]; omega
+  | brk => simp [LMExit.isCont] at hc
+  | ret r => simp [LMExit.isCont] at hc
+
 end
 
 end ZlibNgF.Proof.LongestMatch
