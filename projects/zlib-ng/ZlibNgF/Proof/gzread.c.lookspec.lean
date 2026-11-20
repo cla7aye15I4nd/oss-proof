@@ -610,4 +610,88 @@ theorem consume_spec {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState}
   exact hk _ sF hsF hvF (gstep_st hs' W.fs rfl rfl rfl rfl) rfl
     (by show (Int64.ofInt _).toInt + (Int64.ofInt _).toInt = _; rw [e2, e3]; omega) hkh
 
+/-- Without a pending skip, or without output, the post-condition of `gz_look` gives the read invariant itself. -/
+theorem invR_restore {W : World} {H : Heap} {b : Nat} {s' : GzState}
+    (hv0 : GzInvR { W with gzs := upd W.gzs b (some { s' with «have» := 0 }) } H (some b))
+    (hs' : W.gz H b = some s')
+    (hout : s'.«have» = 0 ∨ (s'.size ≠ 0 ∧ ∀ c base, GzBufs H s' c base →
+      ∃ p, s'.next = .val p ∧ Inside c base (inSize s') (inSize s' + outSize s') p s'.«have».toNat))
+    (hkh : s'.skip ≠ 0 → s'.«have» = 0) : GzInvR W H (some b) := by
+  let s0 : GzState := { s' with «have» := 0 }
+  have hs0 : ({ W with gzs := upd W.gzs b (some s0) } : World).gz H b = some s0 := gz_upd_same hs' s0
+  obtain ⟨sh, -⟩ := inv_of hs0 hv0.1
+  have hr : s0.mode = GZ_READ := modeOf hs0 hv0.2.1
+  have P := sh.pos
+  have hout' : s'.«have» = 0 ∨ (s0.size ≠ 0 ∧ ∀ c base, GzBufs H s0 c base →
+      ∃ q, s'.next = .val q ∧ Inside c base (inSize s0) (inSize s0 + outSize s0) q s'.«have».toNat) := by
+    rcases hout with e | ⟨hsz, f⟩
+    · exact Or.inl e
+    · exact Or.inr ⟨hsz, fun c base hb => f c base ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩⟩
+  have hv := invR_seek hv0 hs0 s'.«have» s'.next s'.pos s'.skip s'.how (sh.read hr).how P.1 P.2 P.3 hout' hkh
+  simp only [InflateInv.upd_upd] at hv
+  have es : ({ s0 with «have» := s'.«have», next := s'.next, pos := s'.pos, skip := s'.skip, how := s'.how } :
+      GzState) = s' := by cases s'; rfl
+  rw [es, DeflateReset.upd_self W.gzs b s' (gzs_of hs')] at hv
+  exact hv
+
+/-! ## `gzdirect` -/
+
+/-- `gzdirect` (with patch 0020) on a read handle: a read handle again, and a step of the call. -/
+theorem gzdirect_read {w : World} {h : Heap} {b : Nat} (hv : GzInvR w h (some b)) :
+    GSat w h (gzdirect (some b)) (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b []) := by
+  obtain ⟨b0, s, e0, hs, -, -⟩ := hv.1
+  cases e0
+  have hr := modeOf hs hv.2.1
+  -- the end: `return state->direct == 1`
+  have J : ∀ W H, GzInvR W H (some b) → GStep w h W H b [] →
+      GSat W H (do let d ← rdG (some b) (·.direct); pure (if (d == 1) = true then (1 : Int32) else 0))
+        (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b []) := by
+    intro W H hvW g
+    obtain ⟨b1, s1, e1, hs1, -, -⟩ := hvW.1
+    cases e1
+    exact GSat.bind (GSat.of_eq (rdG_app' hs1 _) (GSat.pure ⟨hvW, g⟩))
+  have J0 := J w h hv (GStep.refl w h b [])
+  unfold gzdirect
+  apply GSat.ite
+  · intro e; simp at e
+  intro _
+  dsimp only
+  refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
+  apply GSat.ite
+  · intro _
+    refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
+    apply GSat.ite
+    · intro _
+      refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
+      apply GSat.ite
+      · intro h0
+        have h0' : s.«have» = 0 := by simpa using h0
+        refine GSat.bind (GSat.mono (gz_look_spec hv hs h0') fun r W H q => ?_)
+        obtain ⟨-, g1, -, s', hs', -, -, -, -, hv0, hout⟩ := q
+        refine GSat.bind (GSat.of_eq (rdG_app' hs' _) ?_)
+        refine GSat.bind (GSat.of_eq (rdG_app' hs' _) ?_)
+        apply GSat.ite
+        · intro hc
+          have hh : s'.«have» ≠ 0 := by
+            intro e; rw [e] at hc; simp at hc
+          exact consume_spec hv0 hs' hout hh fun W2 s2 hs2 hv2 g2 _ _ _ =>
+            J W2 H hv2 (g1.trans g2 ⟨s, hs⟩ ⟨s', hs'⟩)
+        · intro hc
+          have hkh : s'.skip ≠ 0 → s'.«have» = 0 := by
+            intro hk
+            by_cases hh : s'.«have» = 0
+            · exact hh
+            · exact absurd (by simp [hk, hh]) hc
+          exact J W H (invR_restore hv0 hs' hout hkh) g1
+      · intro _; exact J0
+    · intro _; exact J0
+  · intro _; exact J0
+
+theorem direct_keepsR : KeepsR SDirect := by
+  intro w h w' h' f hv ⟨r, e⟩
+  obtain ⟨b, s, rfl, -, -, -⟩ := hv.1
+  obtain ⟨r2, W, H, e2, q⟩ := (gzdirect_read hv).run
+  obtain ⟨-, rfl, rfl⟩ := gdet e2 e
+  exact q.1
+
 end ZlibNgF.Proof.GzMode
