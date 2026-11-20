@@ -60,10 +60,10 @@ The statements are identical, and line citations in the translation, proofs and 
 upstream source, so nothing else changes. The test hunk of `0008` was rebased onto `0001` (both append to
 `test/test_inflate_copy.cc`); its library hunk and commit message are as proposed upstream.
 
-The series `0017` and `0018` gained an upstream-style commit message and GoogleTest cases; their library change
-is byte-for-byte the proved one. Their test hunks append to `test/test_gzseek.cc` in directory order. madler/zlib
-`b2596bde` (`0017`, the same fix through a helper) and `f40786e3` (`0018`, a related change of `gz_skip`) do not
-apply to zlib-ng and are not cherry-picked (see the summaries).
+The series `0011`, `0012` and `0020` gained an upstream-style commit message and GoogleTest cases; their library
+change is byte-for-byte the proved one. Their test hunks append to `test/test_gzfile_api_errors.cc` in directory
+order. madler/zlib `df84af25` and `6be4bcda` hold the lines of `0011` but do not apply to zlib-ng and are not
+cherry-picked (see its summary).
 
 The series `0013`, `0014`, `0019` and `0021` gained an upstream-style commit message and GoogleTest cases; their
 library change is byte-for-byte the proved one. Their test hunks append to `test/test_gzio.cc` in directory order
@@ -71,10 +71,10 @@ library change is byte-for-byte the proved one. Their test hunks append to `test
 `81cc0be` (`0021`) fix the same defects in madler's non-blocking rework, which zlib-ng does not have; they are not
 cherry-picked (see the summaries).
 
-The series `0011`, `0012` and `0020` gained an upstream-style commit message and GoogleTest cases; their library
-change is byte-for-byte the proved one. Their test hunks append to `test/test_gzfile_api_errors.cc` in directory
-order. madler/zlib `df84af25` and `6be4bcda` hold the lines of `0011` but do not apply to zlib-ng and are not
-cherry-picked (see its summary).
+The series `0017` and `0018` gained an upstream-style commit message and GoogleTest cases; their library change
+is byte-for-byte the proved one. Their test hunks append to `test/test_gzseek.cc` in directory order. madler/zlib
+`b2596bde` (`0017`, the same fix through a helper) and `f40786e3` (`0018`, a related change of `gz_skip`) do not
+apply to zlib-ng and are not cherry-picked (see the summaries).
 
 ## What each fix changes
 
