@@ -167,7 +167,7 @@ theorem ok_inv {w : World} {h H : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h
     (ho : 8 ≤ o ∧ o < 72) (hsv : H.savedPtrs c0 = some (o - 8, .ref (.heap c0) 0))
     (hinv : InflateInv.Inv H (some s.strm)) {z' : ZStream} {st' : InflateState}
     (hz' : H.streams s.strm = some z') (hzs : z'.state = some (c0 + 1)) (hst' : H.istate (c0 + 1) = some st')
-    (hhd : st'.head = .val none) (hai : z'.avail_in = 0) :
+    (hhd : st'.head = .val none) (hai : z'.avail_in = 0) (hmsg : z'.msg = .null) :
     GzInvR { w with gzs := upd w.gzs b (some (baSt s c0 o)) } H (some b) ∧
       GStep w h { w with gzs := upd w.gzs b (some (baSt s c0 o)) } H b [] := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
@@ -198,7 +198,7 @@ theorem ok_inv {w : World} {h H : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h
   have shH : GzShape H s3 := by
     refine ⟨sh.mode, ownStr_keep sh.path fun c hc => (x.old c (hlt c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inl (Or.inr hc))))).1,
       ⟨z', hz'⟩, sh.want_lo, sh.want_hi, Or.inr rfl, ⟨sh.pos.1, sh.pos.2, sh.pos.3, sh.pos.4⟩, ⟨?_, sh.msg.mem⟩,
-      fun _ => ⟨hR.how, fun _ => ⟨c0, o, z', hB, hinv, hz', Or.inl (hR.nobuf h0), Or.inl hai, hreg⟩,
+      fun _ => ⟨hR.how, fun _ => ⟨c0, o, z', hB, hinv, hz', Or.inl (hR.nobuf h0), Or.inl hai, hreg, Or.inl hmsg⟩,
         fun e => absurd e hsz, hR.skip_have, fun e => absurd e hsz⟩,
       fun hw' => absurd (hr.symm.trans hw') read_ne_write, fun e => absurd e hsz⟩
     rcases sh.msg.msg with e | hm
@@ -319,7 +319,7 @@ state. -/
 theorem init2_31_eq {h : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some z)
     (hza : z.zalloc = .null ∨ z.zalloc = .zcalloc) (hzf : z.zfree = .null ∨ z.zfree = .zcfree)
     (hfs : h.istates h.nextBlk = none) (hfa : h.iallocs h.nextBlk = none) (hok : h.allocOk h.nalloc = true) :
-    ∃ z' st', inflateInit2 (some i) 31 h = .ok (Z_OK,
+    ∃ z' st', z'.msg = .null ∧ inflateInit2 (some i) 31 h = .ok (Z_OK,
       setZS (allocHeap { h with streams := upd h.streams i (some (initZ z)) } .zcfree) i z' h.nextBlk st') := by
   rw [init2_pre hz hza hzf 31]
   have hza0 : (({ h with streams := upd h.streams i (some (initZ z)) } : Heap).streams i).map ZStream.zalloc =
@@ -337,7 +337,7 @@ theorem init2_31_eq {h : Heap} {i : Nat} {z : ZStream} (hz : h.streams i = some 
   obtain ⟨wrap, wb', -, eR⟩ := (reset2_run L2 31).resolve_left fun e => by
     obtain ⟨H, eH⟩ := reset2_31 L2
     rw [eH] at e; simp [Z_OK, Z_STREAM_ERROR] at e
-  refine ⟨rkZ z2 wrap, rkS b (rS (r2S st2 wrap wb')), ?_⟩
+  refine ⟨rkZ z2 wrap, rkS b (rS (r2S st2 wrap wb')), rfl, ?_⟩
   simp [-Nat.reducePow, H2, setZS, z2, st2, initS, H0, b, p, upd_upd, initZ] at eR
   simp [-Nat.reducePow, ldAllocs, Heap.iallocsOf, Ival.get, wrS, ldState, stState, Heap.istate, wrZ, ldStream,
     stStream, upd_upd, initZ, eR, Z_OK, setZS, z2, st2, initS, b, p, H0]
@@ -471,7 +471,7 @@ theorem gz_read_init_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : G
       · intro hne; exact absurd (by decide) hne
     · -- `inflateInit2` succeeds
       have hok2' : H1.allocOk H1.nalloc = true := hok2
-      obtain ⟨z', st', e⟩ := init2_31_eq hz1 hza hzf hfs1 hfa1 hok2'
+      obtain ⟨z', st', hzm, e⟩ := init2_31_eq hz1 hza hzf hfs1 hfa1 hok2'
       obtain ⟨r, h', e', -, hinv, -, hhead, -⟩ := ZlibNgF.Proof.InflateAlloc.init2_ok hz1 hza hzf hfs1 hfa1 31
       rw [e] at e'
       obtain ⟨rfl, rfl⟩ : ZlibNg.Inflate.Z_OK = r ∧ _ = h' := by simpa using e'
@@ -499,8 +499,10 @@ theorem gz_read_init_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : G
       have hsv : (InflateInv.setZS (allocHeap { H1 with streams := upd H1.streams s.strm (some (initZ z)) } .zcfree)
           s.strm z' H1.nextBlk st').savedPtrs c0 = some (o - 8, .ref (.heap c0) 0) := by
         simp [InflateInv.setZS, allocHeap, H1, alH, upd_ne _ _ _ _ h1, c0]
+      have hz2' : z2 = z' := by
+        simp [InflateInv.setZS] at hz2; exact hz2.symm
       obtain ⟨hvI, gI⟩ := ok_inv hv hs h0 x ha (by simp [arr, n]) ho hsv (hinv rfl) hz2 hzs2 hst2 hhd2
-        (by rw [hai2]; exact hai)
+        (by rw [hai2]; exact hai) (by rw [hz2']; exact hzm)
       refine ⟨hvI, gI, rfl, baSt s c0 o, ?_, rfl, Or.inl ⟨rfl, ?_, rfl⟩⟩
       · have hb2 : b ≠ h.nextBlk + 1 := by omega
         unfold World.gz

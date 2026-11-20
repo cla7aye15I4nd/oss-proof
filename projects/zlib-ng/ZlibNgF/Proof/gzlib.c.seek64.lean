@@ -185,8 +185,8 @@ theorem shape_seek {h : Heap} {s : GzState} (sh : GzShape h s) (hr : s.mode = GZ
     ⟨hk0, hpk, hp, fun e => absurd (hr.symm.trans e) read_ne_write⟩, ⟨sh.msg.msg, sh.msg.mem⟩,
     fun _ => ⟨hhow, fun hsz => ?_, fun hsz => ?_, fun hk => ?_, fun hz => (R.fresh hz).of_strm rfl⟩, fun e => absurd (hr.symm.trans e) read_ne_write,
     fun hz => sh.dead hz⟩
-  · obtain ⟨c, base, z, hb, hi, hz, -, hai, hreg⟩ := R.bufs hsz
-    refine ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz, ?_, hai, hreg⟩
+  · obtain ⟨c, base, z, hb, hi, hz, -, hai, hreg, hmsg⟩ := R.bufs hsz
+    refine ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz, ?_, hai, hreg, hmsg⟩
     rcases hout with e | ⟨-, hq⟩
     · exact Or.inl e
     · exact Or.inr (hq c base hb)
