@@ -26,9 +26,7 @@ mkdir -p "$work"
 # is not observable on a run: no sanitizer reports it; the unpatched build must then behave like the patched
 # one), or an extended regular expression that the output (sanitizer report or program output) must match |
 # patched output line (one per run, ';') | optional timeout in seconds for this case (default $TIMEOUT or 10). In the defect field, " OR " separates alternatives (the field separator
-# is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull; GCC's
-# UBSan does not report NULL plus an offset (gzbuffer-alloc-null-offset), so there the case accepts the unpatched run
-# printing the patched result (clang reports it).
+# is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull.
 cases=(
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
   "gzseek-offset-overflow|0004||runtime error: signed integer overflow|seek2 -1"
@@ -43,13 +41,23 @@ cases=(
   "deflate-medium-insert-count|0013||runtime error: division by zero|deflate 1 28"
   "gzwrite-clearerr-stale-input|0014||invalid-pointer-pair OR heap-buffer-overflow|gzwrite 0 -1 1"
   "gzclose-after-failed-write|0014||heap-use-after-free|gzclose 0 0"
-  "gzbuffer-alloc-null-offset|0015||runtime error: .*null pointer OR runtime error: pointer overflow OR runtime error: pointer index expression OR ^gzwrite 0 0 -4 -4$|gzwrite 0 0 -4 -4"
   "gzread-position-overflow|0016||runtime error: signed integer overflow|gzread 0 9223372036854775807 0"
   "fixed-block-start-overflow|0018|f|runtime error: signed integer overflow|deflate 1 2151677952|180"
   "deflate-slow-match-start|0019|362,303|ERROR: AddressSanitizer OR runtime error OR round-trip MISMATCH|inflate 1 out 80393 of 80393 round-trip ok;inflate 1 out 86208 of 86208 round-trip ok"
   "gzdirect-pending-skip|0020||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 getc -1 tell 13"
   "gzgets-pending-skip|0021||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 gets null tell 3"
   "gzwrite-zero-retry|0022|max,retry|runtime error: signed integer overflow OR ^retry seek 10000 write 0 tell 14096 write 3 tell 14099 close 0 bytes 14099 bad$|max seek 9223372036854775807 write 0 tell 9223372036854775807;retry seek 10000 write 0 tell 10000 write 3 tell 10003 close 0 bytes 10003 ok"
+)
+
+# Clang cases: patch reproductions whose defect only clang's UBSan reports (GCC's does not report NULL plus an
+# offset). Each runs like a case above on the default compiler's builds, except that there the unpatched build may
+# instead print the patched result with no report: that shows nothing, and the run says so with a NOT SHOWN line
+# (it does not count as a pass of the defect). Then, unless the default compiler is clang, both builds are made again
+# with clang, where the unpatched build must show the report. Without clang that run is skipped with a loud SKIPPED
+# line; when CI is set a missing clang fails the run.
+# case | patch prefix | report the unpatched clang build must show (" OR " separates alternatives) | patched line
+clang_cases=(
+  "gzbuffer-alloc-null-offset|0015|runtime error: .*null pointer OR runtime error: pointer overflow OR runtime error: pointer index expression|gzwrite 0 0 -4 -4"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch
@@ -141,6 +149,74 @@ for entry in "${cases[@]}"; do
     fi
     i=$((i + 1))
   done
+done
+# check_patched <label> <binary> <want>: the patched build runs without a report and prints <want>
+check_patched() {
+  local out rc
+  out=$(cd "$work" && timeout "$timeout_s" "$2" 2>&1); rc=$?
+  if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|ERROR: AddressSanitizer"; then
+    echo "UNEXPECTED: $1: status $rc: $out"; fail=1
+  elif printf '%s\n' "$out" | grep -qx "$3"; then
+    echo "ok: $1: $3, no report"
+  else
+    echo "UNEXPECTED: $1, no line '$3' in: $out"; fail=1
+  fi
+}
+cc_is_clang=""
+skippedclang=""
+if cc --version 2>/dev/null | grep -qi clang; then cc_is_clang=1; fi
+clang_ok=""
+for entry in "${clang_cases[@]}"; do
+  IFS='|' read -r name patch defect want <<<"$entry"
+  defect=${defect// OR /|}
+  [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
+  build "$work/without-$patch" "$patch"
+  for b in "without-$patch" patched; do
+    cc $san -I"$work/$b" "$here/$name/repro.c" "$work/$b/libz.a" -o "$work/$name-$b" || exit 2
+  done
+  echo "== $name (default compiler)"
+  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-without-$patch" 2>&1); rc=$?
+  if printf '%s\n' "$out" | grep -qE "$defect"; then
+    echo "ok: without $patch: $(printf '%s\n' "$out" | grep -m1 -E "$defect" | sed "s#$work/##g; s#$src/##g")"
+  elif [ -z "$cc_is_clang" ] && [ $rc -eq 0 ] && printf '%s\n' "$out" | grep -qx "$want"; then
+    echo "NOT SHOWN: without $patch this compiler's UBSan prints the patched result '$want' with no report (it does not report NULL plus an offset); this run shows nothing, the clang run below must show the defect"
+  else
+    echo "MISSING: without $patch no report matching '$defect' (status $rc): $out"; fail=1
+  fi
+  check_patched "with every patch" "$work/$name-patched" "$want"
+  [ -z "$cc_is_clang" ] || continue
+  if [ -z "$clang_ok" ]; then
+    if command -v clang >/dev/null 2>&1 && printf 'int main(void) { return 0; }\n' > "$work/probeclang.c" &&
+        clang $san "$work/probeclang.c" -o "$work/probeclang" >"$work/probeclang.log" 2>&1 && "$work/probeclang"; then
+      clang_ok=yes
+    else
+      clang_ok=no
+    fi
+  fi
+  if [ "$clang_ok" = no ]; then
+    if [ -n "${CI:-}" ]; then
+      echo "MISSING: $name needs clang with ASan and UBSan, required when CI is set"; fail=1
+    else
+      echo "SKIPPED: $name NOT RUN with clang (no working clang): the defect of $patch is NOT SHOWN by this run"
+      skippedclang="$skippedclang $name"
+    fi
+    continue
+  fi
+  for b in "without-$patch" patched; do
+    ex=""; [ "$b" = patched ] || ex=$patch
+    if ! CC=clang CFLAGS="$san" EXCLUDE="$ex" bash "$tests/zlib-ng-build-current.sh" "$work/$b-clang"; then
+      CC=clang CFLAGS="$san" EXCLUDE="$ex" bash "$tests/build-zlib-ng.sh" "$src" "$work/$b-clang" >/dev/null || exit 2
+    fi
+    clang $san -I"$work/$b-clang" "$here/$name/repro.c" "$work/$b-clang/libz.a" -o "$work/$name-$b-clang" || exit 2
+  done
+  echo "== $name (clang)"
+  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-without-$patch-clang" 2>&1); rc=$?
+  if printf '%s\n' "$out" | grep -qE "$defect"; then
+    echo "ok: without $patch (clang): $(printf '%s\n' "$out" | grep -m1 -E "$defect" | sed "s#$work/##g; s#$src/##g")"
+  else
+    echo "MISSING: without $patch (clang) no report matching '$defect' (status $rc): $out"; fail=1
+  fi
+  check_patched "with every patch (clang)" "$work/$name-patched-clang" "$want"
 done
 for entry in "${plain[@]}"; do
   IFS='|' read -r name args want <<<"$entry"
@@ -260,6 +336,6 @@ for entry in ${sel32[@]+"${sel32[@]}"}; do
   fi
 done
 if [ $fail -eq 0 ]; then
-  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes; every open defect still reproduces; every guard shows the earlier defect${skipped32:+; $skipped32 32-bit guard(s) SKIPPED (no -m32 toolchain)}"
+  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes; every open defect still reproduces; every guard shows the earlier defect${skipped32:+; $skipped32 32-bit guard(s) SKIPPED (no -m32 toolchain)}${skippedclang:+; clang case(s)$skippedclang SKIPPED (no clang): their defects are NOT SHOWN}"
 fi
 exit $fail
