@@ -1,15 +1,25 @@
-From 5f3f7dc8b5c17aa49e0407f4e1b1437f39d15a40 Mon Sep 17 00:00:00 2001
+From b8b4acf868d6b0c22e8c53a61e7a12d50a8614a8 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Thu, 19 Nov 2026 23:45:55 -0800
 Subject: [PATCH] Skip buffered output covered by a pending seek in gzdirect()
 
-gzdirect() after gzseek() left output buffered while a skip was pending;
-gzgetc() then returned bytes from before the position sought and gztell()
-overflowed computing x.pos + skip. Drain the buffered bytes the skip covers,
-as gzseek() and gz_skip() do.
+gzseek() on a reader that has not read yet only records a skip. gzdirect()
+then calls gz_look(), which for input that is not gzip puts what it read in
+the output buffer while the skip is still pending. gzgetc() (the function
+and the macro of zlib.h) takes bytes from the output buffer without checking
+for a skip request, so it returned bytes from before the position sought,
+and after a seek to the largest position gztell() overflowed computing
+x.pos + skip.
+
+Skip the buffered bytes that the pending seek covers in gzdirect(), as
+gzseek() and gz_skip() do. madler/zlib b2596bde fixes the same case the same
+way, with the loop body of gz_skip() moved into a new gz_skip_have().
+
+Add a test of gzgetc() after gzseek() and gzdirect() on a plain file.
 ---
- gzread.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+ gzread.c            | 16 +++++++++++++++-
+ test/test_gzseek.cc | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 1 deletion(-)
 
 diff --git a/gzread.c b/gzread.c
 index e6fdedd..ee6fe5a 100644
@@ -40,3 +50,45 @@ index e6fdedd..ee6fe5a 100644
      /* return 1 if transparent, 0 if processing a gzip stream */
      return state->direct == 1;
  }
+diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
+index c14a073..d167582 100644
+--- a/test/test_gzseek.cc
++++ b/test/test_gzseek.cc
+@@ -62,3 +62,37 @@ TEST(gzip, seek) {
+     PREFIX(gzclose)(file);
+ #endif
+ }
++
++/* gzdirect() after a seek on a file that is not gzip: gzdirect() reads the
++ * start of the file into the output buffer, and the seek still has to skip
++ * it; gzgetc() (which takes buffered bytes directly) must then return the
++ * byte at the position sought. */
++TEST(gzip, seek_then_direct) {
++    const char *path = "seek_direct.txt";
++    FILE *fp = fopen(path, "wb");
++    ASSERT_TRUE(fp != NULL);
++    ASSERT_EQ(fwrite("abcde", 1, 5, fp), 5U);
++    ASSERT_EQ(fclose(fp), 0);
++
++    gzFile file = PREFIX(gzopen)(path, "rb");
++    ASSERT_TRUE(file != NULL);
++    EXPECT_EQ(PREFIX(gzseek)(file, 3, SEEK_SET), 3);
++    EXPECT_EQ(PREFIX(gzdirect)(file), 1);
++    EXPECT_EQ(PREFIX(gzgetc)(file), 'd');
++    EXPECT_EQ(PREFIX(gztell)(file), 4);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++
++    /* a seek past the end: gzgetc() reaches the end of the file */
++    typedef decltype(PREFIX(gzseek)((gzFile)NULL, 0, SEEK_SET)) off_type;
++    if (sizeof(off_type) == sizeof(z_off64_t)) {
++        const off_type off_max = (off_type)(((uint64_t)1 << (sizeof(off_type) * 8 - 1)) - 1);
++        file = PREFIX(gzopen)(path, "rb");
++        ASSERT_TRUE(file != NULL);
++        EXPECT_EQ(PREFIX(gzseek)(file, off_max, SEEK_SET), off_max);
++        EXPECT_EQ(PREFIX(gzdirect)(file), 1);
++        EXPECT_EQ(PREFIX(gzgetc)(file), -1);
++        EXPECT_EQ(PREFIX(gztell)(file), 5);
++        EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++    }
++    remove(path);
++}

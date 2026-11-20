@@ -1,0 +1,3 @@
+# GoogleTest cases this series adds or changes, run by tests/patch-gtest.sh.
+# <gtest filter> <fails without this patch: yes|no> [VAR=value ...]
+gzip.seek_past_end_then_gets yes
