@@ -206,6 +206,9 @@ import ZlibNgF.Proof.«gzwrite.c.errx»
 import ZlibNgF.Proof.«gzwrite.c.loop»
 import ZlibNgF.Proof.«gzwrite.c.compspec»
 import ZlibNgF.Proof.«gzwrite.c.compok»
+import ZlibNgF.Proof.«gzwrite.c.compthm»
+import ZlibNgF.Proof.«gzwrite.c.zero»
+import ZlibNgF.Proof.«gzwrite.c.write»
 import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
 import ZlibNgF.Proof.«deflate_huff.c.safety»
@@ -229,4 +232,5 @@ import ZlibNgF.Proof.«deflate_quick.c.safety»
 import ZlibNgF.Proof.«deflate_quick.c.frame»
 import ZlibNgF.Proof.«deflate_quick.c.static»
 import ZlibNgF.Proof.«public-deflate»
+import ZlibNgF.Proof.«gzwrite.c.compdone»
 import ZlibNgF.Proof.«public-compress»
