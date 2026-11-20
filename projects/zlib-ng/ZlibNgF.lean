@@ -26,6 +26,7 @@ import ZlibNgF.Math.TreesRadix
 import ZlibNgF.Proof.«trees.c.sort»
 import ZlibNgF.Proof.«trees.c.build»
 import ZlibNgF.Math.TreesLabeled
+import ZlibNgF.Math.TreesRank
 import ZlibNgF.Proof.«trees.c.merge»
 import ZlibNgF.Proof.«trees.c.bitlen»
 import ZlibNgF.Proof.«deflate_p.h.flush»
