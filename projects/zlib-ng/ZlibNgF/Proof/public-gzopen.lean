@@ -89,7 +89,7 @@ theorem wf_local {w : World} {h HS : Heap} (hwf : GzWF w h) (hby : ∀ c, c ≠ 
       by rw [hby c (by omega)]; exact (hwf.2.1.1 c (by omega)).2.2⟩,
      fun c hc => ⟨by rw [same.dstates]; exact (hwf.2.1.2 c (by omega)).1, by rw [same.dallocs]; exact (hwf.2.1.2 c (by omega)).2⟩⟩
     (objBound_old hwf.2.2.1 same.consts fun c d hd => ?_) (fun c hc => hwf.2.2.2.1 c (by omega)) (fun c s hs => ?_)
-    (fsWF_of hwf)
+    (fsWF_of hwf) (LitOk.ext hwf.lit rfl fun _ _ e => by rw [same.consts]; exact e)
   · by_cases e : c = h.nextBlk
     · subst e; rw [hdL] at hd; cases hd; exact Or.inr (by omega)
     · rw [hby c e] at hd; exact Or.inl hd
@@ -107,7 +107,8 @@ theorem post_drop {w : World} {h HS : Heap} {r : GzPtr} {W : World} {H : Heap} (
   have hgz : ∀ c, c ≠ h.nextBlk → W.gz { H with bytes := upd H.bytes h.nextBlk none } c = W.gz H c :=
     fun c e => gz_of_bytes (by simp [upd_ne _ _ _ _ e])
   refine ⟨gzWF_mk wf2.1 ⟨fun c hc => ⟨(wf2.2.1.1 c hc).1, (wf2.2.1.1 c hc).2.1, ?_⟩, wf2.2.1.2⟩
-    (objBound_old wf2.2.2.1 rfl fun c d hd => ?_) wf2.2.2.2.1 (fun c s hs => ?_) (fsWF_of wf2),
+    (objBound_old wf2.2.2.1 rfl fun c d hd => ?_) wf2.2.2.2.1 (fun c s hs => ?_) (fsWF_of wf2)
+    (LitOk.ext wf2.lit rfl fun _ _ e => e),
     ⟨⟨⟨fun _ _ => rfl, fun k hk => by rw [g1 k hk, same.gzheaders], fun c hc hn' => ?_, fun c hc hn' d hd => ?_,
       fun c hc hn' hd => ?_, rfl, by rw [c1, same.crc], by rw [x1, same.x2n], by rw [a1, same.base], by have := k1; simp only at this ⊢; omega⟩,
       fun c hc hn' => ?_⟩, fun j z hz => s1 j z (by rw [hstr]; exact hz), fun k a e => cs1 k a (by rw [same.consts]; exact e),

@@ -101,10 +101,6 @@ theorem HExt.store {h0 h : Heap} (x : HExt h0 h) {c : Nat} (hc : h0.nextBlk ≤ 
 
 /-! ## The literal table -/
 
-/-- Every literal key of the world names a static string that holds its literal. -/
-def LitOk (w : World) (h : Heap) : Prop :=
-  ∀ p ∈ w.litKeys, ∃ lit, gzLits[p.1]? = some lit ∧ h.consts p.2 = some (Heap.litBytes lit)
-
 /-- A literal without a zero byte. -/
 def NoNul (lit : String) : Prop := ∀ j, j < lit.toUTF8.size → lit.toUTF8.data[j]! ≠ 0
 
@@ -123,12 +119,6 @@ theorem litBytes_cstr {h : Heap} {k : Nat} {lit : String} (hk : h.consts k = som
   · have := hn' j hj
     rw [Nat.zero_add, getElem!_pos _ _ (by simp; omega), Array.getElem_push_lt hj]
     rwa [getElem!_pos a j hj] at this
-
-theorem LitOk.ext {w : World} {h h' : Heap} (hl : LitOk w h) (x : ∀ k a, h.consts k = some a → h'.consts k = some a) :
-    LitOk w h' := by
-  intro p hp
-  obtain ⟨lit, e1, e2⟩ := hl p hp
-  exact ⟨lit, e1, x _ _ e2⟩
 
 /-- `gzLit` of a literal of the table: a static string holding the literal, which stays in the table. -/
 theorem gzLit_spec (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i) (hl : gzLits[i]? = some lit)
@@ -154,7 +144,7 @@ theorem gzLit_spec (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = 
       simp only [List.mem_cons] at hp
       rcases hp with rfl | hp
       · exact ⟨lit, hl, by simp⟩
-      · exact (LitOk.ext hw fun k a e => GzReach.consts_grow h _ k a e) p hp
+      · exact (LitOk.ext (w' := w) hw rfl fun k a e => GzReach.consts_grow h _ k a e) p hp
 
 /-! ## The part of `gz_error` that makes the message -/
 
@@ -271,7 +261,7 @@ theorem errTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h
     refine GSat.bind (GSat.of_eq (ldGz_app hs2) ?_)
     refine GSat.bind (GSat.of_eq (GzOpen.liftGet_app rfl _ _) ?_)
     have hL11 : gzLits.findIdx? (· == ": ") = some 11 := by simp [gzLits, List.findIdx?_cons]
-    refine GSat.bind (GSat.mono (gzLit_spec ": " 11 hL11 (by decide) (by decide) (LitOk.ext hlit fun _ _ e => e))
+    refine GSat.bind (GSat.mono (gzLit_spec ": " 11 hL11 (by decide) (by decide) (LitOk.ext hlit rfl fun _ _ e => e))
       fun p W3 H3 q => ?_)
     obtain ⟨hg3, hf3, x3, hl3, hc3, -⟩ := q
     have x13 := x1.trans x3
@@ -293,7 +283,7 @@ theorem errTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h
     · unfold World.gz; rw [hb4, hg3]; simp [← he0]
     · rcases hH4 with rfl | ⟨g, rfl⟩
       · exact hl3
-      · exact LitOk.ext hl3 fun _ _ e => e
+      · exact LitOk.ext hl3 rfl fun _ _ e => e
     · rcases hH4 with rfl | ⟨g, rfl⟩
       · exact ⟨_, hd3⟩
       · exact ⟨_, by show (H3.bytes.modify _ _) _ = _; rw [GzOpen.modify_some _ _ _ _ hd3]; simp; rfl⟩
@@ -305,7 +295,7 @@ theorem errTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h
       have hs2 := gz_upd_same hs1 { s with msg := .val .null }
       refine GSat.bind (GSat.of_eq (wrG_app hs2 _) ?_)
       refine GSat.pure ⟨.val .null, ZlibNg.Inflate.Z_MEM_ERROR, fun c hc => by simp [upd_ne _ _ _ _ hc], ?_, rfl,
-        HExt.nalloc h, LitOk.ext hlit fun _ _ e => e, fun _ => rfl, Or.inr rfl, Or.inl rfl⟩
+        HExt.nalloc h, LitOk.ext hlit rfl fun _ _ e => e, fun _ => rfl, Or.inr rfl, Or.inl rfl⟩
       simp [InflateInv.upd_upd]; exact gz_upd_same hs1 _
     · intro hc; simp at hc
 
@@ -439,15 +429,15 @@ theorem GStep.trans {w w1 w2 : World} {h h1 h2 : Heap} {b : Nat} {wr : List (BPt
 
 theorem wfr_ext {w W : World} {h h' : Heap} {b : Nat} {s : GzState} (hw : GzWFr w h) (hs : w.gz h b = some s)
     (hg : ∀ c, c ≠ b → W.gzs c = w.gzs c) (hgb : ∀ s', W.gzs b = some s' → s'.strm = s.strm)
-    (hf : GzOpen.FsLe w.fs W.fs) (x : HExt h h') : GzWFr W h' := by
-  obtain ⟨hc, ⟨hfr, hdf⟩, hgz, hst, hb, hn, hlk⟩ := hw
+    (hf : GzOpen.FsLe w.fs W.fs) (x : HExt h h') (hL : LitOk W h') : GzWFr W h' := by
+  obtain ⟨hc, ⟨hfr, hdf⟩, hgz, hst, hb, hn, hlk, -⟩ := hw
   obtain ⟨d0, hd0⟩ := gz_live hs
   have hbn : b < h.nextBlk := by
     refine Nat.lt_of_not_le fun e => ?_
     rw [(hfr b e).2.2] at hd0; cases hd0
   have fs := GzOpen.FsLe.wf ⟨hb, hn, hlk⟩ hf
   refine ⟨⟨by rw [x.crc]; exact hc.1, by rw [x.x2n]; exact hc.2⟩, ⟨x.fresh hfr, fun c e => ?_⟩, fun c e => ?_,
-    fun c s2 e => ?_, fs.1, fs.2.1, fs.2.2⟩
+    fun c s2 e => ?_, fs.1, fs.2.1, fs.2.2, hL⟩
   · rw [x.dstates, x.dallocs]; exact hdf c (Nat.le_trans x.next e)
   · rw [hg c (by have := x.next; omega)]; exact hgz c (Nat.le_trans x.next e)
   · unfold World.gz at e
@@ -552,10 +542,11 @@ theorem gstep_mk {w W : World} {h H : Heap} {b : Nat} {s s' : GzState} (hs : w.g
   · rw [hs] at e0; rw [hs'] at e2; cases e0; cases e2; exact hstrm
 
 theorem gz_error_inv {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
-    (hs : w.gz h b = some s) (hlit : LitOk w h) (e : Int32) (msg : BPtr) (hmsg : msg = .null ∨ CStr h msg)
+    (hs : w.gz h b = some s) (e : Int32) (msg : BPtr) (hmsg : msg = .null ∨ CStr h msg)
     (hmk : ∀ c o, msg ≠ .ref (.heap c) o) :
     GSat w h (gz_error (some b) e msg) (fun _ W H => ∃ s', W.gz H b = some s' ∧ ErrOf s e s' ∧
       GzInvR W H (some b) ∧ LitOk W H ∧ W.fs = w.fs ∧ GStep w h W H b []) := by
+  have hlit : LitOk w h := hv.2.2.lit
   obtain ⟨⟨b0, s0, e0, hs0, sh, hn⟩, hm, hw⟩ := hv
   cases e0; rw [hs] at hs0; cases hs0
   have hr := modeOf hs hm
@@ -567,7 +558,7 @@ theorem gz_error_inv {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR
   obtain ⟨sh1, hn1⟩ := err0_keep sh hn e
   have fr1 : FreshBlocks (freeMsg h s) := (HLess.free h s).freshB fr
   obtain ⟨r, W, H, eq, mv, ev, hgz, hsW, hfs, x, hlW, hMN⟩ := errTail_spec hs1 fr1
-    (LitOk.ext (w := w) hlit fun k a e' => by rw [freeMsg_consts]; exact e') sh1.path rfl e rfl msg
+    (LitOk.ext (w := w) hlit rfl fun k a e' => by rw [freeMsg_consts]; exact e') sh1.path rfl e rfl msg
     (hmsg.imp_right fun hp => cstr_free hp hmk)
   rw [freeMsg_next] at hMN
   have hr1 : (errSt s e).mode = GZ_READ := hr
@@ -596,8 +587,8 @@ theorem gz_error_inv {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR
     intro s2 e2; rw [gzs_of hsW] at e2; cases e2; rfl
   have wf1 : GzWFr { w with gzs := upd w.gzs b (some (errSt s e)) } (freeMsg h s) :=
     wfr_step hw hs (fun c hc => by simp [upd_ne _ _ _ _ hc]) (fun s2 e2 => by simp at e2; rw [← e2]; rfl)
-      (GzOpen.FsLe.refl _) (HLess.free h s)
-  have wfW : GzWFr W H := wfr_ext wf1 hs1 hgz hgb (by rw [hfs]; exact GzOpen.FsLe.refl _) x
+      (GzOpen.FsLe.refl _) (HLess.free h s) (LitOk.ext hlit rfl (HLess.free h s).consts)
+  have wfW : GzWFr W H := wfr_ext wf1 hs1 hgz hgb (by rw [hfs]; exact GzOpen.FsLe.refl _) x hlW
   have hstH : H.streams = h.streams := x.streams.trans (freeMsg_streams h s)
   refine ⟨r, W, H, by rw [gz_error_run hs sh.msg (msg_ne_b hn) e msg]; exact eq, s', hsW, ⟨rfl, hMN.2.1⟩,
     ⟨⟨b, s', rfl, hsW, shS, hnS⟩, ⟨b, s', rfl, hsW, hr⟩, wfW⟩, hlW, hfs, ?_⟩

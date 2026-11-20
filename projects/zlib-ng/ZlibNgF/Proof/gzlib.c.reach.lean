@@ -148,19 +148,6 @@ theorem gzframe_fs {w w' : World} (h : Heap) (f : GzPtr) (hg : w'.gzs = w.gzs) :
 
 /-- What `gzLit` of a literal of the table does: it returns a pointer and, at the literal's first use, adds one
 static string at the next free key; nothing else changes. -/
-theorem gzLit_step (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i) (w : World) (h : Heap) :
-    ∃ p w' h', C.run ((gzLit lit).run w) h = .ok ((p, w'), h') ∧ w'.gzs = w.gzs ∧ w'.fs = w.fs ∧
-      (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) := by
-  cases hk : w.litKeys.find? (·.1 == i) with
-  | some e =>
-    exact ⟨.ref (.const e.2) 0, w, h, by simp [gzLit, hi, hk, C.run, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get,
-      StateT.get, pure, StateT.pure], rfl, rfl, Or.inl rfl⟩
-  | none =>
-    refine ⟨.ref (.const h.consts.arr.size) 0, { w with litKeys := (i, h.consts.arr.size) :: w.litKeys },
-      { h with consts := upd h.consts h.consts.arr.size (some (Heap.litBytes lit)) }, ?_, rfl, rfl, Or.inr ⟨_, rfl⟩⟩
-    simp [gzLit, hi, hk, C.run, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get, StateT.get, pure,
-      StateT.pure, lm, StateT.lift, newConst, modify, modifyGet, MonadStateOf.modifyGet, StateT.modifyGet]
-
 /-- Adding a static string at the next free key keeps every static string there. -/
 theorem consts_grow (h : Heap) (a : Array UInt8) (k : Nat) (b : Array UInt8) (hk : h.consts k = some b) :
     (upd h.consts h.consts.arr.size (some a)) k = some b := by
@@ -171,6 +158,31 @@ theorem consts_grow (h : Heap) (a : Array UInt8) (k : Nat) (b : Array UInt8) (hk
       rw [Tbl.get_eq]; simp; rfl
     rw [this] at hk; cases hk
   rw [upd_ne _ _ _ _ hne]; exact hk
+
+theorem gzLits_of_idx {lit : String} {i : Nat} (hi : gzLits.findIdx? (· == lit) = some i) : gzLits[i]? = some lit := by
+  rw [Array.findIdx?_eq_some_iff_getElem] at hi
+  obtain ⟨hlt, he, -⟩ := hi
+  rw [Array.getElem?_eq_getElem hlt]
+  simpa using he
+
+theorem gzLit_step (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i) (w : World) (h : Heap) :
+    ∃ p w' h', C.run ((gzLit lit).run w) h = .ok ((p, w'), h') ∧ w'.gzs = w.gzs ∧ w'.fs = w.fs ∧
+      (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) ∧ (LitOk w h → LitOk w' h') := by
+  cases hk : w.litKeys.find? (·.1 == i) with
+  | some e =>
+    exact ⟨.ref (.const e.2) 0, w, h, by simp [gzLit, hi, hk, C.run, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get,
+      StateT.get, pure, StateT.pure], rfl, rfl, Or.inl rfl, id⟩
+  | none =>
+    refine ⟨.ref (.const h.consts.arr.size) 0, { w with litKeys := (i, h.consts.arr.size) :: w.litKeys },
+      { h with consts := upd h.consts h.consts.arr.size (some (Heap.litBytes lit)) }, ?_, rfl, rfl, Or.inr ⟨_, rfl⟩,
+      fun hw => ?_⟩
+    · simp [gzLit, hi, hk, C.run, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get, StateT.get, pure,
+        StateT.pure, lm, StateT.lift, newConst, modify, modifyGet, MonadStateOf.modifyGet, StateT.modifyGet]
+    · intro p hp
+      simp only [List.mem_cons] at hp
+      rcases hp with rfl | hp
+      · exact ⟨lit, gzLits_of_idx hi, by simp⟩
+      · exact (LitOk.ext (w' := w) hw rfl fun k a e => consts_grow h _ k a e) p hp
 
 /-- A step that changes only static strings (by adding one) and leaves the `gz_state` objects alone is in the
 frame. -/
@@ -185,9 +197,10 @@ theorem lit_empty : gzLits.findIdx? (· == "") = some 12 := by simp [gzLits, Lis
 
 /-- `w'`, `h'` differ from `w`, `h` at most by a static string added at the next free key (and its key). -/
 def LitStep (w : World) (h : Heap) (w' : World) (h' : Heap) : Prop :=
-  w'.gzs = w.gzs ∧ w'.fs = w.fs ∧ (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) })
+  w'.gzs = w.gzs ∧ w'.fs = w.fs ∧ (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) ∧
+    (LitOk w h → LitOk w' h')
 
-theorem LitStep.refl (w : World) (h : Heap) : LitStep w h w h := ⟨rfl, rfl, Or.inl rfl⟩
+theorem LitStep.refl (w : World) (h : Heap) : LitStep w h w h := ⟨rfl, rfl, Or.inl rfl, id⟩
 
 /-- `gzerror` on `NULL` or an open file returns; it changes only static strings (a literal at its first use). -/
 theorem gzerror_inv {w : World} {h : Heap} {f : GzPtr} (e : Bool) (hv : f = none ∨ GzInv w h f) :
@@ -197,23 +210,23 @@ theorem gzerror_inv {w : World} {h : Heap} {f : GzPtr} (e : Bool) (hv : f = none
   · have hmode : ¬(¬s.mode = GZ_READ ∧ ¬s.mode = GZ_WRITE) := by
       rcases sh.mode with hm | hm <;> simp [hm]
     by_cases hm : s.err = ZlibNg.Inflate.Z_MEM_ERROR
-    · obtain ⟨p, w', h', el, hg, hf, hh⟩ := gzLit_step _ _ lit_oom w h
+    · obtain ⟨p, w', h', el, hg, hf, hh, hL⟩ := gzLit_step _ _ lit_oom w h
       simp only [C.run, StateT.run] at el
       cases e
-      · refine ⟨(p, none), w', h', ?_, gzframe_lit _ hg hh, hg, hf, hh⟩
+      · refine ⟨(p, none), w', h', ?_, gzframe_lit _ hg hh, hg, hf, hh, hL⟩
         simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
           MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, el]
-      · refine ⟨(p, some s.err), w', h', ?_, gzframe_lit _ hg hh, hg, hf, hh⟩
+      · refine ⟨(p, some s.err), w', h', ?_, gzframe_lit _ hg hh, hg, hf, hh, hL⟩
         simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
           MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, el]
     · rcases sh.msg.msg with hn | ⟨c, n, hc, _⟩
-      · obtain ⟨p, w', h', el, hg, hf, hh⟩ := gzLit_step _ _ lit_empty w h
+      · obtain ⟨p, w', h', el, hg, hf, hh, hL⟩ := gzLit_step _ _ lit_empty w h
         simp only [C.run, StateT.run] at el
         cases e
-        · refine ⟨(p, none), w', h', ?_, gzframe_lit _ hg hh, hg, hf, hh⟩
+        · refine ⟨(p, none), w', h', ?_, gzframe_lit _ hg hh, hg, hf, hh, hL⟩
           simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
             MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, hn, el, Ival.get, liftM, monadLift, MonadLift.monadLift]
-        · refine ⟨(p, some s.err), w', h', ?_, gzframe_lit _ hg hh, hg, hf, hh⟩
+        · refine ⟨(p, some s.err), w', h', ?_, gzframe_lit _ hg hh, hg, hf, hh, hL⟩
           simp [GzRun, gzerror, C.run, rdG, ldGz, getHeap, lm, StateT.run, bind, StateT.bind, get, getThe,
             MonadStateOf.get, StateT.get, StateT.lift, pure, StateT.pure, hs, hmode, hm, hn, el, Ival.get, liftM, monadLift, MonadLift.monadLift]
       · cases e

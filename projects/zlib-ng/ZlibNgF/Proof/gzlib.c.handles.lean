@@ -141,13 +141,13 @@ theorem gztell_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gztell_safe
 
 theorem gzoffset64_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzoffset64_safety := by
   intro w h f hwf hh
-  obtain ⟨r, fs', e, -⟩ := GzReach.gzoffset64_inv (fun _ _ _ _ _ => hwf.2.2.2.2.2.2.2)
+  obtain ⟨r, fs', e, -⟩ := GzReach.gzoffset64_inv (fun _ _ _ _ _ => hwf.2.2.2.2.2.2.2.1)
     ((handle W R hh).imp_right parts')
   exact ⟨r, _, h, e, GzReach.gzframe_fs h f rfl⟩
 
 theorem gzoffset_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzoffset_safety := by
   intro w h f hwf hh
-  obtain ⟨r, fs', e, -⟩ := GzReach.gzoffset_inv (fun _ _ _ _ _ => hwf.2.2.2.2.2.2.2)
+  obtain ⟨r, fs', e, -⟩ := GzReach.gzoffset_inv (fun _ _ _ _ _ => hwf.2.2.2.2.2.2.2.1)
     ((handle W R hh).imp_right parts')
   exact ⟨r, _, h, e, GzReach.gzframe_fs h f rfl⟩
 

@@ -48,15 +48,27 @@ def GzRun {α : Type} (m : G α) (w : World) (h : Heap) (r : α) (w' : World) (h
 /-- `p` points to a NUL-terminated string. -/
 def CStr (h : Heap) (p : BPtr) : Prop := ∃ n, CStringLen h p n
 
+/-- The literal table of the model is consistent: every entry `(i, k)` of `World.litKeys` (the static string made
+for the string literal `gzLits[i]` at its first use) names a static string `Heap.consts k` that holds that literal and
+its terminating zero. In C the literals are static data of the library, present before any call; the model makes
+each one at its first use (`gzLit`) and finds it again through `litKeys`, so a world whose table named some other
+block would not be the world of any C program. This is a well-formedness condition of the model, not a
+precondition on the caller of the C API: a C caller cannot change the library's string literals. -/
+def LitOk (w : World) (h : Heap) : Prop :=
+  ∀ p ∈ w.litKeys, ∃ lit, gzLits[p.1]? = some lit ∧ h.consts p.2 = some (Heap.litBytes lit)
+
 /-- The world and heap are those of a C program: CRC tables, no object in an unallocated block, objects below
 `2^63` bytes, the `gz_state` objects in allocated blocks with their embedded `z_stream` alive, the inputs (the
-read budget and the files) below `2^62` bytes, and every `lseek` value the oracle chooses `-1` or not negative. -/
+read budget and the files) below `2^62` bytes, every `lseek` value the oracle chooses `-1` or not negative, and
+the literal table consistent (`LitOk`). -/
 def GzWF (w : World) (h : Heap) : Prop :=
   CrcGlobals h ∧ DFreshBlocks h ∧ ObjBound h ∧
   (∀ b, h.nextBlk ≤ b → w.gzs b = none) ∧
   (∀ b s, w.gz h b = some s → ∃ z, h.streams s.strm = some z) ∧
   w.fs.budget < 2 ^ 62 ∧ (∀ d ∈ w.fs.nodes, d.size < 2 ^ 62) ∧
-  (∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v)
+  (∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v) ∧
+  LitOk w h
+
 
 /-- The heap blocks that belong to the open file `f` in `w`, `h`: the block of its `gz_state`, its `path`, its
 `msg`, its buffer block and the block of its inflate or deflate state. -/
