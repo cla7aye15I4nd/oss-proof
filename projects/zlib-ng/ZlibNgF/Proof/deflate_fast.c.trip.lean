@@ -159,6 +159,10 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have hcd2 : cd.toNat ≤ 32768 := by omega
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       extract_lets jpI
+      run_tac do
+        let lctx ← Lean.getLCtx
+        let ns := lctx.foldl (fun acc d => acc ++ s!"{d.userName} ") ""
+        Lean.logInfo m!"NAMES {ns}"
       rw [k4.2.1]
       -- after the insertions
       have hI : ∀ (S2 : Nat → Prop) (d5 : Array UInt8),
