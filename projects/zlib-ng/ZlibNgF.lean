@@ -185,11 +185,15 @@ import ZlibNgF.Proof.«gzread.c.decomp»
 import ZlibNgF.Proof.«gzread.c.look»
 import ZlibNgF.Proof.«gzread.c.init»
 import ZlibNgF.Proof.«gzread.c.lookspec»
+import ZlibNgF.Proof.«gzread.c.ungetc»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
 import ZlibNgF.Proof.«deflate.c.gz»
+import ZlibNgF.Proof.«deflate.c.keep»
+import ZlibNgF.Proof.«deflate.c.gz.keep»
 import ZlibNgF.Proof.«gzwrite.c.error»
 import ZlibNgF.Proof.«gzwrite.c.init»
+import ZlibNgF.Proof.«gzwrite.c.comp»
 import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
 import ZlibNgF.Proof.«deflate_huff.c.safety»

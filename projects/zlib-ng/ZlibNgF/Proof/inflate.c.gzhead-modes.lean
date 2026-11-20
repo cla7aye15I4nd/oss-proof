@@ -169,6 +169,16 @@ theorem bad_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (l
   refine SatX.pure (post_ok li1 ?_)
   unfold μ; dsimp only; rw [rank_BAD]; omega
 
+/-- `ret = v; SET_BAD(msg)` for a code `v` of `inflate_table`: the next trip (`BAD`) sets `ret` again. -/
+theorem bad_ok_ret {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (v : Int32)
+    {m : Nat} (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) < m) (msg : String) {i : Nat}
+    (hi : strTable.findIdx? (· == msg) = some i) :
+    SatX H { l with ret := v } (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ()) (Post E m) := by
+  refine SatX.bind (SatX.lift (Sat.mono (li.setBad msg hi) ?_))
+  rintro _ H1 ⟨z1, li1⟩
+  refine SatX.pure ⟨z1, _, Or.inr ⟨rfl, l.ret, li1⟩, ?_⟩
+  unfold μ; dsimp only; rw [rank_BAD]; omega
+
 /-- The result of `NEEDBITS(n)` at the start of a mode: the leave case is done. -/
 theorem needbits_then {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (eo : EnvOK E)
     (li : LI E l H z S) (n : UInt32) (hn : n.toNat ≤ 32) {m : Nat} {k : X Unit}

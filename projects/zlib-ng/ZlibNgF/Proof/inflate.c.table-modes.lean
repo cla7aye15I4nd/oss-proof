@@ -365,15 +365,14 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
   refine SatX.bind (SatX.lift (Sat.of_eq e' ?_))
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs2 _ _) ?_))
   have hμ2 : 32 * (8 * l2.have_.toNat + l2.bits.toNat + l2.left.toNat) + 17 ≤ m := by rw [hl2]; omega
-  have hrB : ret ≠ Z_BUF_ERROR := by rcases hr3 with e | e | e <;> rw [e] <;> decide
   refine SatX.bind (SatX.modify (SatX.ite (fun hne => ?_) (fun hne => ?_)))
   · have h0 : ret ≠ 0 := by simpa using hne
     obtain rfl := herr h0
-    exact bad_ok ((li2.withS { S4 with
+    exact bad_ok_ret (li2.withS { S4 with
         codes := codes'
         work := work'
         next := .val (.ref (.codes E.b) 0)
-        lenbits := lb } (fun _ _ c => core_LLtab (o := 0) c hm2 hcs hws (by decide) lb) rfl).setRet ret hrB)
+        lenbits := lb } (fun _ _ c => core_LLtab (o := 0) c hm2 hcs hws (by decide) lb) rfl) ret
         (by show 32 * (8 * l2.have_.toNat + l2.bits.toNat + l2.left.toNat) < m; omega) "invalid code lengths set" (strIdx 18 (by decide) (by decide) (by decide))
   · have h0 : ret = 0 := by simpa using hne
     obtain ⟨ho1, ho2, -, -, hct⟩ := hok h0
@@ -389,7 +388,7 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
         mode := CODELENS } (fun _ _ c => core_CL c hm2 hcs hws
           (by have : (1332 : Nat) ≤ ENOUGH := by decide
               have e : (if ZlibNg.Inftrees.CODES = ZlibNg.Inftrees.DISTS then 592 else 1332) = 1332 := by decide
-              omega) lb hct') rfl (Or.inl (li2.outEq (by rw [hm2]; decide)))).setRet ret hrB) rfl m ?_
+              omega) lb hct') rfl (Or.inl (li2.outEq (by rw [hm2]; decide)))).setRet ret (by rw [h0]; decide)) rfl m ?_
     unfold μ; dsimp only; rw [rank_CODELENS]; omega
 
 /-! ## `TABLE` -/

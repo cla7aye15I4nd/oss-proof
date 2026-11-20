@@ -1,0 +1,13 @@
+--- a/gzread.c
++++ b/gzread.c
+@@ -488,6 +488,10 @@
+ 
+     /* can't push EOF */
+     if (c < 0)
++        return -1;
++
++    /* can't lower the position further (gzseek() negates a negative one) */
++    if (state->x.pos <= -GZ_OFF_MAX)
+         return -1;
+ 
+     /* if output buffer empty, put byte at end (allows more pushing) */
