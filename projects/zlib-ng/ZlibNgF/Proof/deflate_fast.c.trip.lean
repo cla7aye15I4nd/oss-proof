@@ -141,7 +141,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
         (tally_dist_K (sli_slw I1) hle1 cd (ml' - STD_MIN_MATCH) (by omega) (by omega) (by omega))) ?_)
       rintro r H3 ⟨⟨-, W3, -, hle3, I3⟩, st3, d3, lo, hi, rfl, K3, Wr3, hlo⟩
       have G3 := cg_tally (sli_slw I1) G1 K3 Wr3 hlo
-      extract_lets bfl
+      extract_lets bfl jpI
       obtain ⟨st4, hst4⟩ : ∃ st4 : DeflateState, st4 = { st3 with lookahead := st3.lookahead - ml' } := ⟨_, rfl⟩
       refine Sat.bind (Sat.of_eq (wrD_eq _ st4 (by rw [hst4])) ?_)
       have k4 : CF st3 st4 ∧ st4.lookahead = st.lookahead - ml' ∧ st4.strstart = st.strstart ∧
@@ -158,11 +158,6 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have hcd1 : 1 ≤ cd.toNat := by omega
       have hcd2 : cd.toNat ≤ 32768 := by omega
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
-      extract_lets jpI
-      run_tac Lean.Elab.Tactic.withMainContext do
-        let lctx ← Lean.getLCtx
-        let ns := lctx.foldl (fun acc d => acc ++ s!"{d.userName} ") ""
-        Lean.logInfo m!"NAMES {ns}"
       rw [k4.2.1]
       -- after the insertions
       have hI : ∀ (S2 : Nat → Prop) (d5 : Array UInt8),
