@@ -48,7 +48,9 @@ int main(int argc, char **argv) {
     if (f == NULL) { printf("gzopen failed\n"); return 2; }
     int u = gzungetc('x', f);
     long long s = (long long)gzseek(f, INT64_MAX, SEEK_SET);
-    printf("set unget %d seek %lld tell %lld getc %d\n", u, s, (long long)gztell(f), gzgetc(f));
+    long long t = (long long)gztell(f);
+    int c = gzgetc(f);
+    printf("set unget %d seek %lld tell %lld getc %d\n", u, s, t, c);
     gzclose(f);
   } else if (strcmp(run, "pos") == 0) {
     gzFile f = zero();
