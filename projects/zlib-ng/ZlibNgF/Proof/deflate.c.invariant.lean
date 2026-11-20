@@ -19,7 +19,7 @@ that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the 
 `bi_buf`; `strstart + lookahead` within the window; a valid `strategy`; both function pointers of `lm_set_level` set;
 valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
 are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
-`strstart - block_start` bounded; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
+`block_start` bounded below; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
 tree descriptors of `zng_tr_init`; `lit_bufsize` a multiple of 16; the sizes of the scratch arrays of `trees.c`;
 `opt_len`, `static_len` and the `bl_tree` frequencies 0 between blocks.
 -/
@@ -217,8 +217,9 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   `fill_window` adds `w_size`) within the window -/
   fe_mod : (v.fill_end.toNat + 262) % v.w_size.toNat = 0
   fe_hi : v.fill_end.toNat + 262 ≤ v.window_size.toNat
-  /-- `strstart - block_start` stays far from `INT_MAX` -/
-  bs_lo : (v.strstart.toNat : Int) - v.block_start.toInt ≤ 2 ^ 30
+  /-- `block_start` stays far from `INT_MIN` (patch 0018: `fill_window` lowers it only while it stays at or above
+  `-(2^30 + 2^16)`; every other store writes `strstart`, 0, or a value at least 0) -/
+  bs_lo : -(2 ^ 30 + 2 ^ 16) ≤ v.block_start.toInt
   /-- the tree descriptors that `zng_tr_init` sets -/
   descs : v.l_dyn = .val (.ref (.dyn_ltree b) 0) ∧ v.l_stat = .val .static_l_desc ∧
     v.d_dyn = .val (.ref (.dyn_dtree b) 0) ∧ v.d_stat = .val .static_d_desc ∧

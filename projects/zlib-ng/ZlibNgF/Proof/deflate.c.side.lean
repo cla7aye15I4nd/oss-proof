@@ -12,7 +12,7 @@ import ZlibNgF.Proof.«deflate.c.fill_window.facts»
 `DSide h s`: facts about the state of stream `s` that hold between public calls but not inside a strategy, so they
 are not clauses of `DCore` (which the working state `DWork` of the strategies and the window state `DInvW` contain):
 
-* `SymsOk` (room for one more symbol, `strstart - block_start` bounded by the symbols, the level-0 and level-1
+* `SymsOk` (room for one more symbol, the level-0 and level-1
   `Z_FIXED` states without symbols, no symbols at `block_start == strstart`), which a strategy needs on entry;
 * after a call with a flush that completed (`last_flush > 0`), no symbols; in `FINISH_STATE`, no symbols and no
   lookahead (`deflateParams` and the strategy dispatch of `deflate` read these);
@@ -24,8 +24,7 @@ are not clauses of `DCore` (which the working state `DWork` of the strategies an
   write it. (That the header's buffers lie outside the library's block during a `deflate` call is part of
   `DStreamIO`.)
 
-The preservation lemmas at the end cover every public step except `deflateResetKeep` (open: it keeps `strstart` and
-`block_start` and drops the symbols, so the gap clause of `SymsOk` does not follow), `deflate` and `deflateParams`.
+The preservation lemmas at the end cover every public step except `deflate` and `deflateParams`.
 -/
 
 set_option autoImplicit false
@@ -209,7 +208,7 @@ theorem symEnd_pos {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : Defl
 /-- A state with no symbols, `block_start` at `strstart`, no lookahead satisfies `SymsOk`. -/
 theorem symsOk_clean {st : DeflateState} (h0 : 0 < st.sym_end) (hs : st.sym_next = 0)
     (hb : st.block_start.toInt = st.strstart.toNat) (hl : st.lookahead = 0) : SymsOk st := by
-  refine ⟨by rw [hs]; exact h0, fun _ => by rw [hb]; omega, fun _ => ⟨?_, hs, hl⟩, fun _ _ => hs, fun _ => hs⟩
+  refine ⟨by rw [hs]; exact h0, fun _ => ⟨?_, hs, hl⟩, fun _ _ => hs, fun _ => hs⟩
   rw [Int32.le_iff_toInt_le, hb]; simp
 
 /-- `SideAt` of a state with no symbols, `block_start` at `strstart`, no lookahead, outside the header states, with

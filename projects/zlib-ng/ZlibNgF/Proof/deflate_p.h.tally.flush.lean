@@ -129,7 +129,8 @@ theorem flush_block_only_ok (T : TreesFacts) (X : FlushExtra) {h : Heap} {i : Na
   have hsm := c.strm
   simp only [dview] at hlook hbs hbl hsm
   have hss := (strstart_toInt32 c).1
-  simp only [dview] at hss
+  have hss2 := (strstart_toInt32 c).2
+  simp only [dview] at hss hss2
   have hv0 : -2147483648 ≤ st.strstart.toInt32.toInt - st.block_start.toInt := by omega
   have hv1 : st.strstart.toInt32.toInt - st.block_start.toInt < 2147483648 := by omega
   have e1 := ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ hv0 hv1
