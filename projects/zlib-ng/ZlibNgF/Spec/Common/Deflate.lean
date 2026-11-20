@@ -22,7 +22,7 @@ must be those the earlier call used. That is the only caller-owned data that saf
 `deflateInit*`, or already `zcalloc` / `zcfree`); caller buffers (input, output, dictionary, header buffers)
 pairwise disjoint where one of them is written, and outside the library's own block; `deflateGetDictionary` writes
 into a buffer of at least 32768 bytes, the size `zlib.h` names as always enough; `deflateCopy` with distinct source
-and destination; `deflateSetHeader` registers a header for the stream only before the first `deflate` call (status
+and destination, on a heap whose unallocated blocks hold no object (`DFreshBlocks`, as its goal assumes); `deflateSetHeader` registers a header for the stream only before the first `deflate` call (status
 `GZIP_STATE`), `deflatePrime` is called only before any pending output was flushed (`PrimeReady`), and
 `deflateSetDictionary` only with no tallied symbols (`DictReady`), as `zlib.h` requires; the buffer of
 `deflateGetDictionary` does not overlap the registered header's buffers.
@@ -161,7 +161,7 @@ inductive DeflateReachable : Heap → StreamPtr → Prop where
         .ok (ZlibNg.Inflate.Z_OK, h') →
       DeflateReachable h' s
   | copy (h h' : Heap) (src dst : StreamPtr) :
-      DeflateReachable h src → InitReady h dst → dst ≠ src →
+      DeflateReachable h src → DFreshBlocks h → InitReady h dst → dst ≠ src →
       C.run (ZlibNg.Deflate.deflateCopy dst src) h = .ok (ZlibNg.Inflate.Z_OK, h') →
       DeflateReachable h' dst
   | step (h h' : Heap) (s : StreamPtr) : DeflateReachable h s → DeflateStep h h' s → DeflateReachable h' s

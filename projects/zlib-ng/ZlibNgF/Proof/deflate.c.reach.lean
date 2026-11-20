@@ -92,7 +92,7 @@ theorem dreach_inv (P : DPending) {h : Heap} {s : StreamPtr} (hr : DeflateReacha
   | init h h' s level version size hi hv e => exact DeflateInitPublic.init_inv h h' s level version size hi hv e
   | init2 h h' s level method wb ml st version size hi hv e =>
     exact DeflateInitPublic.init2__inv h h' s level method wb ml st version size hi hv e
-  | copy h h' src dst _ hdst hne e ih => exact (DeflateCopy.copy_inv ih hdst hne e).2 rfl
+  | copy h h' src dst _ _ hdst hne e ih => exact (DeflateCopy.copy_inv ih hdst hne e).2 rfl
   | step h h' s _ hs ih => exact step_inv P ih hs
   | caller h h' s _ hc ih => exact caller_inv ih hc
 
