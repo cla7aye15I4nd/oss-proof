@@ -342,14 +342,3 @@ theorem rle_ok (T : TreesFacts) :
     simp only [] at hl0 ⊢; rw [hla, hl0]
 
 end ZlibNgF.Proof.DeflateRleP
-
-namespace ZlibNgF.Proof.Strategy
-open C ZlibNgF.Spec ZlibNg.Deflate ZlibNgF.Proof.DeflateInv ZlibNgF.Proof.DeflateFacts
-
-/-- The two strategies of this branch: `deflate_huff` and `deflate_rle`, given the block emitters. -/
-theorem strategiesA (T : TreesFacts) :
-    StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_HUFFMAN_ONLY) ZlibNg.DeflateHuff.deflate_huff ∧
-      StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_RLE) ZlibNg.DeflateRle.deflate_rle :=
-  ⟨ZlibNgF.Proof.DeflateHuffP.huff_ok T, ZlibNgF.Proof.DeflateRleP.rle_ok T⟩
-
-end ZlibNgF.Proof.Strategy
