@@ -22,6 +22,7 @@ namespace ZlibNgF.Proof.DeflateBody
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv ZlibNgF.Proof.DeflateInit
 open ZlibNgF.Proof.DeflateFacts ZlibNgF.Proof.DeflatePsi
 open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
+open ZlibNgF.Proof.DeflateSide (HdrMove)
 
 /-- The raise per input byte of a whole call. -/
 def G2 : Nat := 2 * G
@@ -126,7 +127,7 @@ theorem endOk_of {f : Int32} {P e : Nat} {h H : Heap} {i b : Nat} (B : Bud f P e
 /-- The end with a full output. -/
 theorem endOk_full {f : Int32} {P e : Nat} {h H : Heap} {i b : Nat} (B : Bud f P e 0 h i b H)
     (h0 : aOut H i = 0) : EndOk f P h i b H :=
-  endOk_of B fun st _ => by rw [if_pos h0]; have := mark_le_markK f st; omega
+  endOk_of B fun st _ => by rw [ite_eq_left h0]; have := mark_le_markK f st; omega
 
 /-- The end with no marker owed. -/
 theorem endOk_zero {f : Int32} {P e : Nat} {h H : Heap} {i b : Nat} (B : Bud f P e 0 h i b H)
@@ -152,12 +153,12 @@ theorem psiS_busy (f : Int32) (st : DeflateState) (hs : st.status = INIT_STATE �
     psiS f { st with status := BUSY_STATE } + 16 = psiS f st := by
   unfold psiS content quickB owed span
   dsimp only
-  have h1 : (if st.status = INIT_STATE ∨ st.status = GZIP_STATE then (16 : Nat) else 0) = 16 := if_pos hs
+  have h1 : (if st.status = INIT_STATE ∨ st.status = GZIP_STATE then (16 : Nat) else 0) = 16 := ite_eq_left hs
   have h2 : (if BUSY_STATE = INIT_STATE ∨ BUSY_STATE = GZIP_STATE then (16 : Nat) else 0) = 0 :=
-    if_neg (by decide)
-  have h3 : (if BUSY_STATE ≠ FINISH_STATE then (2 : Nat) ^ 18 else 0) = 2 ^ 18 := if_pos (by decide)
+    ite_eq_right (by decide)
+  have h3 : (if BUSY_STATE ≠ FINISH_STATE then (2 : Nat) ^ 18 else 0) = 2 ^ 18 := ite_eq_left (by decide)
   have h4 : (if st.status ≠ FINISH_STATE then (2 : Nat) ^ 18 else 0) = 2 ^ 18 :=
-    if_pos (by rcases hs with x | x <;> rw [x] <;> decide)
+    ite_eq_left (by rcases hs with x | x <;> rw [x] <;> decide)
   rw [h1, h2, h3, h4]
   omega
 
