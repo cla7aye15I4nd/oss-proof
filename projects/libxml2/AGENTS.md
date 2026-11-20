@@ -31,6 +31,6 @@ conversion, the tokenizer, entities and SAX dispatch.
 ## Local commands
 
 ```bash
-lake --dir projects/libxml2 build --wfail Libxml2F Libxml2F.Results
+lake --dir projects/libxml2 build -j 4 --wfail Libxml2F Libxml2F.Results
 python3 framework/check_project.py libxml2 --skip-build
 ```

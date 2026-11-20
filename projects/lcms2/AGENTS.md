@@ -33,6 +33,6 @@ lcms2 when the application calls `ImageCms`, which is not a default path.
 ## Local commands
 
 ```bash
-lake --dir projects/lcms2 build --wfail Lcms2F Lcms2F.Results
+lake --dir projects/lcms2 build -j 4 --wfail Lcms2F Lcms2F.Results
 python3 framework/check_project.py lcms2 --skip-build
 ```

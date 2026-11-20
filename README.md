@@ -13,7 +13,7 @@ its stated frame, and returns, under the premises each theorem states.
 | [`libarchive`](projects/libarchive/README.md) | libarchive 3.8 (`432ab464`) | default scalar x86_64 Linux LP64 | Top-down RAR5 & 7-Zip invariants & strict ISO C17 runtime checked; C translation not done | — | Not done |
 | [`zstd`](projects/zstd/README.md) | Zstandard 1.5.7 (`756e62a9`) | portable scalar x86_64 Linux LP64 (`libzstd` decoder) | Strict ISO C17 runtime checked; C translation & public decoder proofs not done | — | Not done |
 | [`brotli`](projects/brotli/README.md) | Brotli 1.2 (`libbrotlidec` decoder) | portable scalar x86_64 Linux LP64 | Strict ISO C17 runtime checked; C translation & public decoder proofs not done | — | Not done |
-| [`zlib-ng`](projects/zlib-ng/README.md) | zlib-ng `develop` (`5f1f4899`) + [22 patches](projects/zlib-ng/patches/README.md) | `ZLIB_COMPAT` x86_64 Linux LP64, generic C kernels | Checksums, version/error strings & `compressBound` safe (most also functionally correct); streaming `deflate`/`inflate`, one-shot and `gz*` not done | [22 patches](projects/zlib-ng/patches/README.md) | Not done |
+| [`zlib-ng`](projects/zlib-ng/README.md) | zlib-ng `develop` (`e591472c`) + [22 patches](projects/zlib-ng/patches/README.md) | `ZLIB_COMPAT` x86_64 Linux LP64, generic C kernels | Checksums, version/error strings & `compressBound` safe (most also functionally correct); streaming `deflate`/`inflate`, one-shot and `gz*` not done | [22 patches](projects/zlib-ng/patches/README.md) | Not done |
 | [`mozjpeg`](projects/mozjpeg/README.md) | mozjpeg 5.0.0 (`08265790`) | portable static 8-bit `WITH_JPEG8=1` x86_64 Linux LP64 | Strict ISO C17 runtime, `jutils.c`, `jpeg_std_error`, `jpeg_save_markers`, teardown/query helpers & `jpeg_calc_output_dimensions` (incl. `1/2`–`1/8` shrink-on-load) proved; header/entropy/IDCT scanline decode not done | — | Not done |
 
 ## Candidate targets (Tier 0)
@@ -64,8 +64,8 @@ the functional goals explicitly proved for a library.
 ## Check it yourself
 
 ```bash
-# Build and kernel-check zlib (largest modules need 8 to 9 GB RAM each)
-lake --dir projects/zlib build --wfail ZlibF
+# Build and kernel-check zlib (largest modules need 8 to 9 GB RAM each; cap parallelism at -j 4)
+lake --dir projects/zlib build -j 4 --wfail ZlibF
 (cd projects/zlib && lake env leanchecker --fresh ZlibF.Results)
 
 # Run the shared verification gate (options, forbidden constructs, runtime UB policy, layers, kernel env, coverage, patches)

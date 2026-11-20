@@ -32,6 +32,6 @@ and YUV-to-RGB conversion (`reformat.c`, `alpha.c`). The AV1 codec itself (dav1d
 ## Local commands
 
 ```bash
-lake --dir projects/libavif build --wfail LibavifF LibavifF.Results
+lake --dir projects/libavif build -j 4 --wfail LibavifF LibavifF.Results
 python3 framework/check_project.py libavif --skip-build
 ```

@@ -41,6 +41,6 @@ liblzma), libwebp, libavif and openjpeg; it does not use libpng or libexif.
 ## Local commands
 
 ```bash
-lake --dir projects/pillow build --wfail PillowF PillowF.Results
+lake --dir projects/pillow build -j 4 --wfail PillowF PillowF.Results
 python3 framework/check_project.py pillow --skip-build
 ```

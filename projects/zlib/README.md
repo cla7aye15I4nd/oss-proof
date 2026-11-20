@@ -78,7 +78,7 @@ configurations, custom allocators, and the functions `zlib.h` lists as undocumen
 From `projects/zlib/` (or with `lake --dir projects/zlib` from the repository root):
 
 ```bash
-lake build --wfail ZlibF
+lake build -j 4 --wfail ZlibF
 lake env leanchecker --fresh ZlibF.Results
 ```
 

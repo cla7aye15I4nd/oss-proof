@@ -35,6 +35,6 @@ transform behind them.
 ## Local commands
 
 ```bash
-lake --dir projects/openjpeg build --wfail OpenjpegF OpenjpegF.Results
+lake --dir projects/openjpeg build -j 4 --wfail OpenjpegF OpenjpegF.Results
 python3 framework/check_project.py openjpeg --skip-build
 ```

@@ -69,7 +69,7 @@ From repository root:
 
 ```bash
 # Build ZlibF (largest modules crc32.c.lean and inftrees.c.lean need 8-9 GB RAM each; max -j 4)
-lake --dir projects/zlib build --wfail ZlibF
+lake --dir projects/zlib build -j 4 --wfail ZlibF ZlibF.Results
 
 # Run full project verification gate
 python3 framework/check_project.py zlib --skip-build

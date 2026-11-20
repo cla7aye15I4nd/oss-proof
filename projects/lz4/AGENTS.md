@@ -31,6 +31,6 @@ libarchive's lz4 read filter.
 ## Local commands
 
 ```bash
-lake --dir projects/lz4 build --wfail Lz4F Lz4F.Results
+lake --dir projects/lz4 build -j 4 --wfail Lz4F Lz4F.Results
 python3 framework/check_project.py lz4 --skip-build
 ```

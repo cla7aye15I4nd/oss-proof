@@ -1,6 +1,7 @@
 # Working rules (`projects/<id>`)
 
-Inherits all rules of the repository root [`../../AGENTS.md`](../../AGENTS.md), including the
+Inherits all rules of the repository root [`../../AGENTS.md`](../../AGENTS.md) and
+[`../../framework/PROOF_PLAYBOOK.md`](../../framework/PROOF_PLAYBOOK.md), including the
 **Strict ISO C17 Undefined Behaviour Policy** (`framework/check_runtime_ub.py` enforces this
 mechanically):
 
@@ -39,9 +40,9 @@ mechanically):
 
 ## Local commands
 
-From repository root:
+From repository root (Python 3.11+, max `-j 4` under 16 GB RAM):
 
 ```bash
-lake --dir projects/<id> build --wfail <Package>
+lake --dir projects/<id> build -j 4 --wfail <Package> <Package>.Results
 python3 framework/check_project.py <id> --skip-build
 ```
