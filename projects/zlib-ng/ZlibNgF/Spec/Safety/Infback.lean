@@ -5,7 +5,7 @@ import ZlibNgF.Spec.Common.Infback
 
 `infback.c`: `inflateBackInit_`, `inflateBack`, `inflateBackEnd`. Each goal says that the call does not fault (no
 undefined behaviour, and it returns) for every stream the function accepts, and, where the call-backs do not run, that
-it changes only what the frame names. The premises on the call-backs are in `ZlibNgF.Spec.Common.Infback` and on the
+it changes only what the frame names (`IFrame`: no deflate object changes either). The premises on the call-backs are in `ZlibNgF.Spec.Common.Infback` and on the
 deviations page.
 -/
 
@@ -22,7 +22,7 @@ def Goal.inflateBackInit__safety : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (windowBits : Int32) (window version : BPtr) (size : Int32),
     FreshBlocks h → InitReady h s → VersionOk h version →
     ∃ r h', C.run (ZlibNg.Infback.inflateBackInit_ s windowBits window version size) h = .ok (r, h') ∧
-      Frame h h' (streamIds s) [] [] []
+      IFrame h h' (streamIds s) [] [] []
 
 /-- `int inflateBack(z_stream *strm, in_func in, void *in_desc, out_func out, void *out_desc)`: for every accepted
 stream, and, on a reachable stream with window `w` of `n` bytes, call-backs that are well behaved for some invariant
@@ -46,6 +46,6 @@ def Goal.inflateBackEnd_safety : Prop :=
   ∀ (h : Heap) (s : StreamPtr),
     BackHandle h s →
     ∃ r h', C.run (ZlibNg.Infback.inflateBackEnd s) h = .ok (r, h') ∧
-      Frame h h' (streamIds s) (stateIds h s) [] []
+      IFrame h h' (streamIds s) (stateIds h s) [] []
 
 end ZlibNgF.Spec.Safety
