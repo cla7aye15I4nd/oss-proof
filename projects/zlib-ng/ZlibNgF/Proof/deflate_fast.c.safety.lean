@@ -181,18 +181,70 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
       obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd2)
       exact ZlibNgF.Proof.DeflateSide.ChainOk.of_state (Ck1 st1 d1 (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _))
         rfl rfl rfl rfl rfl rfl rfl
-    have TL := ftail_ok T flush C2 Ck2 hw0 hn fun st2 h2 => by
+    have hla2 : ∀ st2, (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
+        else STD_MIN_MATCH - 1 } d1).dstate b = some st2 → st2.lookahead = 0 := fun st2 h2 => by
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
       exact hl0 st1 (SH_dstate _ _ _ _ _ _)
-    unfold strat_tail at TL
-    set_option pp.oneline false in
-    run_tac Lean.Elab.Tactic.withMainContext do
-      let g ← Lean.Elab.Tactic.getMainTarget
-      let tl ← Lean.Meta.inferType (← Lean.Elab.Term.elabTerm (← `(TL)) none)
-      Lean.logInfo m!"GOALH {g.getAppArgs[1]!}"
-      Lean.logInfo m!"TLH {tl.getAppArgs[1]!}"
-      Lean.logInfo m!"GOALM {g.getAppArgs[2]!}"
-      Lean.logInfo m!"TLM {tl.getAppArgs[2]!}"
-    exact TL
+    have hp : ∀ st2, (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
+        else STD_MIN_MATCH - 1 } d1).dstate b = some st2 → st2.pending = 0 ∧
+        st2.window = .val (.ref (.heap b) wo) := fun st2 h2 =>
+      ⟨(C2.2 st2 h2).1, slf_win C2.1 hw0 st2 h2⟩
+    have fx : ∀ (last : Int32) (bs : BlockState), 0 ≤ last → last ≤ 1 →
+        (bs = .block_done ∨ bs = .finish_done) → ∀ (r : Option BlockState) H2,
+        (avIn H2 i = avIn (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
+          else STD_MIN_MATCH - 1 } d1) i ∧ SLF h i b H2 ∧
+          (∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
+            ∃ st, (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
+              else STD_MIN_MATCH - 1 } d1).dstate b = some st ∧ st2.lookahead = st.lookahead ∧
+              st2.strstart = st.strstart ∧ st2.window = st.window) ∧
+          (r = none → ∀ st2, H2.dstate b = some st2 → st2.pending = 0) ∧
+          (r ≠ none → r = some (if last != 0 then .finish_started else .need_more))) → CK b H2 →
+        ∀ v, (r = none → v = bs) → (r ≠ none → some v = r) →
+        StratPost h (some i) flush v H2 ∧ CK b H2 := by
+      intro last bs hl0 hl1 hbs r H2 ⟨-, F2, hs2, hn2, hsm⟩ Ck2 v hv1 hv2
+      have hx : ∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
+          st2.lookahead = 0 := fun st2 h2 => by
+        obtain ⟨e1, e2, st, hst, e3, -⟩ := hs2 st2 h2
+        exact ⟨e1, e2, by rw [e3]; exact hla2 st hst⟩
+      cases r with
+      | none =>
+        obtain rfl := hv1 rfl
+        exact ⟨slf_post_l F2 _ _ hn fun st2 h2 =>
+          ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1,
+            fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩, fun _ => (hx st2 h2).1⟩, Ck2⟩
+      | some w =>
+        have e5 := hv2 (by simp)
+        have e6 := hsm (by simp)
+        rw [← e5] at e6
+        obtain rfl := Option.some.inj e6
+        refine ⟨slf_post_l F2 _ _ hn fun st2 h2 => ⟨(hx st2 h2).2.1, fun e => ?_, fun _ => (hx st2 h2).1,
+          fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩, fun _ => (hx st2 h2).1⟩, Ck2⟩
+        split at e <;> rcases e with e | e <;> cases e
+    by_cases hf : flush == Z_FINISH
+    · simp only [hf, ↓reduceIte]
+      refine Sat.bind (Sat.mono (flushC T 1 (by decide) (by decide) C2.1 hp Ck2) ?_)
+      rintro r H3 ⟨q, Ck3⟩
+      cases r with
+      | none => exact Sat.pure (fx 1 .finish_done (by decide) (by decide) (.inr rfl) none H3 q Ck3 _ (fun _ => rfl)
+          (fun e => absurd rfl e))
+      | some w => exact Sat.pure (fx 1 .finish_done (by decide) (by decide) (.inr rfl) (some w) H3 q Ck3 w
+          (fun e => by cases e) (fun _ => rfl))
+    · simp only [hf, Bool.false_eq_true, ↓reduceIte]
+      refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+      by_cases hs : (st1.sym_next != 0) = true
+      · simp only [hs, ↓reduceIte]
+        refine Sat.bind (Sat.mono (flushC T 0 (by decide) (by decide) C2.1 hp Ck2) ?_)
+        rintro r H3 ⟨q, Ck3⟩
+        cases r with
+        | none => exact Sat.pure (fx 0 .block_done (by decide) (by decide) (.inl rfl) none H3 q Ck3 _
+            (fun _ => rfl) (fun e => absurd rfl e))
+        | some w => exact Sat.pure (fx 0 .block_done (by decide) (by decide) (.inl rfl) (some w) H3 q Ck3 w
+            (fun e => by cases e) (fun _ => rfl))
+      · simp only [hs, Bool.false_eq_true, ↓reduceIte]
+        have h0 : st1.sym_next = 0 := by simpa using hs
+        refine Sat.pure ⟨slf_post_l C2.1 _ _ hn fun st2 h2 => ?_, Ck2⟩
+        obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
+        exact ⟨(C2.2 _ (SH_dstate _ _ _ _ _ _)).2, fun _ => (C2.2 _ (SH_dstate _ _ _ _ _ _)).1, fun _ => h0,
+          fun e => (by rcases e with e | e <;> cases e), fun _ => h0⟩
 
 end ZlibNgF.Proof.FastP
