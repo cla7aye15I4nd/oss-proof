@@ -751,10 +751,8 @@ def consumeThen {α : Type} (state : GzPtr) (k : Unit → G α) : G α := do
   let r ← wrG state fun s => { s with skip := sk }
   k r
 
-/-- **The consume step.** After `gz_look` (`LookPost`) with a pending skip and output: `min(x.have, skip)` bytes are
-skipped; the handle is a read handle again, `x.pos + skip` is unchanged, and when a skip is still pending there is no
-output left. -/
-theorem consume_spec' {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState} {k : Unit → G α}
+/-- **The consume step**, with the new state: `x.have`, `x.next`, `x.pos` and `skip` changed, `x.pos + x.have` kept. -/
+theorem consume_specX {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState} {k : Unit → G α}
     {Q : α → World → Heap → Prop}
     (hv0 : GzInvR { W with gzs := upd W.gzs b (some { s' with «have» := 0 }) } H (some b))
     (hs' : W.gz H b = some s')
@@ -764,6 +762,8 @@ theorem consume_spec' {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState
     (hk : ∀ W2 s2, W2.gz H b = some s2 → GzInvR W2 H (some b) → GStep W H W2 H b [] → W2.fs = W.fs →
       s2.pos.toInt + s2.skip.toInt = s'.pos.toInt + s'.skip.toInt → (s2.skip ≠ 0 → s2.«have» = 0) →
       s2.how = s'.how ∧ s2.direct = s'.direct ∧ s2.strm = s'.strm →
+      s2 = { s' with «have» := s2.«have», next := s2.next, pos := s2.pos, skip := s2.skip } →
+      s2.pos.toInt + s2.«have».toNat = s'.pos.toInt + s'.«have».toNat →
       GSat W2 H (k ()) Q) :
     GSat W H (consumeThen (some b) k) Q := by
   let s0 : GzState := { s' with «have» := 0 }
@@ -839,7 +839,25 @@ theorem consume_spec' {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState
   simp only [InflateInv.upd_upd] at hvF ⊢
   have hsF : ({ W with gzs := upd W.gzs b (some sF) } : World).gz H b = some sF := gz_upd_same hs' sF
   exact hk _ sF hsF hvF (gstep_st hs' W.fs rfl rfl rfl rfl) rfl
-    (by show (Int64.ofInt _).toInt + (Int64.ofInt _).toInt = _; rw [e2, e3]; omega) hkh ⟨rfl, rfl, rfl⟩
+    (by show (Int64.ofInt _).toInt + (Int64.ofInt _).toInt = _; rw [e2, e3]; omega) hkh ⟨rfl, rfl, rfl⟩ rfl
+    (by show (Int64.ofInt _).toInt + ((s'.«have» - n).toNat : Int) = _; rw [e2, hm1]; omega)
+
+/-- **The consume step.** After `gz_look` (`LookPost`) with a pending skip and output: `min(x.have, skip)` bytes are
+skipped; the handle is a read handle again, `x.pos + skip` is unchanged, and when a skip is still pending there is no
+output left. -/
+theorem consume_spec' {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState} {k : Unit → G α}
+    {Q : α → World → Heap → Prop}
+    (hv0 : GzInvR { W with gzs := upd W.gzs b (some { s' with «have» := 0 }) } H (some b))
+    (hs' : W.gz H b = some s')
+    (hout : s'.«have» = 0 ∨ (s'.size ≠ 0 ∧ ∀ c base, GzBufs H s' c base →
+      ∃ p, s'.next = .val p ∧ Inside c base (inSize s') (inSize s' + outSize s') p s'.«have».toNat))
+    (hh : s'.«have» ≠ 0) (hph : PosHave s')
+    (hk : ∀ W2 s2, W2.gz H b = some s2 → GzInvR W2 H (some b) → GStep W H W2 H b [] → W2.fs = W.fs →
+      s2.pos.toInt + s2.skip.toInt = s'.pos.toInt + s'.skip.toInt → (s2.skip ≠ 0 → s2.«have» = 0) →
+      s2.how = s'.how ∧ s2.direct = s'.direct ∧ s2.strm = s'.strm →
+      GSat W2 H (k ()) Q) :
+    GSat W H (consumeThen (some b) k) Q :=
+  consume_specX hv0 hs' hout hh hph fun W2 s2 h1 h2 h3 h4 h5 h6 h7 _ _ => hk W2 s2 h1 h2 h3 h4 h5 h6 h7
 
 /-- **The consume step** (see `consume_spec'`). -/
 theorem consume_spec {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState} {k : Unit → G α}
