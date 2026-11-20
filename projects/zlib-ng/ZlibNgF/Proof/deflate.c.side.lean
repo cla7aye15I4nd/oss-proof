@@ -334,6 +334,31 @@ theorem setDict_side {h h' : Heap} {s : StreamPtr} {d : BPtr} {n : UInt32} {r : 
   · intro hh; unfold HdrState at hh; rw [k2] at hh; exact hnh (Or.inr hh)
   · intro hh; rw [k2] at hh; exact absurd (Or.inl hh) hnh
 
+/-- On a heap with fresh blocks, a C string keeps its length across a step that changes no existing block, and lies
+outside every block not yet allocated. -/
+theorem cstr_frame {h h' : Heap} {S : List Nat} {p : BPtr} {n : Nat} (hfr : DFreshBlocks h)
+    (f : DFrame h h' S [] [] []) (c : CStringLen h p n) :
+    CStringLen h' p n ∧ ∀ b', h.nextBlk ≤ b' → NotInBlock b' p := by
+  obtain ⟨⟨-, -, -, fb, -, fc, -⟩, -⟩ := f
+  obtain ⟨r, o, data, rfl, hgd, h1, h2, h3⟩ := c
+  cases r with
+  | heap k0 =>
+    have hk0 : k0 < h.nextBlk := by
+      refine Nat.lt_of_not_le fun hle => ?_
+      have := (hfr.1 k0 hle).2.2
+      have hgd' : h.bytes k0 = some data := hgd
+      rw [this] at hgd'; cases hgd'
+    obtain ⟨data', hd', hsz, hpt⟩ := fb k0 hk0 (by simp) data hgd
+    refine ⟨⟨.heap k0, o, data', rfl, hd', by omega, ?_, fun q hq => ?_⟩, fun b' hb' off e3 => ?_⟩
+    · rw [hpt _ (by omega) (by simp)]; exact h2
+    · rw [hpt _ (by omega) (by simp)]; exact h3 q hq
+    · injection e3 with e4; injection e4 with e5; omega
+  | const k0 =>
+    refine ⟨⟨.const k0, o, data, rfl, ?_, h1, h2, h3⟩, fun _ _ off e3 => by injection e3 with e4; cases e4⟩
+    show h'.consts k0 = some data
+    rw [fc]; exact hgd
+  | str k0 => exact ⟨⟨.str k0, o, data, rfl, hgd, h1, h2, h3⟩, fun _ _ off e3 => by injection e3 with e4; cases e4⟩
+
 /-- The destination of `deflateCopy` (on a heap with fresh blocks) has `DSide`. -/
 theorem copy_side {h h' : Heap} {src dst : StreamPtr} (hs : DSide h src) (hfr : DFreshBlocks h)
     (hc : ZlibNgF.Proof.DeflateCopy.CopySide h h' src dst) (hf : DFrame h h' (streamIds dst) [] [] []) :
@@ -344,26 +369,39 @@ theorem copy_side {h h' : Heap} {src dst : StreamPtr} (hs : DSide h src) (hfr : 
   obtain rfl := Option.some.inj (hz'.symm.trans hz2)
   obtain rfl := Option.some.inj (hzb'.symm.trans hzb2)
   obtain rfl := Option.some.inj (hst'.symm.trans hst2)
-  obtain ⟨⟨-, fg, -, fb, -, fc, -⟩, -⟩ := hf
-  refine (hs b st ⟨i, z, rfl, hz, hzb, hst⟩).move (fun hh k g hk hg => ⟨g, by rw [fg k (by simp)]; exact hg, rfl, rfl,
-    rfl, rfl, fun p n _ _ c => ?_⟩) eq
-  obtain ⟨r, o, data, rfl, hgd, h1, h2, h3⟩ := c
-  cases r with
-  | heap k0 =>
-    have hk0 : k0 < h.nextBlk := by
-      refine Nat.lt_of_not_le fun hle => ?_
-      have := (hfr.1 k0 hle).2.2
-      have hgd' : h.bytes k0 = some data := hgd
-      rw [this] at hgd'; cases hgd'
-    obtain ⟨data', hd', hsz, hpt⟩ := fb k0 hk0 (by simp) data hgd
-    refine ⟨⟨.heap k0, o, data', rfl, hd', by omega, ?_, fun q hq => ?_⟩, fun off e3 => ?_⟩
-    · rw [hpt _ (by omega) (by simp)]; exact h2
-    · rw [hpt _ (by omega) (by simp)]; exact h3 q hq
-    · injection e3 with e4; injection e4 with e5; omega
-  | const k0 =>
-    refine ⟨⟨.const k0, o, data, rfl, ?_, h1, h2, h3⟩, fun off e3 => by injection e3 with e4; cases e4⟩
-    show h'.consts k0 = some data
-    rw [fc]; exact hgd
-  | str k0 => exact ⟨⟨.str k0, o, data, rfl, hgd, h1, h2, h3⟩, fun off e3 => by injection e3 with e4; cases e4⟩
+  refine (hs b st ⟨i, z, rfl, hz, hzb, hst⟩).move (fun hh k g hk hg => ⟨g, by rw [hf.1.2.1 k (by simp)]; exact hg,
+    rfl, rfl, rfl, rfl, fun p n _ _ c => ?_⟩) eq
+  obtain ⟨c1, c2⟩ := cstr_frame hfr hf c
+  exact ⟨c1, c2 nb hnb⟩
+
+/-- The source of a `deflateCopy` step (on a heap with fresh blocks) keeps `DSide`. -/
+theorem copy_src_side {h h' : Heap} {s dst : StreamPtr} {r : Int32} (hv : DInv h s) (hs : DSide h s)
+    (hfr : DFreshBlocks h) (hdst : InitReady h dst) (hne : dst ≠ s)
+    (e : C.run (deflateCopy dst s) h = .ok (r, h')) : DSide h' s := by
+  obtain ⟨r0, h0, e0, f⟩ := ZlibNgF.Proof.DeflateCopy.copy_safe hv hfr hdst hne
+  rw [e] at e0; cases e0
+  obtain ⟨i, z, b, st, al, rfl, hz, hzb, hst, -, -⟩ := hv
+  have hdi : i ∉ streamIds dst := by
+    rcases dst with _ | j
+    · simp [streamIds]
+    · simp only [streamIds, List.mem_singleton]; intro e1; exact hne (by rw [e1])
+  obtain ⟨d, hd⟩ : ∃ d, h.bytes b = some d := by
+    unfold Heap.dstate at hst; split at hst <;> simp_all
+  have hb : b < h.nextBlk := by
+    refine Nat.lt_of_not_le fun hle => ?_
+    rw [(hfr.1 b hle).2.2] at hd; cases hd
+  obtain ⟨⟨fs, fg, -, fb, -⟩, fo⟩ := id f
+  have hz' : h'.streams i = some z := by rw [fs i hdi]; exact hz
+  obtain ⟨d', hd', -, -⟩ := fb b hb (by simp) d hd
+  have hst' : h'.dstate b = some st := by
+    have hst0 : h.dstates b = some st := by simpa [Heap.dstate, hd] using hst
+    simp [Heap.dstate, hd', (fo b hb (by simp)).1, hst0]
+  intro b2 st2 ⟨i2, z2, e2, hz2, hzb2, hst2⟩
+  obtain rfl := Option.some.inj e2
+  obtain rfl := Option.some.inj (hz'.symm.trans hz2)
+  obtain rfl := Option.some.inj (hzb.symm.trans hzb2)
+  obtain rfl := Option.some.inj (hst'.symm.trans hst2)
+  refine (hs b st ⟨i, z, rfl, hz, hzb, hst⟩).move (fun hh k g hk hg => ⟨g, by rw [fg k (by simp)]; exact hg,
+    rfl, rfl, rfl, rfl, fun p n _ nb c => ⟨(cstr_frame hfr f c).1, nb⟩⟩) (SideEq.refl _)
 
 end ZlibNgF.Proof.DeflateSide
