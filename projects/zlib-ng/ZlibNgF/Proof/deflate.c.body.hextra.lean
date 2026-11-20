@@ -154,18 +154,18 @@ theorem run_gz {h H : Heap} {i b : Nat} (R : Run h i b H) {k : Nat} {g : GzHeade
 
 /-- The state inside the copy of the extra field: `EXTRA_STATE`, no symbols, `pending_out` at `pending_buf`, fewer
 than `pending_buf_size` pending bytes from `beg` on, `gzindex + left` the field's length. -/
-def EF (h : Heap) (i b k : Nat) (g : GzHeader) (beg left : UInt32) (H : Heap) : Prop :=
+def EF (h : Heap) (i b k : Nat) (g : GzHeader) (L : Int32) (beg left : UInt32) (H : Heap) : Prop :=
   Run h i b H ∧ h.gzheaders k = some g ∧ g.extra ≠ .null ∧ ∀ st, H.dstate b = some st →
     st.status = EXTRA_STATE ∧ st.sym_next = 0 ∧ st.pending_out = st.pending_buf ∧
     st.pending < st.pending_buf_size ∧ beg ≤ st.pending ∧
-    st.gzindex.toNat + left.toNat = (g.extra_len &&& 0xffff).toNat ∧ st.gzhead = .val (some k)
+    st.gzindex.toNat + left.toNat = (g.extra_len &&& 0xffff).toNat ∧ st.gzhead = .val (some k) ∧ st.last_flush = L
 
 /-- The loop's invariant. -/
-def EI (h : Heap) (i b k : Nat) (g : GzHeader) (s : Bool × UInt32 × UInt32) (H : Heap) : Prop :=
-  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → EF h i b k g s.2.1 s.2.2 H)
+def EI (h : Heap) (i b k : Nat) (g : GzHeader) (L : Int32) (s : Bool × UInt32 × UInt32) (H : Heap) : Prop :=
+  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → EF h i b k g L s.2.1 s.2.2 H)
 
 /-- The facts of the stream's state and block under `EF`. -/
-structure EFacts (h : Heap) (i b k : Nat) (g : GzHeader) (beg left : UInt32) (H : Heap) (z : ZStream)
+structure EFacts (h : Heap) (i b k : Nat) (g : GzHeader) (L : Int32) (beg left : UInt32) (H : Heap) (z : ZStream)
     (st : DeflateState) (d : Array UInt8) (pbo : Nat) (r : BRef) (o : Nat) (src : Array UInt8) : Prop where
   run : Run h i b (SH H i z b st d)
   e : SH H i z b st d = H
@@ -188,12 +188,13 @@ structure EFacts (h : Heap) (i b k : Nat) (g : GzHeader) (beg left : UInt32) (H 
   rb : r ≠ .heap b
   hsrc : Space.get H r = some src
   xlen : o + g.extra_len.toNat ≤ src.size
+  lf : st.last_flush = L
 
-theorem ef_facts {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} (E : EF h i b k g beg left H) :
-    ∃ z st d pbo r o src, EFacts h i b k g beg left H z st d pbo r o src := by
+theorem ef_facts {h H : Heap} {i b k : Nat} {g : GzHeader} {L : Int32} {beg left : UInt32}
+    (E : EF h i b k g L beg left H) : ∃ z st d pbo r o src, EFacts h i b k g L beg left H z st d pbo r o src := by
   obtain ⟨R, hg0, hxn, F⟩ := E
   obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, e, c⟩ := R.live
-  obtain ⟨f1, f2, f3, f4, f5, f6, f7⟩ := F st hst
+  obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8⟩ := F st hst
   have hg := run_gz R hg0
   obtain ⟨hx, nbx, -⟩ := hdr_rd R hst f7 hg
   obtain ⟨r, o, src, hxe, hsrc, hle⟩ := hx.resolve_left hxn
@@ -203,7 +204,7 @@ theorem ef_facts {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} (
   have hw2 : st.wrap = 2 := (R.side st hst).2.2.1.1 (Or.inr (Or.inl f1))
   exact ⟨z, st, d, pbo, r, o, src, ⟨by rw [e]; exact R, e, hst, hg, hpb, l4, k1, k2, k3, f1, f2, f3,
     UInt32.lt_iff_toNat_lt.mp f4, UInt32.le_iff_toNat_le.mp f5, f6, f7, hw2, hxe,
-    fun e' => nbx o (by rw [hxe, e']), hsrc, hle⟩⟩
+    fun e' => nbx o (by rw [hxe, e']), hsrc, hle, f8⟩⟩
 
 theorem land_le (x : UInt32) : (x &&& 0xffff).toNat ≤ x.toNat := by
   rw [UInt32.toNat_and]; exact Nat.and_le_left
@@ -228,11 +229,11 @@ theorem hdrOk_name {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSt
   exact ⟨nb n c, n, cstr_SH c (nb n c), by rw [h0]; exact Nat.zero_le _⟩
 
 /-- One trip of the copy loop (the condition held). -/
-theorem exBody_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} (r0 : Bool)
-    (E : EF h i b k g beg left H)
+theorem exBody_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {L : Int32} {beg left : UInt32} (r0 : Bool)
+    (E : EF h i b k g L beg left H)
     (hc : ∀ st, H.dstate b = some st → st.pending_buf_size.toNat < st.pending.toNat + left.toNat) :
     Sat H (exBody (some b) (some i) (some k) (r0, beg, left))
-      (fun s2 H2 => EI h i b k g s2 H2 ∧ eμ s2 < eμ (false, beg, left)) := by
+      (fun s2 H2 => EI h i b k g L s2 H2 ∧ eμ s2 < eμ (false, beg, left)) := by
   obtain ⟨z, st, d, pbo, r, o, src, F⟩ := ef_facts E
   have hc' := hc st F.hst
   have hL := land_le g.extra_len
@@ -286,7 +287,8 @@ theorem exBody_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} 
       obtain ⟨z', st2, al', d', -, -, hst2, -, -, -, c'⟩ := q.1.live
       obtain rfl := Option.some.inj (hst'.symm.trans hst2)
       have hlc : left.toNat - (st.pending_buf_size - st.pending).toNat = left.toNat - (st.pending_buf_size.toNat - st.pending.toNat) := by rw [hcopy]
-      refine ⟨by rw [k2]; exact F.status, by rw [k2]; exact F.sym, c'.pout k1, ?_, ?_, ?_, by rw [k2]; exact F.gz⟩
+      refine ⟨by rw [k2]; exact F.status, by rw [k2]; exact F.sym, c'.pout k1, ?_, ?_, ?_, by rw [k2]; exact F.gz,
+        by rw [k2]; exact F.lf⟩
       · rw [k1, UInt32.lt_iff_toNat_lt]; rw [k2]; show 0 < st.pending_buf_size.toNat; omega
       · rw [k1]; exact UInt32.le_iff_toNat_le.mpr (by simp)
       · rw [k2]; show (st.gzindex + (st.pending_buf_size - st.pending)).toNat +
@@ -297,16 +299,16 @@ theorem exBody_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} 
       simp; omega
 
 /-- What the copy loop leaves. -/
-def EQ (h : Heap) (i b k : Nat) (g : GzHeader) (s : Bool × UInt32 × UInt32) (H : Heap) : Prop :=
-  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → EF h i b k g s.2.1 s.2.2 H ∧
+def EQ (h : Heap) (i b k : Nat) (g : GzHeader) (L : Int32) (s : Bool × UInt32 × UInt32) (H : Heap) : Prop :=
+  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → EF h i b k g L s.2.1 s.2.2 H ∧
     ∀ st, H.dstate b = some st → st.pending.toNat + s.2.2.toNat ≤ st.pending_buf_size.toNat)
 
 /-- The loop condition and, when it holds, the trip. -/
-theorem exCond_ok {h : Heap} {i b k : Nat} {g : GzHeader} (s : Bool × UInt32 × UInt32) (H : Heap)
-    (I : EI h i b k g s H) :
+theorem exCond_ok {h : Heap} {i b k : Nat} {g : GzHeader} {L : Int32} (s : Bool × UInt32 × UInt32) (H : Heap)
+    (I : EI h i b k g L s H) :
     Sat H (exCond (some b) s) (fun cs H1 =>
       (cs.1 = true → Sat H1 (exBody (some b) (some i) (some k) cs.2)
-        (fun s2 H2 => EI h i b k g s2 H2 ∧ eμ s2 < eμ s)) ∧ (cs.1 = false → EQ h i b k g cs.2 H1)) := by
+        (fun s2 H2 => EI h i b k g L s2 H2 ∧ eμ s2 < eμ s)) ∧ (cs.1 = false → EQ h i b k g L cs.2 H1)) := by
   obtain ⟨rr, beg, left⟩ := s
   cases rr with
   | true =>
@@ -315,7 +317,7 @@ theorem exCond_ok {h : Heap} {i b k : Nat} {g : GzHeader} (s : Bool × UInt32 ×
     rw [ite_t rfl]
     exact Sat.pure ⟨nofun, fun _ => ⟨fun _ => I.1 rfl, nofun⟩⟩
   | false =>
-    have E : EF h i b k g beg left H := I.2 rfl
+    have E : EF h i b k g L beg left H := I.2 rfl
     obtain ⟨z, st, d, pbo, r, o, src, F⟩ := ef_facts E
     have hL2 := land_lt g.extra_len
     have hidx := F.idx
@@ -343,9 +345,11 @@ theorem exCond_ok {h : Heap} {i b k : Nat} {g : GzHeader} (s : Bool × UInt32 ×
       omega
 
 /-- The rest of the extra field fits: the copy, `gzindex = 0`, `NAME_STATE`. -/
-theorem exTail_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} (E : EF h i b k g beg left H)
+theorem exTail_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {L : Int32} {beg left : UInt32}
+    (E : EF h i b k g L beg left H)
     (hfit : ∀ st, H.dstate b = some st → st.pending.toNat + left.toNat ≤ st.pending_buf_size.toNat) :
-    Sat H (exTail (some b) (some i) (some k) beg left) (HRet h i b (HK NAME_STATE)) := by
+    Sat H (exTail (some b) (some i) (some k) beg left)
+      (HRet h i b fun st' => HK NAME_STATE st' ∧ st'.last_flush = L) := by
   obtain ⟨z, st, d, pbo, r, o, src, F⟩ := ef_facts E
   have hf := hfit st F.hst
   have hL := land_le g.extra_len
@@ -384,14 +388,14 @@ theorem exTail_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} 
     (hdrOk_name F.gz F.hg F.wrap rfl rfl hn nbn)
   refine Sat.pure ⟨R', nofun, fun _ st' hst' => ?_⟩
   rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
-  exact .inr ⟨rfl, F.sym, F.pout, UInt32.le_iff_toNat_le.mpr (by dsimp only; omega)⟩
+  exact ⟨.inr ⟨rfl, F.sym, F.pout, UInt32.le_iff_toNat_le.mpr (by dsimp only; omega)⟩, F.lf⟩
 
 /-- No extra field: `NAME_STATE` (`gzindex` is 0 already). -/
 theorem exEnd_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
     (hs : st.status = EXTRA_STATE) (h0 : st.sym_next = 0) (hpo : st.pending_out = st.pending_buf)
     (hpl : st.pending < st.pending_buf_size) {k : Nat} {g : GzHeader} (hgz : st.gzhead = .val (some k))
     (hg : H.gzheaders k = some g) (hx : g.extra = .null) :
-    Sat H (exEnd (some b)) (HRet h i b (HK NAME_STATE)) := by
+    Sat H (exEnd (some b)) (HRet h i b fun st' => HK NAME_STATE st' ∧ st'.last_flush = st.last_flush) := by
   obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, e, c⟩ := R.live
   obtain rfl := Option.some.inj (hst.symm.trans hst1)
   obtain ⟨-, -, hn, nbn, -⟩ := hdr_rd R hst hgz hg
@@ -410,13 +414,14 @@ theorem exEnd_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) 
     (hdrOk_name hgz hg (hw (Or.inr (Or.inl hs))) rfl hi0 hn nbn)
   refine Sat.pure ⟨R', nofun, fun _ st' hst' => ?_⟩
   rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
-  exact .inr ⟨rfl, h0, hpo, UInt32.le_of_lt hpl⟩
+  exact ⟨.inr ⟨rfl, h0, hpo, UInt32.le_of_lt hpl⟩, rfl⟩
 
 /-- The `EXTRA_STATE` part of `deflateHeaders`. -/
 theorem extra_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
     (hs : st.status = EXTRA_STATE) (h0 : st.sym_next = 0) (hpo : st.pending_out = st.pending_buf)
     (hpl : st.pending < st.pending_buf_size) :
-    Sat H (headersExtra (some b) (some i)) (HRet h i b (HK NAME_STATE)) := by
+    Sat H (headersExtra (some b) (some i))
+      (HRet h i b fun st' => HK NAME_STATE st' ∧ st'.last_flush = st.last_flush) := by
   obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, e, c⟩ := R.live
   obtain rfl := Option.some.inj (hst.symm.trans hst1)
   obtain ⟨hw, H2⟩ := (R.side st hst).2.2.1
@@ -435,13 +440,13 @@ theorem extra_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) 
     refine Sat.bind (Sat.of_eq ldDState_SH ?_)
     refine Sat.bind (Sat.of_eq (ldHeader_SH hg) ?_)
     have hL2 := land_lt g.extra_len
-    have E0 : EI h i b k g (false, st.pending, (g.extra_len &&& 0xffff) - st.gzindex) (SH H i z b st d) := by
+    have E0 : EI h i b k g st.last_flush (false, st.pending, (g.extra_len &&& 0xffff) - st.gzindex) (SH H i z b st d) := by
       refine ⟨nofun, fun _ => ⟨by rw [e]; exact R, hg0, hxn, fun st' hst' => ?_⟩⟩
       rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
-      refine ⟨hs, h0, hpo, hpl, UInt32.le_refl _, ?_, hgz⟩
+      refine ⟨hs, h0, hpo, hpl, UInt32.le_refl _, ?_, hgz, rfl⟩
       show st.gzindex.toNat + ((g.extra_len &&& 0xffff) - st.gzindex).toNat = _
       rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr hle)]; omega
-    refine Sat.bind (Sat.mono (WinInv.sat_cwhileH (EI h i b k g) (fun s _ => eμ s) (EQ h i b k g)
+    refine Sat.bind (Sat.mono (WinInv.sat_cwhileH (EI h i b k g st.last_flush) (fun s _ => eμ s) (EQ h i b k g st.last_flush)
       (fun s H1 I => exCond_ok s H1 I) E0 (by
         have := UInt32.toNat_lt ((g.extra_len &&& 0xffff) - st.gzindex)
         simp only [eμ, fuel]; split <;> omega)) ?_)
