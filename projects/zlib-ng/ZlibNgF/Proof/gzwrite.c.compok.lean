@@ -518,4 +518,88 @@ theorem rt_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → N
     refine GSat.mono (tail_spec P hP hxw hd ha0 flush l hl) fun l' W6 H6 q => ?_
     exact bpost_tail (H2 := H) hx hd hs3 hfs (g0.trans gw ⟨s, hx.1⟩ ⟨s, hs'⟩) rfl rfl ha0 rfl q
 
+theorem hv_val (n : Nat) (hn : n < 2 ^ 31) : (Int64.ofInt (n : Int)).toUInt64.toUInt32.toNat = n := by
+  have h1 : (Int64.ofInt (n : Int)) = Int64.ofNat n := by
+    simp [Int64.ofInt, Int64.ofNat]
+  rw [h1, UInt32.toNat, UInt64.toUInt32]
+  simp only [Int64.ofNat, UInt64.toNat, BitVec.toNat_ofNat, Nat.toUInt32, UInt32.ofNat]
+  simp
+  omega
+
+/-- **One trip of the loop body of `gz_comp`** on a write handle in the state `GzWX` (not direct). -/
+theorem body_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → Nat} {Gr : Nat}
+    (hP : DeflatePsi ψ Gr) {W : World} {H : Heap} {b : Nat} {s : GzState} {z : ZStream} (hx : GzWX W H b s z)
+    (hd : s.direct = 0) (flush : Int32) (l : CompLoop) (hl : l.ctl = .go) :
+    GSat W H (compBody (some b) (some s.strm) flush l) (BPost ψ flush W H b s z) := by
+  obtain ⟨c, base, d, ko, kx, eb, eo, hdc, hds, eno, enx, hkk, hko, hS, huniq⟩ := wx_bufs hx hd
+  have hz := hx.2.1
+  have hs := hx.1
+  unfold compBody
+  refine GSat.bind (GSat.lm ⟨_, H, rdZ_run hz _, ?_⟩)
+  try dsimp only
+  apply GSat.ite
+  · intro _
+    refine GSat.bind (GSat.lm ⟨_, H, rdZ_run hz _, ?_⟩)
+    try dsimp only
+    refine GSat.bind (GSat.of_eq (ldGz_app hs) ?_)
+    try dsimp only
+    rw [enx]
+    refine GSat.bind (gsat_ivget ?_)
+    try dsimp only
+    rw [eno]
+    refine GSat.bind (GSat.lm ⟨_, H, sat_diffW hdc (by omega) (by omega) (by omega), ?_⟩)
+    try dsimp only
+    have ediff : ((base + inSize s + ko : Nat) : Int) - ((base + inSize s + kx : Nat) : Int) = ((ko - kx : Nat) : Int) := by
+      omega
+    rw [ediff]
+    have hvv := hv_val (ko - kx) (by omega)
+    have RT : ∀ W', GzWX W' H b s z → FdWrites s.fd W.fs W'.fs →
+        GStep W (setZ H s.strm (flatZ z)) W' (setZ H s.strm (flatZ z)) b [] →
+        GSat W' H (cRT (some b) (some s.strm) flush l) (BPost ψ flush W H b s z) :=
+      fun W' hx' hf g => rt_spec P hP hx hx' hd hf g flush l hl
+    apply GSat.ite
+    · intro _
+      refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
+      try dsimp only
+      refine GSat.bind (GSat.of_eq (ldGz_app hs) ?_)
+      try dsimp only
+      rw [enx]
+      refine GSat.bind (gsat_ivget ?_)
+      try dsimp only
+      obtain ⟨r, bs, ew⟩ := writeG_fd W H s.fd (.ref (.heap c) (base + inSize s + kx))
+        (Int64.ofInt ((ko - kx : Nat) : Int)).toUInt64.toUInt32.toUInt64
+        (Or.inr ⟨.heap c, base + inSize s + kx, d, rfl, hdc, by simp only [UInt32.toNat_toUInt64]; omega⟩)
+      refine GSat.bind (GSat.of_eq ew ?_)
+      try dsimp only
+      have hx1 : GzWX { W with fs := (W.fs.writeCall s.fd bs).2 } H b s z := hx
+      have g1 : GStep W (setZ H s.strm (flatZ z)) { W with fs := (W.fs.writeCall s.fd bs).2 }
+          (setZ H s.strm (flatZ z)) b [] := gstep_fs (GStep.refl _ _ _ _) _
+      have f1 : FdWrites s.fd W.fs ({ W with fs := (W.fs.writeCall s.fd bs).2 } : World).fs := FdWrites.one _ _ _
+      apply GSat.ite
+      · intro _
+        refine GSat.mono (gz_error_strX hz hx1.2.2.2.1 hx1.1 ({ l with ctl := .ret } : CompLoop))
+          fun l' W2 H2 q => ?_
+        obtain ⟨rfl, q⟩ := q
+        obtain ⟨s2, hx2, he2, hfs2, g2⟩ := wx_err hx1 q
+        have hst2 : H2.streams = H.streams := q.choose_spec.2.2.2.2.1
+        refine ⟨s2, z, hx2, LFix.of_err he2, by rw [hfs2]; exact f1, g1.trans g2 ⟨s, hs⟩ ⟨s, hs⟩,
+          UInt32.le_refl _, ?_, fun hi => inOk_adv hd (LFix.of_err he2).buffers (LFix.of_err he2).size
+            (LFix.of_err he2).fix.direct hi (UInt32.le_refl _) (by simpa using adv_zero z.next_in), Or.inl rfl⟩
+        simpa using adv_zero z.next_in
+      · intro _
+        have T := RT _ hx1 f1 g1
+        dsimp only [cRT, cTail] at T
+        exact T
+    · intro _
+      have T := RT W hx (FdWrites.refl _ _) (GStep.refl _ _ _ _)
+      dsimp only [cRT, cTail] at T
+      exact T
+  · intro ha
+    have ha0 : z.avail_out ≠ 0 := by
+      intro e; apply ha; simp [e]
+    have T := tail_spec P hP hx hd ha0 flush l hl
+    dsimp only [cTail] at T
+    exact GSat.mono T fun l' W' H' q => bpost_tail (nx := s.next) (H2 := H) (z2 := z) hx hd hs (FdWrites.refl _ _)
+      (GStep.refl _ _ _ _) rfl rfl ha0 rfl q
+
 end ZlibNgF.Proof.GzWrite
