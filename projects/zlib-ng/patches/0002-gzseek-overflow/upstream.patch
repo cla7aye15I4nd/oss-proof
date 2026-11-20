@@ -1,4 +1,4 @@
-From 6beb426e8c3a7e5e00f4981bf8582ed24b89e3c3 Mon Sep 17 00:00:00 2001
+From 337280240eec119cabbd8bb46148245138f93fd2 Mon Sep 17 00:00:00 2001
 From: Mark Adler <git@madler.net>
 Date: Mon, 21 Sep 2026 00:28:56 +0000
 Subject: [PATCH 1/5] Avoid signed-overflow undefined behaviors in gzseek.
@@ -135,7 +135,7 @@ index 588337b..4364c34 100644
  
  Z_EXTERN int Z_EXPORT gzrewind(gzFile file);
 
-From c7ff15921c6904a51faa0eb4be2b959c1a5c898b Mon Sep 17 00:00:00 2001
+From b7caae3f49702f83378cabc0ea54e2138dd07056 Mon Sep 17 00:00:00 2001
 From: Mark Adler <git@madler.net>
 Date: Mon, 21 Sep 2026 01:01:14 +0000
 Subject: [PATCH 2/5] Leave the stream position unchanged when gzseek() fails.
@@ -189,7 +189,7 @@ index 4364c34..5d0201b 100644
  
  Z_EXTERN int Z_EXPORT gzrewind(gzFile file);
 
-From a905228ba3c99766227fb75f46e971d21e91ab5e Mon Sep 17 00:00:00 2001
+From 2f50764395ddc02955e4a8e78ca230b16eff62d3 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 10:00:00 -0800
 Subject: [PATCH 3/5] Add gzseek() tests for offset overflow and failed seeks
@@ -199,14 +199,14 @@ in the offset type is refused, and a refused seek leaves the position
 unchanged (the pending skip of a reader or writer is kept, and so is the
 pushback of gzungetc()).
 ---
- test/test_gzseek.cc | 92 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 92 insertions(+)
+ test/test_gzseek.cc | 99 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 99 insertions(+)
 
 diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
-index c14a073..57854cd 100644
+index c14a073..7c9d4d3 100644
 --- a/test/test_gzseek.cc
 +++ b/test/test_gzseek.cc
-@@ -62,3 +62,95 @@ TEST(gzip, seek) {
+@@ -62,3 +62,102 @@ TEST(gzip, seek) {
      PREFIX(gzclose)(file);
  #endif
  }
@@ -227,6 +227,10 @@ index c14a073..57854cd 100644
 +#endif
 +#define SEEK_OFF_MAX ((seek_off_t)((((uint64_t)1 << (sizeof(seek_off_t) * 8 - 2)) - 1) * 2 + 1))
 +
++static bool seek_uses_off64(void) {
++    return sizeof(seek_off_t) == sizeof(z_off64_t);
++}
++
 +static void seek_write_raw(const char *path, const char *data) {
 +    FILE *fp = fopen(path, "wb");
 +    ASSERT_NE(fp, nullptr);
@@ -235,6 +239,9 @@ index c14a073..57854cd 100644
 +}
 +
 +TEST(gzip, seek_offset_overflow) {
++    if (!seek_uses_off64())
++        GTEST_SKIP() << "z_off_t is narrower than z_off64_t";
++
 +    const seek_off_t off_max = SEEK_OFF_MAX;
 +    const seek_off_t off_min = -off_max - 1;
 +
@@ -303,7 +310,7 @@ index c14a073..57854cd 100644
 +#endif
 +}
 
-From 11723168db0d610fe13647de6eec295174f2ef7a Mon Sep 17 00:00:00 2001
+From 1cb5059881fb44de4e2ffc76ef6fc8ad99175550 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 10:10:00 -0800
 Subject: [PATCH 4/5] Avoid signed overflow in gzseek() at a negative position
@@ -317,8 +324,8 @@ cannot fail then), and refuse a seek whose distance from a negative
 position does not fit in z_off64_t.
 ---
  gzlib.c             |  7 ++++++-
- test/test_gzseek.cc | 38 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 44 insertions(+), 1 deletion(-)
+ test/test_gzseek.cc | 40 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+), 1 deletion(-)
 
 diff --git a/gzlib.c b/gzlib.c
 index 0d406d7..7d8139d 100644
@@ -344,10 +351,10 @@ index 0d406d7..7d8139d 100644
      if (state->mode == GZ_READ && state->how == COPY) {
          ret = LSEEK(state->fd, pos - state->x.pos - (z_off64_t)state->x.have,
 diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
-index 57854cd..cb99073 100644
+index 7c9d4d3..eb584d0 100644
 --- a/test/test_gzseek.cc
 +++ b/test/test_gzseek.cc
-@@ -154,3 +154,41 @@ TEST(gzip, seek_failure_keeps_position) {
+@@ -161,3 +161,43 @@ TEST(gzip, seek_failure_keeps_position) {
      remove("seek_fail.gz");
  #endif
  }
@@ -363,7 +370,8 @@ index 57854cd..cb99073 100644
 +    EXPECT_EQ(PREFIX(gzungetc)('a', file), 'a');
 +    EXPECT_EQ(PREFIX(gzungetc)('x', file), 'x');
 +    EXPECT_EQ(SEEK_GZTELL(file), -1);
-+    EXPECT_EQ(SEEK_GZSEEK(file, off_max, SEEK_SET), -1);
++    if (seek_uses_off64())
++        EXPECT_EQ(SEEK_GZSEEK(file, off_max, SEEK_SET), -1);
 +    EXPECT_EQ(SEEK_GZSEEK(file, 0, SEEK_CUR), -1);
 +    EXPECT_EQ(SEEK_GZTELL(file), -1);
 +    EXPECT_EQ(SEEK_GZSEEK(file, 2, SEEK_CUR), 1);
@@ -381,7 +389,8 @@ index 57854cd..cb99073 100644
 +    file = PREFIX(gzopen)("seek_neg.gz", "rb");
 +    ASSERT_NE(file, nullptr);
 +    EXPECT_EQ(PREFIX(gzungetc)('x', file), 'x');
-+    EXPECT_EQ(SEEK_GZSEEK(file, off_max, SEEK_SET), -1);
++    if (seek_uses_off64())
++        EXPECT_EQ(SEEK_GZSEEK(file, off_max, SEEK_SET), -1);
 +    EXPECT_EQ(SEEK_GZTELL(file), -1);
 +    EXPECT_EQ(SEEK_GZSEEK(file, 1, SEEK_CUR), 0);
 +    EXPECT_EQ(PREFIX(gzgetc)(file), 'a');
@@ -390,7 +399,7 @@ index 57854cd..cb99073 100644
 +#endif
 +}
 
-From d35fa4a9244f14b88f65a248fb97bafe3e86091b Mon Sep 17 00:00:00 2001
+From 4759d8eab0e26d50fe749186843b1971b63860f3 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 10:20:00 -0800
 Subject: [PATCH 5/5] Do not offset an unset state->x.next in gzseek()
@@ -423,10 +432,10 @@ index 7d8139d..1812a4a 100644
          state->x.have -= n;
          state->x.next += n;
 diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
-index cb99073..2e2a441 100644
+index eb584d0..ffc4a3d 100644
 --- a/test/test_gzseek.cc
 +++ b/test/test_gzseek.cc
-@@ -192,3 +192,15 @@ TEST(gzip, seek_from_negative_position) {
+@@ -201,3 +201,15 @@ TEST(gzip, seek_from_negative_position) {
      remove("seek_neg.gz");
  #endif
  }

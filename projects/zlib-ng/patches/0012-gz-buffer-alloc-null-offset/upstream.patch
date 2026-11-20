@@ -1,4 +1,4 @@
-From 2eedef1348b81d85f94d25a8656457e478baf9e7 Mon Sep 17 00:00:00 2001
+From aa92ffa822688aea63900e7911c4ef780bd4c76c Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Thu, 19 Nov 2026 14:31:48 -0800
 Subject: [PATCH] Test the allocation in gz_buffer_alloc() before offsetting it
@@ -17,7 +17,7 @@ and run with an allocator that refuses a request of 3 GiB.
  2 files changed, 32 insertions(+), 4 deletions(-)
 
 diff --git a/gzlib.c b/gzlib.c
-index 608dabb..f146b51 100644
+index 1812a4a..3641ef2 100644
 --- a/gzlib.c
 +++ b/gzlib.c
 @@ -86,16 +86,16 @@ int Z_INTERNAL gz_buffer_alloc(gz_state *state) {
@@ -42,10 +42,10 @@ index 608dabb..f146b51 100644
      state->size = want; // mark state as initialized
      return 0;
 diff --git a/test/test_gzfile_api_errors.cc b/test/test_gzfile_api_errors.cc
-index 899340a..88f8597 100644
+index c7d16b8..d593d76 100644
 --- a/test/test_gzfile_api_errors.cc
 +++ b/test/test_gzfile_api_errors.cc
-@@ -1081,3 +1081,31 @@ TEST(gzfile_api_errors, write_failed_direct_clearerr) {
+@@ -1083,3 +1083,31 @@ TEST(gzfile_api_errors, write_failed_direct_clearerr) {
      close(fds[0]);
  }
  #endif

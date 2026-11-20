@@ -1,4 +1,4 @@
-From 4358af13dcd6da9be779ca70d6eee2cf10387922 Mon Sep 17 00:00:00 2001
+From b039a511f09e1de16d5fb5905b6dd418282f28c7 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Thu, 19 Nov 2026 14:31:48 -0800
 Subject: [PATCH] Do not leave next_in pointing at the caller's buffer in
@@ -24,8 +24,8 @@ Add tests that fail a direct gzwrite() on a full non-blocking pipe, then
 close, or clear the error and write one byte.
 ---
  gzwrite.c                      |  7 ++-
- test/test_gzfile_api_errors.cc | 78 ++++++++++++++++++++++++++++++++++
- 2 files changed, 84 insertions(+), 1 deletion(-)
+ test/test_gzfile_api_errors.cc | 80 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 86 insertions(+), 1 deletion(-)
 
 diff --git a/gzwrite.c b/gzwrite.c
 index 14593da..4cfaa96 100644
@@ -49,10 +49,10 @@ index 14593da..4cfaa96 100644
  
      /* input was all buffered or compressed */
 diff --git a/test/test_gzfile_api_errors.cc b/test/test_gzfile_api_errors.cc
-index 2ee59b6..899340a 100644
+index 2ee59b6..c7d16b8 100644
 --- a/test/test_gzfile_api_errors.cc
 +++ b/test/test_gzfile_api_errors.cc
-@@ -1003,3 +1003,81 @@ TEST(gzfile_api_errors, setparams_direct_write) {
+@@ -1003,3 +1003,83 @@ TEST(gzfile_api_errors, setparams_direct_write) {
      EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
      remove("gzapi_err_setparams.gz");
  }
@@ -129,8 +129,10 @@ index 2ee59b6..899340a 100644
 +    drain_pipe(fds[0]);
 +    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
 +    char rest[16];
-+    EXPECT_EQ(read(fds[0], rest, sizeof(rest)), 1);
-+    EXPECT_EQ(rest[0], 'x');
++    ssize_t n = read(fds[0], rest, sizeof(rest));
++    EXPECT_EQ(n, 1);
++    if (n == 1)
++        EXPECT_EQ(rest[0], 'x');
 +    close(fds[0]);
 +}
 +#endif
