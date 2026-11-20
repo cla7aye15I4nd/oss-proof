@@ -166,7 +166,8 @@ theorem gzEnd_ok {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d0
   have R' := seg_run G.run G.pb G.sym G.pout a q EXTRA_STATE 0 hs hl (by omega) (by decide) (by decide) (by decide)
     ⟨fun _ => G.wrap, fun _ => ⟨k, g, hgz, hg, fun _ _ => Nat.zero_le _,
       fun e => absurd e (by show ¬ (EXTRA_STATE = NAME_STATE); decide),
-      fun e => absurd e (by show ¬ (EXTRA_STATE = COMMENT_STATE); decide)⟩⟩
+      fun e => absurd e (by show ¬ (EXTRA_STATE = COMMENT_STATE); decide), fun _ _ => rfl,
+      fun e => absurd e (by show ¬ (EXTRA_STATE = NAME_STATE); decide)⟩⟩
   refine Sat.pure ⟨R', nofun, fun _ st' hst' => ?_⟩
   rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
   refine .inr ⟨rfl, G.sym, G.pout, ?_⟩
