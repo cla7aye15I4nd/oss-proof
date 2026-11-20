@@ -38,7 +38,7 @@ theorem slf_lv {h H : Heap} {i b : Nat} (F : SLF h i b H) (hl : MedLv h b) {st :
   obtain ⟨st0, h0, hk⟩ := F.keeps
   obtain ⟨-, -, -, -, e, -⟩ := hk st hst
   have := hl st0 h0
-  unfold chainLim; rw [e, ite_cond_eq_true _ _ (eq_true this)]
+  unfold chainLim; rw [e]; simp only [this.1, this.2, and_self, ite_true]
 
 /-- `PE` from the loop state. -/
 theorem pe_of_mg {h H : Heap} {i b : Nat} (G : MG h i b H) {st : DeflateState} (hst : H.dstate b = some st) :
@@ -64,74 +64,6 @@ theorem pf_mono {h H : Heap} {i b A A' : Nat} {bf : Bool} (P : PF h i b A bf H) 
   obtain ⟨H0, z, st, d, e, F, hp, Ch, hs, ha⟩ := P
   exact ⟨H0, z, st, d, e, F, hp, Ch, hs, by omega⟩
 
-open ZlibNgF.Proof.MediumStep in
-/-- The tally after `s->lookahead -= L`, with the facts of `slf_tally_*` (`T1`) and the shape of the heap after
-(`T2`): the state after `s->strstart += L` is `PF (bf || r)` with `A - L`, and `SymLe` when `bf` is false. -/
-theorem pe_tally_core {h H0 : Heap} {i b A : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {bf : Bool}
-    (P : PE h i b A bf (SH H0 i z b st d)) (hl : MedLv h b) (L : UInt32) (hL1 : 1 ≤ L.toNat)
-    (hLa : L.toNat ≤ st.lookahead.toNat) (t : M Bool)
-    (T1 : Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun r H' =>
-      avIn H' i = avIn (SH H0 i z b { st with lookahead := st.lookahead - L } d) i ∧
-      SLW h i b (st.lookahead - L) (st.strstart + L) H' ∧
-      SymWr b (SH H0 i z b { st with lookahead := st.lookahead - L } d) H' ∧
-      (st.sym_next < st.sym_end → SymLe b H') ∧
-      (st.sym_next < st.sym_end → r = false → SLI h i b (st.lookahead - L) (st.strstart + L) H')))
-    (T2 : Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun _ H' => ∃ sn lt dt d',
-      H' = SH H0 i z b { st with lookahead := st.lookahead - L, sym_next := sn, dyn_ltree := lt, dyn_dtree := dt } d')) :
-    Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun r H2 => ∃ st2 d2,
-      H2 = SH H0 i z b st2 d2 ∧ st2.lookahead = st.lookahead - L ∧ st2.strstart = st.strstart ∧
-      PF h i b (A - L.toNat) (bf || r) (SH H0 i z b { st2 with strstart := st2.strstart + L } d2) ∧
-      (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + L } d2))) := by
-  refine Sat.mono (Sat.and T1 T2) ?_
-  rintro r H' ⟨⟨ha, W, Wr, hle, hsli⟩, sn, lt, dt, d', rfl⟩
-  obtain ⟨⟨H1, z1, st, d1, e1, F, hp, Ch, hs, hA⟩, hSL⟩ := P
-  have e2 := congrArg (fun H => H.dstate b) e1
-  have e3 := congrArg (fun H => H.bytes b) e1
-  simp only [SH_dstate, SH_bytes] at e2 e3
-  obtain rfl := Option.some.inj e2
-  obtain rfl := Option.some.inj e3
-  have hsle : st.sym_next ≤ st.sym_end := hSL st (SH_dstate _ _ _ _ _ _)
-  obtain ⟨wo, po, ho, Ly, -, w1, w2, hlook, h65, -, -, -, hsb⟩ := slf_lay F
-  have hcl := slf_lv F hl (SH_dstate _ _ _ _ _ _)
-  have hLa' : (st.lookahead - L).toNat = st.lookahead.toNat - L.toNat := UInt32.toNat_sub_of_le _ _
-    (UInt32.le_iff_toNat_le.mpr hLa)
-  have hss' : (st.strstart + L).toNat = st.strstart.toNat + L.toNat := by
-    rw [UInt32.toNat_add]; have := Nat.mod_eq_of_lt (show st.strstart.toNat + L.toNat < 2 ^ 32 by omega)
-    simpa using this
-  refine ⟨_, d', rfl, rfl, rfl, ⟨H0, z, _, d', rfl, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
-  · exact (slw_slf (slw_congr W rfl)).1
-  · exact (slw_slf (slw_congr W rfl)).2
-  · obtain ⟨sbo, hi, da, db, hda, hdb, hsbo, Wi⟩ := Wr
-    obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hda)
-    obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hdb)
-    have hsbo' := hsbo _ (SH_dstate _ _ _ _ _ _)
-    have C1 : ChainOk b db st := chain_wr Ch (by omega) (fun ho' po' hh hp' => by
-      rw [Ly.head] at hh; rw [Ly.prev] at hp'
-      obtain rfl : ho = ho' := by injection hh with e; injection e
-      obtain rfl : po = po' := by injection hp' with e; injection e
-      exact ⟨hsb sbo hsbo', Ly.ph⟩) Wi
-    refine chain_adv C1 rfl rfl rfl rfl rfl (by show _ ≤ (st.strstart + L).toNat; omega) ?_
-    rw [hcl]
-    obtain ⟨st0, h0, hk⟩ := F.keeps
-    obtain ⟨-, -, -, -, ev, -⟩ := hk st (SH_dstate _ _ _ _ _ _)
-    have hlv3 : 3 ≤ st.level ∧ st.level ≤ 6 := by rw [ev]; exact hl st0 h0
-    simp only [chainLim, hlv3, and_self, ite_true]
-    omega
-  · intro e
-    simp only [Bool.or_eq_false_iff] at e
-    obtain ⟨rfl, rfl⟩ := e
-    have I := hsli (hs rfl) rfl
-    exact ((sli_slc (sli_congr I rfl)).2 _ (SH_dstate _ _ _ _ _ _)).2
-  · rw [avIn_SH] at ha ⊢; rw [avIn_SH] at hA
-    show z.avail_in.toNat + (st.lookahead - L).toNat ≤ A - L.toNat
-    rw [hLa']; omega
-  · intro e
-    subst e
-    have := hle (hs rfl)
-    intro st3 h3
-    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h3)
-    exact this _ (SH_dstate _ _ _ _ _ _)
-
 /-- The state of a `PE` heap. -/
 theorem pe_st {h H0 : Heap} {i b A : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {bf : Bool}
     (P : PE h i b A bf (SH H0 i z b st d)) :
@@ -146,6 +78,92 @@ theorem pe_st {h H0 : Heap} {i b A : Nat} {z : ZStream} {st : DeflateState} {d :
   rw [avIn_SH] at hA
   exact ⟨F, hp, hSL _ (SH_dstate _ _ _ _ _ _), Ch, hs, hA⟩
 
+open ZlibNgF.Proof.MediumStep in
+/-- The state after a tally and `s->strstart += L`, for a record `st2` that differs from `st` in `lookahead`
+(lowered by `L`), the symbols, the trees and the bytes. -/
+theorem pe_post {h H0 : Heap} {i b A : Nat} {z : ZStream} {st st2 : DeflateState} {d d' : Array UInt8}
+    {bf r : Bool} (P : PE h i b A bf (SH H0 i z b st d)) (hl : MedLv h b) (L : UInt32)
+    (hLa : L.toNat ≤ st.lookahead.toNat)
+    (hla2 : st2.lookahead = st.lookahead - L) (hss2 : st2.strstart = st.strstart)
+    (hk : st2.level = st.level ∧ st2.strategy = st.strategy ∧ st2.head = st.head ∧ st2.prev = st.prev ∧
+      st2.w_size = st.w_size ∧ st2.sym_buf = st.sym_buf)
+    (W : SLW h i b (st.lookahead - L) (st.strstart + L) (SH H0 i z b st2 d'))
+    (Wr : SymWr b (SH H0 i z b { st with lookahead := st.lookahead - L } d) (SH H0 i z b st2 d'))
+    (hle : st.sym_next < st.sym_end → SymLe b (SH H0 i z b st2 d'))
+    (hsli : st.sym_next < st.sym_end → r = false →
+      SLI h i b (st.lookahead - L) (st.strstart + L) (SH H0 i z b st2 d')) :
+    PF h i b (A - L.toNat) (bf || r) (SH H0 i z b { st2 with strstart := st2.strstart + L } d') ∧
+      (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + L } d')) := by
+  obtain ⟨F, hp, -, Ch, hs, hA⟩ := pe_st P
+  obtain ⟨wo, po, ho, Ly, -, w1, w2, hlook, h65, -, -, -, hsb⟩ := slf_lay F
+  have hcl := slf_lv F hl (SH_dstate _ _ _ _ _ _)
+  obtain ⟨k1, k2, k3, k4, k5, k6⟩ := hk
+  have hLa' : (st.lookahead - L).toNat = st.lookahead.toNat - L.toNat := UInt32.toNat_sub_of_le _ _
+    (UInt32.le_iff_toNat_le.mpr hLa)
+  have hss' : (st.strstart + L).toNat = st.strstart.toNat + L.toNat := by
+    rw [UInt32.toNat_add]; exact Nat.mod_eq_of_lt (by omega)
+  have W3 : SLW h i b st2.lookahead (st2.strstart + L) (SH H0 i z b { st2 with strstart := st2.strstart + L } d') :=
+    (fun la ss (e1 : la = st2.lookahead) (e2 : ss = st2.strstart + L) (w : SLW h i b la ss _) => by
+      subst e1 e2; exact w) _ _ hla2.symm (by rw [hss2]) (slw_congr (st' := { st2 with strstart := st2.strstart + L }) W rfl)
+  obtain ⟨F3, hp3⟩ := slw_slf (st := { st2 with strstart := st2.strstart + L }) W3
+  refine ⟨⟨H0, z, _, d', rfl, F3, hp3, ?_, ?_, ?_⟩, ?_⟩
+  · obtain ⟨sbo, hi, da, db, hda, hdb, hsbo, Wi⟩ := Wr
+    have e1 : d = da := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hda)
+    have e2 : d' = db := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hdb)
+    subst e1 e2
+    have hsbo' : st.sym_buf = .val (.ref (.heap b) sbo) := hsbo { st with lookahead := st.lookahead - L } (SH_dstate _ _ _ _ _ _)
+    have C1 : ChainOk b d' st := chain_wr Ch (by omega) (fun ho' po' hh hp' => by
+      rw [Ly.head] at hh; rw [Ly.prev] at hp'
+      obtain rfl : ho = ho' := by injection hh with e; injection e
+      obtain rfl : po = po' := by injection hp' with e; injection e
+      exact ⟨hsb sbo hsbo', Ly.ph⟩) Wi
+    refine chain_adv C1 k1 k2 k3 k4 k5 (by show _ ≤ (st2.strstart + L).toNat; rw [hss2]; omega) ?_
+    rw [hcl]
+    obtain ⟨st0, h0, hk⟩ := F.keeps
+    obtain ⟨-, -, -, -, ev, -⟩ := hk st (SH_dstate _ _ _ _ _ _)
+    have hlv3 : 3 ≤ st2.level ∧ st2.level ≤ 6 := by rw [k1, ev]; exact hl st0 h0
+    show _ ≤ (st2.strstart + L).toNat + if 3 ≤ st2.level ∧ st2.level ≤ 6 then st2.lookahead.toNat else 0
+    simp only [hlv3.1, hlv3.2, and_self, ite_true]; rw [hla2, hss2]
+    omega
+  · intro e
+    simp only [Bool.or_eq_false_iff] at e
+    obtain ⟨rfl, rfl⟩ := e
+    have I := hsli (hs rfl) rfl
+    have I3 : SLI h i b st2.lookahead (st2.strstart + L) (SH H0 i z b { st2 with strstart := st2.strstart + L } d') :=
+      (fun la ss (e1 : la = st2.lookahead) (e2 : ss = st2.strstart + L) (w : SLI h i b la ss _) => by
+        subst e1 e2; exact w) _ _ hla2.symm (by rw [hss2]) (sli_congr (st' := { st2 with strstart := st2.strstart + L }) I rfl)
+    exact ((sli_slc (st := { st2 with strstart := st2.strstart + L }) I3).2 _ (SH_dstate _ _ _ _ _ _)).2
+  · rw [avIn_SH]
+    show z.avail_in.toNat + st2.lookahead.toNat ≤ A - L.toNat
+    rw [hla2, hLa']; omega
+  · intro e
+    subst e
+    have := hle (hs rfl)
+    intro st3 h3
+    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h3)
+    exact this st2 (SH_dstate _ _ _ _ _ _)
+
+/-- The tally after `s->lookahead -= L`, with the facts of `slf_tally_*` (`T1`) and the shape of the heap after
+(`T2`): the state after `s->strstart += L` is `PF (bf || r)` with `A - L`, and `SymLe` when `bf` is false. -/
+theorem pe_tally_core {h H0 : Heap} {i b A : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {bf : Bool}
+    (P : PE h i b A bf (SH H0 i z b st d)) (hl : MedLv h b) (L : UInt32)
+    (hLa : L.toNat ≤ st.lookahead.toNat) (t : M Bool)
+    (T1 : Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun r H' =>
+      avIn H' i = avIn (SH H0 i z b { st with lookahead := st.lookahead - L } d) i ∧
+      SLW h i b (st.lookahead - L) (st.strstart + L) H' ∧
+      SymWr b (SH H0 i z b { st with lookahead := st.lookahead - L } d) H' ∧
+      (st.sym_next < st.sym_end → SymLe b H') ∧
+      (st.sym_next < st.sym_end → r = false → SLI h i b (st.lookahead - L) (st.strstart + L) H')))
+    (T2 : Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun _ H' => ∃ sn lt dt d',
+      H' = SH H0 i z b { st with lookahead := st.lookahead - L, sym_next := sn, dyn_ltree := lt, dyn_dtree := dt } d')) :
+    Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun r H2 => ∃ st2 d2,
+      H2 = SH H0 i z b st2 d2 ∧ st2.lookahead = st.lookahead - L ∧ st2.strstart = st.strstart ∧
+      PF h i b (A - L.toNat) (bf || r) (SH H0 i z b { st2 with strstart := st2.strstart + L } d2) ∧
+      (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + L } d2))) := by
+  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and T1 T2) ?_
+  rintro r H' ⟨⟨-, W, Wr, hle, hsli⟩, sn, lt, dt, d', rfl⟩
+  exact ⟨_, d', rfl, rfl, rfl, pe_post P hl L hLa rfl rfl ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩ W Wr hle hsli⟩
+
 open ZlibNgF.Proof.Tally (W4) in
 /-- `zng_tr_tally_lit(s, c)` after `s->lookahead -= 1`. -/
 theorem pe_tally_lit {h H0 : Heap} {i b A : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {bf : Bool}
@@ -156,7 +174,7 @@ theorem pe_tally_lit {h H0 : Heap} {i b A : Nat} {z : ZStream} {st : DeflateStat
       (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + 1 } d2))) := by
   obtain ⟨F, hp, hle, -⟩ := pe_st P
   have F' : SLF h i b (SH H0 i z b (FS { st with lookahead := st.lookahead - 1 } st.lookahead st.strstart) d) := F
-  refine pe_tally_core P hl 1 (by decide) hL _ ?_ ?_
+  refine pe_tally_core P hl 1 hL _ ?_ ?_
   · exact Sat.mono (slf_tally_lit F' hp hle hL c) fun _ _ q => ⟨q.1, q.2.1, q.2.2.1, q.2.2.2.2.1, q.2.2.2.2.2⟩
   · exact Sat.mono (tally_lit_shape F' hle c) fun _ _ ⟨sn, lt, d', e⟩ => ⟨sn, lt, st.dyn_dtree, d', e⟩
 
@@ -172,7 +190,7 @@ theorem pe_tally_dist {h H0 : Heap} {i b A : Nat} {z : ZStream} {st : DeflateSta
       (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + L } d2))) := by
   obtain ⟨F, hp, hle, -⟩ := pe_st P
   have F' : SLF h i b (SH H0 i z b (FS { st with lookahead := st.lookahead - L } st.lookahead st.strstart) d) := F
-  refine pe_tally_core P hl L hn1 hL _ ?_ ?_
+  refine pe_tally_core P hl L hL _ ?_ ?_
   · exact Sat.mono (slf_tally_dist F' hp hle dist len L hlen hd1 hd2 hn1 hn hL) fun _ _ q =>
       ⟨q.1, q.2.1, q.2.2.1, q.2.2.2.2.1, q.2.2.2.2.2⟩
   · exact Sat.mono (tally_dist_shape F' hle dist len hlen hd1 hd2) fun _ _ ⟨sn, lt, dt, d', e⟩ => ⟨sn, lt, dt, d', e⟩
