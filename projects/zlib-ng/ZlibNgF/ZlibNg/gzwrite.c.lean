@@ -147,7 +147,8 @@ structure WriteLoop where
 
 /-- `static size_t gz_write(gz_state *state, void const *buf, size_t len)` (`gzwrite.c:162-219`, with patch 0014:
 after the direct path, and when it fails, `strm.next_in` is `state->in` and `strm.avail_in` is 0; with patch 0017: a
-write that would move `x.pos` past `GZ_OFF_MAX` is refused with `Z_DATA_ERROR`). -/
+write that would move `x.pos` past `GZ_OFF_MAX` is refused with `Z_DATA_ERROR`, comparing `len` and the room left in
+64 bits). -/
 def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   let put := len
   if len == 0 then
@@ -158,6 +159,8 @@ def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   if (← rdG state (·.skip)) != 0 then
     if (← gz_zero state) == -1 then
       return 0
+  -- `(uint64_t)len > (uint64_t)(GZ_OFF_MAX - state->x.pos)`: on LP64 `size_t` is `uint64_t`, so `(uint64_t)len` is
+  -- `len`, and `(uint64_t)` of the signed difference is `Int64.toUInt64`.
   let room ← lm (chkI64 (GZ_OFF_MAX.toInt - (← rdG state (·.pos)).toInt))
   if len > room.toUInt64 then
     gz_error state Z_DATA_ERROR (← (gzLit "write position does not fit in z_off64_t"))
