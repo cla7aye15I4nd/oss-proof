@@ -253,6 +253,7 @@ def rkS (st : DeflateState) : DeflateState :=
     pending_out := st.pending_buf
     status := if st.wrap == 2 then GZIP_STATE else INIT_STATE
     last_flush := -2
+    block_open := 0
     gzhead := .val none }
 
 /-- What `deflateStateCheck` accepts, on the state record. -/
@@ -302,12 +303,14 @@ theorem resetKeep_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateS
     refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
+    refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.mono (tr_init_SH _ h1 h2 h3) ?_)
     rintro _ _ ⟨A, B, C, rfl, hA, hB, hC, hF⟩
     refine Sat.pure ⟨rfl, A, B, C, ?_, hA, hB, hC, hF⟩
     simp [rkZ, rkS, trS, hpb, hw2, k.hb]
   · simp only [hw2, Bool.false_eq_true, ↓reduceIte]
     refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_); try dsimp only
+    refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.mono (tr_init_SH _ h1 h2 h3) ?_)
