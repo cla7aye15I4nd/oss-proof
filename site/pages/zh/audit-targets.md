@@ -32,7 +32,6 @@
 | openjpeg | Pillow 的 JPEG 2000 | 未完成 |
 | liblzma（xz） | Pillow 的 LZMA 压缩 TIFF、Python 的 `lzma` 模块 | 未完成 |
 | zlib-ng | Sharp 与 Pillow 的 PNG、Deflate 压缩 TIFF | [已有进度记录](../zlib-ng/zh/progress.html) |
-| bzip2、lz4 | Python 的 `bz2` 模块、python-lz4、libarchive（不在 Sharp 与 Pillow 路径上） | 未完成 |
 
 zlib、zstd、brotli、7-Zip SDK 与 libarchive 保持各自原有范围，这里不再重复。
 

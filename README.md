@@ -38,7 +38,6 @@ branch; none is registered for CI yet, and no translation or proof exists.
 | [`libavif`](projects/libavif/AGENTS.md) | Pillow AVIF | `avifDecoderParse`, `avifDecoderNthImage`, `avifImageYUVToRGB` |
 | [`openjpeg`](projects/openjpeg/AGENTS.md) | Pillow JPEG 2000 | `opj_read_header`, `opj_read_tile_header`, `opj_decode_tile_data` |
 | [`xz`](projects/xz/AGENTS.md) | Pillow LZMA-compressed TIFF, Python `lzma` | `lzma_stream_decoder`, `lzma_code` |
-| [`bzip2`](projects/bzip2/AGENTS.md), [`lz4`](projects/lz4/AGENTS.md) | Python `bz2`, python-lz4, libarchive | decompression entry points |
 
 Sharp and Pillow also rely on [`zlib-ng`](projects/zlib-ng/README.md) for PNG and Deflate TIFF.
 
