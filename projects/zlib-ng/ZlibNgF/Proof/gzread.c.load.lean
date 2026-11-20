@@ -404,4 +404,31 @@ theorem loadLoop_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz 
       refine GSat.pure ⟨fun _ => ⟨⟨by simp only; omega, _, hfs2, rfl, x2⟩, by simp only; omega⟩,
         fun _ => ⟨by simp only; omega, _, hfs2, rfl, x2⟩⟩
 
+/-- A read handle stays one after stores into one block that is neither the state's block, its `path`, nor the block
+of its stream's state, and reads that lower the read budget. -/
+theorem invR_hbuf {w : World} {h H : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+    (hs : w.gz h b = some s) {cb lo hi : Nat} (x : HBuf h H cb lo hi) (hcb : b ≠ cb) (hp : cb ∉ blkOf s.path)
+    (hst : cb ∉ stBlk h s) {fs' : Fs} (hf : FsRd w.fs fs') : GzInvR { w with fs := fs' } H (some b) := by
+  obtain ⟨⟨b0, s0, e0, hs0, sh, hn⟩, hm, hw⟩ := hv
+  cases e0; rw [hs] at hs0; cases hs0
+  have hr := modeOf hs hm
+  have hsH : ({ w with fs := fs' } : World).gz H b = some s := by rw [x.gz hcb]; exact hs
+  have sh' := shape_hbuf sh hr x hp hst
+  obtain ⟨t, rfl, hne, hnone, hsz⟩ := x
+  refine ⟨⟨b, s, rfl, hsH, sh', hn⟩, ⟨b, s, rfl, hsH, hr⟩, ?_⟩
+  have hw' := wfr_fs hw hf
+  obtain ⟨hc, ⟨hfr, hdf⟩, hgz, hstr, hb, hn', hlk, hL⟩ := hw'
+  refine ⟨hc, ⟨fun c hc' => ⟨(hfr c hc').1, (hfr c hc').2.1, ?_⟩, hdf⟩, hgz, fun c s2 e => ?_, hb, hn', hlk, hL⟩
+  · by_cases e : c = cb
+    · subst e; exact hnone (hfr c hc').2.2
+    · show t c = none; rw [hne c e]; exact (hfr c hc').2.2
+  · refine hstr c s2 ?_
+    unfold World.gz at e ⊢
+    by_cases e' : c = cb
+    · subst e'
+      cases h1 : h.bytes c with
+      | none => have := hnone h1; simp only [this] at e; cases e
+      | some d => obtain ⟨a', e1, -, -⟩ := hsz d h1; simp only [e1] at e; exact e
+    · simp only [hne c e'] at e; exact e
+
 end ZlibNgF.Proof.GzMode
