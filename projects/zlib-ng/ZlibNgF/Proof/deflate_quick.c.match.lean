@@ -73,7 +73,7 @@ theorem sli_hw {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d d'
   refine ⟨slf_SH F (fun al _ c => ?_) rfl rfl rfl rfl (F.st _ (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _)
     (fun _ => Nat.le_refl _), fun st2 h2 => ?_⟩
   · exact ZlibNgF.Proof.FillFacts.dcore_fw (H := H1) c (SH_bytes _ _ _ _ _ _) rfl rfl
-      ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ (ZlibNgF.Proof.FillFacts.wcore_of c) c.look hw
+      ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ (ZlibNgF.Proof.FillFacts.wcore_of c) c.bs_lo c.look hw
   · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
     exact hC _ (SH_dstate _ _ _ _ _ _)
 

@@ -165,7 +165,7 @@ theorem runW_emit {h H : Heap} {i b : Nat} {st : DeflateState} {pre : DeflateSta
     have := UInt32.le_iff_toNat_le.mp k3; rw [hs0] at this
     exact UInt32.toNat_inj.mp (by simp at this ⊢; omega)
   obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16⟩ := emit_fields k1
-  obtain ⟨⟨a1, a2, -, -, -⟩, -, -, s4, s5, s6⟩ := R.side st hst
+  obtain ⟨⟨a1, a2, a3, a3b, -, -⟩, -, -, s4, s5, s6⟩ := R.side st hst
   obtain ⟨i0, z0, b0, st0, al, e0, hz0, hb0, hst0, -, -, -, c0, -⟩ := R.work
   obtain rfl := Option.some.inj e0
   obtain rfl := Option.some.inj (hz.symm.trans hz0)
@@ -173,7 +173,8 @@ theorem runW_emit {h H : Heap} {i b : Nat} {st : DeflateState} {pre : DeflateSta
   obtain rfl := Option.some.inj (hst.symm.trans hst0)
   obtain ⟨d, hd⟩ := bytes_of_dstate hst
   have hb2 : st'.status = BUSY_STATE := f1.trans hbusy
-  refine ⟨_, e, runW_SH R hz hst W' rfl rfl rfl rfl rfl f9 ⟨⟨?_, fun hl => ?_, fun _ _ => hs2, fun _ => hs2,
+  refine ⟨_, e, runW_SH R hz hst W' rfl rfl rfl rfl rfl f9 ⟨⟨?_, fun hl => ?_, fun h1 hf => ⟨hs2, ?_⟩,
+      fun hl0 hnf => ?_, fun _ => hs2,
       fun e8 => absurd e8 (by show ¬ (8 : Int32) ≤ 0; decide)⟩, fun hf => absurd (hb2.symm.trans hf) (by decide),
       hdrOk_busy (.inl hb2), ?_, fun d2 hd2 => ?_, LazyOk.of_eq s6 f14 f5 f15 f6 f13 f16 f4 f2 f3 f8⟩,
     by rw [aIn_of (SH_streams _ _ _ _ _ _), aIn_of hz], by rw [aOut_of (SH_streams _ _ _ _ _ _), aOut_of hz],
@@ -185,6 +186,13 @@ theorem runW_emit {h H : Heap} {i b : Nat} {st : DeflateState} {pre : DeflateSta
     obtain ⟨x1, -, x3⟩ := a2 hl'
     show 0 ≤ st'.block_start ∧ st'.sym_next = 0 ∧ st'.lookahead = 0
     rw [f4, f5]; exact ⟨x1, hs2, x3⟩
+  · show 0 ≤ st'.block_start
+    rw [f4]; exact (a3 (f2.symm.trans h1) (f3.symm.trans hf)).2
+  · show (st'.strstart.toNat : Int) - st'.block_start.toInt ≤
+      86 * st'.sym_next.toNat + (if st'.match_available ≠ 0 then 1 else 0)
+    rw [f6, f4, hs2, f16]
+    have h := a3b (fun e => hl0 (f2.trans e)) (fun ⟨e1, e2⟩ => hnf ⟨f2.trans e1, f3.trans e2⟩)
+    rw [hs0] at h; exact h
   · exact ⟨by show -2 ≤ st'.last_flush; rw [f8]; exact s4.1, by show st'.last_flush ≤ 5; rw [f8]; exact s4.2.1,
       fun e2 => by
         show (st'.strstart.toNat : Int) = st'.block_start.toInt ∧ st'.lookahead = 0
@@ -301,7 +309,8 @@ theorem runW_zero {h H : Heap} {i b : Nat} {st : DeflateState} (R : RunW h i b H
     ⟨i, z, b, _, al, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _,
       by simpa [Heap.dallocsOf, SH, hd] using hal, v0, v64,
       by rw [ev]; exact DCore.of_heap (by simp [SH_bytes, hd]) c1, pr1, pr2⟩
-  refine runW_SH R hz hst W rfl rfl rfl rfl rfl rfl ⟨⟨a1, fun _ => ⟨by show (0 : Int32) ≤ 0; decide, hs0, hl⟩, fun _ _ => hs0,
+  refine runW_SH R hz hst W rfl rfl rfl rfl rfl rfl ⟨⟨a1, fun _ => ⟨by show (0 : Int32) ≤ 0; decide, hs0, hl⟩,
+    fun _ _ => ⟨hs0, by show (0 : Int32) ≤ 0; decide⟩, fun _ _ => by show ((0 : UInt32).toNat : Int) - (0 : Int32).toInt ≤ _; simp; omega,
     fun _ => hs0, fun e8 => absurd e8 (by show ¬ (8 : Int32) ≤ 0; decide)⟩,
     fun hf => absurd (hbusy.symm.trans hf) (by decide), hdrOk_busy (.inl hbusy),
     ⟨s4.1, s4.2.1, fun _ => ⟨by show ((0 : UInt32).toNat : Int) = (0 : Int32).toInt; decide, hl⟩⟩, fun d2 hd2 => ?_, LazyOk.of_clear hpl hm⟩

@@ -52,6 +52,7 @@ structure QF (h : Heap) (i b : Nat) (H : Heap) : Prop where
   win : ∃ st0, h.dstate b = some st0 ∧ ∀ st, H.dstate b = some st → st.window = st0.window
   keeps : ∃ st0, h.dstate b = some st0 ∧ ∀ st, H.dstate b = some st → StratKeeps st0 st
   sym : ∀ st, H.dstate b = some st → st.sym_next = 0
+  bs0 : ∀ st, H.dstate b = some st → 0 ≤ st.block_start
 
 /-- The record and state of stream `i` under `QF`. -/
 theorem QF.live {h H : Heap} {i b : Nat} (F : QF h i b H) :
@@ -78,7 +79,7 @@ theorem qf_SH {h H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateS
     (hc : ∀ al, (SH H0 i z b st d).dallocsOf b = some al → DCore (SH H0 i z b st d) (some i) z b (dview st) al →
       DCore (SH H0 i z b st' d') (some i) z b (dview st') al)
     (hgz : st'.gzhead = st.gzhead) (hwin : st'.window = st.window) (hsym : st'.sym_next = 0)
-    (hk : StratKeeps st st') : QF h i b (SH H0 i z b st' d') := by
+    (hbs0 : 0 ≤ st'.block_start) (hk : StratKeeps st st') : QF h i b (SH H0 i z b st' d') := by
   obtain ⟨z1, hz1, hb⟩ := F.blk
   obtain rfl : z = z1 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz1)
   obtain ⟨al, hal, c⟩ := inv_SH F.inv hb
@@ -107,7 +108,7 @@ theorem qf_SH {h H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateS
       (SH_dstate _ _ _ _ _ _) hgz,
     ⟨z, ⟨i, rfl, SH_streams _ _ _ _ _ _⟩, hnn, hni⟩, F.crc, ⟨z, SH_streams _ _ _ _ _ _, hb⟩, F.blk0,
     dframe_trans F.frame (dframe_nil _ fr), ?_, F.inp.keep (SH_streams _ _ _ _ _ _) (SH_streams _ _ _ _ _ _) rfl rfl,
-    ?_, ?_, fun st2 hst2 => ?_⟩
+    ?_, ?_, fun st2 hst2 => ?_, fun st2 hst2 => ?_⟩
   · obtain ⟨z0, z4, ob4, oo4, k, h0, h4, e0, e4, ek⟩ := F.out
     obtain rfl : z = z4 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h4)
     exact ⟨z0, z, ob4, oo4, k, h0, SH_streams _ _ _ _ _ _, e0, e4, ek⟩
@@ -121,6 +122,8 @@ theorem qf_SH {h H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateS
     exact StratKeeps.trans (hw st (SH_dstate _ _ _ _ _ _)) hk
   · obtain rfl : st' = st2 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst2)
     exact hsym
+  · obtain rfl : st' = st2 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst2)
+    exact hbs0
 
 /-- The entry of `deflate_quick` with `Z_FIXED`: `QF` of the entry heap. -/
 theorem qf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : StratPre h (some i) flush)
@@ -132,10 +135,10 @@ theorem qf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   obtain ⟨hlv, hfx⟩ := hE b st1 ⟨i, z, rfl, hz, hb, hst1⟩
-  have hs0 : st1.sym_next = 0 := hs1.2.2.1 hlv hfx
+  obtain ⟨hs0, hbs0⟩ := hs1.2.2.1 hlv hfx
   refine ⟨st1, hst1, hp0, hs1, hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
-    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩
+    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_, fun st h1 => ?_⟩
   · have hio0 := hio
     obtain ⟨z2, b2, hp, ⟨i2, e2, hz2⟩, hb2, -, -, -, hout, hnb, -⟩ := hio0
     obtain rfl : i = i2 := Option.some.inj e2
@@ -147,6 +150,8 @@ theorem qf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
     exact ⟨z, z, ob, oo, 0, hz, hz, hno, hno, rfl⟩
   · obtain rfl : st1 = st := Option.some.inj (hst1.symm.trans h1)
     exact hs0
+  · obtain rfl : st1 = st := Option.some.inj (hst1.symm.trans h1)
+    exact hbs0
 
 /-! ## The bits -/
 
@@ -162,7 +167,7 @@ theorem dcore_bits {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' : 
     (hroom : st'.pending.toNat + st'.bi_valid.toInt.toNat / 8 ≤ 4 * st.lit_bufsize.toNat + 9)
     (h0 : 0 ≤ st'.bi_valid) (h64 : st'.bi_valid < 64)
     (hbs : st'.block_start.toInt ≤ st.strstart.toNat)
-    (hlo : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt) (hsym : st.sym_next = 0) :
+    (hlo : (st.strstart.toNat : Int) - st'.block_start.toInt ≤ 2 ^ 30) (hsym : st.sym_next = 0) :
     DCore H s z b (dview st') al := by
   obtain ⟨d, wo, po, ho, pbo', hd, hwo, hp, hh, hpb', h1, h2, h3, h4, hsb, -⟩ := c.lay
   simp only [dview] at hpb'
@@ -194,14 +199,17 @@ theorem qf_bits {h H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflat
     (hroom : st'.pending.toNat + st'.bi_valid.toInt.toNat / 8 ≤ 4 * st.lit_bufsize.toNat + 9)
     (h0 : 0 ≤ st'.bi_valid) (h64 : st'.bi_valid < 64)
     (hbs : st'.block_start.toInt ≤ st.strstart.toNat)
-    (hlo : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt) :
+    (hbs0 : 0 ≤ st'.block_start) :
     QF h i b (SH H0 i z b st' d') := by
   have hsym := F.sym st (SH_dstate _ _ _ _ _ _)
-  refine qf_SH F (fun al _ c => ?_) (by rw [he]) (by rw [he]) (by rw [he]; exact hsym)
+  refine qf_SH F (fun al _ c => ?_) (by rw [he]) (by rw [he]) (by rw [he]; exact hsym) hbs0
     (by rw [he]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩)
+  have hss65 : st.strstart.toNat ≤ 65536 := (strstart_toInt32 c).2
+  have hb0 : (0 : Int) ≤ st'.block_start.toInt := by
+    have := Int32.le_iff_toInt_le.mp hbs0; simpa using this
   have c1 := ZlibNgF.Proof.StoredF.dcore_mv (H' := SH H0 i z b st' d') c (SH_bytes _ _ _ _ _ _)
     (SH_bytes _ _ _ _ _ _) hs (by simpa [dview] using hsym) rfl rfl
-  exact dcore_bits c1 ((congrArg dview he).trans rfl) hpb hpo hroom h0 h64 hbs hlo hsym
+  exact dcore_bits c1 ((congrArg dview he).trans rfl) hpb hpo hroom h0 h64 hbs (by omega) hsym
 
 /-! ## `flush_pending` -/
 
@@ -236,7 +244,7 @@ theorem qf_flush {h H : Heap} {i b : Nat} (F : QF h i b H) :
   have hdo : dOutputRanges h (some i) = [(z0.next_out, z0.avail_out.toNat)] := by simp [dOutputRanges, h0]
   have hk : StratKeeps st st' := by rw [hsteq]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩
   refine ⟨⟨hv, hio, hset, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_,
-    F.inp.keep hz hz' (by rw [hzeq]) (by rw [hzeq]), ?_, ?_, fun st3 h3 => ?_⟩,
+    F.inp.keep hz hz' (by rw [hzeq]) (by rw [hzeq]), ?_, ?_, fun st3 h3 => ?_, fun st3 h3 => ?_⟩,
     z, st, z', st', hz, hst, hz', hst', hsteq, hbv, by rw [hzeq], fun ha => ?_, hO.1, hO.2⟩
   · obtain ⟨⟨-, -, -, -, -, -, ec, ex, -, -⟩, -⟩ := fr
     exact ⟨by rw [ec]; exact F.crc.1, by rw [ex]; exact F.crc.2⟩
@@ -263,6 +271,8 @@ theorem qf_flush {h H : Heap} {i b : Nat} (F : QF h i b H) :
     exact StratKeeps.trans (hw st hst) hk
   · obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans h3)
     rw [hsteq]; exact F.sym st hst
+  · obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans h3)
+    rw [hsteq]; exact F.bs0 st hst
   · have hp0 : st'.pending = 0 := by
       have : len < z.avail_out.toNat := by
         have : z'.avail_out.toNat ≠ 0 := fun e' => ha (UInt32.toNat_inj.mp (by simpa using e'))
@@ -436,22 +446,29 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
     (hsum : ss.toNat + la.toNat = st.strstart.toNat + st.lookahead.toNat) (hla : la.toNat < 262) :
     Sat (SH H0 i z b st d) (wrD (some b) fun s => { s with lookahead := la, strstart := ss }) (fun _ H1 =>
       Sat H1 (ZlibNg.Deflate.fill_window (some b)) (fun _ H2 => ∃ H3 z' st' d', H2 = SH H3 i z' b st' d' ∧
-        QF h i b H2 ∧ ZlibNgF.Proof.WinInv.FWS (FS st la ss) st' ∧ la.toNat ≤ st'.lookahead.toNat ∧
-        z'.avail_in.toNat + st'.lookahead.toNat ≤ z.avail_in.toNat + la.toNat ∧
-        (st'.lookahead ≠ la → z'.avail_in.toNat < z.avail_in.toNat) ∧
-        (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0) ∧ QP fl ep h i b st'.lookahead st'.strstart H2 ∧
-        (z'.avail_in.toNat < z.avail_in.toNat → ep ≤ 33 → QP fl 0 h i b st'.lookahead st'.strstart H2))) := by
+        let st2 := { st' with block_start := st'.strstart.toInt32 }
+        QF h i b (SH H3 i z' b st2 d') ∧ ZlibNgF.Proof.WinInv.FWS (FS st la ss) st2 ∧ la.toNat ≤ st2.lookahead.toNat ∧
+        z'.avail_in.toNat + st2.lookahead.toNat ≤ z.avail_in.toNat + la.toNat ∧
+        (st2.lookahead ≠ la → z'.avail_in.toNat < z.avail_in.toNat) ∧
+        (262 ≤ st2.lookahead.toNat ∨ z'.avail_in = 0) ∧ QP fl ep h i b st2.lookahead st2.strstart (SH H3 i z' b st2 d') ∧
+        (z'.avail_in.toNat < z.avail_in.toNat → ep ≤ 33 → QP fl 0 h i b st2.lookahead st2.strstart (SH H3 i z' b st2 d')))) := by
   refine Sat.of_eq (wrD_SH _) ?_
   obtain ⟨z1, st1, al, hz1, hb, hst1, -, c⟩ := F.live
   obtain rfl : z = z1 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz1)
   obtain rfl : st = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst1)
+  have hbs0 := F.bs0 st (SH_dstate _ _ _ _ _ _)
+  have hb0 : (0 : Int) ≤ st.block_start.toInt := by
+    have := Int32.le_iff_toInt_le.mp hbs0; simpa using this
+  have hws65 : st.window_size.toNat ≤ 65536 := ZlibNgF.Proof.DeflatePsi.window_size_le c
   have F1 : QF h i b (SH H0 i z b (FS st la ss) d) := by
-    refine qf_SH F (fun al' _ c' => ?_) rfl rfl (F.sym st (SH_dstate _ _ _ _ _ _)) (StratKeeps.refl _)
+    refine qf_SH F (fun al' _ c' => ?_) rfl rfl (F.sym st (SH_dstate _ _ _ _ _ _)) hbs0 (StratKeeps.refl _)
+    have hlk : ss.toNat + la.toNat ≤ st.window_size.toNat := by have := c'.look; simp only [dview] at this; omega
     exact DCore.of_heap (by rw [SH_bytes, SH_bytes]) (dcore_set c' ss la st.insert st.block_start
-      (by have := c'.look; simp only [dview] at this ⊢; omega)
+      hlk
       (by have := c'.bstart; simp only [dview] at this ⊢; omega)
       (by have := UInt32.le_iff_toNat_le.mp c'.ins; simp only [dview] at this ⊢;
-          exact UInt32.le_iff_toNat_le.mpr (by omega)) c'.bs_lo)
+          exact UInt32.le_iff_toNat_le.mpr (by omega))
+      (by omega))
   obtain ⟨H2, e, FI⟩ := fill_io F1.inv F1.io F1.set F1.crc (SH_streams _ _ _ _ _ _) hb (SH_dstate _ _ _ _ _ _) hla
   refine ⟨(), H2, e, ?_⟩
   obtain ⟨z5, z', st5, st', d', hz5, hst5, rfl, zr, fws⟩ := FI.shape
@@ -475,42 +492,90 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
   obtain ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩ := fws
   have hK : StratKeeps (FS st la ss) st' := fill_keeps FI (SH_streams _ _ _ _ _ _) hb (SH_dstate _ _ _ _ _ _)
     (SH_dstate _ _ _ _ _ _)
-  refine ⟨_, _, _, d', rfl, ⟨FI.inv, FI.io, FI.set, FI.crc, ⟨_, SH_streams _ _ _ _ _ _, hzs.trans hb⟩, F1.blk0,
-      dframe_trans F1.frame (dframe_nil _ FI.frame), ?_,
+  obtain ⟨al', hal', c'⟩ := inv_SH FI.inv (hzs.trans hb)
+  have hss' : st'.strstart.toInt32.toInt = st'.strstart.toNat := (strstart_toInt32 c').1
+  have hbs2 : 0 ≤ st'.strstart.toInt32 := by
+    rw [Int32.le_iff_toInt_le, show (0 : Int32).toInt = 0 from rfl, hss']; omega
+  let st2 := { st' with block_start := st'.strstart.toInt32 }
+  have hF2inv : DInv (SH (SH H0 i z b (FS st la ss) d) i z' b st2 d') (some i) := by
+    have hal2 : (SH (SH H0 i z b (FS st la ss) d) i z' b st2 d').dallocsOf b = some al' := by
+      simpa [Heap.dallocsOf, SH] using hal'
+    have hc2 : DCore (SH (SH H0 i z b (FS st la ss) d) i z' b st' d') (some i) z' b (dview st2) al' :=
+      { c' with
+        bstart := by show st'.strstart.toInt32.toInt ≤ st'.strstart.toNat; rw [hss']; exact Int.le_refl _
+        bs_lo := by show (st'.strstart.toNat : Int) - st'.strstart.toInt32.toInt ≤ 2 ^ 30; rw [hss']; omega }
+    exact ⟨i, z', b, st2, al', rfl, SH_streams _ _ _ _ _ _, hzs.trans hb, SH_dstate _ _ _ _ _ _, hal2,
+      DCore.of_heap (h' := SH (SH H0 i z b (FS st la ss) d) i z' b st2 d') (by rw [SH_bytes, SH_bytes]) hc2⟩
+  have hfr2 : DFrame (SH (SH H0 i z b (FS st la ss) d) i z' b st' d')
+      (SH (SH H0 i z b (FS st la ss) d) i z' b st2 d') [i] [b] [] [] := by
+    have hS : SH (SH (SH H0 i z b (FS st la ss) d) i z' b st' d') i z' b st2 d' =
+        SH (SH H0 i z b (FS st la ss) d) i z' b st2 d' := SH_SH _ _ _ _ _ _ _ _ _
+    rw [← hS]; exact ZlibNgF.Proof.DeflateReset.dframe_SH _ _ _ _ _ _
+  have hio2 : DStreamIO (SH (SH H0 i z b (FS st la ss) d) i z' b st2 d') (some i) := by
+    have hio0 := FI.io
+    obtain ⟨z3, b3, hp, ⟨i3, e3, hz3⟩, hb3, -, -, hin0, hout, hnb, hdj⟩ := hio0
+    obtain rfl : i = i3 := Option.some.inj e3
+    obtain rfl : z' = z3 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz3)
+    obtain rfl : b = b3 := Option.some.inj ((hzs.trans hb).symm.trans hb3)
+    obtain ⟨z2, ⟨i2, e2, hz2⟩, hnn, -⟩ := FI.set
+    obtain rfl : i = i2 := Option.some.inj e2
+    obtain rfl : z' = z2 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz2)
+    obtain ⟨ob, oo, ad2, hno, had, hoo⟩ := hout.resolve_left hnn
+    have O : ZlibNgF.Proof.DeflateFlush.OutOnly (SH (SH H0 i z b (FS st la ss) d) i z' b st' d')
+        (SH (SH H0 i z b (FS st la ss) d) i z' b st2 d') b ob oo 0 :=
+      ⟨rfl, rfl, fun c1 hc1 data hd1 => ⟨data, by simp only [SH] at hd1 ⊢; rw [upd_ne _ _ _ _ hc1] at hd1 ⊢; exact hd1,
+        rfl, fun _ _ => rfl⟩⟩
+    have hrd : NullOrRead (SH (SH H0 i z b (FS st la ss) d) i z' b st2 d') z'.next_in z'.avail_in.toNat :=
+      ZlibNgF.Proof.DeflateFlush.nullOrRead_out O hin0 (hdj _ (.inl rfl)).2
+    exact streamIO_in FI.io (SH_streams _ _ _ _ _ _) (hzs.trans hb) (SH_dstate _ _ _ _ _ _) hno (Nat.zero_le _) O
+      (SH_streams _ _ _ _ _ _) rfl (Nat.le_refl _) (Or.inl ⟨rfl, rfl⟩) hrd (by rw [hno]; rfl) (by simp)
+      (SH_dstate _ _ _ _ _ _) rfl
+  have hset2 : DBufsSet (SH (SH H0 i z b (FS st la ss) d) i z' b st2 d') (some i) := by
+    obtain ⟨z2, ⟨i2, e2, hz2⟩, hnn, hni⟩ := FI.set
+    obtain rfl : i = i2 := Option.some.inj e2
+    obtain rfl : z' = z2 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz2)
+    exact ⟨z', ⟨i, rfl, SH_streams _ _ _ _ _ _⟩, hnn, hni⟩
+  refine ⟨_, _, _, d', rfl, ⟨hF2inv, hio2, hset2, FI.crc, ⟨_, SH_streams _ _ _ _ _ _, hzs.trans hb⟩, F1.blk0,
+      dframe_trans (dframe_trans F1.frame (dframe_nil _ FI.frame)) (dframe_nil _ hfr2), ?_,
       F1.inp.trans (ZlibNgF.Proof.FillFacts.inTail_of_zr (SH_streams _ _ _ _ _ _) (SH_streams _ _ _ _ _ _) zr0),
-      ?_, ?_, fun st2 h2 => ?_⟩,
-    ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩, ?_, ?_, hlt, hend, ?_, fun hlt' he => ?_⟩
+      ?_, ?_, fun st3 h3 => ?_, fun st3 h3 => ?_⟩,
+    ⟨fe, ms, pl, ss', st'.strstart.toInt32, ins', sl, la', ih, hw', by dsimp only [st2]; rw [hste]⟩,
+    ?_, ?_, hlt, hend, ?_, fun hlt' he => ?_⟩
   · obtain ⟨z0, z4, ob, oo, k, h0, h4, e0, e4, ek⟩ := F1.out
     obtain rfl : z = z4 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h4)
     exact ⟨z0, _, ob, oo, k, h0, SH_streams _ _ _ _ _ _, e0, by rw [hze]; exact e4, by rw [hze]; exact ek⟩
   · obtain ⟨st0, h0, hw⟩ := F1.win
-    refine ⟨st0, h0, fun st2 h2 => ?_⟩
-    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
-    rw [hste]; exact hw (FS st la ss) (SH_dstate _ _ _ _ _ _)
+    refine ⟨st0, h0, fun st3 h3 => ?_⟩
+    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h3)
+    dsimp only [st2]; rw [hste]; exact hw (FS st la ss) (SH_dstate _ _ _ _ _ _)
   · obtain ⟨st0, h0, hw⟩ := F1.keeps
-    refine ⟨st0, h0, fun st2 h2 => ?_⟩
-    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
+    refine ⟨st0, h0, fun st3 h3 => ?_⟩
+    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h3)
     exact StratKeeps.trans (hw (FS st la ss) (SH_dstate _ _ _ _ _ _)) hK
-  · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
-    rw [hste]; exact F1.sym (FS st la ss) (SH_dstate _ _ _ _ _ _)
+  · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h3)
+    dsimp only [st2]; rw [hste]; exact F1.sym (FS st la ss) (SH_dstate _ _ _ _ _ _)
+  · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h3)
+    exact hbs2
   · have : z'.avail_in.toNat ≤ z.avail_in.toNat := hle
-    simp only at hs8; omega
-  · simp only at hsum2; omega
+    dsimp only [st2] at hs8 ⊢; omega
+  · dsimp only [st2] at hsum2 ⊢; omega
   all_goals
     have hle' : z'.avail_in.toNat ≤ z.avail_in.toNat := hle
     have ea : z'.avail_out = z.avail_out := by rw [hze]
-    have hk' : st'.sym_next = (FS st la ss).sym_next ∧ st'.match_available = (FS st la ss).match_available ∧
-        st'.status = (FS st la ss).status ∧ st'.wrap = (FS st la ss).wrap ∧
-        st'.block_open = (FS st la ss).block_open ∧ owed st' = owed (FS st la ss) := by
-      rw [hste]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
-    have q := psiS_read' (f := fl) (st := FS st la ss) (st' := st') (z.avail_in.toNat - z'.avail_in.toNat)
-      (by simp only at hs8 ⊢; omega) (by unfold span; simp only at hspan ⊢; omega)
+    have hk' : st2.sym_next = (FS st la ss).sym_next ∧ st2.match_available = (FS st la ss).match_available ∧
+        st2.status = (FS st la ss).status ∧ st2.wrap = (FS st la ss).wrap ∧
+        st2.block_open = (FS st la ss).block_open ∧ owed st2 = owed (FS st la ss) := by
+      dsimp only [st2]; rw [hste]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
+    have q := psiS_read' (f := fl) (st := FS st la ss) (st' := st2) (z.avail_in.toNat - z'.avail_in.toNat)
+      (by dsimp only [st2] at hs8 ⊢; omega) (by unfold span; dsimp only [st2]; rw [hss']; omega)
       hk'.1 hk'.2.1 hk'.2.2.1 hk'.2.2.2.1 hk'.2.2.2.2.1 hk'.2.2.2.2.2
     refine qp_next A F (SH_streams _ _ _ _ _ _) (SH_dstate _ _ _ _ _ _) (SH_streams _ _ _ _ _ _)
       (SH_dstate _ _ _ _ _ _) (by rw [ea]; exact Nat.le_refl _) hle' ?_
     rw [ea, Nat.sub_self, FS_self]
     have g : (2 ^ 19 + 64) * (z.avail_in.toNat - z'.avail_in.toNat) ≤ G * (z.avail_in.toNat - z'.avail_in.toNat) :=
       Nat.mul_le_mul_right _ (by decide)
+    have hq2 : psiS fl { st' with block_start := st'.strstart.toInt32 } ≤
+        psiS fl (FS st la ss) + (2 ^ 19 + 64) * (z.avail_in.toNat - z'.avail_in.toNat) := q
     first
     | omega
     | have h1 : 1 ≤ z.avail_in.toNat - z'.avail_in.toNat := by omega
@@ -561,8 +626,10 @@ theorem qf_post {h H : Heap} {i b : Nat} (F : QF h i b H) (flush : Int32) (bs : 
       obtain ⟨-, -, -, hl2, -, -, hse⟩ := c.sizes
       simp only [dview] at hse hl2
       rw [hs0]; apply UInt32.lt_iff_toNat_lt.mpr; simp; omega
-    refine ⟨⟨hse, fun e0 => absurd (e0.symm.trans hlv) (by decide), fun _ _ => hs0, fun _ => hs0,
-      fun e8 => ⟨hlv, hsf, x3 e8⟩⟩, K, fun _ _ => hs0, fun e => ⟨hs0, x2 e⟩, fun _ => hs0, fun L => ?_⟩
+    have hbs0 := F.bs0 st hst
+    refine ⟨⟨hse, fun e0 => absurd (e0.symm.trans hlv) (by decide), fun _ _ => ⟨hs0, hbs0⟩,
+      fun _ hn => absurd ⟨hlv, hsf⟩ hn, fun _ => hs0, fun e8 => ⟨hlv, hsf, x3 e8⟩⟩,
+      K, fun _ _ => hs0, fun e => ⟨hs0, x2 e⟩, fun _ => hs0, fun L => ?_⟩
     have N := K.lazy L fun ht => by
       have h7 := ht.1; rw [hl1] at h7; exact absurd h7 (by decide)
     exact ⟨N.1, fun _ => N.2⟩

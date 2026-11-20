@@ -38,13 +38,14 @@ theorem sli_entry_l {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : St
     (hz : h.streams i = some z) (hb : z.state = some b)
     (hE : ∀ b' st, DStateIs h (some i) b' st → 0 < st.level ∧ st.level ≠ 1) :
     ∃ st, h.dstate b = some st ∧ SLI h i b st.lookahead st.strstart h := by
-  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, hs1, ⟨hsym, -, -, hg2, hg8⟩, -⟩ := P
+  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, hs1, ⟨hsym, -, -, hg3, hg2, hg8⟩, -⟩ := P
   obtain rfl : i = i1 := Option.some.inj e1
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   have hD : DStateIs h (some i) b st1 := ⟨i, z, rfl, hz, hb, hst1⟩
   obtain ⟨hlv, hl1⟩ := hE b st1 hD
-  have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hl1 (hg8 e8).1⟩
+  have hlv0 : st1.level ≠ 0 := fun e => by rw [e] at hlv; exact absurd hlv (by decide)
+  have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hl1 (hg8 e8).1, hg3 hlv0 fun ⟨e1, _⟩ => hl1 e1⟩
   refine ⟨st1, hst1, sli_of_slc ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_,

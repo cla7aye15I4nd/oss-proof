@@ -525,6 +525,7 @@ def deflateParamsWith (deflateFn : StreamPtr → Int32 → M Int32) (strm : Stre
     let z ← ldStream strm
     let s ← ldDState st
     if z.avail_in != 0 then return Z_BUF_ERROR
+    if s.block_open != 0 then return Z_BUF_ERROR
     let d ← chkI32 (s.strstart.toInt32.toInt - s.block_start.toInt)
     if d.toUInt32 + s.lookahead != 0 then return Z_BUF_ERROR
   let s ← ldDState st

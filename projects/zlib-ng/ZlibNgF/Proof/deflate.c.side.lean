@@ -125,11 +125,12 @@ theorem SideAt.of_state {h : Heap} {b : Nat} {st st' : DeflateState} (S : SideAt
   obtain ⟨S1, S2, S3, S4, S5, S6, S7⟩ := S
   refine ⟨?_, ?_, ?_, S4.of_state e1 e2 e3 e4, ?_, fun d hd => ChainOk.of_state (S6 d hd) e9 e11 e14 e15 e7 e10 e16,
     S7.of_eq e17 e10 e18 e7 e16 e19 e8 e9 e11 e12⟩
-  · obtain ⟨a1, a2, a3, a4, a5⟩ := S1
-    refine ⟨?_, ?_, ?_, ?_, fun hb => ?_⟩
+  · obtain ⟨a1, a2, a3, a3b, a4, a5⟩ := S1
+    refine ⟨?_, ?_, ?_, ?_, ?_, fun hb => ?_⟩
     · rw [e5, e6]; exact a1
     · rw [e9, e8, e5, e10]; exact a2
-    · rw [e9, e11, e5]; exact a3
+    · rw [e9, e11, e5, e8]; exact a3
+    · rw [e9, e11, e7, e8, e5, e19]; exact a3b
     · rw [e7, e8, e5]; exact a4
     · rw [e9, e11, e10]; exact a5 (e13 hb)
   · rw [e12, e5]; exact S2
@@ -170,11 +171,12 @@ theorem SideAt.move {h h' : Heap} {b b' : Nat} {st st' : DeflateState} (S : Side
   refine ⟨?_, ?_, ?_, (S4.of_state e.status e.wrap e.gzhead e.gzindex).move m', ?_, hc,
     S7.of_eq e.prev_length e.lookahead e.match_start e.strstart e.w_size e.match_available e.block_start e.level
       e.strategy e.last_flush⟩
-  · obtain ⟨a1, a2, a3, a4, a5⟩ := S1
-    refine ⟨?_, ?_, ?_, ?_, fun hb => ?_⟩
+  · obtain ⟨a1, a2, a3, a3b, a4, a5⟩ := S1
+    refine ⟨?_, ?_, ?_, ?_, ?_, fun hb => ?_⟩
     · rw [e.sym_next, e.sym_end]; exact a1
     · rw [e.level, e.block_start, e.sym_next, e.lookahead]; exact a2
-    · rw [e.level, e.strategy, e.sym_next]; exact a3
+    · rw [e.level, e.strategy, e.sym_next, e.block_start]; exact a3
+    · rw [e.level, e.strategy, e.strstart, e.block_start, e.sym_next, e.match_available]; exact a3b
     · rw [e.strstart, e.block_start, e.sym_next]; exact a4
     · rw [e.level, e.strategy, e.lookahead]; exact a5 (e.bits hb)
   · rw [e.last_flush, e.sym_next]; exact S2
@@ -282,9 +284,9 @@ theorem symEnd_pos {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : Defl
 /-- A state with no symbols, `block_start` at `strstart`, no lookahead, fewer than 8 bits satisfies `SymsOk`. -/
 theorem symsOk_clean {st : DeflateState} (h0 : 0 < st.sym_end) (hs : st.sym_next = 0)
     (hb : st.block_start.toInt = st.strstart.toNat) (hl : st.lookahead = 0) (h8 : st.bi_valid < 8) : SymsOk st := by
-  refine ⟨by rw [hs]; exact h0, fun _ => ⟨?_, hs, hl⟩, fun _ _ => hs, fun _ => hs,
+  have hbs0 : 0 ≤ st.block_start := by rw [Int32.le_iff_toInt_le, hb]; simp
+  refine ⟨by rw [hs]; exact h0, fun _ => ⟨hbs0, hs, hl⟩, fun _ _ => ⟨hs, hbs0⟩, fun _ _ => by omega, fun _ => hs,
     fun hc => absurd hc (Int32.not_le.mpr h8)⟩
-  rw [Int32.le_iff_toInt_le, hb]; simp
 
 /-- `SideAt` of a state with no symbols, `block_start` at `strstart`, no lookahead, outside the header states, with
 `wrap = 2` in `GZIP_STATE`, fewer than 8 bits, with `LazyOk`. -/
@@ -449,7 +451,7 @@ theorem setDict_side {h h' : Heap} {s : StreamPtr} {d : BPtr} {n : UInt32} {r : 
   have h8 : st'.bi_valid < 8 := by
     rw [k8]
     refine Int32.not_le.mp fun hc => ?_
-    exact ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).1.2.2.2.2 hc).2.2 hl0
+    exact ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).1.2.2.2.2.2 hc).2.2 hl0
   refine sideAt_clean (symEnd_pos c') (k1.trans h0) kb kl h8 ?_ ?_
     ⟨by rw [k7]; exact H5.1, by rw [k7]; exact H5.2.1, fun _ => ⟨kb.symm, kl⟩⟩ hc'
     (LazyOk.of_clear (by rw [kp]; decide) km)

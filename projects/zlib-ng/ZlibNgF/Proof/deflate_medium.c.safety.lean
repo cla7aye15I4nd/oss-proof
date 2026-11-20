@@ -29,8 +29,9 @@ theorem mg_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   have hD : DStateIs h (some i) b st1 := ⟨i, z, rfl, hz, hb, hst1⟩
   obtain ⟨hlv, hl1⟩ := hE b st1 hD
-  obtain ⟨hs1, ⟨hsym, -, -, hg2, hg8⟩, -⟩ := hs1
-  have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hl1 (hg8 e8).1⟩
+  obtain ⟨hs1, ⟨hsym, -, -, hg3, hg2, hg8⟩, -⟩ := hs1
+  have hlv0 : st1.level ≠ 0 := fun e => by rw [e] at hlv; exact absurd hlv (by decide)
+  have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hl1 (hg8 e8).1, hg3 hlv0 fun ⟨e1, _⟩ => hl1 e1⟩
   refine ⟨st1, hst1, ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_,

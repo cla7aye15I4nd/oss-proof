@@ -24,7 +24,7 @@ variable {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : DeflateState} 
 
 /-- The window clauses of an invariant state. -/
 theorem wcore_of (c : DCore h s z b (dview st) al) : WCore st :=
-  ⟨c.wpow, c.fe_mod, c.fe_hi, UInt32.le_iff_toNat_le.mp c.ins, c.bstart, c.bs_lo⟩
+  ⟨c.wpow, c.fe_mod, c.fe_hi, UInt32.le_iff_toNat_le.mp c.ins, c.bstart, by have := c.bs_lo; simp only [dview] at this; omega⟩
 
 /-- The layout does not read `block_start`. -/
 theorem HLay.of_bs {b D wo po ho : Nat} {st : DeflateState} {x : Int32}
@@ -58,6 +58,7 @@ only. -/
 theorem dcore_fw {h H : Heap} {i : Nat} {z z' : ZStream} {b : Nat} {st st' : DeflateState} {al : DeflateAllocs}
     {d d' : Array UInt8} (c : DCore h (some i) z b (dview st) al) (hd : h.bytes b = some d)
     (hza : z'.zalloc = z.zalloc) (hzf : z'.zfree = z.zfree) (F : FWS st st') (C : WCore st')
+    (hbs : (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ 2 ^ 30)
     (lk : st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat)
     (hw : ∀ ho, st.head = .val (.ref (.heap b) ho) → WrIn d 0 (ho + 131072) d') :
     DCore (SH H i z' b st' d') (some i) z' b (dview st') al := by
@@ -115,7 +116,7 @@ theorem dcore_fw {h H : Heap} {i : Nat} {z z' : ZStream} {b : Nat} {st st' : Def
     blk := c.blk
     fe_mod := C.fe_mod
     fe_hi := C.fe_hi
-    bs_lo := C.bs_lo
+    bs_lo := hbs
     descs := c.descs }
 
 /-- The input of `DInput` as `fill_window_SH` takes it: empty, or outside the block. -/
@@ -202,7 +203,8 @@ theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState)
         ins_h := ih
         high_water := hw' }) c hd rfl rfl ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
       ⟨C.wpow, C.fe_mod, C.fe_hi, C.ins, by show ss.toInt32.toInt ≤ ss.toNat; omega,
-        by show -(2 ^ 30 + 2 ^ 16) ≤ ss.toInt32.toInt; rw [hss]; omega⟩ lk (fun ho' hh' => ?_),
+        by show (ss.toNat : Int) - ss.toInt32.toInt ≤ 2 ^ 30 + 2 ^ 16; rw [hss]; omega⟩
+      (by show (ss.toNat : Int) - ss.toInt32.toInt ≤ 2 ^ 30; rw [hss]; omega) lk (fun ho' hh' => ?_),
     C.bs_hi, C.bs_lo⟩, ?_, ?_, ?_⟩, i, z, _, _, d', rfl, hz0, rfl, zr0,
     ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, fun d0 hd0 => by
       obtain rfl := Option.some.inj (hd.symm.trans hd0); exact ck⟩
@@ -277,7 +279,8 @@ theorem insert_batch_ok (h : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : Defla
   have hda : h.dallocs b = some al := by simpa [Heap.dallocsOf, hd] using hal
   refine ⟨_, d', e, ⟨i, z, b, _, al, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _,
     by simp [Heap.dallocsOf, SH, hda], DCore.of_heap (by rw [SH_bytes, SH_bytes]) <| dcore_fw (H := h) (z' := z) (st' := { { st with ins_h := x } with
-      block_start := st.strstart.toInt32 }) c hd rfl rfl ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ ?_ hlk
+      block_start := st.strstart.toInt32 }) c hd rfl rfl ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ ?_
+      (by show (st.strstart.toNat : Int) - st.strstart.toInt32.toInt ≤ 2 ^ 30; rw [hss]; omega) hlk
       (fun ho' hh' => ?_), hbs1, hbs2⟩, rfl, W.1⟩
   · have C := wcore_of c
     exact ⟨C.wpow, C.fe_mod, C.fe_hi, C.ins, C.bs_hi, C.bs_lo⟩

@@ -67,7 +67,9 @@ with fewer than 8 bits, and `deflateParams` and `deflateSetDictionary`, which re
 def SymsOk (st : DeflateState) : Prop :=
   st.sym_next < st.sym_end ∧
     (st.level = 0 → 0 ≤ st.block_start ∧ st.sym_next = 0 ∧ st.lookahead = 0) ∧
-    (st.level = 1 → st.strategy = Z_FIXED → st.sym_next = 0) ∧
+    (st.level = 1 → st.strategy = Z_FIXED → st.sym_next = 0 ∧ 0 ≤ st.block_start) ∧
+    (st.level ≠ 0 → ¬(st.level = 1 ∧ st.strategy = Z_FIXED) →
+      (st.strstart.toNat : Int) - st.block_start.toInt ≤ 86 * st.sym_next.toNat + (if st.match_available ≠ 0 then 1 else 0)) ∧
     ((st.strstart.toNat : Int) = st.block_start.toInt → st.sym_next = 0) ∧
     (8 ≤ st.bi_valid → st.level = 1 ∧ st.strategy = Z_FIXED ∧ st.lookahead ≠ 0)
 
@@ -368,12 +370,12 @@ def DInput (h : Heap) (s : StreamPtr) : Prop :=
     (z.avail_in ≠ 0 → z.next_in ≠ .null)
 
 /-- The invariant of stream `s`, stated as the clauses of `DCore` on the state with `block_start` at `strstart`, and
-`block_start` between `-(2^30 + 2^16)` and `strstart` (the same as `DInv`: `DInvW.of_inv`, `DInvW.inv`). It is the
-state inside the insertion loop of `deflateSetDictionary` and the state that `fill_window` takes and leaves. -/
+`0 ≤ strstart - block_start ≤ 2^30 + 2^16`. It is the state inside the insertion loop of `deflateSetDictionary` and
+the state that `fill_window` takes and leaves. -/
 def DInvW (h : Heap) (s : StreamPtr) : Prop :=
   ∃ i z b st al, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
     h.dallocsOf b = some al ∧ DCore h s z b (dview { st with block_start := st.strstart.toInt32 }) al ∧
-    st.block_start.toInt ≤ st.strstart.toNat ∧ -(2 ^ 30 + 2 ^ 16) ≤ st.block_start.toInt
+    st.block_start.toInt ≤ st.strstart.toNat ∧ (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30 + 2 ^ 16
 
 /-- What `fill_window` leaves: `DInvW` and a readable input; only the stream record (`next_in`, `avail_in`,
 `total_in`, `adler`) and the stream's block change; `avail_in` does not grow and drops when `lookahead` changes, and
@@ -496,18 +498,40 @@ theorem DInvW.of_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) : DInvW h s := b
   simp only [dview] at e hb1 hb2
   refine ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with
     bstart := by simp only [dview]; rw [e]; exact Int.le_refl _
-    bs_lo := by simp only [dview]; rw [e]; omega }, hb1, hb2⟩
+    bs_lo := by simp only [dview]; rw [e]; omega }, hb1, by omega⟩
 
-/-- `DInvW` is the invariant. -/
-theorem DInvW.inv {h : Heap} {s : StreamPtr} (hw : DInvW h s) : DInv h s := by
-  obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, c, h1, h2⟩ := hw
+/-- `DInvW` with `strstart - block_start ≤ 2^30` is the invariant. -/
+theorem DInvW.inv_of_gap {h : Heap} {s : StreamPtr} (hw : DInvW h s)
+    (hg : ∀ b st, DStateIs h s b st → (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30) : DInv h s := by
+  obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, c, h1, _⟩ := hw
   exact ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with
     bstart := h1
-    bs_lo := h2 }⟩
+    bs_lo := hg b st ⟨i, z, rfl, hz, hb, hst⟩ }⟩
 
 /-- `fill_window` from an invariant stream leaves the invariant. -/
-theorem FillPost.inv {h h' : Heap} {s : StreamPtr} (_hv : DInv h s) (hp : FillPost h h' s) : DInv h' s :=
-  hp.1.inv
+theorem FillPost.inv {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (hp : FillPost h h' s) : DInv h' s := by
+  refine hp.1.inv_of_gap fun b' st' hs' => ?_
+  obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, -, c⟩ := hv
+  obtain ⟨i1, z1, z1', b1, st1, st1', e1, hz1, hz1', hb1, hst1, hst1', -, -, -, -, hgap, -⟩ := hp.2.2.2
+  obtain rfl : i = i1 := Option.some.inj e1
+  obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
+  obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
+  obtain rfl : st = st1 := Option.some.inj (hst.symm.trans hst1)
+  obtain ⟨i2, z2, e2, hz2, hb2, hst2⟩ := hs'
+  obtain rfl : i = i2 := Option.some.inj e2
+  obtain rfl : z1' = z2 := Option.some.inj (hz1'.symm.trans hz2)
+  have hzb : z1'.state = some b := by
+    have ez := hp.2.2.2
+    obtain ⟨i3, z3, z3', b3, st3, st3', e3, hz3, hz3', hb3, -, -, ez3, -⟩ := ez
+    obtain rfl : i = i3 := Option.some.inj e3
+    obtain rfl : z = z3 := Option.some.inj (hz.symm.trans hz3)
+    obtain rfl : z1' = z3' := Option.some.inj (hz1'.symm.trans hz3')
+    rw [ez3]; exact hb
+  obtain rfl : b = b' := Option.some.inj (hzb.symm.trans hb2)
+  obtain rfl : st1' = st' := Option.some.inj (hst1'.symm.trans hst2)
+  have hb2 := c.bs_lo
+  simp only [dview] at hb2
+  omega
 
 /-- `TableAt` reads the state through `level` and `strategy`. -/
 theorem tableAt_congr {lo hi : Int32} {st st' : DeflateState} (e1 : st'.level = st.level)

@@ -67,11 +67,13 @@ theorem lf_ne {st : DeflateState} (h : 0 ≤ st.last_flush) : st.last_flush ≠ 
 /-- `slowElse`: the byte at `strstart` waits (`match_available = 1`, `prev_length = match_len`). -/
 theorem slowElse_ok {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sA : DeflateState} {dA : Array UInt8}
     {level : Int32} {ml : UInt32} {M0 : Nat} (flush : Int32) (P : CPre h i b wo level ml M0 H0 z sA dA)
-    (hn : ¬ (3 ≤ sA.prev_length ∧ ml ≤ sA.prev_length)) :
+    (hn : ¬ (3 ≤ sA.prev_length ∧ ml ≤ sA.prev_length)) (hma0 : sA.match_available = 0) :
     Sat (SH H0 i z b sA dA) (slowElse (some b) ml) (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
   obtain ⟨hwin, hT, hlf, -⟩ := env_st P.env P.slc.1
   obtain ⟨hlook, h65, hbs, hins, w1, -, -, -⟩ := slf_nums P.slc.1
   obtain ⟨hp0, hsym⟩ := P.slc.2 sA (SH_dstate _ _ _ _ _ _)
+  have hgapA := (P.slc.1.st sA (SH_dstate _ _ _ _ _ _)).2.2.2.2
+  rw [hma0] at hgapA
   have hss1 := toNat_add1 (x := sA.strstart) (by omega)
   have hla1 := toNat_sub1 P.la1
   have hm := P.meas
@@ -89,6 +91,9 @@ theorem slowElse_ok {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sA : DeflateStat
     (by show sA.block_start.toInt ≤ _; omega) (UInt32.le_iff_toNat_le.mpr (by
       have := UInt32.le_iff_toNat_le.mp hins; show sA.insert.toNat ≤ _; omega))
     (fun e => absurd e (by show ¬ _ = sA.block_start.toInt; omega))
+    (by show ((sA.strstart + 1).toNat : Int) - sA.block_start.toInt ≤ 86 * sA.sym_next.toNat + (if (1 : UInt32) ≠ 0 then 1 else 0)
+        rw [hss1]; simp only [ne_eq, not_true_eq_false, ↓reduceIte] at hgapA
+        rw [ite_eq_left (by decide : (1 : UInt32) ≠ 0)]; omega)
     (fun f => by
       have := ZlibNgF.Proof.DeflatePsi.psiS_move (f := f) { sA with prev_length := ml, match_available := 1 } (sA.strstart + 1) (sA.lookahead - 1) 1
         (by show (sA.lookahead - 1).toNat + 1 = sA.lookahead.toNat; omega)
@@ -129,7 +134,9 @@ theorem slowLit2_ok {h H1 : Heap} {i b wo : Nat} {z1 : ZStream} {sB : DeflateSta
     (hsym : sB.sym_next < sB.sym_end) (Ch : ChainOk b dB { sB with strstart := sB.strstart + 1 })
     (hml : 3 ≤ ml → ml.toNat ≤ 258 ∧ ml.toNat ≤ la ∧ sB.match_start.toNat < ss ∧
       ss - sB.match_start.toNat ≤ (MAX_DIST sB).toNat)
-    (hm : z1.avail_in.toNat + la ≤ M0) :
+    (hm : z1.avail_in.toNat + la ≤ M0)
+    (hgapB : (ss : Int) + 1 - sB.block_start.toInt ≤
+      86 * sB.sym_next.toNat + (if sB.match_available ≠ 0 then 1 else 0)) :
     Sat (SH H1 i z1 b sB dB) (slowLit2 (some b) ml) (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
   obtain ⟨hwin, hT, hlf, -⟩ := env_st E F
   obtain ⟨hlook, h65, -, hins, w1, -, -, -⟩ := slf_nums F
@@ -152,6 +159,7 @@ theorem slowLit2_ok {h H1 : Heap} {i b wo : Nat} {z1 : ZStream} {sB : DeflateSta
     (by show sB.block_start.toInt ≤ _; omega) (UInt32.le_iff_toNat_le.mpr (by
       have := UInt32.le_iff_toNat_le.mp hins; show sB.insert.toNat ≤ _; omega))
     (fun e => absurd e (by show ¬ _ = sB.block_start.toInt; omega))
+    (by show ((sB.strstart + 1).toNat : Int) - sB.block_start.toInt ≤ _; rw [hss1, hss]; exact hgapB)
     (fun f => by
       have := ZlibNgF.Proof.DeflatePsi.psiS_move (f := f) { sB with prev_length := ml } (sB.strstart + 1) (sB.lookahead - 1) 1
         (by show (sB.lookahead - 1).toNat + 1 = sB.lookahead.toNat; omega)
@@ -238,12 +246,22 @@ theorem slowLit_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte, jp]
     refine slowLit2_ok flush ml M0 sA.strstart.toNat sA.lookahead.toNat P.env F2 rfl rfl hl1 (Int.le_of_lt hbs)
-      (fun _ => hp0) ?_ Ch2 hmlk hm
-    have hne : sA.sym_next + 3 ≠ sA.sym_end := fun e => by simp [e] at hr
-    have a1 := UInt32.le_iff_toNat_le.mp h3
-    have a2 : (sA.sym_next + 3).toNat ≠ sA.sym_end.toNat := fun e => hne (UInt32.toNat_inj.mp e)
-    show sA.sym_next + 3 < sA.sym_end
-    exact UInt32.lt_iff_toNat_lt.mpr (by omega)
+      (fun _ => hp0) ?_ Ch2 hmlk hm ?_
+    · have hne : sA.sym_next + 3 ≠ sA.sym_end := fun e => by simp [e] at hr
+      have a1 := UInt32.le_iff_toNat_le.mp h3
+      have a2 : (sA.sym_next + 3).toNat ≠ sA.sym_end.toNat := fun e => hne (UInt32.toNat_inj.mp e)
+      show sA.sym_next + 3 < sA.sym_end
+      exact UInt32.lt_iff_toNat_lt.mpr (by omega)
+    · have hgapA := (P.slc.1.st sA (SH_dstate _ _ _ _ _ _)).2.2.2.2
+      have hsn3 : (sA.sym_next + 3).toNat = sA.sym_next.toNat + 3 := by
+        obtain ⟨z1, st1, al, -, -, hst1, -, c'⟩ := P.slc.1.live
+        obtain rfl : sA = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst1)
+        obtain ⟨-, -, -, -, hl2, -, hse⟩ := c'.sizes
+        simp only [dview] at hse hl2
+        have := UInt32.lt_iff_toNat_lt.mp hsym
+        rw [UInt32.toNat_add]; simp; omega
+      show (sA.strstart.toNat : Int) + 1 - sA.block_start.toInt ≤ 86 * (sA.sym_next + 3).toNat + (if sA.match_available ≠ 0 then 1 else 0)
+      omega
   | true =>
     simp only [↓reduceIte]
     have hp : ∀ st, (SH H0 i z b { sA with sym_next := sA.sym_next + 3, dyn_ltree := lt } d').dstate b = some st →
@@ -282,6 +300,7 @@ theorem slowLit_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
       (congrArg UInt32.toNat k4)
       (congrArg UInt32.toNat k5) hl1 (by rw [k12]; exact Int.le_of_eq hb12)
       (fun ha => hpz3 _ _ (SH_streams _ _ _ _ _ _) (SH_dstate _ _ _ _ _ _) ha) e1 Ch3 hml3 (by rw [hav]; exact hm)
+      (by rw [k12, hb12, k3, ite_eq_left hma]; omega)
 
 /-! ## The pending match -/
 
@@ -292,7 +311,8 @@ theorem slowDist3_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream}
     (E : Env h b wo level) (hss' : sE.strstart + (mov_fwd + 1) = ss')
     (F : SLF h i b (SH H0 i z b (FS sE sE.lookahead ss') dE)) (hp0 : sE.pending = 0)
     (hbf : bflush = false → sE.sym_next < sE.sym_end) (Ch : ChainOk b dE { sE with strstart := ss' })
-    (hm : z.avail_in.toNat + sE.lookahead.toNat + 1 ≤ M0) (hnz : sE.sym_next ≠ 0) :
+    (hm : z.avail_in.toNat + sE.lookahead.toNat + 1 ≤ M0) (hnz : sE.sym_next ≠ 0)
+    (hgap0 : (ss'.toNat : Int) - sE.block_start.toInt ≤ 86 * sE.sym_next.toNat) :
     Sat (SH H0 i z b sE dE) (slowDist3 (some b) (.ref (.heap b) wo) mov_fwd bflush)
       (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
   obtain ⟨hwin, hT, hlf, -⟩ := env_st E F
@@ -301,7 +321,9 @@ theorem slowDist3_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream}
   refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sE with prev_length := 0, match_available := 0 }) rfl) ?_)
   refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sE with prev_length := 0, match_available := 0, strstart := ss' })
     (by subst hss'; rfl)) ?_)
-  have F' := slf_view (st' := { sE with prev_length := 0, match_available := 0, strstart := ss' }) F rfl rfl rfl hT
+  have F' := slf_view_gap (st' := { sE with prev_length := 0, match_available := 0, strstart := ss' }) F rfl rfl rfl hT
+    (by show (ss'.toNat : Int) - sE.block_start.toInt ≤ 86 * sE.sym_next.toNat + (if (0 : UInt32) ≠ 0 then 1 else 0)
+        simpa using hgap0)
     (view_le rfl rfl (.inl rfl))
   have Lf : LazyOk { sE with prev_length := 0, match_available := 0, strstart := ss' } :=
     LazyOk.of_clear (show (0 : UInt32) < 3 by decide) rfl
@@ -407,7 +429,8 @@ theorem slowIns_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
     (hgt : sD.strstart.toNat < max_insert.toNat) (hws : sD.strstart.toNat + laA ≤ sD.window_size.toNat)
     (F : SLF h i b (SH H0 i z b (FS sD sD.lookahead ss') dD)) (hp0 : sD.pending = 0)
     (hbf : bflush = false → sD.sym_next < sD.sym_end) (Ch : ChainOk b dD { sD with strstart := sD.strstart + 1 })
-    (hm : z.avail_in.toNat + sD.lookahead.toNat + 1 ≤ M0) (hnz : sD.sym_next ≠ 0) :
+    (hm : z.avail_in.toNat + sD.lookahead.toNat + 1 ≤ M0) (hnz : sD.sym_next ≠ 0)
+    (hgap0 : (ss'.toNat : Int) - sD.block_start.toInt ≤ 86 * sD.sym_next.toNat) :
     Sat (SH H0 i z b sD dD) (slowIns (some b) (.ref (.heap b) wo) (insertBatchOf level) level max_insert mov_fwd bflush)
       (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
   obtain ⟨hwin, hT, hlf, hlv⟩ := env_st E F
@@ -423,7 +446,7 @@ theorem slowIns_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
       Sat (SH H0 i z b { sD with ins_h := x } d') (slowDist3 (some b) (.ref (.heap b) wo) mov_fwd bflush)
         (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
     intro x d' S hS g F'
-    refine slowDist3_ok T flush M0 mov_fwd ss' bflush E hss' F' hp0 hbf ?_ hm hnz
+    refine slowDist3_ok T flush M0 mov_fwd ss' bflush E hss' F' hp0 hbf ?_ hm hnz hgap0
     refine ZlibNgF.Proof.InsertGrow.ChainOk.grow Ch g rfl rfl rfl rfl rfl
       (by show (sD.strstart + 1).toNat ≤ ss'.toNat; omega) (chainLim_le h7 rfl ?_) fun q hq _ => chainLim_gt h7 (hS q hq)
     show (sD.strstart + 1).toNat ≤ ss'.toNat; omega
@@ -484,7 +507,8 @@ theorem slowDist2_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream}
     (hpla : sB.prev_length.toNat ≤ sB.lookahead.toNat + 1)
     (hmi : max_insert.toNat + 3 = sB.strstart.toNat + sB.lookahead.toNat)
     (hws : sB.strstart.toNat + sB.lookahead.toNat ≤ sB.window_size.toNat)
-    (hm : z.avail_in.toNat + sB.lookahead.toNat ≤ M0) (hnz : sB.sym_next ≠ 0) :
+    (hm : z.avail_in.toNat + sB.lookahead.toNat ≤ M0) (hnz : sB.sym_next ≠ 0)
+    (hgap0 : ((sB.strstart + (sB.prev_length - 1)).toNat : Int) - sB.block_start.toInt ≤ 86 * sB.sym_next.toNat) :
     Sat (SH H0 i z b sB dB) (slowDist2 (some b) (.ref (.heap b) wo) (insertBatchOf level) level max_insert bflush)
       (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
   obtain ⟨hwin, hT, hlf, hlv⟩ := env_st E F
@@ -519,13 +543,13 @@ theorem slowDist2_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream}
       (by show 1 ≤ (sB.prev_length - 1 - 1).toNat; rw [hp2]; omega)
       (by show (sB.prev_length - 1 - 1).toNat ≤ 257; rw [hp2]; omega) hmi hc' hws F' hp0 hbf
       (chain_keep F Ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (Nat.le_refl _) fun _ _ _ _ => rfl)
-      (by show _ + (sB.lookahead - (sB.prev_length - 1)).toNat + 1 ≤ M0; rw [hla']; omega) hnz
+      (by show _ + (sB.lookahead - (sB.prev_length - 1)).toNat + 1 ≤ M0; rw [hla']; omega) hnz hgap0
   · rw [ite_eq_right_of_eq_false _ _ (eq_false hc)]
     exact slowDist3_ok T flush M0 _ _ bflush E e1 F' hp0 hbf
       (chain_keep F Ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (by
         show (sB.strstart + 1).toNat ≤ (sB.strstart + (sB.prev_length - 1)).toNat
         rw [hss', toNat_add1 (by omega)]; omega) fun _ _ _ _ => rfl)
-      (by show _ + (sB.lookahead - (sB.prev_length - 1)).toNat + 1 ≤ M0; rw [hla']; omega) hnz
+      (by show _ + (sB.lookahead - (sB.prev_length - 1)).toNat + 1 ≤ M0; rw [hla']; omega) hnz hgap0
 
 open ZlibNgF.Proof.Tally (tally_dist_SH incF) in
 /-- `slowDist`: the pending match (`prev_length = pl >= 3`, at `strstart - 1`, distance `strstart - 1 - prev_match`)
@@ -572,7 +596,7 @@ theorem slowDist_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} 
   obtain ⟨F2, hp2⟩ := slw_norm W
   have h3 := slf_sym_step P.slc.1 hsym
   refine slowDist2_ok T flush M0 _ r P.env F2 hp0 (fun e => ?_) ?_ (by exact hc') (by exact a1) (by exact a2) ?_
-    (by exact hlook) (by exact hm) (slf_sym3 P.slc.1 (UInt32.le_of_lt hsym))
+    (by exact hlook) (by exact hm) (slf_sym3 P.slc.1 (UInt32.le_of_lt hsym)) ?_
   · subst e
     have hne : sA.sym_next + 3 ≠ sA.sym_end := fun e => by simp [e] at hr
     have b1 := UInt32.le_iff_toNat_le.mp h3
@@ -588,6 +612,18 @@ theorem slowDist_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} 
       rw [UInt32.toNat_add]; show 3 ≤ _; rw [Nat.mod_eq_of_lt (by omega)]; omega)), UInt32.toNat_add,
       Nat.mod_eq_of_lt (by omega)]
     show sA.strstart.toNat + sA.lookahead.toNat - 3 + 3 = sA.strstart.toNat + sA.lookahead.toNat; omega
+  · have hgapA := (P.slc.1.st sA (SH_dstate _ _ _ _ _ _)).2.2.2.2
+    have hsn3 : (sA.sym_next + 3).toNat = sA.sym_next.toNat + 3 := by
+      obtain ⟨z1, st1, al, -, -, hst1, -, c'⟩ := P.slc.1.live
+      obtain rfl : sA = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst1)
+      obtain ⟨-, -, -, -, hl2, -, hse⟩ := c'.sizes
+      simp only [dview] at hse hl2
+      have := UInt32.lt_iff_toNat_lt.mp hsym
+      rw [UInt32.toNat_add]; simp; omega
+    have hss' : (sA.strstart + (sA.prev_length - 1)).toNat = sA.strstart.toNat + (sA.prev_length.toNat - 1) := by
+      rw [UInt32.toNat_add, hn]; omega
+    show ((sA.strstart + (sA.prev_length - 1)).toNat : Int) - sA.block_start.toInt ≤ 86 * (sA.sym_next + 3).toNat
+    rw [hss', hsn3]; split at hgapA <;> omega
 
 /-- `slowC`: the emission after the match search, by the three branches. -/
 theorem slowC_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sA : DeflateState}
@@ -607,6 +643,6 @@ theorem slowC_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sA
     · rw [ite_eq_left_of_eq_true _ _ (eq_true hm)]
       exact slowLit_ok T flush P hn (by simpa using hm)
     · rw [ite_eq_right_of_eq_false _ _ (eq_false hm)]
-      exact slowElse_ok flush P hn
+      exact slowElse_ok flush P hn (by simpa using hm)
 
 end ZlibNgF.Proof.SlowEmit

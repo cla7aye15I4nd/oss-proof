@@ -301,7 +301,7 @@ theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   have hlv := hE b st1 ⟨i, z, rfl, hz, hb, hst1⟩
-  obtain ⟨-, hl0, -, -, h8c⟩ := hs1
+  obtain ⟨-, hl0, -, -, -, h8c⟩ := hs1
   obtain ⟨hbs, hsn, hla⟩ := hl0 hlv
   refine ⟨st1, hst1, hp0, ⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     ⟨z, z, hz, hz, Nat.le_refl _, Or.inl ⟨rfl, rfl⟩⟩,
@@ -369,7 +369,7 @@ theorem sf_post {e : Nat} {h H : Heap} {i b : Nat} (F : SF e h i b H) (flush : I
   obtain ⟨-, -, -, hl1, -, -, hse⟩ := c.sizes
   simp only [dview] at hl1 hse
   refine ⟨⟨?_, fun _ => ⟨hbs, hsn, hla'⟩, fun e => absurd (hlv.symm.trans e) (by decide),
-    fun _ => hsn, fun e8 => absurd h8 (Int32.not_lt.mpr e8)⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩,
+    fun e0 => absurd hlv e0, fun _ => hsn, fun e8 => absurd h8 (Int32.not_lt.mpr e8)⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩,
     fun _ => hsn, fun L => ?_⟩
   rotate_left
   · have N := K.lazy L fun ht => by

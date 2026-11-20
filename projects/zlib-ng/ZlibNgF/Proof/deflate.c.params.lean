@@ -73,6 +73,7 @@ theorem params_eq (f : StreamPtr → Int32 → M Int32) (strm : StreamPtr) (leve
         let z ← ldStream strm
         let s ← ldDState st
         if z.avail_in != 0 then return Z_BUF_ERROR
+        if s.block_open != 0 then return Z_BUF_ERROR
         let d ← chkI32 (s.strstart.toInt32.toInt - s.block_start.toInt)
         if d.toUInt32 + s.lookahead != 0 then return Z_BUF_ERROR
       paramsTail st level strategy : M Int32) := by
@@ -281,15 +282,19 @@ theorem tail_syms {st : DeflateState} {level strategy : Int32} (S : SymsOk st) (
     (o9 : st.level ≤ 9) (l0 : 0 ≤ level) (l9 : level ≤ 9) (sw : SwitchOk st level strategy)
     (x1 x2 a1 a2 a4 : UInt32) (a3 : Int32) (lm : Ival LongestMatchFn) (ib : Ival InsertBatchFn) :
     SymsOk (tailS st x1 x2 a1 a2 a4 a3 lm ib level strategy) := by
-  obtain ⟨q1, q2, q3, q4, q5⟩ := S
+  obtain ⟨q1, q2, q3, q3b, q4, q5⟩ := S
   simp only [SymsOk, tailS]
   rcases sw with ⟨es, ef⟩ | ⟨el, eb⟩
   · obtain ⟨g0, g1, -⟩ := groups o0 o9 l0 l9 ef
-    refine ⟨q1, fun e => q2 (g0.2 e), fun e1 e2 => q3 (g1.2 e1) (by rw [es]; exact e2), q4, fun e => ?_⟩
+    refine ⟨q1, fun e => q2 (g0.2 e), fun e1 e2 => q3 (g1.2 e1) (by rw [es]; exact e2),
+      fun h0 h1 => q3b (fun e => h0 (g0.1 e)) (fun ⟨e1, e2⟩ => h1 ⟨g1.1 e1, by rw [← es]; exact e2⟩),
+      q4, fun e => ?_⟩
     obtain ⟨r1, r2, r3⟩ := q5 e
     exact ⟨g1.1 r1, by rw [← es]; exact r2, r3⟩
   · have hs0 := q4 eb
-    refine ⟨q1, fun _ => ⟨by rw [Int32.le_iff_toInt_le, show (0 : Int32).toInt = 0 from rfl, ← eb]; omega, hs0, el⟩, fun _ _ => hs0, q4, fun e => ?_⟩
+    have hbs0 : 0 ≤ st.block_start := by
+      rw [Int32.le_iff_toInt_le, show (0 : Int32).toInt = 0 from rfl, ← eb]; omega
+    refine ⟨q1, fun _ => ⟨hbs0, hs0, el⟩, fun _ _ => ⟨hs0, hbs0⟩, fun _ _ => by omega, q4, fun e => ?_⟩
     exact absurd el (q5 e).2.2
 
 /-- With no lookahead and `block_start` at `strstart`, `LazyOk` leaves no pending match and no pending literal. -/
@@ -487,6 +492,9 @@ theorem params_ok (D : DeflateOk) {h : Heap} {s : StreamPtr} {level strategy : I
     by_cases ha : (z1.avail_in != 0) = true
     · rw [ite_t ha]; exact Sat.pure ⟨f1, hv1, hs1⟩
     rw [ite_f ha]
+    by_cases hbo : (st1.block_open != 0) = true
+    · rw [ite_t hbo]; exact Sat.pure ⟨f1, hv1, hs1⟩
+    rw [ite_f hbo]
     have ss := DeflateFacts.strstart_toInt32 c1
     have hb1 := c1.bstart
     have hb2 := c1.bs_lo

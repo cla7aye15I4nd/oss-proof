@@ -1,52 +1,85 @@
-From b307e8071a0a67fb1ef4befbe71db0b4ef52f7ab Mon Sep 17 00:00:00 2001
+From f5e9903f6d1af717111cf4484a4803d9da402ee5 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
-Date: Fri, 20 Nov 2026 00:30:00 -0800
-Subject: [PATCH] Keep open fixed-block start representable during window
- slides
+Date: Fri, 20 Nov 2026 14:40:09 -0800
+Subject: [PATCH] Keep block_start bounded and check block_open in
+ deflateParams()
 
-With strategy Z_FIXED at level 1, deflate_quick() keeps one static block open
-across slides without flushing, so more than 2 GiB of input causes fill_window()
-to decrement block_start below INT_MIN (ISO C17 6.5p5). Clamp block_start at or
-above -(2^30 + 2^16) and add an opt-in regression test.
+At compression level 1 with strategy Z_FIXED, deflate_quick() emits symbols
+directly into the bit buffer and keeps one static block open across window
+slides without flushing. Because fill_window() subtracts slide_len from
+s->block_start on every slide:
+
+- Past 2 GiB without a flush, s->block_start -= (int)slide_len overflows
+  INT_MIN (ISO C17 6.5p5, reported by UBSan).
+- Past 4 GiB, s->block_start wraps by 2^32 back to a positive value; if
+  deflateParams() is then called with avail_out == 0,
+  ((int)s->strstart - s->block_start) + s->lookahead evaluates to 0, so
+  deflateParams() returns Z_OK and switches compression levels while
+  deflate_quick()'s static block is still open (block_open == 1), corrupting
+  the stream even without sanitizers.
+
+In deflate_quick()'s static_emit path, block_start is not used for stored
+block fallback, so resync s->block_start = (int)strstart after fill_window()
+(leaving fill_window() untouched and adding zero overhead to non-Z_FIXED
+paths since static_emit is a compile-time constant). Also check s->block_open
+explicitly in deflateParams() so an unclosed static block always returns
+Z_BUF_ERROR when it cannot be flushed.
+
+Add an always-on regression test feeding 4 GiB of zeros (~0.5s at -O2) and
+verifying that deflateParams() with avail_out == 0 returns Z_BUF_ERROR.
 ---
- deflate.c                |  4 +++-
- test/test_deflate_cve.cc | 29 +++++++++++++++++++++++++++++
- 2 files changed, 32 insertions(+), 1 deletion(-)
+ deflate.c                |  2 +-
+ deflate_quick.c          |  2 ++
+ test/test_deflate_cve.cc | 39 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 42 insertions(+), 1 deletion(-)
 
 diff --git a/deflate.c b/deflate.c
-index 2cfd7d2..ad72c82 100644
+index 2cfd7d2daf..52e436cf53 100644
 --- a/deflate.c
 +++ b/deflate.c
-@@ -1271,7 +1271,9 @@ void Z_INTERNAL PREFIX(fill_window)(deflate_state *s) {
-                 s->prev_length = 0;
-             }
-             s->strstart    -= slide_len; /* we now have strstart >= MAX_DIST */
--            s->block_start -= (int)slide_len;
-+            /* Keep block_start >= -(2^30 + 2^16) so slides and strstart - block_start cannot overflow. */
-+            if (s->block_start >= (int)slide_len - (1 << 30) - (1 << 16))
-+                s->block_start -= (int)slide_len;
-             s->fill_end    -= slide_len;
-             if (s->insert > s->strstart)
-                 s->insert = s->strstart;
+@@ -647,7 +647,7 @@ int32_t Z_EXPORT PREFIX(deflateParams)(PREFIX3(stream) *strm, int32_t level, int
+         int err = PREFIX(deflate)(strm, flush);
+         if (err == Z_STREAM_ERROR)
+             return err;
+-        if (strm->avail_in || ((int)s->strstart - s->block_start) + s->lookahead || !DEFLATE_DONE(strm, flush))
++        if (strm->avail_in || s->block_open || ((int)s->strstart - s->block_start) + s->lookahead || !DEFLATE_DONE(strm, flush))
+             return Z_BUF_ERROR;
+     }
+ 
+diff --git a/deflate_quick.c b/deflate_quick.c
+index 79de03d2ae..41baa9d934 100644
+--- a/deflate_quick.c
++++ b/deflate_quick.c
+@@ -151,6 +151,8 @@ Z_FORCEINLINE static block_state deflate_quick_impl(deflate_state *s, int flush,
+             PREFIX(fill_window)(s);
+             lookahead = s->lookahead;
+             strstart = s->strstart;
++            if (static_emit)
++                s->block_start = (int)strstart;
+             if (UNLIKELY(lookahead < MIN_LOOKAHEAD && flush == Z_NO_FLUSH))
+                 return need_more;
+             if (UNLIKELY(lookahead == 0))
 diff --git a/test/test_deflate_cve.cc b/test/test_deflate_cve.cc
-index 2bf25e7..403abe5 100644
+index 2bf25e7ba9..be23925198 100644
 --- a/test/test_deflate_cve.cc
 +++ b/test/test_deflate_cve.cc
-@@ -99,3 +99,32 @@ INSTANTIATE_TEST_SUITE_P(deflate, cve_2018_25032, testing::ValuesIn(cve_2018_250
+@@ -99,3 +99,42 @@ INSTANTIATE_TEST_SUITE_P(deflate, cve_2018_25032, testing::ValuesIn(cve_2018_250
      [](const ::testing::TestParamInfo<cve_2018_25032_param> &info) {
          return std::string(info.param.name);
      });
 +
++#ifndef TEST_STOCK_ZLIB
++/* At level 1 with Z_FIXED, deflate_quick() keeps one static block open across window slides.
++ * Feeding 4 GiB of zeros runs in under a second while exercising both the 2 GiB signed underflow
++ * of block_start in fill_window() and the 4 GiB wraparound where deflateParams() saw
++ * (int)strstart - block_start + lookahead == 0 and switched levels mid-block. */
 +TEST(deflate_quick, fixed_block_across_large_input) {
-+    if (getenv("ZLIB_NG_TEST_LARGE_FIXED_BLOCK") == NULL)
-+        GTEST_SKIP() << "Processes more than 2 GiB of input";
 +    static uint8_t input[1 << 20], output[1 << 20];
-+    for (size_t i = 0; i < sizeof(input); i++)
-+        input[i] = (uint8_t)(((i * 2654435761U) >> 24) & 3);
++    memset(input, 0, sizeof(input));
 +
 +    PREFIX3(stream) stream = {};
 +    ASSERT_EQ(PREFIX(deflateInit2)(&stream, 1, Z_DEFLATED, MAX_WBITS, 8, Z_FIXED), Z_OK);
-+    for (unsigned chunk = 0; chunk < 2052; chunk++) {
++    for (unsigned chunk = 0; chunk < 4096; chunk++) {
 +        stream.next_in = input;
 +        stream.avail_in = sizeof(input);
 +        do {
@@ -55,6 +88,14 @@ index 2bf25e7..403abe5 100644
 +            ASSERT_EQ(PREFIX(deflate)(&stream, Z_NO_FLUSH), Z_OK);
 +        } while (stream.avail_in);
 +    }
++
++    /* With no output space to flush the open static block, deflateParams() must return Z_BUF_ERROR. */
++    stream.next_in = NULL;
++    stream.avail_in = 0;
++    stream.next_out = output;
++    stream.avail_out = 0;
++    EXPECT_EQ(PREFIX(deflateParams)(&stream, 6, Z_DEFAULT_STRATEGY), Z_BUF_ERROR);
++
 +    int ret;
 +    do {
 +        stream.next_out = output;
@@ -62,6 +103,6 @@ index 2bf25e7..403abe5 100644
 +        ret = PREFIX(deflate)(&stream, Z_FINISH);
 +    } while (ret == Z_OK);
 +    EXPECT_EQ(ret, Z_STREAM_END);
-+    EXPECT_EQ(stream.total_in, UINT64_C(2151677952));
 +    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
 +}
++#endif

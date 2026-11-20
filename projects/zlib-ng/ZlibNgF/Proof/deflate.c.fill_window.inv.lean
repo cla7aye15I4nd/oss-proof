@@ -33,7 +33,7 @@ structure WCore (st : DeflateState) : Prop where
   fe_hi : st.fill_end.toNat + 262 ≤ st.window_size.toNat
   ins : st.insert.toNat ≤ st.strstart.toNat
   bs_hi : st.block_start.toInt ≤ st.strstart.toNat
-  bs_lo : -(2 ^ 30 + 2 ^ 16) ≤ st.block_start.toInt
+  bs_lo : (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30 + 2 ^ 16
 
 /-- The window invariant of stream `s`. -/
 def WInv (h : Heap) (s : StreamPtr) : Prop := ∃ b st, DStateIs h s b st ∧ WCore st

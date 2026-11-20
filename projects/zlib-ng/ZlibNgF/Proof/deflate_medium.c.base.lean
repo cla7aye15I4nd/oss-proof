@@ -162,7 +162,7 @@ theorem slf_flush_ws (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32)
       ∀ st st2, H.dstate b = some st → H2.dstate b = some st2 → st2.w_size = st.w_size) := by
   obtain ⟨z, st, -, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨hp0, hwin⟩ := hp st hst
-  obtain ⟨hlv, -, -, h8⟩ := F.st st hst
+  obtain ⟨hlv, -, -, h8, -⟩ := F.st st hst
   obtain ⟨r, h', e, P, -⟩ := ZlibNgF.Proof.FlushBlock.flush_block_ok T last hl0 hl1 F.inv F.io F.set hz hb hst hp0 hlv
     h8 hwin
   refine ⟨r, h', e, fun st1 st2 h1 h2 => ?_⟩

@@ -204,7 +204,17 @@ theorem slowTail_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} 
     obtain rfl : pbo + sT.lit_bufsize.toNat + 8 = sbo := by injection hsb2 with e; injection e
     refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sT with
       sym_next := sT.sym_next + 3, dyn_ltree := lt, match_available := 0 }) rfl) ?_)
-    exact slowEnd_ok T E flush (slf_view F2 rfl rfl rfl hT (view_clear rfl rfl hm' rfl)) hp0 hla hpl rfl
+    exact slowEnd_ok T E flush (slf_view_gap F2 rfl rfl rfl hT (by
+      have hgapT := (C.1.st sT (SH_dstate _ _ _ _ _ _)).2.2.2.2
+      have hsn3 : (sT.sym_next + 3).toNat = sT.sym_next.toNat + 3 := by
+        obtain ⟨z1, st1, al, -, -, hst1, -, c'⟩ := C.1.live
+        obtain rfl : sT = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst1)
+        obtain ⟨-, -, -, -, hl2, -, hse⟩ := c'.sizes
+        simp only [dview] at hse hl2
+        have := UInt32.lt_iff_toNat_lt.mp hsym
+        rw [UInt32.toNat_add]; simp; omega
+      show (sT.strstart.toNat : Int) - sT.block_start.toInt ≤ 86 * (sT.sym_next + 3).toNat + (if (0 : UInt32) ≠ 0 then 1 else 0)
+      rw [hsn3]; split at hgapT <;> simp <;> omega) (view_clear rfl rfl hm' rfl)) hp0 hla hpl rfl
       (chain_keep C.1 Ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (Nat.le_refl _) fun pbo' hpb' j hj => by
         rw [hpb] at hpb'
         obtain rfl : pbo = pbo' := by injection hpb' with e; injection e

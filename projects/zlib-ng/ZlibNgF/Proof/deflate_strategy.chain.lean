@@ -70,7 +70,7 @@ theorem slf_flush_chain (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int
     Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun _ H2 => ChainKeep b H H2) := by
   obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨hp0, hwin⟩ := hp st hst
-  obtain ⟨hlv, -, -, h8⟩ := F.st st hst
+  obtain ⟨hlv, -, -, h8, -⟩ := F.st st hst
   exact flush_chain T last hl0 hl1 F.inv F.io F.set hz hb hst hp0 hlv h8 hwin
 
 end ZlibNgF.Proof.StrategyChain
