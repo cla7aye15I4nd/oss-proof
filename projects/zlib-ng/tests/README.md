@@ -102,6 +102,12 @@ AddressSanitizer). It was shown through documented calls only (public API) on th
 differential test covers the refusal it adds (`gzfwrite` lengths above `GZ_OFF_MAX`, refused before the buffer is
 read).
 
+Patch 0023 (`gzungetc`'s position) has no case here either: no run of documented calls can tell the patched build
+from the unpatched one in reasonable time. The cycle that lowers `x.pos` (push until the buffer is full, the failed
+push, `gzclearerr`) is the same in both (the patch acts only at its bound), and the bound is reached only after about `2^63` pushes. The mechanism
+was shown once on the real C (findings page); the `gz` differential test covers `gzungetc` below the bound, where
+the patch changes nothing.
+
 32-bit guards: `gzwrite-position-32bit` builds the source with `-m32 -D_FILE_OFFSET_BITS=64` (32-bit `size_t`, 64-bit
 file offsets) and writes one byte at position `2^32 - 1` (documented calls only: `gzdopen` of `/dev/null` for
 transparent writing, `gzbuffer`, `gzseek`, `gzwrite`, `gztell`, `gzerror`). With every current patch the write
