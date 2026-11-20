@@ -102,7 +102,8 @@ def gz_comp (state : GzPtr) (flush : Int32) : G Int32 := do
     wrG state fun s => { s with reset := 1 }
   return 0
 
-/-- `static int gz_zero(gz_state *state)` (`gzwrite.c:127-158`). -/
+/-- `static int gz_zero(gz_state *state)` (`gzwrite.c:127-158`, with patch 0022: each batch is taken off `skip` when
+it is added to `x.pos`, before `gz_comp` writes it, so that a failed write keeps `x.pos + skip`). -/
 def gz_zero (state : GzPtr) : G Int32 := do
   let strm ← strmOf state
   if (← rdG state (·.size)) == 0 then
@@ -126,10 +127,10 @@ def gz_zero (state : GzPtr) : G Int32 := do
       lm (wrZ strm fun z => { z with next_in := i })
       let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + n.toNat))
       wrG state fun st => { st with pos := np }
-      if (← gz_comp state Z_NO_FLUSH) == -1 then
-        return (first, .ret)
       let sk ← lm (chkI64 ((← rdG state (·.skip)).toInt - n.toNat))
       wrG state fun st => { st with skip := sk }
+      if (← gz_comp state Z_NO_FLUSH) == -1 then
+        return (first, .ret)
       return (first, .go))
     (fun (s : Int32 × Ctl) => do
       if s.2 != .go then return (false, s)
@@ -147,7 +148,8 @@ structure WriteLoop where
 
 /-- `static size_t gz_write(gz_state *state, void const *buf, size_t len)` (`gzwrite.c:162-219`, with patch 0014:
 after the direct path, and when it fails, `strm.next_in` is `state->in` and `strm.avail_in` is 0; with patch 0017: a
-write that would move `x.pos` past `GZ_OFF_MAX` is refused with `Z_DATA_ERROR`). -/
+write that would move `x.pos` past `GZ_OFF_MAX` is refused with `Z_DATA_ERROR`, comparing `len` and the room left in
+64 bits). -/
 def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   let put := len
   if len == 0 then
@@ -158,6 +160,8 @@ def gz_write (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   if (← rdG state (·.skip)) != 0 then
     if (← gz_zero state) == -1 then
       return 0
+  -- `(uint64_t)len > (uint64_t)(GZ_OFF_MAX - state->x.pos)`: on LP64 `size_t` is `uint64_t`, so `(uint64_t)len` is
+  -- `len`, and `(uint64_t)` of the signed difference is `Int64.toUInt64`.
   let room ← lm (chkI64 (GZ_OFF_MAX.toInt - (← rdG state (·.pos)).toInt))
   if len > room.toUInt64 then
     gz_error state Z_DATA_ERROR (← (gzLit "write position does not fit in z_off64_t"))
