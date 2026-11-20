@@ -11,6 +11,7 @@ import ZlibNgF.ZlibNg.«compress.c»
 import ZlibNgF.Spec.Safety.Deflate
 import ZlibNgF.Proof.«deflate.c.copy»
 import ZlibNgF.Proof.«deflate.c.reach»
+import ZlibNgF.Proof.«deflate.c.side»
 import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Gz
