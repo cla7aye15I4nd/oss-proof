@@ -514,7 +514,7 @@ theorem slf_table {h H : Heap} {i b : Nat} (F : SLF h i b H)
 /-- `StratPost` from `SLF` and the exit facts, for a strategy entered at a level other than 1, with `LazyOk` after
 from `LazyOk` at entry; the symbols need to be gone after a flush only when the output has room. -/
 theorem slf_postW {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
+    (hx : ExitIO H i flush bs) (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
     (hL : ∀ st0, h.dstate b = some st0 → LazyOk st0 → ∀ st, H.dstate b = some st →
       LazyOk st ∧ (bs = .block_done → st.match_available = 0))
     (hs : ∀ st, H.dstate b = some st → st.sym_next < st.sym_end ∧
@@ -526,7 +526,9 @@ theorem slf_postW {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
-    stateBlock_keep F.blk0 F.blk, fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
+    stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
+    fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0),
+    fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e

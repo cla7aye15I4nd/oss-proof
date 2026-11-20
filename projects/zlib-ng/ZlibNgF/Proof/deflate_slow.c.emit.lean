@@ -158,7 +158,9 @@ theorem slowLit2_ok {h H1 : Heap} {i b wo : Nat} {z1 : ZStream} {sB : DeflateSta
   by_cases ha : (z1.avail_out == 0) = true
   · rw [ite_eq_left_of_eq_true _ _ (eq_true ha)]
     have ha' : ¬ z1.avail_out ≠ 0 := by simpa using ha
-    refine Sat.pure ⟨⟨slf_postW F2 flush .need_more (fun st0 h0 => (tab_lv (E.tab st0 h0).1).2.1)
+    refine Sat.pure ⟨⟨slf_postW F2 flush .need_more
+      (exitIO_nm (o0_of fun z5 h5 => by
+        rw [SH_streams] at h5; obtain rfl := Option.some.inj h5; simpa using ha)) (fun st0 h0 => (tab_lv (E.tab st0 h0).1).2.1)
       (fun _ _ _ st hst => ?_) (fun st hst => ?_), fun st d hst hd => ?_⟩, by simp [RM]⟩
     · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst)
       exact ⟨Lz, fun e => by cases e⟩
@@ -305,7 +307,7 @@ theorem slowDist3_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream}
   | true =>
     refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T 0 (by decide) (by decide) F' hp)
       (slf_flush_keep T 0 (by decide) (by decide) F' hp)) ?_)
-    rintro r H2 ⟨⟨hav, F2, hs2, hn2, hsm⟩, hk2⟩
+    rintro r H2 ⟨⟨hav, F2, hs2, hn2, hsm, hcf⟩, hk2⟩
     obtain ⟨H1, z2, s2, d2, rfl⟩ := slf_sh F2
     obtain ⟨st2, hst2, K, hpb2⟩ := hk2 _ (SH_dstate _ _ _ _ _ _)
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst2)
@@ -335,7 +337,7 @@ theorem slowDist3_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream}
         omega
     | some v =>
       obtain ⟨rfl⟩ := Option.some.inj (hsm (by simp))
-      refine Sat.pure ⟨⟨slf_postW F2 flush _ (fun st0 h0 => (tab_lv (E.tab st0 h0).1).2.1)
+      refine Sat.pure ⟨⟨slf_postW F2 flush _ (exitIO_nm (hcf (by simp))) (fun st0 h0 => (tab_lv (E.tab st0 h0).1).2.1)
         (fun _ _ _ st hst => ?_) (fun st hst => ?_), fun st d hst hd => ?_⟩, by simp [RM]⟩
       · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst)
         exact ⟨L2, fun e => by simp at e⟩
