@@ -96,11 +96,12 @@ def StratKeeps (st st' : DeflateState) : Prop :=
 
 /-- The state in which `deflate` calls a strategy: the invariant, the CRC tables, valid and set buffers, a valid
 `flush` (`Z_NO_FLUSH` .. `Z_BLOCK`), no pending bytes (`deflate` flushed them, or returned), the header written
-(`status` is `BUSY_STATE` or `FINISH_STATE`, so the invariant allows tallied symbols), `SymsOk` and `LazyOk`. -/
+(`status` is `BUSY_STATE` or `FINISH_STATE`, so the invariant allows tallied symbols), `SymsOk`, `LazyOk`, and
+`last_flush` a flush value (`deflate` sets `s->last_flush = flush` before it dispatches). -/
 def StratPre (h : Heap) (s : StreamPtr) (flush : Int32) : Prop :=
   DInv h s ∧ CrcGlobals h ∧ DStreamIO h s ∧ DBufsSet h s ∧ 0 ≤ flush ∧ flush ≤ 5 ∧
     ∃ b st, DStateIs h s b st ∧ st.pending = 0 ∧ (st.status = BUSY_STATE ∨ st.status = FINISH_STATE) ∧ SymsOk st ∧
-      LazyOk st
+      LazyOk st ∧ 0 ≤ st.last_flush
 
 /-- The output buffer of stream `i` in `H` is a tail of its output buffer in `h`. -/
 def OutTail (h H : Heap) (i : Nat) : Prop :=
