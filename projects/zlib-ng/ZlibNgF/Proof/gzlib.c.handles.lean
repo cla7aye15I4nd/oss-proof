@@ -1,5 +1,6 @@
 import ZlibNgF.Proof.«gzread.c.close»
 import ZlibNgF.Proof.«gzlib.c.seek64»
+import ZlibNgF.Proof.«gzread.c.lookspec»
 
 /-!
 # The induction over reachable files, and the goals proved on every handle (`ZlibNgF`)
@@ -24,7 +25,6 @@ structure GReadPending : Prop where
   getc_ : KeepsR SGetc_
   ungetc : KeepsR SUngetc
   gets : KeepsR SGets
-  direct : KeepsR SDirect
 
 theorem step_keeps (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
     (hv : GzInvR w h f ∨ GzInvWS w h f) (hs : GzStep w h w' h' f) : GzInvR w' h' f ∨ GzInvWS w' h' f := by
@@ -38,7 +38,7 @@ theorem step_keeps (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {
     · exact R.getc_ _ _ _ _ _ hv x
     · exact R.ungetc _ _ _ _ _ hv x
     · exact R.gets _ _ _ _ _ hv x
-    · exact R.direct _ _ _ _ _ hv x
+    · exact direct_keepsR _ _ _ _ _ hv x
     · exact wstep_keepsR _ _ _ _ _ hv (Or.inl x)
     · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inl x))
     · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inl x)))
@@ -237,5 +237,15 @@ theorem gzseek_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzseek_safe
   · obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
     obtain ⟨r, w', h', e, -, g⟩ := gzseek_of (gzseek64_write hv hs off wh)
     exact ⟨r, w', h', e, g.frame⟩
+
+theorem gzdirect_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzdirect_safety := by
+  intro w h f _ hh
+  rcases handle W R hh with rfl | hv | hv
+  · exact ⟨0, w, h, rfl, gzframe_refl w h none []⟩
+  · obtain ⟨b, s, rfl, -, -, -⟩ := hv.1
+    obtain ⟨r, w', h', e, -, g⟩ := (gzdirect_read hv).run
+    exact ⟨r, w', h', e, g.frame⟩
+  · obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+    exact ⟨_, _, _, gzdirect_write hs (modeOf hs hv.2.1), gzframe_refl w h _ []⟩
 
 end ZlibNgF.Proof.GzMode

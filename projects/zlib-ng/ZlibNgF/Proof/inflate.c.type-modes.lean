@@ -42,20 +42,21 @@ theorem bytebits_le (b : UInt8) : (b - (b &&& 7)).toNat ≤ b.toNat := by
 
 /-- `RESTORE()`: the locals go back into the stream and the state. -/
 theorem LI.restore {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) :
-    SatX H l (RESTORE E.c) (fun r l' H' => r = .ok ⟨⟩ ∧ l' = l ∧ ∃ z' S', LI E l H' z' S' ∧ S'.mode = S.mode) := by
+    SatX H l (RESTORE E.c) (fun r l' H' => r = .ok ⟨⟩ ∧ l' = l ∧ ∃ z' S', LI E l H' z' S' ∧ S'.mode = S.mode ∧
+      z'.next_in = l.next ∧ z'.avail_in = l.have_ ∧ z'.next_out = l.put ∧ z'.avail_out = l.left) := by
   unfold RESTORE
   refine SatX.bind (SatX.get ?_)
-  refine SatX.bind (SatX.lift (Sat.mono (li.wrZ (fun z => { z with
+  refine SatX.bind (SatX.lift (Sat.mono (li.wrZio (fun z => { z with
     next_out := l.put
     avail_out := l.left
     next_in := l.next
-    avail_in := l.have_ }) rfl rfl rfl) ?_))
+    avail_in := l.have_ }) rfl rfl rfl (SAcc.of_locals li.inAt li.outAt rfl rfl rfl rfl)) ?_))
   intro _ H1 li1
   have hb : l.bits.toUInt32 ≤ 39 := by
     have := li.bits; rw [UInt8.le_iff_toNat_le] at this
     rw [UInt32.le_iff_toNat_le, UInt8.toNat_toUInt32]; exact this
   exact SatX.lift (Sat.mono (li1.wrS (fun s => { s with hold := l.hold, bits := l.bits.toUInt32 })
-    (fun _ _ c => { c with bits := hb }) rfl) (fun _ H2 li2 => ⟨rfl, rfl, _, _, li2, rfl⟩))
+    (fun _ _ c => { c with bits := hb }) rfl) (fun _ H2 li2 => ⟨rfl, rfl, _, _, li2, rfl, rfl, rfl, rfl, rfl⟩))
 
 /-! ## `HCRC` -/
 
@@ -179,8 +180,9 @@ theorem run_DICT (E : Env) (hX : ModeRun E inflate_TYPE (·.mode = TYPE)) :
   dsimp (config := { zeta := false }) only
   split
   · refine SatX.bind (SatX.mono li.restore ?_)
-    rintro r l1 H1 ⟨rfl, rfl, z1, S1, li1, -⟩
-    exact SatX.bind (SatX.throw ⟨⟨li1.inv, li1.frame, _, _, li1.hz, li1.hb, li1.hs, li1.head⟩, by decide, by decide⟩)
+    rintro r l1 H1 ⟨rfl, rfl, z1, S1, li1, -, hn, ha, hpo, hao⟩
+    exact SatX.bind (SatX.throw ⟨⟨li1.inv, li1.frame, _, _, li1.hz, li1.hb, li1.hs, li1.head⟩,
+      li1.ioAcc, Or.inl rfl⟩)
   · refine SatX.bind (SatX.lift (Sat.mono (li.wrS (fun s => { s with check := ADLER32_INITIAL_VALUE })
       (fun _ _ c => c) rfl) ?_))
     intro _ H1 li1

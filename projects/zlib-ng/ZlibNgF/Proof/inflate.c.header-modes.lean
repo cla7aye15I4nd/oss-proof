@@ -22,7 +22,7 @@ theorem rank_le (m : UInt32) : rank m ≤ 31 := Nat.min_le_left _ _
 
 /-- A trip that ends normally below the measure. -/
 theorem post_ok {E : Env} {m : Nat} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
-    (h : μ l S < m) : Post E m (.ok ()) l H := ⟨z, S, li, h⟩
+    (h : μ l S < m) : Post E m (.ok ()) l H := ⟨z, S, Or.inl li, h⟩
 
 /-- The zlib header after the gzip test and the `head->done` store (the code of `inflate_HEAD` from
 `if (!(state->wrap & 1) || ...)` on). -/
