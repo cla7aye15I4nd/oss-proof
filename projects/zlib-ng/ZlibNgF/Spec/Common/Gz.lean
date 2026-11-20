@@ -25,9 +25,9 @@ read loops count at most a few iterations per byte of input still to come, plus 
 An endless input (a pipe whose writer never stops) is outside the model; on it `gzread` may not return, as any reader
 would not.
 
-**Positions.** `x.pos` is kept below `2^63` by the code (patches 0004, 0016, 0017 and 0022), not by `GzWF`: the input
+**Positions.** `x.pos` is kept below `2^63` by the code (patches 0002, 0013, 0014 and 0019), not by `GzWF`: the input
 bound does not limit a writer's position, which grows with every write, failed ones included. On a reader the library
-also keeps `x.pos + x.have ≤ GZ_OFF_MAX` (patch 0016), so the caller's `gzgetc()` macro, which adds to `x.pos` without
+also keeps `x.pos + x.have ≤ GZ_OFF_MAX` (patch 0013), so the caller's `gzgetc()` macro, which adds to `x.pos` without
 a test, cannot overflow it: `GzGetcMacro` has no condition on the position.
 
 **`lseek` results.** POSIX `lseek` returns the resulting offset or `-1`. `GzWF` admits every oracle value of that
@@ -100,7 +100,7 @@ def GzOut (w : World) (h : Heap) (f : GzPtr) (p : BPtr) (n : Nat) : Prop :=
   n = 0 ∨ (WriteSlice h p n ∧ OutsideGz w h f p)
 
 /-- The caller's `gzgetc()` macro on `f` (`zlib.h`): with bytes available, `have--`, `pos++` and `next++`; nothing else
-changes. No condition on `pos`: the library keeps `pos + have ≤ GZ_OFF_MAX` between calls (patch 0016), so `pos++`
+changes. No condition on `pos`: the library keeps `pos + have ≤ GZ_OFF_MAX` between calls (patch 0013), so `pos++`
 does not overflow on a reachable file (proved, not assumed). -/
 def GzGetcMacro (w : World) (h : Heap) (w' : World) (h' : Heap) (f : GzPtr) : Prop :=
   ∃ b s nx, f = some b ∧ w.gz h b = some s ∧ s.«have» ≠ 0 ∧ s.next = .val nx ∧

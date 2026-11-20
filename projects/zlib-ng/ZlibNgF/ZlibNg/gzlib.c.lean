@@ -3,7 +3,7 @@ import ZlibNgF.ZlibNg.«gzguts.h»
 /-!
 # `gzlib.c` — functions common to reading and writing gzip files (`ZlibNgF`)
 
-Source: `zlib-ng/gzlib.c` with patch 0004 (`gzseek64`); `ZLIB_COMPAT`, x86_64 Linux LP64 (`LSEEK` is `lseek64`,
+Source: `zlib-ng/gzlib.c` with patch 0002 (`gzseek64`); `ZLIB_COMPAT`, x86_64 Linux LP64 (`LSEEK` is `lseek64`,
 `O_CLOEXEC` and `O_EXCL` defined, no `WIDECHAR`, no `_WIN32`, no `O_BINARY`). `gzclose` calls `gzclose_r` /
 `gzclose_w` and is in `gzlib.c.gzclose.lean`, after the translations of `gzread.c` and `gzwrite.c`.
 
@@ -88,7 +88,7 @@ def gz_buffer_free (state : GzPtr) : G Unit := do
   wrG state fun s => { s with «in» := .val .null }
   wrG state fun s => { s with size := 0 }
 
-/-- `int Z_INTERNAL gz_buffer_alloc(gz_state *state)` (`gzlib.c:75-102`, with patch 0015: the null check comes before
+/-- `int Z_INTERNAL gz_buffer_alloc(gz_state *state)` (`gzlib.c:75-102`, with patch 0012: the null check comes before
 `state->out = state->buffers + in_size`). -/
 def gz_buffer_alloc (state : GzPtr) : G Int32 := do
   let want ← rdG state (·.want)
@@ -270,7 +270,7 @@ def gzrewind (file : GzPtr) : G Int32 := do
   return 0
 
 /-- `z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence)` (`gzlib.c:388-467` with patch
-0004). The locals `n` and `ret` are written before they are read. -/
+0002). The locals `n` and `ret` are written before they are read. -/
 def gzseek64 (file : GzPtr) (offset : Int64) (whence : Int32) : G Int64 := do
   if file == none then
     return -1

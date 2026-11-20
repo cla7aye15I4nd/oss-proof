@@ -9,7 +9,7 @@ structure. These are statements about translated C functions, to be proved as th
 * `TableFacts`: `zng_inflate_table` (`inftrees.c`) as `CODELENS` and `LENLENS` call it: no fault, it writes only the
   `codes` and `work` arrays of the state (the entries before the table start unchanged), and on success the region
   `[o, o')` it returns is a `CodeTable` (`Proof/inflate.c.tables.lean`) with the returned root bits;
-* `FastFacts`: `inflate_fast_c` / `inflate_fast_safe_c` (`inffast_tpl.h`) as `LEN` calls them (patch 0010: fewer than
+* `FastFacts`: `inflate_fast_c` / `inflate_fast_safe_c` (`inffast_tpl.h`) as `LEN` calls them (patch 0007: fewer than
   8 bits held): no fault, they advance `next_in` / `next_out` by what they consume / produce, write only the output
   buffer `[next_out, next_out + avail_out)` (no other byte block changes, and the output block keeps its size), the stream record and the state's `mode`, `hold`, `bits`, `length`,
   `was`, `offset`; they leave `LEN`, `TYPE` or `BAD`, or (the safe variant, a match longer than the room left,

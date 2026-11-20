@@ -7,7 +7,7 @@ import ZlibNgF.Proof.«match_tpl.h.safety»
 Heap-free facts about one trip of `deflate_slow` (`deflate_slow.c:31-152`):
 
 * `ml_cases`: the match length that the trip keeps (`match_len`, after the `match_discard` test and the test of patch
-  0019 that `match_start` lies before `strstart`), when it is `STD_MIN_MATCH` or more, is either at most a pending
+  0016 that `match_start` lies before `strstart`), when it is `STD_MIN_MATCH` or more, is either at most a pending
   `prev_length` (the trip tallies the pending match) or a fresh match of at most `STD_MAX_MATCH` bytes within the
   lookahead, starting at `match_start` with `limit_base <= match_start < strstart`;
 * `lazy_step`: `LazyOk` after the two branches that advance `strstart` by one with `prev_length = match_len`.

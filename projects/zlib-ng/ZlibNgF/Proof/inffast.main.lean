@@ -10,7 +10,7 @@ fault and ends in `FastPost`: the exact stream and state records it leaves, the 
 inequality, and the frame (only the output bytes `[next_out, next_out + avail_out)`, the stream record and the state
 change). The entry code establishes `EnvOK`; the main loop is `loop_step`; the epilogue moves `in` back by
 `bits >> 3` bytes, which stays inside the input because `bits ≤ 8 * (in - next_in) + bits0` and `bits0 < 8`
-(patch 0010).
+(patch 0007).
 -/
 
 set_option autoImplicit false

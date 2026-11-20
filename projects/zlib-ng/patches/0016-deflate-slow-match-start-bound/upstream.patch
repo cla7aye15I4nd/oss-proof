@@ -1,0 +1,33 @@
+From 4d8525ce191c3cb033ed8b249209eff6fe11c74d Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Thu, 19 Nov 2026 22:59:05 -0800
+Subject: [PATCH] Reject matches in deflate_slow() that do not start before
+ strstart
+
+After Z_FULL_FLUSH (or deflateReset()) prev[] keeps positions of earlier input,
+and the offset search of the slow matcher can accept a stale position ahead of
+strstart; deflate_slow() then tallied a wrapped distance and d_code() read far
+outside dist_code. Treat a match with match_start >= strstart as no match, as
+deflate_medium() already does.
+---
+ deflate_slow.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/deflate_slow.c b/deflate_slow.c
+index 1d5fbcf..783cf32 100644
+--- a/deflate_slow.c
++++ b/deflate_slow.c
+@@ -74,9 +74,10 @@ Z_INTERNAL block_state deflate_slow(deflate_state *s, int flush) {
+             s->prev_length = prev_length;
+             /* longest_match() sets match_start */
+ 
+-            if (match_len <= match_discard) {
+-                /* Match not long enough, treat it as no match found, which makes a garbage
+-                 * match_start that is harmless. */
++            if (match_len <= match_discard || s->match_start >= s->strstart) {
++                /* Match not long enough, or not behind strstart (a hash chain that a strategy without
++                 * full insertion left from before a reset of strstart can lead longest_match there),
++                 * treat it as no match found, which makes a garbage match_start that is harmless. */
+                 match_len = STD_MIN_MATCH - 1;
+             }
+         }

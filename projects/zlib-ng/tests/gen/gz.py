@@ -15,15 +15,15 @@ them, a failure (F<errno>), a short read or write (S<k>), device data for a read
 
 A schedule entry A<k> makes the library's malloc call number k of the line (0-based) return NULL.
 
-Every input on which the C ran into undefined behaviour before patches 0014-0016 is generated: write errors on the
+Every input on which the C ran into undefined behaviour before patches 0011-0013 is generated: write errors on the
 direct path of gz_write followed by further writes, flushes and closes, gzclearerr after write errors, allocation
 failures (gz_state, path, buffers, inflate and deflate state, error message), reads after gzseek to near 2^63,
-gzdirect while a seek is pending (patch 0020), gzgets while a seek is pending at the end of a file that grows
-(patch 0021), and failed writes of the zeros of a forward seek in write mode followed by gztell, gzclearerr and more
-writes (patch 0022).
-gzseek after gzungetc at the start and refused seeks show patch 0004's results (upstream's on every input that does
+gzdirect while a seek is pending (patch 0017), gzgets while a seek is pending at the end of a file that grows
+(patch 0018), and failed writes of the zeros of a forward seek in write mode followed by gztell, gzclearerr and more
+writes (patch 0019).
+gzseek after gzungetc at the start and refused seeks show patch 0002's results (upstream's on every input that does
 not overflow).
-Patch 0017 refuses a write past GZ_OFF_MAX before it reads the buffer: gzfwrite lengths above it are generated with
+Patch 0014 refuses a write past GZ_OFF_MAX before it reads the buffer: gzfwrite lengths above it are generated with
 a one-byte buffer (nothing else can reach that position in a test's time).
 """
 import random
@@ -192,7 +192,7 @@ for m in ("w", "wT"):
                ["seek:100:0", "printf:d:5", "tell"], ["seek:100:0", "puts:4142", "tell"], ["seek:40:0", "params:1:0", "tell"],
                ["seek:20:0", "closew"], ["rewind"]):
         line(None, [], ["openg:" + m, "buffer:16"] + sk + ["error", "close"])
-# a failed write of the zeros of a forward seek, then gztell, gzclearerr and the write again (patch 0022)
+# a failed write of the zeros of a forward seek, then gztell, gzclearerr and the write again (patch 0019)
 line(None, ["1:F11", "2:F11", "3:F11"], ["openg:wT", "buffer:16", "seek:9223372036854775807:0", "write:41", "tell",
                                           "error", "seek:0:1", "close"])
 for m in ("w", "wT", "w1"):
@@ -241,7 +241,7 @@ for m in ("w", "wT"):
                            "close"])
         line(None, sched, ["openg:" + m, "buffer:64", "puts:" + hx(text(30)), "printf:d:5", "close", "error"])
 
-# ---- write errors on the direct path (patch 0014), then more writes, gzclearerr, flushes and closes ----
+# ---- write errors on the direct path (patch 0011), then more writes, gzclearerr, flushes and closes ----
 for m in ("w", "wT", "w1", "w0"):
     for sched in (["1:F28"], ["1:S3"], ["2:F5"], ["1:F11"], ["1:S0"], ["3:F5"]):
         line(None, sched, ["openg:" + m, "buffer:8", "writen:100:-1", "error", "clearerr", "write:41", "putc:66",
@@ -273,7 +273,7 @@ for a, b in ((0, 1), (1, 2), (2, 3), (3, 4), (2, 4), (4, 5), (1, 3)):
     line(None, A, ["openg:w", "write:41", "error", "write:42", "error", "close"])
     line(None, ["1:F5"] + A, ["openg:w", "buffer:8", "writen:30:-1", "error", "close", "error"])
 
-# ---- reads after gzseek to near 2^63 (patch 0016): device data from a descriptor whose lseek moves freely ----
+# ---- reads after gzseek to near 2^63 (patch 0013): device data from a descriptor whose lseek moves freely ----
 t = text(300)
 dev = ["%d:B%s" % (i, hx(rnd(25))) for i in range(3, 16)]
 for b in (8, 64):
@@ -287,7 +287,7 @@ for b in (8, 64):
                 ["read:3", "seek:9223372036854775797:0", "fread:3:4", "tell", "fread:1:5", "tell"],
                 ["read:3", "seek:9223372036854775800:0", "ungetc:65", "ungetc:66", "tell", "read:20", "tell", "getc"]):
         line(t, dev, ["open:r", "buffer:%d" % b] + ops + ["error", "close"])
-# the output buffer never holds bytes past GZ_OFF_MAX (patch 0016): a read just below it, then single bytes, lines
+# the output buffer never holds bytes past GZ_OFF_MAX (patch 0013): a read just below it, then single bytes, lines
 # and reads at it (Z_DATA_ERROR there)
 for b in (8, 64):
     line(t, dev, ["open:r", "buffer:%d" % b, "read:3", "seek:9223372036854775795:0", "read:1", "tell"] + ["getc"] * 13 +
@@ -298,7 +298,7 @@ for c in (gz(text(2000)), gz(b"short")):
     line(c, [], ["open:r", "buffer:8", "seek:9223372036854775807:0", "read:5", "tell", "getc", "gets:5", "eof", "error",
                  "close"])
 
-# ---- gzseek64 (patch 0004): refused exactly where upstream's arithmetic overflows; every other seek, refused or not,
+# ---- gzseek64 (patch 0002): refused exactly where upstream's arithmetic overflows; every other seek, refused or not,
 # leaves upstream's result and state (a SEEK_CUR before the start drops the pending skip; after gzungetc at the start a
 # negative target is sought, not refused) ----
 for c in (gz(text(2000)), text(2000)):
@@ -325,7 +325,7 @@ for b in (8, 64):
     line(t, dev, ["open:r", "buffer:%d" % b, "getc", "seek:9223372036854775797:0", "getc", "tell", "seek:0:0", "tell",
                   "read:4", "tell", "seek:2:1", "tell", "getc", "error", "close"])
 
-# ---- gzdirect while a seek is pending (patch 0020): the output gz_look buffers is skipped first ----
+# ---- gzdirect while a seek is pending (patch 0017): the output gz_look buffers is skipped first ----
 for c in (text(300), b"hello, world\n", gz(text(300))):
     for b in (8, 64, None):
         pre = [] if b is None else ["buffer:%d" % b]
@@ -336,7 +336,7 @@ for c in (text(300), b"hello, world\n", gz(text(300))):
                     ["seek:3:1", "direct", "seek:4:1", "direct", "getc", "tell"]):
             line(c, [], ["open:r"] + pre + ops + ["error", "close"])
 
-# ---- gzgets while a seek is pending after the end of file (patch 0021): the file has grown (device data for the
+# ---- gzgets while a seek is pending after the end of file (patch 0018): the file has grown (device data for the
 # read after the one that returned 0); gzgets does not fetch before the skip is done ----
 for sk in ("9223372036854775807", "5", "2"):
     for ops in (["seek:%s:0" % sk, "direct", "gets:16", "tell", "gets:16", "tell"],
@@ -349,7 +349,7 @@ for sched in ([], ["4:B64650a"]):
     line(b"abc", sched, ["open:r", "read:8", "gets:16", "tell", "eof", "close"])
     line(b"abc", sched, ["open:r", "direct", "gets:16", "tell", "eof", "close"])
 
-# ---- a write that would move the position past GZ_OFF_MAX is refused (patch 0017); the driver's buffer is not read ----
+# ---- a write that would move the position past GZ_OFF_MAX is refused (patch 0014); the driver's buffer is not read ----
 for m in ("w", "wT"):
     for ops in (["fwrite:1:9223372036854775808:41"], ["fwrite:3:3074457345618258603:41"],
                 ["write:4142", "fwrite:1:9223372036854775806:41"], ["seek:5:0", "fwrite:1:9223372036854775803:41"]):

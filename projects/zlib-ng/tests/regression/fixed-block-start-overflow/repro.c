@@ -1,4 +1,4 @@
-/* Patch 0018. fill_window lowers block_start by slide_len at every slide (deflate.c:1274); only a block flush
+/* Patch 0015. fill_window lowers block_start by slide_len at every slide (deflate.c:1274); only a block flush
  * (FLUSH_BLOCK*, quick_end_block) raises it again. deflate_quick with strategy Z_FIXED (level 1) emits
  * static-tree symbols into one block that stays open until a flush or the end of the stream, so one Z_NO_FLUSH
  * stream of 2^31 + 2^22 bytes (1 MiB chunks of low-entropy data, output discarded, then Z_FINISH) takes

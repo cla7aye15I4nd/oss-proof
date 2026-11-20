@@ -3,7 +3,7 @@ import ZlibNgF.Proof.«gzread.c.getc»
 /-!
 # `gzgets` on a read handle (`ZlibNgF`)
 
-With patch 0021: a pending skip is done first (`gz_skip`); then each round fetches output when there is none and no
+With patch 0018: a pending skip is done first (`gz_skip`); then each round fetches output when there is none and no
 skip is pending (`gz_fetch`), looks for a newline in the next `n = min(x.have, left)` bytes (`memchr`), copies up
 to and including it into the caller's buffer and consumes it. Every copy stays inside `buf[0, len - 1)`, so the
 terminating zero lands at `buf[k]` with `k <= len - 1`. `x.pos + n` does not overflow because `n <= x.have` and a read

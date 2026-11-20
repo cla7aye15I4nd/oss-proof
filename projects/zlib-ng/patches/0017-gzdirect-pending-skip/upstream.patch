@@ -1,0 +1,42 @@
+From 5f3f7dc8b5c17aa49e0407f4e1b1437f39d15a40 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Thu, 19 Nov 2026 23:45:55 -0800
+Subject: [PATCH] Skip buffered output covered by a pending seek in gzdirect()
+
+gzdirect() after gzseek() left output buffered while a skip was pending;
+gzgetc() then returned bytes from before the position sought and gztell()
+overflowed computing x.pos + skip. Drain the buffered bytes the skip covers,
+as gzseek() and gz_skip() do.
+---
+ gzread.c | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/gzread.c b/gzread.c
+index e6fdedd..ee6fe5a 100644
+--- a/gzread.c
++++ b/gzread.c
+@@ -607,9 +607,23 @@ z_int32_t Z_EXPORT PREFIX(gzdirect)(gzFile file) {
+ 
+     /* if the state is not known, but we can find out, then do so (this is
+        mainly for right after a gzopen() or gzdopen()) */
+-    if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0)
++    if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0) {
+         (void)gz_look(state);
+ 
++        /* a pending seek comes before the data gz_look() just put in the
++           output buffer: skip what is there (gzgetc() takes bytes from the
++           output buffer without checking for a skip request) */
++        if (state->skip && state->x.have) {
++            unsigned n = GT_OFF(state->x.have) ||
++                (z_off64_t)state->x.have > state->skip ?
++                (unsigned)state->skip : state->x.have;
++            state->x.have -= n;
++            state->x.next += n;
++            state->x.pos += n;
++            state->skip -= n;
++        }
++    }
++
+     /* return 1 if transparent, 0 if processing a gzip stream */
+     return state->direct == 1;
+ }

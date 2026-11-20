@@ -5,7 +5,7 @@ import ZlibNgF.Proof.«chunkset.mem»
 /-!
 # `gz_zero` (`ZlibNgF`)
 
-`gz_zero_spec`: on a write handle with a pending skip, `gz_zero` (with patch 0022) returns, keeps the invariant
+`gz_zero_spec`: on a write handle with a pending skip, `gz_zero` (with patch 0019) returns, keeps the invariant
 `GzInvWS`, is a step of the file, keeps `x.pos + skip` and the fields of `ZFix`, and on success leaves no skip and
 the buffers made. Each batch of zeros is taken off `skip` when it is added to `x.pos`, before `gz_comp` writes it, so
 a failing `gz_comp` leaves `x.pos + skip` as it was; the loop ends by `skip`.

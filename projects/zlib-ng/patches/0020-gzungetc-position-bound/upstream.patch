@@ -1,0 +1,27 @@
+From 3577723e0f57906afec10010df3572f9c2bb1b13 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 02:00:18 -0800
+Subject: [PATCH] Bound the position lowered by gzungetc()
+
+A failed push keeps the lowered x.pos, and after gzclearerr() pushes start
+again, so x.pos-- overflows after about 2^63 pushes. Return -1 without pushing
+once x.pos <= -GZ_OFF_MAX.
+---
+ gzread.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/gzread.c b/gzread.c
+index a56544b..bc06d95 100644
+--- a/gzread.c
++++ b/gzread.c
+@@ -505,6 +505,10 @@ z_int32_t Z_EXPORT PREFIX(gzungetc)(z_int32_t c, gzFile file) {
+     if (c < 0)
+         return -1;
+ 
++    /* can't lower the position further (gzseek() negates a negative one) */
++    if (state->x.pos <= -GZ_OFF_MAX)
++        return -1;
++
+     /* if output buffer empty, put byte at end (allows more pushing) */
+     if (state->x.have == 0) {
+         state->x.have = 1;

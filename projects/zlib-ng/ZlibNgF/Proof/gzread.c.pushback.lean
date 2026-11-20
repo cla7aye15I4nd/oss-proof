@@ -7,7 +7,7 @@ import ZlibNgF.Proof.«gzread.c.idlespec»
 `gzungetc` first calls `gz_look` when it is looking with no output (to learn the kind of input before bytes are
 pushed), then stops on a pending error, does a pending skip (`gz_skip`) and pushes `c` in front of the output: at the
 end of `out` when there is no output, after sliding the output to the end of `out` when it starts at `out`, else just
-before `x.next`. With patch 0023 a push at `x.pos <= -GZ_OFF_MAX` is refused, so `x.pos - 1` does not overflow and
+before `x.next`. With patch 0020 a push at `x.pos <= -GZ_OFF_MAX` is refused, so `x.pos - 1` does not overflow and
 `x.pos` stays at or above `-GZ_OFF_MAX`. A push keeps `x.pos + x.have` (and `x.pos + skip + x.have`), so the position
 clauses of a read handle stay true; every pointer it forms lies inside `[out, out + 2 * size]`.
 

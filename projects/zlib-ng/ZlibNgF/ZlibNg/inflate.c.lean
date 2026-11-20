@@ -7,8 +7,8 @@ import ZlibNgF.ZlibNg.arch.generic.«chunkset_c.c»
 /-!
 # `inflate.c` — zlib decompression (`ZlibNgF`)
 
-Source: `zlib-ng/inflate.c` with patches 0003 (`inflateCopy`), 0007 (window copy in `MATCH`), 0008
-(`inflateSync`), 0009 (`inflateSetDictionary`), 0010 (fast path only with fewer than 8 bits held, in `LEN`) and 0011 (bounded
+Source: `zlib-ng/inflate.c` with patches 0001 (`inflateCopy`), 0004 (window copy in `MATCH`), 0005
+(`inflateSync`), 0006 (`inflateSetDictionary`), 0007 (fast path only with fewer than 8 bits held, in `LEN`) and 0008 (bounded
 copy into `head->extra`, in `EXTRA`); `ZLIB_COMPAT`, `GUNZIP` defined; no `INFLATE_STRICT`,
 `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR`, `S390_DFLTCC_INFLATE`, `ZLIB_DEBUG` (so `Tracev` and the hooks are
 empty, `INFLATE_NEED_CHECKSUM` / `INFLATE_NEED_UPDATEWINDOW` are 1). `bits_t` is `uint8_t` (x86_64).
@@ -1273,7 +1273,7 @@ def inflateGetDictionary (strm : StreamPtr) (dictionary : BPtr) (hasLen : Bool) 
   return (Z_OK, if hasLen then some s.whave else none)
 
 /-- `int32_t Z_EXPORT inflateSetDictionary(PREFIX3(stream) *strm, const uint8_t *dictionary, uint32_t dictLength)`
-(`inflate.c:1241-1270`, with patch 0009). -/
+(`inflate.c:1241-1270`, with patch 0006). -/
 def inflateSetDictionary (strm : StreamPtr) (dictionary : BPtr) (dictLength : UInt32) : M Int32 := do
   if ← inflateStateCheck strm then return Z_STREAM_ERROR
   let st ← stateOf strm
@@ -1310,7 +1310,7 @@ def syncsearch (have_ : UInt32) (buf : BPtr) (len : UInt32) : M (UInt32 × UInt3
     (have_, 0)
   return (got, next)
 
-/-- `int32_t Z_EXPORT inflateSync(PREFIX3(stream) *strm)` (`inflate.c:1316-1366`, with patch 0008). The local
+/-- `int32_t Z_EXPORT inflateSync(PREFIX3(stream) *strm)` (`inflate.c:1316-1366`, with patch 0005). The local
 `unsigned char buf[4]` is a Lean array; `syncsearch` over it reads its first `len` bytes. -/
 def inflateSync (strm : StreamPtr) : M Int32 := do
   if ← inflateStateCheck strm then return Z_STREAM_ERROR
@@ -1372,7 +1372,7 @@ def inflateSyncPoint (strm : StreamPtr) : M Int32 := do
   return if s.mode == STORED && s.bits == 0 then 1 else 0
 
 /-- `int32_t Z_EXPORT inflateCopy(PREFIX3(stream) *dest, PREFIX3(stream) *source)` (`inflate.c:1386-1424`, with
-patch 0003). -/
+patch 0001). -/
 def inflateCopy (dest source : StreamPtr) : M Int32 := do
   if (← inflateStateCheck source) || dest == none then return Z_STREAM_ERROR
   let st ← stateOf source

@@ -190,7 +190,7 @@ def gz_decomp (state : GzPtr) : G Int32 := do
     wrG state fun s => { s with how := LOOK }
   return 0
 
-/-- `static int gz_fetch(gz_state *state)` (`gzread.c:227-272`, with patch 0016: the output asked for is at most
+/-- `static int gz_fetch(gz_state *state)` (`gzread.c:227-272`, with patch 0013: the output asked for is at most
 `room`, which is `GZ_OFF_MAX - x.pos` when that is smaller than `UINT_MAX` and `x.pos > 0`, and at `x.pos ==
 GZ_OFF_MAX` the call fails with `Z_DATA_ERROR`). `MIN(a, b)` is `min a b`. The
 `default:` case is `Z_UNREACHABLE()` (`__builtin_unreachable()`): reaching it is undefined. `GZ_OFF_MAX - x.pos` is
@@ -276,7 +276,7 @@ structure ReadLoop where
   got : UInt64
   ctl : Ctl
 
-/-- `static size_t gz_read(gz_state *state, void *buf, size_t len)` (`gzread.c:308-388`, with patch 0016: a call
+/-- `static size_t gz_read(gz_state *state, void *buf, size_t len)` (`gzread.c:308-388`, with patch 0013: a call
 delivers at most `GZ_OFF_MAX - x.pos` bytes when `x.pos > 0`, and stops at `x.pos == GZ_OFF_MAX` with `Z_DATA_ERROR`).
 `GZ_OFF_MAX - x.pos` is evaluated only for `x.pos > 0`, where it cannot overflow; both sides of the test are converted
 to `uint64_t`. -/
@@ -405,7 +405,7 @@ structure SlideLoop where
   src : BPtr
   dest : BPtr
 
-/-- `z_int32_t Z_EXPORT PREFIX(gzungetc)(z_int32_t c, gzFile file)` (`gzread.c:457-511`, with patch 0023: no push
+/-- `z_int32_t Z_EXPORT PREFIX(gzungetc)(z_int32_t c, gzFile file)` (`gzread.c:457-511`, with patch 0020: no push
 when `x.pos <= -GZ_OFF_MAX`; the negation of the constant `GZ_OFF_MAX = 2^63 - 1` cannot overflow). -/
 def gzungetc (c : Int32) (file : GzPtr) : G Int32 := do
   if file == none then
@@ -467,7 +467,7 @@ structure GetsLoop where
   eol : BPtr
   ctl : Ctl
 
-/-- `char * Z_EXPORT PREFIX(gzgets)(gzFile file, char *buf, z_int32_t len)` (`gzread.c:541-595`, with patch 0021:
+/-- `char * Z_EXPORT PREFIX(gzgets)(gzFile file, char *buf, z_int32_t len)` (`gzread.c:541-595`, with patch 0018:
 `gz_fetch` is called only when no skip is pending). `eol` is written before it is read. -/
 def gzgets (file : GzPtr) (buf : BPtr) (len : Int32) : G BPtr := do
   if file == none || buf == .null || len < 1 then
@@ -517,7 +517,7 @@ def gzgets (file : GzPtr) (buf : BPtr) (len : Int32) : G BPtr := do
   lm (store8 (← lm (buf.add 0)) 0)
   return str
 
-/-- `z_int32_t Z_EXPORT PREFIX(gzdirect)(gzFile file)` (`gzread.c:572-588`, with patch 0020: after `gz_look`, a
+/-- `z_int32_t Z_EXPORT PREFIX(gzdirect)(gzFile file)` (`gzread.c:572-588`, with patch 0017: after `gz_look`, a
 pending skip first skips the output that `gz_look` buffered). -/
 def gzdirect (file : GzPtr) : G Int32 := do
   if file == none then

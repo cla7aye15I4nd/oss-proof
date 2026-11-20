@@ -1,4 +1,4 @@
-/* Patch 0003. inflateCopy tests whether state->lencode points into the state with a >= / <= range test;
+/* Patch 0001. inflateCopy tests whether state->lencode points into the state with a >= / <= range test;
  * after a fixed-code block lencode points into the static fixed table, so the test compares pointers into
  * different objects (ISO C17 6.5.8p5). Unpatched: an AddressSanitizer invalid-pointer-pair report (with
  * -fsanitize=pointer-compare and detect_invalid_pointer_pairs=2). Patched: no report. */

@@ -4,7 +4,7 @@ import ZlibNgF.Proof.«gzwrite.c.comp»
 # The input fields of the stream of a write handle (`ZlibNgF`)
 
 Between calls, `GzWBuf.inp` puts the input of the deflate stream inside `in` (or makes it empty). Inside `gz_write`,
-the large direct path points `next_in` into the caller's buffer and runs `gz_comp` on it (patch 0014 points it back at
+the large direct path points `next_in` into the caller's buffer and runs `gz_comp` on it (patch 0011 points it back at
 `in` afterwards). There the invariant holds of the *flat* heap, where the stream's input is empty (`flatZ`), and the
 caller's range is described apart. `setZ`: the heap with stream `i` replaced. `invWS_setIn`: a write handle with
 buffers keeps its invariant when its input fields change to ones that `GzWBuf.inp` allows.

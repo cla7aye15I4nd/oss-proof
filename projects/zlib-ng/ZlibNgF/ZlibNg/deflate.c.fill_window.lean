@@ -7,7 +7,7 @@ import ZlibNgF.ZlibNg.arch.generic.«slide_hash_c.c»
 
 Source: `zlib-ng/deflate.c:1242-1361` and the macro `HASHLESS` (`deflate.c:165-166`). This part of `deflate.c` is
 in its own module because the strategy files call `fill_window` and `deflate.c` calls the strategies; the rest of
-`deflate.c` is `deflate.c.lean`. With patch 0018, the slide lowers `block_start` only while it stays at or above
+`deflate.c` is `deflate.c.lean`. With patch 0015, the slide lowers `block_start` only while it stays at or above
 `-(2^30 + 2^16)` (`(1 << 30)` and `(1 << 16)` are the constants 1073741824 and 65536). `HAVE_QUICK_STRATEGY` is 1. `FUNCTABLE_CALL(slide_hash)` = `slide_hash_c`,
 `FUNCTABLE_CALL(slide_hash_head)` = `slide_hash_head_c`; the call `insert_batch(...)` goes through the function
 pointer read from `s->insert_batch` (`call_insert_batch`).

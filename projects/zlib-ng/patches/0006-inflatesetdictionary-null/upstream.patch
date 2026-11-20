@@ -1,0 +1,24 @@
+From 2b4c4c43420879363e9061c63471b826fda3052e Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Wed, 18 Nov 2026 18:41:27 -0800
+Subject: [PATCH] Reject a NULL dictionary in inflateSetDictionary()
+
+zlib.h documents Z_STREAM_ERROR for a NULL dictionary; on a raw stream the call
+instead computed NULL + 0, NULL - 0, called memcpy() from NULL and returned Z_OK.
+---
+ inflate.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/inflate.c b/inflate.c
+index 62de337..0a0a90b 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -1247,6 +1247,8 @@ int32_t Z_EXPORT PREFIX(inflateSetDictionary)(PREFIX3(stream) *strm, const uint8
+     if (inflateStateCheck(strm))
+         return Z_STREAM_ERROR;
+     state = (struct inflate_state *)strm->state;
++    if (dictionary == NULL)
++        return Z_STREAM_ERROR;
+     if (state->wrap != 0 && state->mode != DICT)
+         return Z_STREAM_ERROR;
+ 

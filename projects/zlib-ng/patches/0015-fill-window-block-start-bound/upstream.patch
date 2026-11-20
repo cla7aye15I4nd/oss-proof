@@ -1,0 +1,67 @@
+From b307e8071a0a67fb1ef4befbe71db0b4ef52f7ab Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Keep open fixed-block start representable during window
+ slides
+
+With strategy Z_FIXED at level 1, deflate_quick() keeps one static block open
+across slides without flushing, so more than 2 GiB of input causes fill_window()
+to decrement block_start below INT_MIN (ISO C17 6.5p5). Clamp block_start at or
+above -(2^30 + 2^16) and add an opt-in regression test.
+---
+ deflate.c                |  4 +++-
+ test/test_deflate_cve.cc | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/deflate.c b/deflate.c
+index 2cfd7d2..ad72c82 100644
+--- a/deflate.c
++++ b/deflate.c
+@@ -1271,7 +1271,9 @@ void Z_INTERNAL PREFIX(fill_window)(deflate_state *s) {
+                 s->prev_length = 0;
+             }
+             s->strstart    -= slide_len; /* we now have strstart >= MAX_DIST */
+-            s->block_start -= (int)slide_len;
++            /* Keep block_start >= -(2^30 + 2^16) so slides and strstart - block_start cannot overflow. */
++            if (s->block_start >= (int)slide_len - (1 << 30) - (1 << 16))
++                s->block_start -= (int)slide_len;
+             s->fill_end    -= slide_len;
+             if (s->insert > s->strstart)
+                 s->insert = s->strstart;
+diff --git a/test/test_deflate_cve.cc b/test/test_deflate_cve.cc
+index 2bf25e7..403abe5 100644
+--- a/test/test_deflate_cve.cc
++++ b/test/test_deflate_cve.cc
+@@ -99,3 +99,32 @@ INSTANTIATE_TEST_SUITE_P(deflate, cve_2018_25032, testing::ValuesIn(cve_2018_250
+     [](const ::testing::TestParamInfo<cve_2018_25032_param> &info) {
+         return std::string(info.param.name);
+     });
++
++TEST(deflate_quick, fixed_block_across_large_input) {
++    if (getenv("ZLIB_NG_TEST_LARGE_FIXED_BLOCK") == NULL)
++        GTEST_SKIP() << "Processes more than 2 GiB of input";
++    static uint8_t input[1 << 20], output[1 << 20];
++    for (size_t i = 0; i < sizeof(input); i++)
++        input[i] = (uint8_t)(((i * 2654435761U) >> 24) & 3);
++
++    PREFIX3(stream) stream = {};
++    ASSERT_EQ(PREFIX(deflateInit2)(&stream, 1, Z_DEFLATED, MAX_WBITS, 8, Z_FIXED), Z_OK);
++    for (unsigned chunk = 0; chunk < 2052; chunk++) {
++        stream.next_in = input;
++        stream.avail_in = sizeof(input);
++        do {
++            stream.next_out = output;
++            stream.avail_out = sizeof(output);
++            ASSERT_EQ(PREFIX(deflate)(&stream, Z_NO_FLUSH), Z_OK);
++        } while (stream.avail_in);
++    }
++    int ret;
++    do {
++        stream.next_out = output;
++        stream.avail_out = sizeof(output);
++        ret = PREFIX(deflate)(&stream, Z_FINISH);
++    } while (ret == Z_OK);
++    EXPECT_EQ(ret, Z_STREAM_END);
++    EXPECT_EQ(stream.total_in, UINT64_C(2151677952));
++    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++}

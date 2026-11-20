@@ -1,10 +1,10 @@
-/* Patch 0014. A gzwrite of at least the buffer size takes the direct path of gz_write: it points
+/* Patch 0011. A gzwrite of at least the buffer size takes the direct path of gz_write: it points
  * strm.next_in at the caller's buffer. When writing to the file fails, gz_comp returns with avail_in still nonzero,
  * so next_in keeps pointing into the caller's buffer after gzwrite has returned. After gzclearerr, the next small
  * gzwrite computes (next_in + avail_in) - state->in, a subtraction of pointers into different objects (ISO C17
  * §6.5.6p9), takes the result as the fill level of the input buffer and copies to state->in + that amount: a write
  * outside the buffer. The descriptor is opened read-only, so every write() fails (EBADF).
- * With patch 0014 gz_write leaves next_in = state->in and avail_in = 0 after the failure: the second gzwrite buffers its
+ * With patch 0011 gz_write leaves next_in = state->in and avail_in = 0 after the failure: the second gzwrite buffers its
  * byte and prints "gzwrite 0 -1 1". */
 #include <stdio.h>
 #include <stdlib.h>

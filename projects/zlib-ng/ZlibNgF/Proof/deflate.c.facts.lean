@@ -378,7 +378,7 @@ def DInvW (h : Heap) (s : StreamPtr) : Prop :=
 /-- What `fill_window` leaves: `DInvW` and a readable input; only the stream record (`next_in`, `avail_in`,
 `total_in`, `adler`) and the stream's block change; `avail_in` does not grow and drops when `lookahead` changes, and
 `lookahead` grows by at most the input taken (the window gains only input bytes); `strstart - block_start` does not grow and
-becomes 0 only if it was 0 (a slide lowers both by `slide_len`, or, patch 0018, only `strstart` when `block_start`
+becomes 0 only if it was 0 (a slide lowers both by `slide_len`, or, patch 0015, only `strstart` when `block_start`
 would fall below `-(2^30 + 2^16)`, which leaves a gap above `2^30`); at the end the lookahead is full or the input empty; the state fields that the
 callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function pointers, `sym_next`, `gzindex`,
 `last_flush`, `bi_valid`) kept; the lazy-match fields: a `prev_length` of 3 or more after is the one before, with the

@@ -6,12 +6,12 @@ import ZlibNgF.Proof.«gzwrite.c.write»
 For `len >= size`, `gz_write` points `next_in` at the caller's buffer and runs `gz_comp` on it in pieces of at most
 `2^32 - 1` bytes (`wdBody`). Between the pieces the stream holds no input and `next_in` lies in the caller's buffer,
 which `GzWBuf.inp` does not allow: the invariant holds of the *flat* heap (`flatZ`), and the caller's range is
-described apart (`WDState`). `gz_comp` is entered through `GzWX` with `CallerIn`. When `gz_comp` fails, patch 0014
+described apart (`WDState`). `gz_comp` is entered through `GzWX` with `CallerIn`. When `gz_comp` fails, patch 0011
 points `next_in` back at `in` with no input, and after the loop `gz_write` does the same, so the invariant holds of
 the actual heap again (`invWS_unflat`).
 
 Then `gz_write` itself (`gz_write_spec`): the buffers (`gz_write_init`), the pending seek (`gz_zero_spec`), the
-position bound of patch 0017 (`Z_DATA_ERROR` when `len` exceeds the room left below `GZ_OFF_MAX`), and the two paths
+position bound of patch 0014 (`Z_DATA_ERROR` when `len` exceeds the room left below `GZ_OFF_MAX`), and the two paths
 (`wmid_spec`). It keeps the invariant `GzInvWS` and is a step of the file (`WPost`), given `GzCompSpec` and
 `DeflateGz`.
 -/
@@ -367,7 +367,7 @@ theorem room_toNat (p : Int64) (h1 : 0 ≤ p.toInt) (h2 : p.toInt ≤ GZ_OFF_MAX
   rw [i64_toNat_toUInt64 _ (by omega), e]
 
 /-- **`gz_write` after the buffers are made and the pending seek is done** (`wMid`): the position bound of patch
-0017, then the buffered path (`wb_loop`) or the direct path (`wd_path`). -/
+0014, then the buffered path (`wb_loop`) or the direct path (`wd_path`). -/
 theorem wmid_spec (C : GzCompSpec) (G : DeflateGz) {w W : World} {h H : Heap} {b : Nat} {s s1 : GzState}
     (hv : GzInvWS W H (some b)) (hs : W.gz H b = some s1) (g : GStep w h W H b []) (zf : ZFix s s1)
     (hsz : s1.size ≠ 0) (hsk : s1.skip = 0) (hs0 : ∃ s0, w.gz h b = some s0) (buf : BPtr) (len put : UInt64)

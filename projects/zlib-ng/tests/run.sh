@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Differential test: for every driver listed in tests/list.txt, run the REAL C function and the Lean
-# translation on the same inputs and compare the outputs byte for byte; then run the patch reproductions.
+# translation on the same inputs and compare the outputs byte for byte; then run the patch reproductions and the
+# GoogleTest cases of the patch series.
 #
 #   ZLIB_NG_SRC=<zlib-ng checkout>  bash tests/run.sh   # builds the patched copy of zlib-ng, then tests
 #   ZLIB_NG_BUILD=<dir>             bash tests/run.sh   # reuse a copy made by build-zlib-ng.sh
-#   ONLY=<name>               run only that list entry (or ONLY=patches: only the reproductions)
+#   ONLY=<name>               run only that list entry (or ONLY=patches: only the reproductions and GoogleTest cases)
 #   SAN=1                     build zlib-ng and the C drivers with ASan+UBSan (and run them so)
 # Exit status: 0 all equal, 1 a difference (the first one is printed), 2 a setup error.
 set -euo pipefail
@@ -66,4 +67,7 @@ echo "PASS: $total inputs, C and Lean agree byte for byte"
 if [ -z "${ONLY:-}" ] || [ "$ONLY" = patches ]; then
   [ -n "$ZLIB_NG_SRC" ] || { echo "run.sh: the patch reproductions need ZLIB_NG_SRC" >&2; exit 2; }
   ZLIB_NG_SRC="$ZLIB_NG_SRC" bash "$here/regression/run.sh" || { echo "FAIL: patch reproductions" >&2; exit 1; }
+  # The GoogleTest cases of the patch series (patches/*/gtest.txt): they pass with every patch, and each marked one
+  # fails without its patch.
+  ZLIB_NG_SRC="$ZLIB_NG_SRC" bash "$here/patch-gtest.sh" || { echo "FAIL: patch GoogleTest cases" >&2; exit 1; }
 fi

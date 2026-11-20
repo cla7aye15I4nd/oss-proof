@@ -18,7 +18,7 @@ translated C code in `deflate.c.gzneeds` (`deflateGz`).
 * `done`: with a flush other than `Z_FINISH`, a `deflate` that does not return `Z_STREAM_ERROR` consumed all its
   input or filled the output (`zlib.h`: "if deflate returns with avail_out == 0, this function must be called
   again"); after the loop of `gz_comp`, which stops when no output was produced, the input is consumed, so
-  `gz_write` can point `next_in` back at `in` (patch 0014).
+  `gz_write` can point `next_in` back at `in` (patch 0011).
 * `keep` (`DKeep`): every call keeps the saved pointers of the blocks other than the stream's state block (the gz
   buffers are an aligned block whose saved pointer `zng_free_aligned` reads), `DFreshBlocks`, and registers no
   `gz_header`; a successful `deflateInit2_` puts the state into a fresh block.

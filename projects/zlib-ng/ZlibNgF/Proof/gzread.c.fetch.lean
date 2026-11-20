@@ -4,7 +4,7 @@ import ZlibNgF.Proof.«gzread.c.gets»
 /-!
 # `gz_fetch` on a read handle (`ZlibNgF`)
 
-`gz_fetch` (`gzread.c:227-272`, patch 0016) loops over `gz_look`, `gz_load` (a transparent file) and `gz_decomp` (a
+`gz_fetch` (`gzread.c:227-272`, patch 0013) loops over `gz_look`, `gz_load` (a transparent file) and `gz_decomp` (a
 gzip stream) until there is output, an error, or the end of the input. The output asked for is at most
 `room = GZ_OFF_MAX - x.pos` (when that is below `UINT_MAX`), so the output never takes `x.pos + x.have` past
 `GZ_OFF_MAX` (`PosHave`).
@@ -118,7 +118,7 @@ theorem shl1_toNat (x : UInt32) (hx : x.toNat ≤ 2 ^ 30) : (x <<< 1).toNat = 2 
   have : (1 : UInt32).toNat % 32 = 1 := rfl
   rw [this]; omega
 
-/-- The room of `gz_fetch` (patch 0016): `x.pos + room <= GZ_OFF_MAX`. -/
+/-- The room of `gz_fetch` (patch 0013): `x.pos + room <= GZ_OFF_MAX`. -/
 theorem room_ok (pos : Int64) (hlo : -GZ_OFF_MAX.toInt ≤ pos.toInt) (hhi : pos.toInt ≤ GZ_OFF_MAX.toInt) :
     ((decide (pos > 0) && decide ((4294967295 : UInt32).toUInt64 > (GZ_OFF_MAX - pos).toUInt64)) = true →
       pos.toInt + ((GZ_OFF_MAX - pos).toUInt64.toUInt32).toNat = GZ_OFF_MAX.toInt) ∧

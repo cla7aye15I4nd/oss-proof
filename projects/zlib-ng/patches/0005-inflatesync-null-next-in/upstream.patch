@@ -1,0 +1,25 @@
+From 603a2eb98c6a10d463fa4a8de4496ff6adb44de9 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Wed, 18 Nov 2026 18:41:27 -0800
+Subject: [PATCH] Advance next_in in inflateSync() only when input was consumed
+
+With next_in == NULL, avail_in == 0 and at least 8 primed bits,
+strm->next_in += 0 computes NULL + 0.
+---
+ inflate.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/inflate.c b/inflate.c
+index 4a76256..62de337 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -1345,7 +1345,8 @@ int32_t Z_EXPORT PREFIX(inflateSync)(PREFIX3(stream) *strm) {
+     /* search available input */
+     len = syncsearch(&(state->have), strm->next_in, strm->avail_in);
+     strm->avail_in -= len;
+-    strm->next_in += len;
++    if (len)
++        strm->next_in += len;
+     strm->total_in += len;
+ 
+     /* return no joy or set up to restart inflate() on a new block */

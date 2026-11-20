@@ -96,6 +96,8 @@ def load_project(pid: str, repo: Path = REPO) -> Project:
     check_relative_path(upstream["submodule"])
     if upstream.get("patches_dir"):
         check_relative_path(upstream["patches_dir"])
+    if upstream.get("patch_layout", "flat") not in ("flat", "directories"):
+        raise ManifestError(f"{pid}: upstream.patch_layout must be \"flat\" or \"directories\"")
     if build.get("compiler_helpers"):
         check_relative_path(build["compiler_helpers"])
     return Project(id=pid, root=root, data=data)

@@ -1,0 +1,36 @@
+From 0e2b096d6fc5a8d2e7f9f8cfb68c6af34f464912 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Thu, 19 Nov 2026 14:31:48 -0800
+Subject: [PATCH] Test the allocation in gz_buffer_alloc() before offsetting it
+
+When the allocation failed, state->buffers + in_size was NULL plus a nonzero
+offset.
+---
+ gzlib.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/gzlib.c b/gzlib.c
+index 608dabb..f146b51 100644
+--- a/gzlib.c
++++ b/gzlib.c
+@@ -86,16 +86,16 @@ int Z_INTERNAL gz_buffer_alloc(gz_state *state) {
+ 
+     state->buffers = (unsigned char *)zng_alloc_aligned((in_size + out_size), 64);
+     state->in = state->buffers;
+-    if (out_size) {
+-        state->out = state->buffers + (in_size); // Outbuffer goes after inbuffer
+-    }
+ 
+     /* Return error if memory allocation failed */
+-    if (state->in == NULL || (out_size && state->out == NULL)) {
++    if (state->in == NULL) {
+         gz_buffer_free(state);
+         PREFIX(gz_error)(state, Z_MEM_ERROR, "out of memory");
+         return -1;
+     }
++    if (out_size) {
++        state->out = state->buffers + (in_size); // Outbuffer goes after inbuffer
++    }
+ 
+     state->size = want; // mark state as initialized
+     return 0;

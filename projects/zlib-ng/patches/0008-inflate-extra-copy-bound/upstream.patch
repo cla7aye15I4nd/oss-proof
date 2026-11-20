@@ -1,0 +1,110 @@
+From d2dabb92250d0216a487c59d88a9514cc70323e7 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Harden gzip extra copying when shared header state changes
+
+If two inflate streams share one gz_header via inflateCopy() and the second
+stream sets header->extra_len to a value smaller than the first stream's
+remaining state->length, EXTRA state subtracts extra_len - length in uint32_t
+and can wrap both the offset and `len + copy`. Overflow itself requires an
+impractical extra_max above about 2^32 - 65535, so this is hardening only.
+
+Check state->length <= state->head->extra_len and compare copy against
+extra_max - len. Add a lightweight GoogleTest using inflateCopy() and
+extra_max = UINT32_MAX that crashes before the fix and passes cleanly after.
+---
+ inflate.c                 |  6 +++--
+ test/test_inflate_copy.cc | 56 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+), 2 deletions(-)
+
+diff --git a/inflate.c b/inflate.c
+index 9c88b53..3f3ff32 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -619,11 +619,13 @@ int32_t Z_EXPORT PREFIX(inflate)(PREFIX3(stream) *strm, int32_t flush) {
+                 if (copy > have)
+                     copy = have;
+                 if (copy) {
+-                    if (state->head != NULL && state->head->extra != NULL) {
++                    /* Guard against shared gz_header state reducing extra_len. */
++                    if (state->head != NULL && state->head->extra != NULL &&
++                        state->length <= state->head->extra_len) {
+                         len = state->head->extra_len - state->length;
+                         if (len < state->head->extra_max) {
+                             memcpy(state->head->extra + len, next,
+-                                    len + copy > state->head->extra_max ?
++                                    copy > state->head->extra_max - len ?
+                                     state->head->extra_max - len : copy);
+                         }
+                     }
+diff --git a/test/test_inflate_copy.cc b/test/test_inflate_copy.cc
+index 02eea26..a11d6bd 100644
+--- a/test/test_inflate_copy.cc
++++ b/test/test_inflate_copy.cc
+@@ -7,6 +7,9 @@
+ #  include "zlib-ng.h"
+ #endif
+ 
++#include <stdint.h>
++#include <string.h>
++
+ #include "test_shared.h"
+ 
+ #include <gtest/gtest.h>
+@@ -101,3 +104,56 @@ TEST(inflate, copy_midstream_fixed) {
+ TEST(inflate, copy_midstream_dynamic) {
+     inflate_copy_midstream(Z_DEFAULT_STRATEGY);
+ }
++
++TEST(inflate, shared_gzip_header_extra_bounds) {
++    /* Nothing may be written to extra once the lengths disagree, so 4 GiB of real space is not needed. */
++    uint8_t extra[16];
++    memset(extra, 0xaa, sizeof(extra));
++
++    PREFIX(gz_header) header = {};
++    header.extra = extra;
++    header.extra_max = UINT32_MAX;
++
++    PREFIX3(stream) first = {}, second;
++    ASSERT_EQ(PREFIX(inflateInit2)(&first, MAX_WBITS + 16), Z_OK);
++    ASSERT_EQ(PREFIX(inflateGetHeader)(&first, &header), Z_OK);
++
++    /* Copy the stream after the fixed part of the gzip header, then give each copy its own XLEN. */
++    uint8_t fixed_header[10] = {0x1f, 0x8b, 8, 4, 0, 0, 0, 0, 0, 3};
++    uint8_t first_xlen[2] = {100, 0};
++    uint8_t second_xlen[2] = {10, 0};
++    uint8_t output[16];
++    first.next_in = fixed_header;
++    first.avail_in = sizeof(fixed_header);
++    first.next_out = output;
++    first.avail_out = sizeof(output);
++    ASSERT_EQ(PREFIX(inflate)(&first, Z_NO_FLUSH), Z_OK);
++    ASSERT_EQ(first.avail_in, 0U);
++
++    ASSERT_EQ(PREFIX(inflateCopy)(&second, &first), Z_OK);
++
++    first.next_in = first_xlen;
++    first.avail_in = sizeof(first_xlen);
++    ASSERT_EQ(PREFIX(inflate)(&first, Z_NO_FLUSH), Z_OK);
++    ASSERT_EQ(header.extra_len, 100U);
++
++    second.next_in = second_xlen;
++    second.avail_in = sizeof(second_xlen);
++    second.next_out = output;
++    second.avail_out = sizeof(output);
++    ASSERT_EQ(PREFIX(inflate)(&second, Z_NO_FLUSH), Z_OK);
++    ASSERT_EQ(header.extra_len, 10U);
++
++    /* Resuming first with 100 payload bytes sees state->length (100) > extra_len (10) and writes nothing. */
++    uint8_t payload[100];
++    memset(payload, 'C', sizeof(payload));
++    first.next_in = payload;
++    first.avail_in = sizeof(payload);
++    EXPECT_EQ(PREFIX(inflate)(&first, Z_NO_FLUSH), Z_OK);
++    EXPECT_EQ(first.avail_in, 0U);
++    for (size_t i = 0; i < sizeof(extra); i++)
++        EXPECT_EQ(extra[i], 0xaa);
++
++    EXPECT_EQ(PREFIX(inflateEnd)(&second), Z_OK);
++    EXPECT_EQ(PREFIX(inflateEnd)(&first), Z_OK);
++}

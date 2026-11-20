@@ -206,7 +206,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32) (hlev : le
       refine Sat.bind (Sat.of_eq ldDState_SH ?_)
       simp only []
       rw [e_bs, hb31, ZlibNgF.Proof.DeflatePrime.chk_ok _ hBS0 hBS1]
-      -- patch 0018: the bound `(int)slide_len - (1 << 30) - (1 << 16)` and its test
+      -- patch 0015: the bound `(int)slide_len - (1 << 30) - (1 << 16)` and its test
       rw [ZlibNgF.Proof.DeflatePrime.chk_ok (sl.toNat - 1073741824) (by omega) (by omega)]
       refine Sat.bind (Sat.pure ?_)
       rw [ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ (by omega) (by omega),

@@ -15,7 +15,7 @@ import ZlibNgF.ZlibNg.«zutil.h»
 Source: `zlib-ng/deflate.c` (`ZLIB_COMPAT`, `GZIP`; no `NO_QUICK_STRATEGY`, `NO_MEDIUM_STRATEGY`,
 `S390_DFLTCC_DEFLATE`, `ZLIB_DEBUG`, `DEF_ALLOC_DEBUG`: the hooks are empty, `DEFLATE_DONE` is 1,
 `DEFLATE_NEED_CONSERVATIVE_BOUND` is 0, `DEFLATE_HOOK` is 0, `DEFLATE_ADJUST_WINDOW_SIZE(n)` is `n`, `PAD_WINDOW` is
-`PAD_64`, `HINT_ALIGNED_WINDOW` is `HINT_ALIGNED_64`), with patch 0006 (`deflateBound`). `fill_window` and the macro
+`PAD_64`, `HINT_ALIGNED_WINDOW` is `HINT_ALIGNED_64`), with patch 0003 (`deflateBound`). `fill_window` and the macro
 `HASHLESS` are in `deflate.c.fill_window.lean`, `flush_pending` in `deflate_p.h.lean`. The `ZLIB_COMPAT`-excluded
 `zng_deflateSetParams` / `zng_deflateGetParams` are not compiled.
 
@@ -463,7 +463,7 @@ def countStr (str : BPtr) (wraplen : UInt64) : M UInt64 := do
   return wraplen
 
 /-- `z_size_t Z_EXPORT PREFIX(deflateBound_z)(PREFIX3(stream) *strm, z_size_t sourceLen)` (`deflate.c:707-787`,
-patch 0006: `2 + (extra_len & 0xffff)` in `z_size_t`). -/
+patch 0003: `2 + (extra_len & 0xffff)` in `z_size_t`). -/
 def deflateBound_z (strm : StreamPtr) (sourceLen : UInt64) : M UInt64 := do
   let complen : UInt64 := sourceLen + ((sourceLen + 7) >>> 3) + ((sourceLen + 63) >>> 6) + 5
   if ← deflateStateCheck strm then

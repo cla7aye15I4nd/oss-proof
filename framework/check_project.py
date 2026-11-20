@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from framework import check_forbidden, check_options, check_runtime_ub, check_spec_layers
+from framework import patches as patch_check
 from framework.manifest import Project, REPO, load_all_projects, load_project
 
 PARTIAL_CHECK = REPO / "framework/lean/PartialCheck.lean"
@@ -33,24 +32,10 @@ def check_patches_apply(proj: Project) -> None:
     )
     if dirty:
         raise RuntimeError(f"[{proj.id}] upstream submodule {sub_rel} has local modifications")
-    patches_rel = upstream_cfg.get("patches_dir")
-    if not patches_rel:
-        return
-    patches_dir = proj.root / patches_rel
-    patches = sorted(patches_dir.glob("*.patch")) if patches_dir.is_dir() else []
-    if not patches:
-        return
-    print(f"==> [{proj.id}] Applying {len(patches)} patches to a clean copy of {sub_rel}")
-    with tempfile.TemporaryDirectory() as tmp:
-        copy_dir = Path(tmp) / "verified-src"
-        shutil.copytree(sub_dir, copy_dir)
-        git_marker = copy_dir / ".git"
-        if git_marker.is_dir():
-            shutil.rmtree(git_marker)
-        elif git_marker.is_file():
-            git_marker.unlink()
-        for patch in patches:
-            subprocess.run(["git", "apply", str(patch.resolve())], cwd=copy_dir, check=True)
+    try:
+        patch_check.check_project_patches(proj.id, proj.root, proj.data)
+    except patch_check.PatchError as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 def check_one(proj: Project, *, skip_build: bool = False, skip_compiled: bool = False) -> None:

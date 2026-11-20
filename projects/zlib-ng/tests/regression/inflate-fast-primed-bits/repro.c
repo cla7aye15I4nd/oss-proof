@@ -1,4 +1,4 @@
-/* Patch 0010. inflatePrime puts 32 bits into the bit buffer of a raw inflate: a final fixed-code block that is
+/* Patch 0007. inflatePrime puts 32 bits into the bit buffer of a raw inflate: a final fixed-code block that is
  * only an end-of-block code (10 bits), then 22 zero bits. inflate decodes the block header and enters
  * inflate_fast with 29 bits held, which assumes fewer than 8. On return inflate_fast gives back bits >> 3 bytes
  * of input, more than it read, so next_in moves 2 bytes before the caller's buffer (ISO C17 6.5.6p8) and

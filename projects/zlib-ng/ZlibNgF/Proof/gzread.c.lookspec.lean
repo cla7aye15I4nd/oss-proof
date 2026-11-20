@@ -161,7 +161,7 @@ def HeadState (H : Heap) (s : GzState) : Prop :=
   ∃ z sb st, H.streams s.strm = some z ∧ z.state = some sb ∧ H.istate sb = some st ∧
     st.mode = ZlibNg.Inflate.HEAD ∧ st.bits = 0 ∧ st.last = 0
 
-/-- The position clauses of `GzRead` for the output `x.have` (patch 0016: what the `gzgetc()` macro may take). -/
+/-- The position clauses of `GzRead` for the output `x.have` (patch 0013: what the `gzgetc()` macro may take). -/
 def PosHave (s : GzState) : Prop :=
   s.pos.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt ∧
     (s.how = LOOK → s.direct ≠ 0 → s.pos.toInt + s.«have».toNat ≤ 0)
@@ -736,7 +736,7 @@ theorem gz_look_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR
 
 /-! ## Consuming a pending skip from the output buffer -/
 
-/-- `n = min(x.have, skip)` bytes of the output buffer are skipped (`gzdirect` with patch 0020, and the loop of
+/-- `n = min(x.have, skip)` bytes of the output buffer are skipped (`gzdirect` with patch 0017, and the loop of
 `gz_skip`), then `k` runs (copied from the translation). -/
 def consumeThen {α : Type} (state : GzPtr) (k : Unit → G α) : G α := do
   let hv ← rdG state (·.«have»)
@@ -900,7 +900,7 @@ theorem invR_restore {W : World} {H : Heap} {b : Nat} {s' : GzState}
 
 /-! ## `gzdirect` -/
 
-/-- `gzdirect` (with patch 0020) on a read handle: a read handle again, a step of the call, and `LookIdle` kept. -/
+/-- `gzdirect` (with patch 0017) on a read handle: a read handle again, a step of the call, and `LookIdle` kept. -/
 theorem gzdirect_read {w : World} {h : Heap} {b : Nat} (hv : GzInvR w h (some b)) :
     GSat w h (gzdirect (some b)) (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b [] ∧
       (LookIdle w h (some b) → LookIdle W H (some b))) := by

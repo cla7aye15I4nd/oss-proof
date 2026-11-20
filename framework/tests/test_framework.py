@@ -12,7 +12,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from framework import check_forbidden, check_options, check_runtime_ub, check_spec_layers, ci_matrix, manifest, run_difftest
+from framework import check_forbidden, check_options, check_runtime_ub, check_spec_layers, ci_matrix, manifest, patches, run_difftest
 
 
 class FrameworkTests(unittest.TestCase):
@@ -220,6 +220,93 @@ class FrameworkTests(unittest.TestCase):
         self.assertIn("difftest_inflate", targets)
         self.assertIn("difftest_deflate", targets)
         self.assertTrue(all(t.startswith("difftest_") for t in targets))
+
+    def _patch_project(self, tmp: Path, layout: str | None, count: int | None) -> tuple[Path, dict]:
+        root = tmp / "proj"
+        up = root / "up"
+        up.mkdir(parents=True)
+        (up / "a.c").write_text("int a;\n")
+        (up / "test").mkdir()
+        (up / "test/t.cc").write_text("// t\n")
+        (root / "patches").mkdir()
+        upstream = {"submodule": "up", "patches_dir": "patches"}
+        if layout:
+            upstream["patch_layout"] = layout
+        data = {"upstream": upstream, "site": {} if count is None else {"patches_count": count}}
+        return root, data
+
+    @staticmethod
+    def _series(old: str, new: str, test: bool) -> str:
+        text = f"From 0 Mon Sep 17 00:00:00 2001\nSubject: [PATCH] x\n\n---\n" \
+               f"diff --git a/a.c b/a.c\n--- a/a.c\n+++ b/a.c\n@@ -1 +1 @@\n-{old}\n+{new}\n"
+        if test:
+            text += "diff --git a/test/t.cc b/test/t.cc\n--- a/test/t.cc\n+++ b/test/t.cc\n@@ -1 +1,2 @@\n // t\n+// more\n"
+        return text
+
+    def test_patch_layouts(self):
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            # Flat layout: other projects keep patches/*.patch.
+            root, data = self._patch_project(tmp / "flat", None, 1)
+            (root / "patches/0001-x.patch").write_text(self._series("int a;", "int b;", False))
+            self.assertEqual(patches.check_project_patches("demo", root, data), 1)
+            # Flat layout with no patches and none declared passes; declared but missing fails loudly.
+            root, data = self._patch_project(tmp / "none", None, 0)
+            self.assertEqual(patches.check_project_patches("demo", root, data), 0)
+            root, data = self._patch_project(tmp / "missing", None, 2)
+            with self.assertRaises(patches.PatchError):
+                patches.check_project_patches("demo", root, data)
+
+            # Directory layout: two series, the second on top of the first (library and test hunks).
+            root, data = self._patch_project(tmp / "dirs", "directories", 2)
+            pd = root / "patches"
+            for name, old, new in (("0001-first", "int a;", "int b;"), ("0002-second", "int b;", "int c;")):
+                (pd / name).mkdir()
+                (pd / name / "upstream.patch").write_text(self._series(old, new, name.startswith("0001")))
+                (pd / name / "pr-summary.md").write_text("# x\n")
+            (pd / "README.md").write_text(
+                "| Patch | x |\n| --- | --- |\n"
+                "| [0001-first](0001-first/pr-summary.md) | a |\n| [0002-second](0002-second/pr-summary.md) | b |\n"
+            )
+            self.assertEqual(patches.check_project_patches("demo", root, data), 2)
+            # A wrong declared count, a missing file, a stray flat patch, a gap in the numbering, a README that
+            # does not list a directory, and a series that does not apply in order all fail.
+            data["site"]["patches_count"] = 3
+            with self.assertRaisesRegex(patches.PatchError, "patches_count"):
+                patches.check_project_patches("demo", root, data)
+            data["site"]["patches_count"] = 2
+            (pd / "0002-second/pr-summary.md").unlink()
+            with self.assertRaisesRegex(patches.PatchError, "missing pr-summary.md"):
+                patches.check_project_patches("demo", root, data)
+            (pd / "0002-second/pr-summary.md").write_text("# x\n")
+            (pd / "0003-x.patch").write_text("")
+            with self.assertRaisesRegex(patches.PatchError, "flat patch files"):
+                patches.check_project_patches("demo", root, data)
+            (pd / "0003-x.patch").unlink()
+            (pd / "0002-second").rename(pd / "0003-second")
+            with self.assertRaisesRegex(patches.PatchError, "expected number 0002"):
+                patches.check_project_patches("demo", root, data)
+            (pd / "0003-second").rename(pd / "0002-second")
+            readme = (pd / "README.md").read_text()
+            (pd / "README.md").write_text(readme.replace("| [0002-second](0002-second/pr-summary.md) | b |\n", ""))
+            with self.assertRaisesRegex(patches.PatchError, "do not list exactly"):
+                patches.check_project_patches("demo", root, data)
+            (pd / "README.md").write_text(readme)
+            (pd / "0002-second/upstream.patch").write_text(self._series("int a;", "int c;", False))
+            with self.assertRaisesRegex(patches.PatchError, "does not apply"):
+                patches.check_project_patches("demo", root, data)
+            # An empty directory layout fails instead of passing silently.
+            root, data = self._patch_project(tmp / "empty", "directories", 0)
+            (root / "patches/README.md").write_text("# none\n")
+            with self.assertRaisesRegex(patches.PatchError, "none were found"):
+                patches.check_project_patches("demo", root, data)
+
+    def test_zlib_ng_patch_directories(self):
+        proj = manifest.load_project("zlib-ng", REPO)
+        self.assertEqual(proj.data["upstream"].get("patch_layout"), "directories")
+        series = patches.discover(proj.root / "patches", "directories")
+        self.assertEqual(len(series), proj.data["site"]["patches_count"])
+        self.assertTrue(all(p.name == "upstream.patch" for p in series))
 
 
 if __name__ == "__main__":

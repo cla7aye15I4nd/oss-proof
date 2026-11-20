@@ -4,7 +4,7 @@ import ZlibNgF.Proof.«gzwrite.c.putc»
 # `gzvprintf` and `gzprintf` (`ZlibNgF`)
 
 `gzvprintf_spec`: on a write handle, with a format string outside the blocks of the file, `gzvprintf` keeps the
-invariant `GzInvWS` and is a step of the file, given `GzCompSpec` and `DeflateGz`. With patch 0024 the input left in
+invariant `GzInvWS` and is a step of the file, given `GzCompSpec` and `DeflateGz`. With patch 0021 the input left in
 `in` is moved to its start (`pf_norm`); the text goes into the `size` bytes after it (`vsn_spec`: `vsnprintf` writes
 only there); with `size` bytes or more of input, `gz_comp` runs on the first `size` bytes, entered through `GzWX` (the
 input may reach past the first `size` bytes of `in`), and the rest is moved to the start (`pf_comp`).
@@ -455,7 +455,7 @@ theorem pf_tail (C : GzCompSpec) (G : DeflateGz) {w W : World} {h H : Heap} {b :
     exact GSat.ite (fun _ => GSat.pure ⟨hv3, g03⟩) (fun _ => pf_len C G hv3 hs3 g03 hs0 zf hsk hsz hB3 hz3 hk hA len
       hc'.1 (UInt32.lt_iff_toNat_lt.mp hc'.2))
 
-/-! ## The input moved to the start of `in` (patch 0024), and the whole call -/
+/-! ## The input moved to the start of `in` (patch 0021), and the whole call -/
 
 open ZlibNg.Inflate (rdZ wrZ) in
 /-- `gzvprintf` after the pending seek (copied from the translation). -/

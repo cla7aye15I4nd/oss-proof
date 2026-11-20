@@ -1,4 +1,4 @@
-/* Patch 0013. deflateTune stores max_lazy unchanged; deflate_medium (levels 3-6) uses it as the insert count
+/* Patch 0010. deflateTune stores max_lazy unchanged; deflate_medium (levels 3-6) uses it as the insert count
  * max_insert_count and computes max_len = 2 * max_insert_count in 32-bit unsigned, which is 0 for
  * max_lazy = INT_MIN. A match at distance 1 (a run of equal bytes) then leaves one position to hash, and
  * insert_knuth_stepped divides by inserts - 1 = 0 (insert_string_p.h:186, ISO C17 6.5.5p5). */

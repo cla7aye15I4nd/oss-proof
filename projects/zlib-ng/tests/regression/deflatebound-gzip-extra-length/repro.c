@@ -1,4 +1,4 @@
-/* Patch 0006. deflateBound adds 2 + extra_len for a user gzip header with an extra field, computed in
+/* Patch 0003. deflateBound adds 2 + extra_len for a user gzip header with an extra field, computed in
  * 32-bit unsigned int, so extra_len = 0xffffffff adds 1 while deflate writes 2 + (extra_len & 0xffff)
  * = 65537 header bytes. zlib.h promises that one deflate(Z_FINISH) call with avail_out at least
  * deflateBound returns Z_STREAM_END. Unpatched: it does not (the line "bound-ok 0"). Patched: it does

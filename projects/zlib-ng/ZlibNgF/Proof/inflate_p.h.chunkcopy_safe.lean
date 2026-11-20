@@ -4,7 +4,7 @@ import ZlibNgF.Proof.«chunkset.copy»
 # `chunkcopy_safe` of `inflate_p.h` (`ZlibNgF`)
 
 Callers: `inflate_fast_safe_c` with `from = out - dist` (`dist ≥ 1`) and `safe` the end of the output, all in the
-output buffer (`sat_chunkcopy_safe`); and, where the output is the window (`inflateBack`, patch 0007's `window ==
+output buffer (`sat_chunkcopy_safe`); and, where the output is the window (`inflateBack`, patch 0004's `window ==
 beg` branch, and `infback.c`'s `MATCH`), with `from` at or ahead of `out` in the window (`sat_chunkcopy_safe_ahead`).
 The pointer comparisons are then between pointers of one object; the copy writes exactly `[out, out + MIN(len, safe -
 out))`, with `memcpy` calls on non-overlapping ranges only, and returns `out + MIN(len, safe - out)`.

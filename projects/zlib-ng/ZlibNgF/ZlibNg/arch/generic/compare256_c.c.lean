@@ -26,7 +26,7 @@ Inside a trip the candidate filter (`:150-195`) ends with `LMSel.compare` (fall 
 loop at `:187`.
 
 ## Pointers
-Every pointer the C computes is computed with `Ptr.add` at the same point. With patch 0012, `mbase_start` stays
+Every pointer the C computes is computed with `Ptr.add` at the same point. With patch 0009, `mbase_start` stays
 `window` and every candidate address is `mbase_start + (cur_match - match_offset)` (or `mbase_end + ...`): the
 unpatched `mbase_start -= match_offset`, `mbase_end -= match_offset` and `mbase_start = window - match_offset` formed
 pointers before `window`, outside the block of `alloc_deflate` (ISO C17 §6.5.6p8).

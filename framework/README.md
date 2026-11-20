@@ -4,7 +4,7 @@
 
 ## Adding a library under `projects/<id>/`
 
-1. Pin the upstream C repository as a submodule at `projects/<id>/<upstream>` (read-only; patches live in `projects/<id>/patches/*.patch`).
+1. Pin the upstream C repository as a submodule at `projects/<id>/<upstream>` (read-only; patches live in `projects/<id>/patches/*.patch`, or, with `"patch_layout": "directories"` under `upstream` in `project.json`, one directory per patch `projects/<id>/patches/NNNN-slug/` holding `upstream.patch` and `pr-summary.md`; see `framework/patches.py`).
 2. Copy root `lean-toolchain` to `projects/<id>/lean-toolchain` (and `projects/<id>/tests/lean-toolchain` when differential tests use a child Lake package).
 3. Define `projects/<id>/lakefile.toml` with package `<Package>` and roots `["<Package>", "<Package>.Results"]`, using only the allow-listed Lake keys (`name`, `version`, `defaultTargets`, `lean_lib`).
 4. Copy or import `framework/lean/ResultsCheck.lean` to check `<Package>/Results.lean` at build time (`proved`, `notDone`, `required`).

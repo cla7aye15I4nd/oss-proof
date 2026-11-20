@@ -1,4 +1,4 @@
-/* Patch 0007. inflate copies a match that reaches back into the sliding window with chunkcopy_safe
+/* Patch 0004. inflate copies a match that reaches back into the sliding window with chunkcopy_safe
  * (inflate.c, MATCH state), and inflate_fast copies it with CHUNKCOPY_SAFE / chunkcopy_safe; these compare
  * and subtract a pointer into the window (inside inflate's own allocation) and a pointer into the caller's
  * output buffer: relational comparison and subtraction of pointers into different objects (ISO C17

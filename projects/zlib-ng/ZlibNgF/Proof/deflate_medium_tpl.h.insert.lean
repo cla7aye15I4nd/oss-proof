@@ -9,7 +9,7 @@ MIN(count, max_inserts) - 1` is not zero) and `str + count <= 65536`: the fixed-
 inc_fp` does not wrap for `j < inserts`, and every inserted position `idx_fp >> 16` is at most `str + count - 1`, so
 its 4-byte read stays in `[str, str + count + 3)`. `insert_match` (`deflate_medium_tpl.h:16-41`) then inserts
 `[match.strstart + 1, match.strstart + match_length)` (or the part from `orgstart`) with `insert_knuth`,
-`insert_knuth_batch` or `insert_knuth_stepped`, whose `count > 2 * max_insert_count >= 4` (patch 0013 keeps
+`insert_knuth_batch` or `insert_knuth_stepped`, whose `count > 2 * max_insert_count >= 4` (patch 0010 keeps
 `max_insert_count` in `2..STD_MAX_MATCH`).
 -/
 

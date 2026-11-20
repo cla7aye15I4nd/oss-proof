@@ -1,0 +1,9 @@
+diff -r -x test before/deflate.c after/deflate.c
+1274,1275c1274
+<             /* A static block of deflate_quick (Z_FIXED) stays open across slides: keep block_start
+<              * at or above -(2^30 + 2^16) so that it and strstart - block_start cannot overflow. */
+---
+>             /* Keep block_start >= -(2^30 + 2^16) so slides and strstart - block_start cannot overflow. */
+diff -r -x test before/inflate.c after/inflate.c
+621a622
+>                     /* Guard against shared gz_header state reducing extra_len. */
