@@ -16,7 +16,7 @@ later call keeps: `pending_buf` is set, `head` lies in the plain bytes of the bl
 `lit_bufsize`, `pending_buf_size`, `sym_end`; the layout of `alloc_deflate` (window, `prev`, `head`, `pending_buf` in
 that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the pending bytes within `pending_buf`
 (from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end`; at most 63 bits in
-`bi_buf`, whose complete bytes fit after the pending bytes; `strstart + lookahead` within the window; a valid `strategy`; both function pointers of `lm_set_level` set;
+`bi_buf`, whose complete bytes fit after the pending bytes; `strstart + lookahead` within the window; a valid `strategy`; both function pointers of `lm_set_level` set, `insert_batch` the one of `level`;
 valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
 are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
 `block_start` bounded below; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
@@ -29,6 +29,13 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.DeflateInv
 open C ZlibNgF.Spec ZlibNg.Deflate
 open ZlibNgF.Proof.InflateInv (ldStream_app)
+
+/-- The `insert_batch` function that `lm_set_level` stores for `level` (`deflate.c:1193-1201`): `insert_roll_batch`
+from `MIN_ROLL_LEVEL` (9) on, else `insert_knuth_batch_head` at level 1 (`HAVE_QUICK_STRATEGY`) and
+`insert_knuth_batch` otherwise. -/
+def insertBatchOf (level : Int32) : InsertBatchFn :=
+  if level ≥ MIN_ROLL_LEVEL then .insert_roll_batch
+  else if level == 1 then .insert_knuth_batch_head else .insert_knuth_batch
 
 /-- The fields of a `deflate_state` that the invariant constrains. -/
 structure DView where
@@ -198,8 +205,8 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   look : v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat
   /-- `strategy` is one of the five strategies -/
   strategy : 0 ≤ v.strategy ∧ v.strategy ≤ 4
-  /-- `lm_set_level` has set both function pointers -/
-  fns : (∃ f, v.longest_match = .val f) ∧ (∃ f, v.insert_batch = .val f)
+  /-- `lm_set_level` has set both function pointers, `insert_batch` to the function of `level` -/
+  fns : (∃ f, v.longest_match = .val f) ∧ v.insert_batch = .val (insertBatchOf v.level)
   /-- the symbols in `sym_buf` are those that `zng_tr_tally_*` write, and the frequencies count them (`SymOk`) -/
   symv : ∃ d sbo, h.bytes b = some d ∧ v.sym_buf = .val (.ref (.heap b) sbo) ∧
     SymOk d sbo v.sym_next v.ltree v.dtree

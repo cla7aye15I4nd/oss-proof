@@ -148,7 +148,7 @@ theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState)
   obtain ⟨wo, po, ho, pbo, HL0, hwo, -, -, -⟩ := hlay_of c hd
   have HL := HLay.of_bs HL0
   obtain ⟨-, w2, wsz, -, -, -, -⟩ := c.sizes
-  obtain ⟨f, hf⟩ := c.fns.2
+  obtain ⟨f, hf⟩ : ∃ f, st.insert_batch = .val f := ⟨_, c.fns.2⟩
   have hda : h.dallocs b = some al := by simpa [Heap.dallocsOf, hd] using hal
   have C0 : WCore st := ⟨c.wpow, c.fe_mod, c.fe_hi, UInt32.le_iff_toNat_le.mp c.ins, hbs1, hbs2⟩
   have S := fill_window_SH (H := h) (i := i) (z := z) (b := b) (d := d) f hb0 c.strm hf HL wsz hwo w2 C0
