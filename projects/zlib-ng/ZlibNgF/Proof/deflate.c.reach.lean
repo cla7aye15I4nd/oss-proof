@@ -8,6 +8,7 @@ import ZlibNgF.Proof.«deflate.c.setdict»
 import ZlibNgF.Proof.«deflate.c.fill_window.facts»
 import ZlibNgF.Proof.«deflate.c.copy»
 import ZlibNgF.Proof.«deflate.c.side»
+import ZlibNgF.Proof.«deflate.c.params»
 
 /-!
 # Reachable deflate streams have the structural invariant (`ZlibNgF`)
@@ -20,7 +21,8 @@ steps `deflatePending`, `deflateUsed`, `deflateTune`, `deflateSetHeader`, `defla
 `deflateReset`, `deflateResetKeep` (on a stream with nothing unfinished), `deflateGetDictionary`
 (`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`), `deflateSetDictionary`
 (`Proof/deflate.c.setdict.lean`, with the window facts `FillFacts.windowFacts`), and `deflateCopy` on the source.
-Every other case is a field of `DPending`, the list of obligations not proved yet: `deflate` and `deflateParams`, and
+Every other case is a field of `DPending`, the list of obligations not proved yet: `deflate` (`deflateParams` follows
+from it, `Proof/deflate.c.params.lean`), and
 the hash chains (`ChainOk`, the last part of `DSide`) after `deflateSetDictionary` (after `deflateInit_`,
 `deflateInit2_` and `deflateReset` they follow from `lm_init`'s `CLEAR_HASH`, `FreshHead`; `deflateResetKeep` keeps
 them; `deflateCopy` copies them, `ChainCopy`).
@@ -42,10 +44,9 @@ def DChain (h : Heap) (s : StreamPtr) : Prop := ∀ b st d, DStateIs h s b st �
 /-- The obligations still to prove: each remaining public step keeps the invariant and the between-call facts
 (`DSide`). -/
 structure DPending : Prop where
-  deflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), DInv h s → DSide h s → CrcGlobals h →
-    DStreamIO h s → C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') → DInv h' s ∧ DSide h' s
-  params : ∀ (h h' : Heap) (s : StreamPtr) (level strategy r : Int32), DInv h s → DSide h s → CrcGlobals h →
-    DStreamIO h s → C.run (ZlibNg.Deflate.deflateParams s level strategy) h = .ok (r, h') → DInv h' s ∧ DSide h' s
+  /-- `deflate`: no fault, its frame, the same state block, the invariant and `DSide` (`deflateParams` follows:
+  `DeflateParams.params_ok`). -/
+  deflate : DeflateParams.DeflateOk
   setDict_chain : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (n : UInt32) (r : Int32), DInv h s → DSide h s →
     DictReady h s → NullOrRead h d n.toNat → (∀ b, StateBlock h s b → NotInBlock b d) →
     C.run (ZlibNg.Deflate.deflateSetDictionary s d n) h = .ok (r, h') → DChain h' s
@@ -77,8 +78,12 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
   rcases hs with ⟨flush, r, hcg, hio, e⟩ | ⟨level, strategy, r, hcg, hio, e⟩ | ⟨d, n, r, hdr, hd, hnb, e⟩ |
     ⟨d, hasLen, r, hd, hnb, hdis, e⟩ | ⟨hp, r, hbf, _, e⟩ | ⟨hp, hb, r, e⟩ | ⟨hb, r, e⟩ | ⟨bits, value, r, hpr, e⟩ |
     ⟨g, l, n, c, r, e⟩ | ⟨n, r, e⟩ | ⟨n, r, e⟩ | ⟨r, e⟩ | ⟨r, hrk, e⟩ | ⟨dst, r, hfr, hdst, hne, e⟩
-  · exact P.deflate h h' s flush r hv hsd hcg hio e
-  · exact P.params h h' s level strategy r hv hsd hcg hio e
+  · obtain ⟨r0, h0, e0, -, -, hi, hs'⟩ := P.deflate h s flush hv hsd hcg hio
+    rw [det e e0]; exact ⟨hi, hs'⟩
+  · obtain ⟨r0, h0, e0, -, hi, hs'⟩ := DeflateParams.params_ok P.deflate (level := level) (strategy := strategy) hv hsd
+      hcg hio
+    have e0' : C.run (ZlibNg.Deflate.deflateParams s level strategy) h = .ok (r0, h0) := e0
+    rw [det e e0']; exact ⟨hi, hs'⟩
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateSetDict.setDict_inv FillFacts.windowFacts hv hd hnb
     rw [det e e0]
     have hs' := DeflateSide.setDict_side hv hsd hdr hd hnb e (P.setDict_chain h h' s d n r hv hsd hdr hd hnb e)
@@ -250,5 +255,29 @@ theorem deflateCopy_safety_of (P : DPending) : Goal.deflateCopy_safety := by
   rcases handle_cases hh with hn | hr
   · exact ⟨_, _, DeflateCopy.copy_noState hn dst, dframe_refl h _ _ _ _⟩
   · exact DeflateCopy.copy_safe (dreach_inv P hr) hfr hdst hne
+
+theorem deflate_safety_of (P : DPending) : Goal.deflate_safety := by
+  intro h s flush hcg hh hio
+  rcases handle_cases hh with hn | hr
+  · refine ⟨Z_STREAM_ERROR, h, ?_, dframe_refl _ _ _ _ _⟩
+    show ZlibNg.Deflate.deflate s flush h = _
+    unfold ZlibNg.Deflate.deflate
+    simp only [bind_app, stateCheck_noState hn]
+    rfl
+  · obtain ⟨hv, hs⟩ := dreach P hr
+    obtain ⟨r, h', e, f, -⟩ := P.deflate h s flush hv hs hcg (hio hr)
+    exact ⟨r, h', e, f⟩
+
+theorem deflateParams_safety_of (P : DPending) : Goal.deflateParams_safety := by
+  intro h s level strategy hcg hh hio
+  rcases handle_cases hh with hn | hr
+  · refine ⟨Z_STREAM_ERROR, h, ?_, dframe_refl _ _ _ _ _⟩
+    show ZlibNg.Deflate.deflateParams s level strategy h = _
+    simp only [ZlibNg.Deflate.deflateParams, ZlibNg.Deflate.deflateParamsWith, bind_app, stateCheck_noState hn]
+    rfl
+  · obtain ⟨hv, hs⟩ := dreach P hr
+    obtain ⟨r, h', e, f, -⟩ := DeflateParams.params_ok P.deflate (level := level) (strategy := strategy) hv hs hcg
+      (hio hr)
+    exact ⟨r, h', e, f⟩
 
 end ZlibNgF.Proof.DeflateReach
