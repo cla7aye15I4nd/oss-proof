@@ -158,8 +158,19 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
       refine Sat.bind (Sat.of_eq ldDState_SH ?_)
       simp only []
       rw [e_bs, hb31, ZlibNgF.Proof.DeflatePrime.chk_ok _ hBS0 hBS1]
+      -- patch 0018: the bound `(int)slide_len - (1 << 30) - (1 << 16)` and its test, which holds here
+      rw [ZlibNgF.Proof.DeflatePrime.chk_ok (sl.toNat - 1073741824) (by omega) (by omega)]
       refine Sat.bind (Sat.pure ?_)
+      rw [ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ (by omega) (by omega),
+        ZlibNgF.Proof.DeflatePrime.chk_ok (sl.toNat - 1073741824 - 65536) (by omega) (by omega)]
+      refine Sat.bind (Sat.pure ?_)
+      have hlim : st.block_start.toInt ≥ (Int32.ofInt (sl.toNat - 1073741824 - 65536)).toInt := by
+        rw [ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ (by omega) (by omega)]; omega
+      simp only [hlim, ↓reduceIte]
+      refine Sat.bind (Sat.pure ?_)
+      rename_i jpX
       refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+      simp only [jpX]
       refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
       refine Sat.bind (Sat.of_eq ldDState_SH ?_)
       dsimp (config := { zeta := false }) only

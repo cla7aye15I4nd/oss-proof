@@ -1,4 +1,4 @@
-<!-- source-sha256: 049fbc01a3e373f5293b8e08e5c53b704da92103d3ed4fd2c2de4f8984db06e3 -->
+<!-- source-sha256: 3379f2c3ed465293f9541b4bcf255612eeb981135608b4e3a52d8cc603cd37eb -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -6,7 +6,7 @@
 
 ## 所有调用
 
-- 库为 zlib-ng `develop` 分支提交 `5f1f4899` 加十四个补丁，以
+- 库为 zlib-ng `develop` 分支提交 `5f1f4899` 加十五个补丁，以
   `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF` 构建为 x86_64
   Linux LP64 库，使 `adler32` 与 `adler32_z` 执行 `adler32_c`，`crc32` 与 `crc32_z` 执行 `crc32_braid`。分派到
   SIMD 内核或 Chorba CRC-32 内核（默认）的构建不在覆盖之内。
@@ -66,7 +66,7 @@
 | `deflateBound`、`deflateBound_z` | 已登记的 `gz_header` 按 `deflateSetHeader` 的要求可读；每个对象都小于 `2^63` 字节。 | `DHeaderReadable`、`ObjBound` | `deflateBound` 读取头中的字符串直到其零字节。模型中该循环至多运行 `2^64` 次，而模型本身不限制对象的大小；x86_64 Linux 上的每个对象都远小于此。 |
 | `deflateInit_`、`deflateInit2_`、`deflateCopy`（包括在生成其他 deflate 调用所接受之流的调用序列中，作为生成流的调用或作用于该流的步骤）、`compress*` | 堆模型在尚未分配的块中不记录任何对象（字节、inflate 或 deflate 状态）。 | `DFreshBlocks` | 堆模型的良构条件，程序到达的每个堆都满足；不是对 C 输入的限制。 |
 | `deflate`、`deflateParams`（流历史中的每次调用） | 静态 CRC 表保持其常量（`CrcGlobals`）。 | `DeflateStep` | C 中的常量数据。 |
-| 调用之间 | 程序不改变 `z_stream` 的其他字段或库的分配块，也不释放已登记的 `gz_header` 记录。在 `deflate` 写 gzip 头期间，程序保持头的 `extra`、`extra_len`、`name`、`comment` 字段以及两个字符串的长度不变。 | `DCallerStep` | `zlib.h` 把 `z_stream` 的这些字段与分配块留给库；`deflate` 在这些缓冲区中按保存的下标继续写头。 |
+| 调用之间 | 程序不改变 `z_stream` 的其他字段或库的分配块，也不释放已登记的 `gz_header` 记录。在 `deflate` 写 gzip 头期间（从开始写头的那次 `deflate` 调用到写完头的那次调用），程序保持头的 `extra`、`extra_len`、`name`、`comment` 字段以及两个字符串的长度不变。 | `DCallerStep` | `zlib.h` 把 `z_stream` 的这些字段与分配块留给库；`deflate` 在这些缓冲区中按保存的下标继续写头。 |
 | `compress`、`compress2`、`compress_z`、`compress2_z` | `dest` 与 `source` 不重叠；每个对象少于 `2^63` 字节。 | `Disjoint`、`ObjBound` | 同 `uncompress*`。 |
 
 ## 回调解压
