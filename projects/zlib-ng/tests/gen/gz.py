@@ -21,6 +21,8 @@ failures (gz_state, path, buffers, inflate and deflate state, error message), re
 gzdirect while a seek is pending (patch 0020), gzgets while a seek is pending at the end of a file that grows
 (patch 0021), and failed writes of the zeros of a forward seek in write mode followed by gztell, gzclearerr and more
 writes (patch 0022).
+gzseek after gzungetc at the start and refused seeks show patch 0004's results (upstream's on every input that does
+not overflow).
 Patch 0017 refuses a write past GZ_OFF_MAX before it reads the buffer: gzfwrite lengths above it are generated with
 a one-byte buffer (nothing else can reach that position in a test's time).
 """
@@ -288,6 +290,33 @@ for b in (8, 64):
 for c in (gz(text(2000)), gz(b"short")):
     line(c, [], ["open:r", "buffer:8", "seek:9223372036854775807:0", "read:5", "tell", "getc", "gets:5", "eof", "error",
                  "close"])
+
+# ---- gzseek64 (patch 0004): refused exactly where upstream's arithmetic overflows; every other seek, refused or not,
+# leaves upstream's result and state (a SEEK_CUR before the start drops the pending skip; after gzungetc at the start a
+# negative target is sought, not refused) ----
+for c in (gz(text(2000)), text(2000)):
+    for b in (8, 64):
+        for ops in (["seek:100:0", "seek:-200:1", "tell", "getc", "tell"],
+                    ["ungetc:65", "ungetc:66", "tell", "seek:-1:0", "tell", "getc", "getc", "tell"],
+                    ["ungetc:65", "ungetc:66", "seek:-2:0", "tell", "seek:-3:0", "tell", "seek:-1:1", "tell", "read:5"],
+                    ["ungetc:65", "seek:9223372036854775807:0", "tell", "seek:9223372036854775806:0", "tell", "seek:-1:1",
+                     "tell", "read:3"],
+                    ["ungetc:65", "seek:-9223372036854775808:0", "tell", "seek:-9223372036854775807:1", "tell", "getc"],
+                    ["read:5", "seek:-9223372036854775808:0", "tell", "seek:-9223372036854775803:0", "tell", "read:2"],
+                    ["seek:5:0", "seek:9223372036854775803:1", "tell", "seek:9223372036854775802:1", "tell", "seek:-1:1",
+                     "tell"],
+                    ["read:5", "seek:9223372036854775803:1", "tell", "seek:-9223372036854775807:1", "tell", "read:2"]):
+            line(c, [], ["open:r", "buffer:%d" % b] + ops + ["error", "close"])
+for m in ("w", "wT"):
+    for ops in (["seek:10:0", "seek:-20:1", "tell", "putc:65", "tell"], ["write:4142", "seek:-9223372036854775808:0", "tell"],
+                ["seek:10:0", "seek:9223372036854775798:1", "tell", "seek:9223372036854775797:1", "tell", "seek:-1:0", "tell",
+                 "seek:-9223372036854775807:1", "tell", "seek:-9223372036854775797:1", "tell"]):
+        line(None, [], ["openg:" + m, "buffer:16"] + ops + ["error", "close"])
+# copy mode with output buffered at a high position: the lseek offset of a seek back to the start does not fit, so the
+# seek rewinds instead
+for b in (8, 64):
+    line(t, dev, ["open:r", "buffer:%d" % b, "getc", "seek:9223372036854775797:0", "getc", "tell", "seek:0:0", "tell",
+                  "read:4", "tell", "seek:2:1", "tell", "getc", "error", "close"])
 
 # ---- gzdirect while a seek is pending (patch 0020): the output gz_look buffers is skipped first ----
 for c in (text(300), b"hello, world\n", gz(text(300))):
