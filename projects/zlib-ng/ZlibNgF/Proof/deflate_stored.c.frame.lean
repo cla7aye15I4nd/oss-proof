@@ -329,7 +329,7 @@ theorem sf_post {e : Nat} {h H : Heap} {i b : Nat} (F : SF e h i b H) (flush : I
     (hp : bs = .block_done ∨ bs = .finish_done → ∀ st, H.dstate b = some st → st.pending = 0)
     (he : e ≤ finSlack bs := by slack_tac) :
     StratPost h (some i) flush bs H := by
-  have hψ : PsiPost h (some i) bs H := by
+  have hψ : PsiPost h (some i) flush bs H := by
     intro i' b' e' hsb
     obtain rfl := Option.some.inj e'
     obtain ⟨z0, hz0, hb0⟩ := F.blk0
@@ -337,7 +337,7 @@ theorem sf_post {e : Nat} {h H : Heap} {i b : Nat} (F : SF e h i b H) (flush : I
     obtain rfl := Option.some.inj e1
     obtain rfl : z0 = z1 := Option.some.inj (hz0.symm.trans hz1)
     obtain rfl : b = b' := Option.some.inj (hb0.symm.trans hb1)
-    exact F.psi.mono he
+    exact (F.psi.mono he).toF flush
   obtain ⟨z, hz, hb⟩ := F.blk
   obtain ⟨i', z', b', st, al, e, hz', hb', hst, -, c⟩ := F.inv
   obtain rfl : i = i' := Option.some.inj e

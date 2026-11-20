@@ -392,7 +392,7 @@ def QExit (bs : BlockState) (st : DeflateState) : Prop :=
 /-- `StratPost` from `QF` and the exit facts, for a call entered at level 1 with `Z_FIXED`. -/
 theorem qf_post {h H : Heap} {i b : Nat} (F : QF h i b H) (flush : Int32) (bs : BlockState)
     (hx : ExitIO H i flush bs) (hE : ∀ st0, h.dstate b = some st0 → st0.level = 1 ∧ st0.strategy = Z_FIXED)
-    (hs : ∀ st, H.dstate b = some st → QExit bs st) (hψ : PsiPost h (some i) bs H) :
+    (hs : ∀ st, H.dstate b = some st → QExit bs st) (hψ : PsiPost h (some i) flush bs H) :
     StratPost h (some i) flush bs H := by
   obtain ⟨z, st, al, hz, hb, hst, -, c⟩ := F.live
   obtain ⟨z0, hz0, hb0⟩ := F.blk0

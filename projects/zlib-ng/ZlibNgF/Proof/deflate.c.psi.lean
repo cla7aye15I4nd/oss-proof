@@ -451,6 +451,14 @@ def PsiAcc (e : Nat) (h H : Heap) (i b : Nat) : Prop :=
     ∀ f, psiS f st + (z0.avail_out.toNat - z.avail_out.toNat) ≤
       psiS f st0 + G * (z0.avail_in.toNat - z.avail_in.toNat) + e
 
+/-- `PsiAcc` for one flush value `f` (the flush of the call). -/
+def PsiAccF (f : Int32) (e : Nat) (h H : Heap) (i b : Nat) : Prop :=
+  ∀ z0 z st0 st, h.streams i = some z0 → H.streams i = some z → h.dstate b = some st0 → H.dstate b = some st →
+    psiS f st + (z0.avail_out.toNat - z.avail_out.toNat) ≤ psiS f st0 + G * (z0.avail_in.toNat - z.avail_in.toNat) + e
+
+theorem PsiAcc.toF {e : Nat} {h H : Heap} {i b : Nat} (A : PsiAcc e h H i b) (f : Int32) : PsiAccF f e h H i b :=
+  fun z0 z st0 st h0 h1 s0 s1 => A z0 z st0 st h0 h1 s0 s1 f
+
 theorem PsiAcc.refl (h : Heap) (i b : Nat) : PsiAcc 0 h h i b := by
   intro z0 z st0 st h0 h1 s0 s1 f
   rw [h0] at h1; cases h1; rw [s0] at s1; cases s1

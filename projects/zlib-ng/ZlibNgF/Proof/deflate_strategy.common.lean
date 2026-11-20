@@ -352,8 +352,8 @@ def lastSlack (last : Int32) : Nat := if last = 0 then 0 else 2 ^ 18
 theorem lastSlack_zero : lastSlack 0 = 0 := rfl
 
 /-- The potential of a strategy call from `SLFe` with an allowance within `finSlack bs` (`PsiPost`). -/
-theorem slf_psi {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (bs : BlockState) (he : e ≤ finSlack bs) :
-    PsiPost h (some i) bs H := by
+theorem slf_psi {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState)
+    (he : e ≤ finSlack bs) : PsiPost h (some i) flush bs H := by
   intro i' b' e' hsb
   obtain rfl := Option.some.inj e'
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
@@ -361,7 +361,7 @@ theorem slf_psi {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (bs : Bl
   obtain rfl := Option.some.inj e1
   obtain rfl : z0 = z1 := Option.some.inj (hz0.symm.trans hz1)
   obtain rfl : b = b' := Option.some.inj (hb0.symm.trans hb1)
-  exact F.psi.mono he
+  exact (F.psi.mono he).toF flush
 
 /-- Closes `e ≤ finSlack bs` for the allowances of the strategies (`0`, `lastSlack` of a constant). -/
 macro "slack_tac" : tactic =>
@@ -409,7 +409,7 @@ theorem slf_postL {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush
   refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
     stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
     fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0), fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_,
-    slf_psi F bs he⟩
+    slf_psi F flush bs he⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
