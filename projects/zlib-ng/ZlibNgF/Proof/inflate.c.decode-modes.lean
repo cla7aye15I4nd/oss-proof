@@ -314,7 +314,8 @@ theorem run_MATCH (E : Env) (eo : EnvOK E) : ModeRun E inflate_MATCH (·.mode = 
   dsimp (config := { zeta := false }) only
   split
   · rename_i h
-    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, Why.full (by simpa using h) (li.outEq (by rw [hm]; decide))⟩)
+    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, Why.full (by simpa using h) (li.outEq (by rw [hm]; decide))
+      (li.frL (by rw [hm]; decide))⟩)
   rename_i hl0
   have hl : l.left ≠ 0 := by simpa using hl0
   have hl1 : 1 ≤ l.left.toNat := by
@@ -618,6 +619,7 @@ theorem run_DIST (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_DISTEXT (·.mo
   · exact bad_ok li3 (by
       show 32 * (8 * l1.have_.toNat + (l1.bits - (CODE_BITS l1.here).toUInt8).toNat + l1.left.toNat) < m
       omega) "invalid distance code" (strIdx 19 (by decide) (by decide) (by decide))
+        (fun h => h.mono rfl (FrS.no_mode (by simp only [hm1] <;> decide)))
   rename_i h64
   have h64' : l1.here.op &&& 64 = 0 := by simpa using h64
   have hv1 : 1 ≤ l1.here.val.toNat := hent.dval rfl (Or.inl h64')
@@ -1087,6 +1089,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
     · exact bad_ok li5 (by
         show 32 * (8 * l1.have_.toNat + (l1.bits - (CODE_BITS l1.here).toUInt8).toNat + l1.left.toNat) < m
         omega) "invalid literal/length code" (strIdx 22 (by decide) (by decide) (by decide))
+        (fun h => h.mono rfl (FrS.no_mode (by simp only [hm1] <;> decide)))
     have hq : ∀ S' : InflateState, S'.mode = LEN → S'.mode ≠ LENEXT ∧ S'.mode ≠ DISTEXT ∧ S'.mode ≠ MATCH := by
       intro S' h; rw [h]; exact ⟨by decide, by decide, by decide⟩
     refine SatX.bind (SatX.lift (Sat.mono (li5.wrS (fun s => { s with extra := CODE_EXTRA l1.here })

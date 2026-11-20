@@ -189,6 +189,21 @@ theorem inflate_fresh_end : ∀ h i flush r h', InflateInv.Inv h (some i) → St
   cases e2
   exact hfe hr z sb st hz hsb hst hm hb hl
 
+/-- **From a just reset state with input, every return but `Z_STREAM_ERROR` consumed input** (any `flush`, any
+`avail_out`): from mode `HEAD` with no bits held and not in the last block, the loop leaves only after reading a byte
+(`HEAD` pulls 16 bits first, or goes to `TYPEDO` without a header, which pulls a byte for its 3 bits; neither checks
+the output space or `flush`, and `TYPE`, where `Z_BLOCK` / `Z_TREES` stop, comes later). -/
+theorem inflate_fresh_in : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO h (some i) →
+    h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
+    ∀ z sb st, h.streams i = some z → z.state = some sb → h.istate sb = some st →
+    st.mode = ZlibNg.Inflate.HEAD → st.bits = 0 → st.last = 0 → z.avail_in ≠ 0 → r ≠ Z_STREAM_ERROR →
+    ∀ z', h'.streams i = some z' → z'.avail_in < z.avail_in := by
+  intro h i flush r h' hv hio hc e z sb st hz hsb hst hm hb hl hA hr
+  obtain ⟨r2, h2, e2, -, -, -, -, -, -, -, -, -, -, hfi⟩ := InflateTop.inflate_full3 flush hv hio hc
+  rw [e] at e2
+  cases e2
+  exact hfi hr z sb st hz hsb hst hm hb hl hA
+
 /-- **The exact accounting of `inflate`** (any `flush`, every code but `Z_STREAM_ERROR`): `next_in` advanced by the
 `avail_in - avail_in'` bytes consumed (`InAt`; a `NULL` input stays `NULL` with no bytes), `next_out` advanced by the
 `avail_out - avail_out'` bytes written, the state kept. `Z_STREAM_ERROR` is excluded: the entry check rejects a
