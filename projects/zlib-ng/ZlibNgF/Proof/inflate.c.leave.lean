@@ -409,7 +409,7 @@ theorem LI.afterUW {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
       rfl ws wh wn hws W with }⟩,
     Frame.trans li.frame (Frame.mono (G3_frame ..) (fun _ m => m) (fun _ m => m) (fun _ m => nomatch m)
       (fun _ m => nomatch m)), ?_, by simp [G3], li.hb, G3_istate .., li.head, ?_, li.inAt, li.outAt, li.bits, li.inn,
-      li.outO, li.retB, li.sacc⟩
+      li.outO, li.retB, li.sacc, li.msgK⟩
   · simp only [Heap.iallocsOf, G3, upd_same]
     simpa [Heap.iallocsOf, hd] using hal
   · refine li.sz.trans ⟨fun c hc d0 hd0 => ⟨d0, ?_, rfl⟩, rfl⟩

@@ -205,6 +205,11 @@ def IoRes (h h' : Heap) (i : Nat) : Prop :=
 def EntryOK (h : Heap) (i : Nat) : Prop :=
   ∀ z, h.streams i = some z → z.next_out ≠ .null ∧ (z.avail_in = 0 ∨ z.next_in ≠ .null)
 
+/-- `msg` of stream `i` after a call of `inflate`: the one before the call, or a string literal of the program. -/
+def MsgRes (h h' : Heap) (i : Nat) : Prop :=
+  ∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧
+    (z'.msg = z.msg ∨ ∃ k, z'.msg = .ref (.str k) 0 ∧ k < strTable.size)
+
 /-- The codes `inflate` returns. -/
 def InfRes (r : Int32) : Prop :=
   r = Z_OK ∨ r = Z_STREAM_END ∨ r = Z_NEED_DICT ∨ r = Z_BUF_ERROR ∨ r = Z_DATA_ERROR ∨ r = Z_STREAM_ERROR
@@ -219,7 +224,7 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
       (∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧ z'.state = z.state) ∧
       (∀ hq, RegisteredHeader h' (some i) hq → RegisteredHeader h (some i) hq) ∧
       (r = Z_BUF_ERROR → flush ≠ Z_FINISH → flush ≠ Z_BLOCK → flush ≠ Z_TREES → BufStall h h' i) ∧
-      (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r) := by
+      (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r ∧ MsgRes h h' i) := by
   have hv' := hv
   obtain ⟨i', z, b, st, al, e, hz, hb, hst, hal, c⟩ := hv'
   cases e
@@ -247,7 +252,7 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
         · obtain ⟨h1, h2⟩ := e z hz
           exfalso; revert hchk0
           rcases h2 with h2 | h2 <;> simp [h1, h2],
-      Or.inr (Or.inr (Or.inr (Or.inr (Or.inr rfl))))⟩
+      Or.inr (Or.inr (Or.inr (Or.inr (Or.inr rfl)))), fun z0 h0 => ⟨z0, h0, Or.inl rfl⟩⟩
   rename_i hchk
   have hno : z.next_out ≠ .null := by
     intro e; simp [e] at hchk
@@ -285,7 +290,7 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
           (∀ z0, h.streams i = some z0 → ∃ z', h'.streams i = some z' ∧ z'.state = z0.state) ∧
           (∀ hq, RegisteredHeader h' (some i) hq → RegisteredHeader h (some i) hq) ∧
           (r = Z_BUF_ERROR → flush ≠ Z_FINISH → flush ≠ Z_BLOCK → flush ≠ Z_TREES → BufStall h h' i) ∧
-          (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r) := by
+          (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r ∧ MsgRes h h' i) := by
     intro H1 S1 hv1 hz1 hs1 hh1 hB hG hC hK ht
     obtain ⟨bo, oo, hpo, eo⟩ := envOK_of (H1 := H1) flush hz hb hst hhead hok hin hout hdisj hnb hno hni hc hB hG hC hK
     obtain ⟨al1, -, c1⟩ : ∃ al, H1.iallocsOf b = some al ∧ Core H1 (some i) z b (view S1) al := by
@@ -321,7 +326,7 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
       refine SatX.bind (SatX.modify ?_)
       refine loopPart_ok _ eo (z := z) (S := S1) ?_
       refine ⟨hv1, touchFrame (Touch.refl H1 i b) _ _, SizeKeep.refl _ _, hz1, hb, hs1, hh1, ?_, ?_, ?_, ?_, rfl,
-        Or.inl rfl, Or.inl rfl, ?_⟩
+        Or.inl rfl, Or.inl rfl, ?_, fun z0 h0 => Or.inl (by rw [hz1] at h0; cases h0; rfl)⟩
       · show HdrOK H1 H1 hp
         unfold HdrOK
         rcases hok with e | ⟨k, g, e, hg, -⟩
@@ -355,7 +360,7 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
     · rintro ⟨r, l'⟩ H' ⟨⟨v, hr, hpg, hbg, hra⟩, hf⟩
       dsimp only at hr
       subst hr
-      refine Sat.pure ⟨hf.1, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      refine Sat.pure ⟨hf.1, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · rw [hsid]
         have f1 := touchFrame ht (headerIds h (some i)) (outputRanges h (some i))
         exact Frame.trans f1 hf.2.1
@@ -382,11 +387,15 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
         exact hbg hv0 hf1 hf2 hf3
       · intro _ z0 hz0
         rw [hz] at hz0; cases hz0
-        obtain ⟨-, z', e1, e2, e3, e4⟩ := hra
+        obtain ⟨-, z', e1, ⟨e2, e3, e4⟩, -⟩ := hra
         obtain ⟨z'', -, e5, e6, -, -⟩ := hf.2.2
         rw [e1] at e5; cases e5
         exact ⟨z', e1, e6.trans hb.symm, e2, e3, bo, oo, hpo, e4⟩
       · exact hra.1
+      · intro z0 hz0
+        rw [hz] at hz0; cases hz0
+        obtain ⟨-, z', e1, -, e5⟩ := hra
+        exact ⟨z', e1, e5 z hz1⟩
   split
   · obtain ⟨e, hv1⟩ := InflateInv.wrS (h := h) (s := some i) hv (fun s => { s with mode := TYPEDO }) ⟨z, ⟨i, rfl, hz⟩, hb⟩
       hst (fun _ _ c => { c with

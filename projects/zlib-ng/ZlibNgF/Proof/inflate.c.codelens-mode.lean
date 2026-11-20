@@ -492,7 +492,8 @@ theorem bad_withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     refine Sat.bind (Sat.of_eq (wrS_withS li.hs S' _) ?_)
     refine Sat.bind (Sat.of_eq (show strLitRef msg (withS H E.b { S' with mode := BAD }) =
       .ok (.ref (.str i) 0, withS H E.b { S' with mode := BAD }) by simp [strLitRef, hi]) ?_)
-    exact Sat.mono (li1.wrZ (fun z => { z with msg := .ref (.str i) 0 }) rfl rfl rfl) (fun _ H2 li2 => ⟨_, li2⟩)
+    exact Sat.mono (li1.wrZio (fun z => { z with msg := .ref (.str i) 0 }) rfl rfl rfl li1.sacc
+    (fun _ _ => Or.inr ⟨i, rfl, by rw [Array.findIdx?_eq_some_iff_findIdx_eq] at hi; exact hi.1⟩)) (fun _ H2 li2 => ⟨_, li2⟩)
   refine SatX.bind (SatX.lift (Sat.mono hs ?_))
   rintro _ H1 ⟨z1, li2⟩
   refine SatX.pure ⟨z1, _, Or.inr ⟨rfl, l.ret, li2⟩, ?_⟩
