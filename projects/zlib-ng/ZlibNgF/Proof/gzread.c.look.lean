@@ -72,7 +72,7 @@ theorem alloc_aligned_ok {h : Heap} (size : UInt32) (hw : 8 + size.toNat + 64 < 
   unfold ZlibNg.Zutil.zng_alloc_aligned
   simp only [bind_app, e1, e2, e3]
   have hn : ((Ptr.ref (BRef.heap h.nextBlk) 0 : BPtr) == .null) = false := rfl
-  simp only [hn, Bool.false_eq_true, ite_false]
+  simp only [hn, Bool.false_eq_true, ite_false, bind_app, e2, e3]
   by_cases h8 : d < 8
   · have h8' : d.toNat < 8 := UInt64.lt_iff_toNat_lt.mp h8
     have e4 : Ptr.add (.ref (.heap h.nextBlk) d.toNat : BPtr) (Int.ofNat (64 : UInt32).toNat) H1 =
