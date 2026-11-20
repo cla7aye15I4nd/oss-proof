@@ -1,11 +1,14 @@
-<!-- source-sha256: 95c20184a48a474d1759905a0b2d6944010540c453249a2598a373cc84a5657d -->
+<!-- source-sha256: 8a496d4e7956739bf7ca700d6fcfc090ae129f712cea443474c0d9b1c6378632 -->
 # 发现：zlib-ng 中发现的问题
 
-本工作在被验证提交的 zlib-ng `develop` 分支中发现了十九个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
+本工作在被验证提交的 zlib-ng `develop` 分支中发现了二十个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
 有文档的函数触达，并由真实 C 代码的运行（消毒器无法发现时，由经跟踪的运行与 ISO C17 条文）展示。补丁 0003、0004、
-0006、0007、0008、0009、0010、0011、0012、0013、0014、0015、0016、0017、0018、0019 与 0020 修复了前十八个：每个问题一个补丁，只有补丁 0014
+0006、0007、0008、0009、0010、0011、0012、0013、0014、0015、0016、0017、0018、0019、0020 与 0022 修复了前十九个：每个问题一个补丁，只有补丁 0014
 修复失败的 `gzwrite` 引起的两个问题（两者源于同一个过时指针）。最后一个问题（静态块打开时调用 `deflateReset`）给出错误结果但没有
 内存错误，未打补丁。
+
+对写函数的两个 gz 位置问题，证据一栏说明证据的来源：**公开 API** 指只调用有文档的函数的程序（写失败来自普通的描述符），
+**白盒** 指由测试自行设置库的内部状态。两者都是公开 API。
 
 | 问题 | 错在哪里 | 触达的调用 | 证据 | 修复 | 上游 |
 | --- | --- | --- | --- | --- | --- |
@@ -23,7 +26,8 @@
 | 失败的 `gzwrite` 之后 `gzclose` 读取调用者的缓冲区 | 在同一状态下，`gzclose` 调用 `gz_comp(state, Z_FINISH)`，在 `gzwrite` 返回之后从 `next_in`（位于调用者的缓冲区）写出（或压缩）`avail_in` 个字节：调用者已释放该缓冲区时是对已释放内存的读取，否则把过时的数据写入文件。 | 对已满的非阻塞管道 `gzdopen`，`gzbuffer(file, 8)`，`gzwrite(file, buf, 100)`（以 `EAGAIN` 失败），`free(buf)`，排空管道，`gzclose` | AddressSanitizer，`gzwrite.c:70` 调用的 `write` 中的释放后使用 | 补丁 0014 | 未提交 |
 | `gz_buffer_alloc` 对空指针加偏移 | `gz_buffer_alloc` 在检查分配结果之前计算 `state->out = state->buffers + in_size`：分配失败时，这是 `NULL` 加非零偏移（ISO C17 §6.5.6p8）。 | `gzopen`，`gzbuffer(file, 1 << 30)`，在 3 GiB 分配失败时调用 `gzwrite` 或 `gzread` | UndefinedBehaviorSanitizer，`gzlib.c:90` | 补丁 0015 | 未提交 |
 | gz 位置溢出（读） | 读函数无界地累加 64 位有符号位置 `x.pos`：`gz_read`（以及 `gzgetc` 与 `gzgets`）中的有符号溢出。 | 对 `lseek` 成功但不移动且总有数据的描述符（Linux `/dev/zero`）`gzdopen`，`gzgetc`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzread` | UndefinedBehaviorSanitizer，`gzread.c:356` | 补丁 0016 | 未提交 |
-| gz 位置溢出（写） | 写函数在写出之前无界地把每次写入的长度累加到 64 位有符号位置 `x.pos`：总计 `2^63` 字节之后，`gz_write`（以及 `gzputc` 与 `gzprintf`）中出现有符号溢出。失败的写入保留这次累加，因此无需有数据到达文件；写入 `/dev/null` 同样会触达。 | 对 `write()` 失败的描述符 `gzdopen(fd, "wT")`，`gzbuffer(file, 8)`，然后约 `2^32` 次 `gzwrite(file, buf, INT_MAX)` 与 `gzclearerr(file)` | UndefinedBehaviorSanitizer，`gzwrite.c:210` | 补丁 0017 | 未提交 |
+| gz 位置溢出（写） | 写函数在写出之前无界地把每次写入的长度累加到 64 位有符号位置 `x.pos`：总计 `2^63` 字节之后，`gz_write`（以及 `gzputc` 与 `gzprintf`）中出现有符号溢出。失败的写入保留这次累加，因此无需有数据到达文件。 | 对 `write()` 失败的描述符（以只读方式打开的文件）`gzdopen(fd, "wT")`，然后 `2^31 + 1` 次 `gzfwrite(buf, 1, 2^32 - 1, file)` 与 `gzclearerr(file)`（以 `gzwrite` 写 `INT_MAX` 字节约需 `2^32` 次）；`buf` 是 `2^32 - 1` 个可读字节，从不被读取 | 公开 API：UndefinedBehaviorSanitizer，`gzwrite.c:210`，在第 `2^31 + 1` 次调用时（约 7 分钟）；打补丁后该调用以 `Z_DATA_ERROR` 返回 0 | 补丁 0017 | 未提交 |
+| 定位所需零字节写入失败后，写位置越过定位目标 | 写模式下向前的 `gzseek` 只记录跳过量；下一次写入调用 `gz_zero`，分批写出零字节。它在写出每批之前就把该批累加到 `x.pos`，却只在写入成功后才从 `skip` 中减去。写入失败使该批同时计入两者，于是 `x.pos + skip` 超过 `gzseek` 返回的位置：定位到 `INT64_MAX` 之后，`gztell` 计算 `x.pos + skip` 时发生有符号溢出（ISO C17 §6.5p5）。定位到较小位置时，`gzclearerr` 后再次写入会把该批写两次：文件与 `gztell` 都比定位要求的长（错误结果，没有未定义行为）。 | 对已满的非阻塞管道的写端（`write()` 以 `EAGAIN` 失败）`gzdopen(fd, "wT")`，`gzbuffer(file, 4096)`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzwrite(file, "abc", 3)`，`gztell`；或 `gzseek(file, 10000, SEEK_SET)`，`gzwrite`，读端排空管道，`gzclearerr`，再次 `gzwrite`，`gzclose` | 公开 API：UndefinedBehaviorSanitizer，`gzlib.c:496`；定位到 10000 时写出 14099 字节，`gztell` 为 14099 而不是 10003 | 补丁 0022 | 未提交 |
 | `deflate` 在 `2^31` 字节内没有块刷新时 `block_start` 溢出 | `fill_window` 在窗口每次滑动时把 `int` 类型的 `block_start` 减去滑动长度；只有块刷新才把它重新设为 `strstart`。在第 1 级使用策略 `Z_FIXED` 时，`deflate_quick` 把静态树符号写入同一个块，该块一直打开直到刷新或流结束，因此一个没有刷新、超过 `2^31` 个输入字节的流使 `block_start` 越过 `INT_MIN`：有符号溢出（ISO C17 §6.5p5）。 | `deflateInit2(strm, 1, Z_DEFLATED, 15, 8, Z_FIXED)`，然后对超过 `2^31` 字节调用 `deflate(strm, Z_NO_FLUSH)` | UndefinedBehaviorSanitizer，`deflate.c:1274` | 补丁 0018 | 未提交 |
 | 第 7、8 级的 `deflate` 采用起点不在当前位置之前的匹配 | 输入全部消耗后的 `Z_FULL_FLUSH`（以及 `deflateReset`）把 `strstart` 置回 0 并清空 `head`，但保留 `prev`，其中仍是先前输入的位置。第 2-6 级不插入长匹配中的每个位置，因此这些 `prev` 槽保留旧位置，而 `deflateParams` 从第 2-6 级切换到第 7 或 8 级时不重建哈希链。在第 7、8 级，`longest_match_slow_knuth_c`（`match_tpl.h`）为寻找更远的链读取当前匹配内部各位置的 `prev`，之后的链遍历只在外层循环开头检查 `cur_match >= strstart`，每一步之后不再检查（`GOTO_NEXT_CHAIN` 继续的是内层循环）。于是一个位于 `strstart` 之后、字节相同的过时位置被采用：`match_start >= strstart`。`deflate_slow` 记录距离 `strstart - 1 - prev_match`，它回绕到接近 `2^32`：`d_code` 在 `dist_code` 之外很远处读取（ISO C17 §6.5.6p8），压缩流解码出不同的数据。 | `deflateInit2(strm, 5, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY)`，对 36138 字节文本调用 `deflate(strm, Z_FULL_FLUSH)`，对 5636 字节重复模式调用 `deflate(strm, Z_NO_FLUSH)`，`deflateParams(strm, 8, Z_DEFAULT_STRATEGY)`，对 38619 字节调用 `deflate(strm, Z_FINISH)`；用 `deflateReset` 代替该刷新同样可以触达 | AddressSanitizer，`zng_tr_tally_dist` 中的野读取，`deflate_p.h:101`；不用消毒器时，`inflate` 输出在 80425 字节后结束流，而给出的是 80393 字节 | 补丁 0019 | 未提交 |
 | `gzdirect` 在缓冲数据之后留下待处理的定位 | 读取时 `gzseek` 只记录跳过量，此时没有缓冲的输出。随后 `gzdirect` 调用 `gz_look`；对于非 gzip 输入，`gz_look` 在跳过量仍待处理时把读到的数据复制到输出缓冲区。`gzgetc`（函数以及 `zlib.h` 的 `gzgetc()` 宏）从输出缓冲区取字节而不检查跳过请求，并把它们累加到 `x.pos`，于是 `x.pos + skip` 超过 `GZ_OFF_MAX`，`gztell` 溢出：有符号溢出（ISO C17 §6.5p5）。`gzgetc` 还会返回所定位位置之前的字节。 | 对非 gzip 文件 `gzopen(path, "rb")`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzdirect`，`gzgetc`，`gztell` | UndefinedBehaviorSanitizer，`gzlib.c:496` | 补丁 0020 | 未提交 |
