@@ -67,9 +67,10 @@ theorem headers_eq (st : StatePtr) (strm : StreamPtr) :
   rfl
 
 /-- What `deflateHeaders` leaves. -/
-def DHP (h : Heap) (i b : Nat) (r : Int32) (H : Heap) : Prop :=
+def DHP (h : Heap) (i b : Nat) (L : Int32) (r : Int32) (H : Heap) : Prop :=
   Run h i b H ∧ (r = Z_OK → LastM1 H b) ∧
-    (r ≠ Z_OK → ∀ st, H.dstate b = some st → st.status = BUSY_STATE ∧ st.pending = 0 ∧ st.sym_next = 0)
+    (r ≠ Z_OK → ∀ st, H.dstate b = some st → st.status = BUSY_STATE ∧ st.pending = 0 ∧ st.sym_next = 0 ∧
+      st.last_flush = L)
 
 /-- Done with the header, or in one of the states `A` with no symbols, `pending_out` at `pending_buf`, at most
 `pending_buf_size` pending bytes. -/
@@ -109,12 +110,12 @@ theorem hdr_of {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
 /-- The end of `deflateHeaders` from `HCRC_STATE`: `BUSY_STATE`, the flush. -/
 theorem hEnd_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
     (_hs : st.status = HCRC_STATE) (h0 : st.sym_next = 0) (hpo : st.pending_out = st.pending_buf)
-    (hple : st.pending ≤ st.pending_buf_size) :
+    (hple : st.pending ≤ st.pending_buf_size) {L : Int32} (hL : st.last_flush = L) :
     Sat H (do
         wrD (some b) fun s => { s with status := BUSY_STATE }
         flush_pending_inline (some i)
         if ← pendingReturn (some b) then return Z_OK
-        return (-1 : Int32)) (DHP h i b) := by
+        return (-1 : Int32)) (DHP h i b L) := by
   obtain ⟨z, d, pbo, e, SS⟩ := segS_of R hst h0 hpo
   rw [← e]
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
@@ -130,7 +131,7 @@ theorem hEnd_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (
     rw [ite_f (by simp)]
     refine Sat.pure ⟨q.1, fun e => absurd e (by decide), fun _ st' hst' => ?_⟩
     obtain ⟨k1, k2⟩ := q.2.2 rfl st' hst'
-    rw [k2]; exact ⟨rfl, k1, h0⟩
+    rw [k2]; exact ⟨rfl, k1, h0, hL⟩
 
 theorem rdD_dst {H : Heap} {b : Nat} {st : DeflateState} (hst : H.dstate b = some st) {α : Type}
     (f : DeflateState → α) : rdD (some b) f H = .ok (f st, H) := by
@@ -155,14 +156,15 @@ theorem cstr_unSH {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
 theorem hPut_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
     (hs : st.status = HCRC_STATE) (h0 : st.sym_next = 0) (hpo : st.pending_out = st.pending_buf)
     (hroom : st.pending.toNat + 2 ≤ st.pending_buf_size.toNat) {k : Nat} {g : GzHeader}
-    (hgz : st.gzhead = .val (some k)) (hg : H.gzheaders k = some g) (hw : st.wrap = 2) :
+    (hgz : st.gzhead = .val (some k)) (hg : H.gzheaders k = some g) (hw : st.wrap = 2) {L : Int32}
+    (hL : st.last_flush = L) :
     Sat H (do
         put_short (some b) (← rdZ (some i) (·.adler)).toUInt16
         wrZ (some i) fun z => { z with adler := CRC32_INITIAL_VALUE }
         wrD (some b) fun s => { s with status := BUSY_STATE }
         flush_pending_inline (some i)
         if ← pendingReturn (some b) then return Z_OK
-        return (-1 : Int32)) (DHP h i b) := by
+        return (-1 : Int32)) (DHP h i b L) := by
   obtain ⟨z, d, pbo, e, SS⟩ := segS_of R hst h0 hpo
   have hr := SS.room
   have hpbs := SS.pbs
@@ -177,7 +179,7 @@ theorem hPut_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (
     w.1 (fun j hj => w.2 j (Or.inl (by omega))) (by omega) (by rw [hs]; decide) (by rw [hs]; decide)
     (by rw [hs]; decide) (hdrOk_hcrc hgz (by rw [← e] at hg; exact hg) hw hs)
   exact hEnd_ok R' (SH_dstate _ _ _ _ _ _) hs h0 hpo
-    (UInt32.le_iff_toNat_le.mpr (by dsimp only; omega))
+    (UInt32.le_iff_toNat_le.mpr (by dsimp only; omega)) hL
 
 theorem pbs_of {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st) :
     st.pending_buf_size.toNat = 4 * st.lit_bufsize.toNat ∧ 128 ≤ st.lit_bufsize.toNat ∧
@@ -189,13 +191,14 @@ theorem pbs_of {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
 
 /-- `hdH`. -/
 theorem hdH_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
-    (K : HKA (· = HCRC_STATE) st) : Sat H (hdH (some b) (some i)) (DHP h i b) := by
+    (K : HKA (· = HCRC_STATE) st) {L : Int32} (hL : st.last_flush = L) :
+    Sat H (hdH (some b) (some i)) (DHP h i b L) := by
   unfold hdH
   refine Sat.bind (Sat.of_eq (rdD_dst hst _) ?_)
   rcases K with ⟨hb, hp0, h0⟩ | ⟨hs, h0, hpo, hple⟩
   · rw [ite_f (by rw [hb]; decide)]
     exact Sat.pure ⟨R, fun e => absurd e (by decide), fun _ st' hst' => by
-      obtain rfl := Option.some.inj (hst.symm.trans hst'); exact ⟨hb, hp0, h0⟩⟩
+      obtain rfl := Option.some.inj (hst.symm.trans hst'); exact ⟨hb, hp0, h0, hL⟩⟩
   rw [ite_t (by rw [hs]; decide)]
   obtain ⟨hw, k, g, hgz, hg, hg0⟩ := hdr_of R hst (Or.inr (Or.inr (Or.inr hs)))
   refine ival_of hst hgz ?_
@@ -218,6 +221,7 @@ theorem hdH_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
           obtain ⟨-, -, -, l1, -, l3, -⟩ := c'.sizes; simp only [dview] at l1 l3; omega
         exact hPut_ok q.1 hst' (by rw [k2]; exact hs) (by rw [k2]; exact h0) (c'.pout k1)
           (by rw [k1]; simp; omega) (by rw [k2]; exact hgz) (run_gz q.1 hg0) (by rw [k2]; exact hw)
+          (by rw [k2]; exact hL)
     · rw [ite_f hf]
       have hpb := pbs_of R hst
       have hle : st.pending.toNat + 2 ≤ st.pending_buf_size.toNat := by
@@ -225,13 +229,14 @@ theorem hdH_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
         have := UInt32.le_iff_toNat_le.mp hple
         rw [u32_add _ _ (by have : (2 : UInt32).toNat = 2 := rfl; omega)] at h2
         simp at h2; omega
-      exact hPut_ok R hst hs h0 hpo hle hgz hg hw
+      exact hPut_ok R hst hs h0 hpo hle hgz hg hw hL
   · rw [ite_f hc]
-    exact hEnd_ok R hst hs h0 hpo hple
+    exact hEnd_ok R hst hs h0 hpo hple hL
 
 /-- `hdC`. -/
 theorem hdC_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
-    (K : HKA (fun s => s = COMMENT_STATE ∨ s = HCRC_STATE) st) : Sat H (hdC (some b) (some i)) (DHP h i b) := by
+    (K : HKA (fun s => s = COMMENT_STATE ∨ s = HCRC_STATE) st) {L : Int32} (hL : st.last_flush = L) :
+    Sat H (hdC (some b) (some i)) (DHP h i b L) := by
   unfold hdC
   refine Sat.bind (Sat.of_eq (rdD_dst hst _) ?_)
   by_cases hs : st.status = COMMENT_STATE
@@ -255,12 +260,12 @@ theorem hdC_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
         exact Sat.pure ⟨R1, fun _ => l1, fun e => absurd rfl e⟩
       | false =>
         rw [ite_f (by simp)]
-        obtain ⟨H0, z0, st0, d0, pbo, a, p, s', g', dd, SS, rfl, hsz, hlo, hp, f1, f2, f3, f4, -, f6, hw0⟩ := q2 rfl
+        obtain ⟨H0, z0, st0, d0, pbo, a, p, s', g', dd, SS, rfl, hsz, hlo, hp, f1, f2, f3, f4, -, f6, hw0, f8⟩ := q2 rfl
         refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
         have hg' : H0.gzheaders k = some g := run_gz SS.run hg0
         have R' := seg_run (d := dd) SS.run SS.pb SS.sym SS.pout a p HCRC_STATE g' hsz hlo hp (by decide) (by decide)
           (by decide) (hdrOk_hcrc f6 hg' hw0 rfl)
-        exact hdH_ok R' (SH_dstate _ _ _ _ _ _) (.inr ⟨rfl, f2, f3, f4⟩)
+        exact hdH_ok R' (SH_dstate _ _ _ _ _ _) (.inr ⟨rfl, f2, f3, f4⟩) (f8.trans hL)
     · rw [ite_f hc]
       obtain ⟨z, d, pbo, e, SS⟩ := segS_of R hst h0 hpo
       rw [← e]
@@ -269,17 +274,17 @@ theorem hdC_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
       have R' := seg_run (d := d) SS.run SS.pb SS.sym SS.pout z.adler st.pending HCRC_STATE st.gzindex rfl
         (fun _ _ => rfl) (by have := UInt32.le_iff_toNat_le.mp hple; omega) (by decide) (by decide) (by decide)
         (hdrOk_hcrc hgz (by rw [← e] at hg; exact hg) hw rfl)
-      exact hdH_ok R' (SH_dstate _ _ _ _ _ _) (.inr ⟨rfl, h0, hpo, hple⟩)
+      exact hdH_ok R' (SH_dstate _ _ _ _ _ _) (.inr ⟨rfl, h0, hpo, hple⟩) hL
   · rw [ite_f (by simpa using hs)]
-    refine hdH_ok R hst ?_
+    refine hdH_ok R hst ?_ hL
     rcases K with x | ⟨hA, x⟩
     · exact .inl x
     · exact .inr ⟨hA.resolve_left hs, x⟩
 
 /-- `hdN`. -/
 theorem hdN_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
-    (K : HKA (fun s => s = NAME_STATE ∨ s = COMMENT_STATE ∨ s = HCRC_STATE) st) :
-    Sat H (hdN (some b) (some i)) (DHP h i b) := by
+    (K : HKA (fun s => s = NAME_STATE ∨ s = COMMENT_STATE ∨ s = HCRC_STATE) st)
+    {L : Int32} (hL : st.last_flush = L) : Sat H (hdN (some b) (some i)) (DHP h i b L) := by
   unfold hdN
   refine Sat.bind (Sat.of_eq (rdD_dst hst _) ?_)
   by_cases hs : st.status = NAME_STATE
@@ -303,7 +308,7 @@ theorem hdN_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
         exact Sat.pure ⟨R1, fun _ => l1, fun e => absurd rfl e⟩
       | false =>
         rw [ite_f (by simp)]
-        obtain ⟨H0, z0, st0, d0, pbo, a, p, s', g', dd, SS, rfl, hsz, hlo, hp, f1, f2, f3, f4, -, f6, hw0⟩ := q2 rfl
+        obtain ⟨H0, z0, st0, d0, pbo, a, p, s', g', dd, SS, rfl, hsz, hlo, hp, f1, f2, f3, f4, -, f6, hw0, f8⟩ := q2 rfl
         refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
         refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
         have hg' : H0.gzheaders k = some g := run_gz SS.run hg0
@@ -311,7 +316,7 @@ theorem hdN_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
         have R' := seg_run (d := dd) SS.run SS.pb SS.sym SS.pout a p COMMENT_STATE 0 hsz hlo hp (by decide)
           (by decide) (by decide)
           (hdrOk_comment f6 hg' hw0 rfl rfl (hcm.imp id fun ⟨n, c⟩ => ⟨n, nbc n c, cstr_unSH c (nbc n c)⟩))
-        exact hdC_ok R' (SH_dstate _ _ _ _ _ _) (.inr ⟨.inl rfl, f2, f3, f4⟩)
+        exact hdC_ok R' (SH_dstate _ _ _ _ _ _) (.inr ⟨.inl rfl, f2, f3, f4⟩) (f8.trans hL)
     · rw [ite_f hc]
       obtain ⟨z, d, pbo, e, SS⟩ := segS_of R hst h0 hpo
       obtain ⟨-, H2⟩ := (R.side st hst).2.2.1
@@ -327,9 +332,9 @@ theorem hdN_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
         (fun _ _ => rfl) (by have := UInt32.le_iff_toNat_le.mp hple; omega) (by decide) (by decide) (by decide)
         (hdrOk_comment hgz (by rw [← e] at hg; exact hg) hw rfl hi0
           (hcm.imp id fun ⟨n, c⟩ => ⟨n, nbc n c, c⟩))
-      exact hdC_ok R' (SH_dstate _ _ _ _ _ _) (.inr ⟨.inl rfl, h0, hpo, hple⟩)
+      exact hdC_ok R' (SH_dstate _ _ _ _ _ _) (.inr ⟨.inl rfl, h0, hpo, hple⟩) hL
   · rw [ite_f (by simpa using hs)]
-    refine hdC_ok R hst ?_
+    refine hdC_ok R hst ?_ hL
     rcases K with x | ⟨hA, x⟩
     · exact .inl x
     · exact .inr ⟨hA.resolve_left hs, x⟩
@@ -337,7 +342,7 @@ theorem hdN_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (h
 /-- **`deflateHeaders`** from a header state with no pending bytes. -/
 theorem headers_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
     (hs1 : st.status ≠ BUSY_STATE) (hs2 : st.status ≠ FINISH_STATE) (hp0 : st.pending = 0) :
-    Sat H (deflateHeaders (some b) (some i)) (DHP h i b) := by
+    Sat H (deflateHeaders (some b) (some i)) (DHP h i b st.last_flush) := by
   obtain ⟨z, st1, al, d, -, -, hst1, -, -, -, c⟩ := R.live
   obtain rfl := Option.some.inj (hst.symm.trans hst1)
   have h0 : st.sym_next = 0 := c.hdr hs1 hs2
@@ -350,22 +355,22 @@ theorem headers_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H
   have hhi' := Int32.le_iff_toInt_le.mp hhi
   -- the rest from `NAME_STATE` on, after a part that went on
   have toN : ∀ H1, Run h i b H1 → (∀ st', H1.dstate b = some st' →
-      HKA (fun s => s = NAME_STATE ∨ s = COMMENT_STATE ∨ s = HCRC_STATE) st') →
-      Sat H1 (hdN (some b) (some i)) (DHP h i b) := fun H1 R1 K1 => by
+      HKA (fun s => s = NAME_STATE ∨ s = COMMENT_STATE ∨ s = HCRC_STATE) st' ∧ st'.last_flush = st.last_flush) →
+      Sat H1 (hdN (some b) (some i)) (DHP h i b st.last_flush) := fun H1 R1 K1 => by
     obtain ⟨z', st', al', d', -, -, hst', -, -, -, -⟩ := R1.live
-    exact hdN_ok R1 hst' (K1 st' hst')
+    exact hdN_ok R1 hst' (K1 st' hst').1 (K1 st' hst').2
   -- after `EXTRA_STATE`
-  have fromE : ∀ H1, Run h i b H1 → (∀ st', H1.dstate b = some st' → HKs EXTRA_STATE st' ∨
-      HKA (fun s => s = NAME_STATE ∨ s = COMMENT_STATE ∨ s = HCRC_STATE) st') →
+  have fromE : ∀ H1, Run h i b H1 → (∀ st', H1.dstate b = some st' → (HKs EXTRA_STATE st' ∨
+      HKA (fun s => s = NAME_STATE ∨ s = COMMENT_STATE ∨ s = HCRC_STATE) st') ∧ st'.last_flush = st.last_flush) →
       Sat H1 (do
         if (← rdD (some b) (·.status)) == EXTRA_STATE then
           if ← headersExtra (some b) (some i) then return Z_OK
-        hdN (some b) (some i)) (DHP h i b) := fun H1 R1 K1 => by
+        hdN (some b) (some i)) (DHP h i b st.last_flush) := fun H1 R1 K1 => by
     obtain ⟨z', st', al', d', -, -, hst', -, -, -, -⟩ := R1.live
     refine Sat.bind (Sat.of_eq (rdD_dst hst' _) ?_)
-    rcases K1 st' hst' with (⟨hb, x⟩ | ⟨hs, x1, x2, x3⟩) | K2
+    rcases K1 st' hst' with ⟨(⟨hb, x⟩ | ⟨hs, x1, x2, x3⟩) | K2, hL1⟩
     · rw [ite_f (by rw [hb]; decide)]
-      exact toN H1 R1 fun st2 h2 => by obtain rfl := Option.some.inj (hst'.symm.trans h2); exact .inl ⟨hb, x⟩
+      exact toN H1 R1 fun st2 h2 => by obtain rfl := Option.some.inj (hst'.symm.trans h2); exact ⟨.inl ⟨hb, x⟩, hL1⟩
     · rw [ite_t (by rw [hs]; decide)]
       refine Sat.bind (Sat.mono (extra_ok R1 hst' hs x1 x2 x3) ?_)
       rintro rr H2 ⟨R2, q1, q2⟩
@@ -375,15 +380,15 @@ theorem headers_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H
       | false =>
         rw [ite_f (by simp)]
         exact toN H2 R2 fun st2 h2 => by
-          rcases q2 rfl st2 h2 with x | ⟨y1, y2⟩
-          · exact .inl x
-          · exact .inr ⟨.inl y1, y2⟩
+          rcases q2 rfl st2 h2 with ⟨x | ⟨y1, y2⟩, hl2⟩
+          · exact ⟨.inl x, hl2.trans hL1⟩
+          · exact ⟨.inr ⟨.inl y1, y2⟩, hl2.trans hL1⟩
     · have hne : st'.status ≠ EXTRA_STATE := by
         rcases K2 with ⟨hb, -⟩ | ⟨hA, -⟩
         · rw [hb]; decide
         · rcases hA with e | e | e <;> rw [e] <;> decide
       rw [ite_f (by simpa using hne)]
-      exact toN H1 R1 fun st2 h2 => by obtain rfl := Option.some.inj (hst'.symm.trans h2); exact K2
+      exact toN H1 R1 fun st2 h2 => by obtain rfl := Option.some.inj (hst'.symm.trans h2); exact ⟨K2, hL1⟩
   rw [headers_eq]
   refine Sat.bind (Sat.of_eq (ldDState_app hst) ?_)
   by_cases hI : st.status = INIT_STATE
@@ -395,11 +400,11 @@ theorem headers_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H
     | false =>
       rw [ite_f (by simp)]
       obtain ⟨z', st', al', d', -, -, hst', -, -, -, -⟩ := R1.live
-      obtain ⟨k1, k2, k3⟩ := q2 rfl st' hst'
+      obtain ⟨k1, k2, k3, k4⟩ := q2 rfl st' hst'
       refine Sat.bind (Sat.of_eq (rdD_dst hst' _) ?_)
       rw [ite_f (by rw [k2]; decide)]
       exact fromE H1 R1 fun st2 h2 => by
-        obtain rfl := Option.some.inj (hst'.symm.trans h2); exact .inl (.inl ⟨k2, k1, k3⟩)
+        obtain rfl := Option.some.inj (hst'.symm.trans h2); exact ⟨.inl (.inl ⟨k2, k1, k3⟩), k4⟩
   rw [ite_f (by simpa using hI)]
   refine Sat.bind (Sat.of_eq (rdD_dst hst _) ?_)
   by_cases hG : st.status = GZIP_STATE
@@ -410,14 +415,14 @@ theorem headers_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H
     | true => rw [ite_t rfl]; exact Sat.pure ⟨R1, fun _ => q1 rfl, fun e => absurd rfl e⟩
     | false =>
       rw [ite_f (by simp)]
-      exact fromE H1 R1 fun st2 h2 => .inl (q2 rfl st2 h2)
+      exact fromE H1 R1 fun st2 h2 => ⟨.inl (q2 rfl st2 h2).1, (q2 rfl st2 h2).2⟩
   rw [ite_f (by simpa using hG)]
   refine fromE H R fun st2 h2 => ?_
   obtain rfl := Option.some.inj (hst.symm.trans h2)
   have hpp : st.pending < st.pending_buf_size := by
     rw [hp0, UInt32.lt_iff_toNat_lt]; simp; omega
   by_cases hE : st.status = EXTRA_STATE
-  · exact .inl (.inr ⟨hE, h0, hpo, hpp⟩)
+  · exact ⟨.inl (.inr ⟨hE, h0, hpo, hpp⟩), rfl⟩
   · have t : ∀ x : Int32, st.status ≠ x → st.status.toInt ≠ x.toInt := fun x hx e => hx (Int32.toInt_inj.mp e)
     have a1 := t _ hI; have a2 := t _ hs1; have a3 := t _ hs2; have a4 := t _ hG; have a5 := t _ hE
     have e1 : INIT_STATE.toInt = 1 := rfl
@@ -429,7 +434,7 @@ theorem headers_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H
     have e6 : NAME_STATE.toInt = 6 := rfl
     have e7 : COMMENT_STATE.toInt = 7 := rfl
     have e8' : HCRC_STATE.toInt = 8 := rfl
-    refine .inr (.inr ⟨?_, h0, hpo, UInt32.le_of_lt hpp⟩)
+    refine ⟨.inr (.inr ⟨?_, h0, hpo, UInt32.le_of_lt hpp⟩), rfl⟩
     rcases (by omega : st.status.toInt = 6 ∨ st.status.toInt = 7 ∨ st.status.toInt = 8) with x | x | x
     · exact .inl (Int32.toInt_inj.mp (x.trans e6.symm))
     · exact .inr (.inl (Int32.toInt_inj.mp (x.trans e7.symm)))

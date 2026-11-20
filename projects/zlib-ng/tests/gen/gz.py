@@ -18,8 +18,9 @@ A schedule entry A<k> makes the library's malloc call number k of the line (0-ba
 Every input on which the C ran into undefined behaviour before patches 0014-0016 is generated: write errors on the
 direct path of gz_write followed by further writes, flushes and closes, gzclearerr after write errors, allocation
 failures (gz_state, path, buffers, inflate and deflate state, error message), reads after gzseek to near 2^63,
-gzdirect while a seek is pending (patch 0020), and gzgets while a seek is pending at the end of a file that grows
-(patch 0021).
+gzdirect while a seek is pending (patch 0020), gzgets while a seek is pending at the end of a file that grows
+(patch 0021), and failed writes of the zeros of a forward seek in write mode followed by gztell, gzclearerr and more
+writes (patch 0022).
 Patch 0017 refuses a write past GZ_OFF_MAX before it reads the buffer: gzfwrite lengths above it are generated with
 a one-byte buffer (nothing else can reach that position in a test's time).
 """
@@ -189,6 +190,15 @@ for m in ("w", "wT"):
                ["seek:100:0", "printf:d:5", "tell"], ["seek:100:0", "puts:4142", "tell"], ["seek:40:0", "params:1:0", "tell"],
                ["seek:20:0", "closew"], ["rewind"]):
         line(None, [], ["openg:" + m, "buffer:16"] + sk + ["error", "close"])
+# a failed write of the zeros of a forward seek, then gztell, gzclearerr and the write again (patch 0022)
+line(None, ["1:F11", "2:F11", "3:F11"], ["openg:wT", "buffer:16", "seek:9223372036854775807:0", "write:41", "tell",
+                                          "error", "seek:0:1", "close"])
+for m in ("w", "wT", "w1"):
+    for sched in (["1:F11"], ["1:S5"], ["2:F5"], ["1:F11", "2:F11"]):
+        line(None, sched, ["openg:" + m, "buffer:16", "seek:100:0", "write:414243", "tell", "error", "clearerr",
+                           "write:414243", "tell", "seek:7:1", "tell", "putc:68", "tell", "close"])
+        line(None, sched, ["openg:" + m, "buffer:16", "seek:40:0", "flush:2", "tell", "clearerr", "printf:d:5", "tell",
+                           "close"])
 
 # ---- wrong mode, NULL handle, errors, close variants ----
 line(gz(b"abc"), [], ["open:r", "write:41", "putc:1", "puts:41", "printf:d:1", "flush:0", "params:1:0", "fwrite:1:1:41",
