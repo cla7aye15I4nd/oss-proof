@@ -1,4 +1,4 @@
-<!-- source-sha256: a10c923536b85dbbde3003c8bee67e4ad577b04d23a813f9af4a60366658ffa0 -->
+<!-- source-sha256: 736f20798134441a28f636e76cbba6205b876590f3d39a6caf07f5fe3b90d352 -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -58,8 +58,11 @@
 | `deflate`、`deflateParams` | `next_in` 与 `next_out` 为 `NULL` 或指向 `avail_in` 个可读、`avail_out` 个可写字节；输出与输入及已登记的 `gz_header` 缓冲区不重叠；它们都不在库的分配块内。 | `DStreamIO` | 调用者缓冲区没有理由重叠。 |
 | `deflateGetDictionary` | 缓冲区为 `NULL` 或至少有 32768 个可写字节。 | `Goal.deflateGetDictionary_safety` | `zlib.h` 指明 32768 字节总是足够。 |
 | `deflateCopy` | `dest` 与 `source` 是不同的流。 | `Goal.deflateCopy_safety` | 对 `z_stream` 的复制是 `memcpy`，对同一对象未定义。 |
+| `deflateCopy`（失败） | `deflateCopy` 返回错误后，`dest` 不是已初始化的流；目标对其后的调用不作任何断言。 | `DeflateReachable`、`DNoState` | 这样的 `dest` 既不是没有状态的流，也不是由 `zlib.h` 的调用到达的流。 |
 | `deflateSetHeader`（在流的历史中） | 在首次 `deflate` 调用之前调用，所给头的 `extra` 有 `extra_len` 个可读字节，`name` 与 `comment` 为 C 字符串。 | `DeflateStep` | 这是 `zlib.h` 对 `deflateSetHeader` 的要求；调用本身任何时候都安全（`Goal.deflateSetHeader_safety`）。 |
 | `deflatePrime`（在流的历史中） | 在该流的任何待输出数据被刷出之前调用（`pending_out` 仍为 `pending_buf`），即在 `deflateInit2` 或 `deflateReset` 之后首次 `deflate` 调用之前。 | `DeflateStep`、`PrimeReady` | 这是 `zlib.h` 对 `deflatePrime` 的要求。该调用把字节写在 `pending_buf + pending` 处；部分刷出之后，写入的字节使下一次 `deflate` 刷出的范围越过 `pending_buf`，反复调用会读到分配块末尾之外（AddressSanitizer 在 `flush_pending` 中报告 heap-buffer-overflow）。调用本身任何时候都安全（`Goal.deflatePrime_safety`）。 |
+| `deflateSetDictionary`（在流的历史中） | 调用时流状态中没有已记录的符号，即在首次 `deflate` 调用之前或在一个块刚完成之后。 | `DeflateStep`、`DictReady` | 这是 `zlib.h` 的要求：对 raw deflate，须在任何 `deflate` 调用之前，或在以 `Z_BLOCK`、`Z_PARTIAL_FLUSH`、`Z_SYNC_FLUSH` 或 `Z_FULL_FLUSH` 完成一个块之后立即调用。该调用把 `block_start` 设为 `strstart`；在块中间调用时，已记录的符号失去其窗口字节，之后 `deflateParams` 切换到级别 0 可能在有待处理符号时启动 `deflate_stored`。调用本身任何时候都安全（`Goal.deflateSetDictionary_safety`）。 |
+| `deflateGetDictionary`（在流的历史中） | 缓冲区与已登记 `gz_header` 的 `extra`、`name`、`comment` 不重叠。 | `DeflateStep` | 没有理由重叠的调用者缓冲区；`deflate` 按保存的索引在这些缓冲区中续写 gzip 头。 |
 | `deflateBound`、`deflateBound_z` | 已登记的 `gz_header` 按 `deflateSetHeader` 的要求可读；每个对象都小于 `2^63` 字节。 | `DHeaderReadable`、`ObjBound` | `deflateBound` 读取头中的字符串直到其零字节。模型中该循环至多运行 `2^64` 次，而模型本身不限制对象的大小；x86_64 Linux 上的每个对象都远小于此。 |
 | `deflateInit_`、`deflateInit2_`、`deflateCopy`、`compress*` | 堆模型在尚未分配的块中不记录任何对象（字节、inflate 或 deflate 状态）。 | `DFreshBlocks` | 堆模型的良构条件，程序到达的每个堆都满足。 |
 | `deflate`、`deflateParams`（流历史中的每次调用） | 静态 CRC 表保持其常量（`CrcGlobals`）。 | `DeflateStep` | C 中的常量数据。 |
