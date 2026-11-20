@@ -136,6 +136,7 @@ import ZlibNgF.Proof.«insert_string_p.h.safety»
 import ZlibNgF.Proof.«insert_string_p.h.chain»
 import ZlibNgF.Proof.«insert_string_p.h.grow»
 import ZlibNgF.Proof.«insert_string_p.h.sli»
+import ZlibNgF.Proof.«insert_string_p.h.tail»
 import ZlibNgF.Proof.«compare256_c.c.safety»
 import ZlibNgF.Proof.«match_tpl.h.bits»
 import ZlibNgF.Proof.«match_tpl.h.safety»
