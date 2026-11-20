@@ -535,4 +535,109 @@ theorem long_filter_ok {e : LMEnv} {v : LMVars} {wo po ho : Nat}
 
 end
 
+/-! ## The outer loop -/
+
+/-- The invariant of the outer `for (;;)`: only `match_start` changed in the heap; a running loop has `VI` and
+`BL`; `break` keeps `BL`; a `return r` has `PR`. -/
+def LI (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8) (wo bl0 : Nat)
+    (s : LMExit × LMVars) (H' : Heap) : Prop :=
+  ∃ ms, H' = LH H i z b st d ms ∧
+    (match s.1 with
+     | .cont => VI b wo st s.2 ∧ BL st bl0 s.2.best_len ms
+     | .brk => BL st bl0 s.2.best_len ms
+     | .ret r => PR st bl0 r ms)
+
+/-- The measure of the outer loop. -/
+def lmMu (s : LMExit × LMVars) : Nat :=
+  if s.1.isCont then 1 + chainLeft s.2.chain_length * 131072 + (131072 - s.2.best_len.toNat) else 0
+
+section
+variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+
+/-- `GOTO_NEXT_CHAIN` at `match_tpl.h:294`. -/
+theorem goto_outer_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e)
+    (N : LN d wo po ho st) (hp : PrevBelow d po st) (V : VI b wo st v) {ms : UInt32}
+    (hb : BL st bl0 v.best_len ms) :
+    Sat (LH H i z b st d ms) (LM.goto_next_chain_outer e v) (fun s H' => LI H i z b st d wo bl0 s H' ∧
+      (s.1.isCont = true → chainLeft s.2.chain_length < chainLeft v.chain_length ∧ s.2.best_len = v.best_len)) := by
+  unfold LM.goto_next_chain_outer
+  refine Sat.bind (Sat.mono (goto_ok E N hp V.cur ms) ?_)
+  rintro ⟨x, v2⟩ _ ⟨rfl, h2, h2c, hn, hs⟩
+  simp only at h2 h2c hn hs
+  cases x with
+  | none =>
+    obtain ⟨h0, hgt, hlt⟩ := hn rfl
+    have hdec := chainLeft_dec _ h0
+    have hgt' := UInt32.lt_iff_toNat_lt.mp hgt
+    have hc2 : v2.chain_length = v.chain_length - 1 := by rw [h2]
+    have hb2 : v2.best_len = v.best_len := by rw [h2]
+    have V2 := V.upd (v.chain_length - 1) v2.cur_match h2c (Nat.le_of_lt hgt')
+    rw [← h2] at V2
+    refine Sat.pure ⟨⟨ms, rfl, V2, by rw [hb2]; exact hb⟩, fun _ => ⟨by rw [hc2]; omega, hb2⟩⟩
+  | some x =>
+    refine Sat.pure ⟨⟨ms, rfl, by simp only []; rw [hs x rfl]; exact hb.pr⟩, fun h => absurd h (by simp [LMExit.isCont])⟩
+
+/-- The walk over `prev` of the offset search (`match_tpl.h:237-249`): positions `cm + i`, `i <= bound`; a more
+distant chain head `pos` replaces `next_pos` with `match_offset = i`, or ends the search when it is at or below
+`limit_base + i`. -/
+theorem os_walk_ok {e : LMEnv} {wo po ho : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
+    (cm bound best : UInt32) (hcm : cm.toNat < 65536) (hb : bound.toNat ≤ 255) (hlb : (limitBase st).toNat ≤ cm.toNat)
+    (ms : UInt32) :
+    Sat (LH H i z b st d ms) (cwhile
+      (fun ((i, np, mo, r) : UInt32 × UInt32 × UInt32 × Option UInt32) => pure (r.isNone && i <= bound, (i, np, mo, r)))
+      (fun ((i, next_pos, match_offset, _) : UInt32 × UInt32 × UInt32 × Option UInt32) => do
+        let pos := (← posLoad e.prev ((cm + i) &&& e.wmask).toNat).toUInt32
+        if pos < next_pos then
+          if pos <= e.limit_base + i then return (i, next_pos, match_offset, some best)
+          return (i + 1, pos, i, none)
+        return (i + 1, next_pos, match_offset, none))
+      ((0 : UInt32), cm, (0 : UInt32), none))
+      (fun s H' => H' = LH H i z b st d ms ∧ s.2.1.toNat < 65536 ∧ s.2.2.1.toNat ≤ 255 ∧
+        (limitBase st).toNat + s.2.2.1.toNat ≤ s.2.1.toNat ∧ ∀ x, s.2.2.2 = some x → x = best) := by
+  have hlb2 := (limitBase_le st N.w_lo).1
+  have hst := N.look
+  refine sat_cwhile
+    (fun (s : UInt32 × UInt32 × UInt32 × Option UInt32) H' => H' = LH H i z b st d ms ∧
+      s.1.toNat ≤ bound.toNat + 1 ∧ s.2.1.toNat < 65536 ∧ s.2.2.1.toNat ≤ 255 ∧
+      (limitBase st).toNat + s.2.2.1.toNat ≤ s.2.1.toNat ∧ ∀ x, s.2.2.2 = some x → x = best)
+    (fun s => if s.2.2.2.isNone then bound.toNat + 2 - s.1.toNat else 0) _ ?_
+    ⟨rfl, by simp, hcm, by simp, by simpa using hlb, fun x h => by simp at h⟩ (by simp [fuel]; omega)
+  rintro ⟨i1, np, mo, r⟩ _ ⟨rfl, hi, hnp, hmo, hle, hr⟩
+  refine Sat.pure ⟨fun ht => ?_, fun _ => ⟨rfl, hnp, hmo, hle, hr⟩⟩
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at ht
+  obtain ⟨hn, hib⟩ := ht
+  cases r with
+  | some x => simp at hn
+  | none =>
+  have hib' := UInt32.le_iff_toNat_le.mp hib
+  have hi1 : (i1 + 1).toNat = i1.toNat + 1 := by rw [UInt32.toNat_add]; simp; omega
+  have hk := prev_idx E N (cm + i1)
+  dsimp only
+  rw [E.prev]
+  refine Sat.bind (Sat.mono (posLoad_v (LH_get ms) _ (by have := N.pw; omega)) ?_)
+  rintro p _ ⟨rfl, rfl⟩
+  generalize rd2 d (po + 2 * ((cm + i1) &&& e.wmask).toNat) = q
+  have hq := UInt16.toNat_lt q
+  split
+  · rename_i hlt
+    have hlt' := UInt32.lt_iff_toNat_lt.mp hlt
+    rw [UInt16.toNat_toUInt32] at hlt'
+    split
+    · exact Sat.pure ⟨⟨rfl, by simp only []; omega, hnp, hmo, hle, fun x h => by simp at h; exact h.symm⟩,
+        by simp; omega⟩
+    · rename_i hgt
+      simp only [UInt32.not_le] at hgt
+      have hgt' := UInt32.lt_iff_toNat_lt.mp hgt
+      rw [UInt16.toNat_toUInt32, UInt32.toNat_add, E.lb] at hgt'
+      have : ((limitBase st).toNat + i1.toNat) % 2 ^ 32 = (limitBase st).toNat + i1.toNat := by
+        apply Nat.mod_eq_of_lt; omega
+      rw [this] at hgt'
+      exact Sat.pure ⟨⟨rfl, by simp only []; omega, by simp only [UInt16.toNat_toUInt32]; omega,
+        by simp only []; omega, by simp only [UInt16.toNat_toUInt32]; omega, fun x h => by simp at h⟩,
+        by simp only [Option.isNone_none, ↓reduceIte]; omega⟩
+  · exact Sat.pure ⟨⟨rfl, by simp only []; omega, hnp, hmo, hle, fun x h => by simp at h⟩,
+      by simp only [Option.isNone_none, ↓reduceIte]; omega⟩
+
+end
+
 end ZlibNgF.Proof.LongestMatch
