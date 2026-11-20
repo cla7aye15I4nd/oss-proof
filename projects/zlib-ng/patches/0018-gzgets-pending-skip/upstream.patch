@@ -1,15 +1,20 @@
-From 36b0351b71eba8407e472d7c853c242f30b8cb0e Mon Sep 17 00:00:00 2001
+From 1ecba8b0af43ae26e2f7b4629ff7569ebe5d77ee Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 00:11:47 -0800
 Subject: [PATCH] Do not fetch in gzgets() while a skip is pending
 
-gz_skip() stops at the end of file with the skip still pending; gzgets() then
-called gz_fetch(), which in copy mode reads again and returned bytes from
-before the position sought, after which gztell() overflowed. Report the end of
-file instead.
+gz_skip() stops at the end of the input with the skip still pending.
+gzgets() then called gz_fetch() anyway, which in copy mode reads again after
+the end of file: when the file had grown, gzgets() returned bytes from
+before the position sought and added them to x.pos with the skip still
+pending, and after a seek to the largest position gztell() overflowed
+computing x.pos + skip. Report the end of file instead, as gz_read() does.
+
+Add a test that seeks past the end, lets the file grow and calls gzgets().
 ---
- gzread.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ gzread.c            |  8 ++++++--
+ test/test_gzseek.cc | 31 +++++++++++++++++++++++++++++++
+ 2 files changed, 37 insertions(+), 2 deletions(-)
 
 diff --git a/gzread.c b/gzread.c
 index ee6fe5a..a56544b 100644
@@ -30,3 +35,42 @@ index ee6fe5a..a56544b 100644
                  return NULL;                /* error */
              if (state->x.have == 0) {       /* end of file */
                  state->past = 1;            /* read past end */
+diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
+index d167582..d2fc0cd 100644
+--- a/test/test_gzseek.cc
++++ b/test/test_gzseek.cc
+@@ -96,3 +96,34 @@ TEST(gzip, seek_then_direct) {
+     }
+     remove(path);
+ }
++
++/* gzgets() while a seek past the end is still pending: the pending skip
++ * stopped at the end of the file; when the file then grows, gzgets() must not
++ * return the appended bytes, which lie before the position sought. */
++TEST(gzip, seek_past_end_then_gets) {
++    typedef decltype(PREFIX(gzseek)((gzFile)NULL, 0, SEEK_SET)) off_type;
++    if (sizeof(off_type) != sizeof(z_off64_t))
++        GTEST_SKIP() << "gzseek() does not take a z_off64_t offset";
++    const off_type off_max = (off_type)(((uint64_t)1 << (sizeof(off_type) * 8 - 1)) - 1);
++    const char *path = "seek_gets.txt";
++    FILE *fp = fopen(path, "wb");
++    ASSERT_TRUE(fp != NULL);
++    ASSERT_EQ(fwrite("abc", 1, 3, fp), 3U);
++    ASSERT_EQ(fclose(fp), 0);
++
++    gzFile file = PREFIX(gzopen)(path, "rb");
++    ASSERT_TRUE(file != NULL);
++    EXPECT_EQ(PREFIX(gzseek)(file, off_max, SEEK_SET), off_max);
++    EXPECT_EQ(PREFIX(gzungetc)(-1, file), -1);    /* does the pending seek */
++
++    fp = fopen(path, "ab");
++    ASSERT_TRUE(fp != NULL);
++    ASSERT_EQ(fwrite("de\n", 1, 3, fp), 3U);
++    ASSERT_EQ(fclose(fp), 0);
++
++    char buf[16];
++    EXPECT_TRUE(PREFIX(gzgets)(file, buf, sizeof(buf)) == NULL);
++    EXPECT_EQ(PREFIX(gztell)(file), 3);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++    remove(path);
++}

@@ -46,8 +46,8 @@ pending.
 | [0014-gzwrite-position-bound](0014-gzwrite-position-bound/pr-summary.md) | gz position overflow, writing | `gzwrite.c`, `test/test_gzio.cc` | 1 | upstream form (with tests) | not submitted | `0017` |
 | [0015-fill-window-block-start-bound](0015-fill-window-block-start-bound/pr-summary.md) | `deflate` overflows `block_start` after `2^31` bytes without a block flush | `deflate.c`, `test/test_deflate_cve.cc` | 1 | upstream form (with tests) | not submitted | `0018` |
 | [0016-deflate-slow-match-start-bound](0016-deflate-slow-match-start-bound/pr-summary.md) | `deflate` at levels 7 and 8 takes a match that starts at or after the current position | `deflate_slow.c` | 1 | local form; tests and upstream-style message pending | not submitted | `0019` |
-| [0017-gzdirect-pending-skip](0017-gzdirect-pending-skip/pr-summary.md) | `gzdirect` leaves a pending seek behind buffered data | `gzread.c` | 1 | local form; tests and upstream-style message pending | not submitted | `0020` |
-| [0018-gzgets-pending-skip](0018-gzgets-pending-skip/pr-summary.md) | `gzgets` reads past the end of file while a seek is pending | `gzread.c` | 1 | local form; tests and upstream-style message pending | not submitted | `0021` |
+| [0017-gzdirect-pending-skip](0017-gzdirect-pending-skip/pr-summary.md) | `gzdirect` leaves a pending seek behind buffered data | `gzread.c`, `test/test_gzseek.cc` | 1 | upstream form (with tests) | not submitted | `0020` |
+| [0018-gzgets-pending-skip](0018-gzgets-pending-skip/pr-summary.md) | `gzgets` reads past the end of file while a seek is pending | `gzread.c`, `test/test_gzseek.cc` | 1 | upstream form (with tests) | not submitted | `0021` |
 | [0019-gzwrite-zero-skip-on-failure](0019-gzwrite-zero-skip-on-failure/pr-summary.md) | A failed write of a seek's zeros moves the writer's position past the seek | `gzwrite.c`, `test/test_gzio.cc` | 1 | upstream form (with tests) | not submitted | `0022` |
 | [0020-gzungetc-position-bound](0020-gzungetc-position-bound/pr-summary.md) | `gzungetc` lowers the reader's position without a bound | `gzread.c`, `test/test_gzfile_api_errors.cc` | 1 | upstream form (with tests) | not submitted | `0023` |
 | [0021-gzvprintf-input-at-buffer-start](0021-gzvprintf-input-at-buffer-start/pr-summary.md) | `gzprintf` after failed writes formats past its buffer | `gzwrite.c`, `test/test_gzio.cc` | 1 | upstream form (with tests) | not submitted | `0024` |
@@ -59,6 +59,11 @@ same fix their library change differs by comments only: `0001` not at all, `0008
 The statements are identical, and line citations in the translation, proofs and documents refer to the unpatched
 upstream source, so nothing else changes. The test hunk of `0008` was rebased onto `0001` (both append to
 `test/test_inflate_copy.cc`); its library hunk and commit message are as proposed upstream.
+
+The series `0017` and `0018` gained an upstream-style commit message and GoogleTest cases; their library change
+is byte-for-byte the proved one. Their test hunks append to `test/test_gzseek.cc` in directory order. madler/zlib
+`b2596bde` (`0017`, the same fix through a helper) and `f40786e3` (`0018`, a related change of `gz_skip`) do not
+apply to zlib-ng and are not cherry-picked (see the summaries).
 
 The series `0013`, `0014`, `0019` and `0021` gained an upstream-style commit message and GoogleTest cases; their
 library change is byte-for-byte the proved one. Their test hunks append to `test/test_gzio.cc` in directory order
