@@ -46,12 +46,14 @@ and a window. -/
 def GapOk (st : DeflateState) : Prop :=
   (st.strstart.toNat : Int) - st.block_start.toInt ≤ 258 * (st.sym_next.toNat / 3 + 1) + 65536
 
-/-- A strategy that keeps `GapOk`: as `StratOkL`, given `GapOk` at entry, and `GapOk` at exit. -/
+/-- A strategy that keeps `GapOk` and room for one more symbol: as `StratOkL`, given both at entry, and both at
+exit. (`DInv` allows `sym_next == sym_end`; a tally there would write past `sym_end` without flushing. Every strategy
+flushes a full symbol buffer before it returns, so both are facts of every reachable state between calls.) -/
 def StratOkG (f : StatePtr → Int32 → M BlockState) : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
-    (∀ b' st, DStateIs h s b' st → 0 < st.level ∧ GapOk st) →
+    (∀ b' st, DStateIs h s b' st → 0 < st.level ∧ GapOk st ∧ st.sym_next < st.sym_end) →
     ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s bs h' ∧
-      ∀ b' st, DStateIs h' s b' st → GapOk st
+      ∀ b' st, DStateIs h' s b' st → GapOk st ∧ st.sym_next < st.sym_end
 
 /-- The state with the locals `lookahead` / `strstart` written back. -/
 abbrev FS (st : DeflateState) (la ss : UInt32) : DeflateState := { st with lookahead := la, strstart := ss }
@@ -597,6 +599,12 @@ theorem slc_insert {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {
     (C.1.st st (SH_dstate _ _ _ _ _ _)).2.2, fun st2 h2 => ?_⟩, rfl⟩
   obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
   exact C.2 st (SH_dstate _ _ _ _ _ _)
+
+/-- `avail_in` is below `2^32`. -/
+theorem avIn_lt (H : Heap) (i : Nat) : avIn H i < 2 ^ 32 := by
+  unfold avIn; split
+  · exact UInt32.toNat_lt _
+  · decide
 
 /-- The common tail of `deflate_huff` and `deflate_rle` after `s->insert = 0` (`deflate_huff.c:49-56`):
 `FLUSH_BLOCK(s, 1)` and `finish_done` for `Z_FINISH`, else `FLUSH_BLOCK(s, 0)` when symbols wait, and

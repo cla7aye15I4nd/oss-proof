@@ -101,3 +101,4 @@ import ZlibNgF.Proof.«deflate.c.fill_window.io»
 import ZlibNgF.Proof.«deflate_p.h.tally»
 import ZlibNgF.Proof.«deflate_p.h.tally.flush»
 import ZlibNgF.Proof.«deflate_strategy.common»
+import ZlibNgF.Proof.«deflate_huff.c.safety»
