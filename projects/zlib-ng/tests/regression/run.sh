@@ -25,7 +25,7 @@ mkdir -p "$work"
 # case | patch prefix | arguments (comma-separated runs) | unpatched defect: "timeout", "none" (the defect
 # is not observable on a run: no sanitizer reports it; the unpatched build must then behave like the patched
 # one), or an extended regular expression that the output (sanitizer report or program output) must match |
-# patched output line (one per run, ';'). In the defect field, " OR " separates alternatives (the field separator
+# patched output line (one per run, ';') | optional timeout in seconds for this case (default $TIMEOUT or 10). In the defect field, " OR " separates alternatives (the field separator
 # is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull; GCC's
 # UBSan does not report NULL plus an offset (gzbuffer-alloc-null-offset), so there the case accepts the unpatched run
 # printing the patched result (clang reports it).
@@ -45,6 +45,7 @@ cases=(
   "gzclose-after-failed-write|0014||heap-use-after-free|gzclose 0 0"
   "gzbuffer-alloc-null-offset|0015||runtime error: .*null pointer OR runtime error: pointer overflow OR runtime error: pointer index expression OR ^gzwrite 0 0 -4 -4$|gzwrite 0 0 -4 -4"
   "gzread-position-overflow|0016||runtime error: signed integer overflow|gzread 0 9223372036854775807 0"
+  "fixed-block-start-overflow|0018|f|runtime error: signed integer overflow|deflate 1 2151677952|180"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch
@@ -80,7 +81,8 @@ build() { # build <dir> [exclude-prefix]
 build "$work/patched"
 fail=0
 for entry in "${cases[@]}"; do
-  IFS='|' read -r name patch args defect want <<<"$entry"
+  IFS='|' read -r name patch args defect want tmo <<<"$entry"
+  t_s=${tmo:-$timeout_s}
   defect=${defect// OR /|}
   [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
   build "$work/without-$patch" "$patch"
@@ -94,13 +96,13 @@ for entry in "${cases[@]}"; do
   for arg in "${runs[@]}"; do
     echo "== $name ${arg:+($arg)}"
     # unpatched: every patch but $patch
-    out=$(cd "$work" && timeout "$timeout_s" "$work/$name-without-$patch" $arg 2>&1); rc=$?
+    out=$(cd "$work" && timeout "$t_s" "$work/$name-without-$patch" $arg 2>&1); rc=$?
     if [ "$defect" = none ]; then
       w=${wants[$i]}
       if [ $rc -eq 0 ] && printf '%s\n' "$out" | grep -qx "$w"; then echo "ok: without $patch: $w (defect not observable on a run)"
       else echo "UNEXPECTED: without $patch: status $rc: $out"; fail=1; fi
     elif [ "$defect" = timeout ]; then
-      if [ $rc -eq 124 ]; then echo "ok: without $patch: no return within ${timeout_s}s"
+      if [ $rc -eq 124 ]; then echo "ok: without $patch: no return within ${t_s}s"
       else echo "MISSING: without $patch the call returned (status $rc): $out"; fail=1; fi
     else
       if printf '%s\n' "$out" | grep -qE "$defect"; then
@@ -109,7 +111,7 @@ for entry in "${cases[@]}"; do
       else echo "MISSING: without $patch no report matching '$defect' (status $rc): $out"; fail=1; fi
     fi
     # patched: every patch
-    out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched" $arg 2>&1); rc=$?
+    out=$(cd "$work" && timeout "$t_s" "$work/$name-patched" $arg 2>&1); rc=$?
     w=${wants[$i]}
     if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|ERROR: AddressSanitizer"; then
       echo "UNEXPECTED: with every patch: status $rc: $out"; fail=1
