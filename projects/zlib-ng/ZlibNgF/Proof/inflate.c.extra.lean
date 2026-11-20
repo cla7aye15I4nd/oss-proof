@@ -92,6 +92,66 @@ theorem inflate_header : ∀ h i flush r h', InflateInv.Inv h (some i) → Strea
   cases e2
   exact hk
 
+/-! ## Progress of `inflate` (for the loop of `gz_decomp`) -/
+
+/-- A call of `inflate` with `flush` other than `Z_FINISH`, `Z_BLOCK`, `Z_TREES` that returns `Z_BUF_ERROR` consumed no
+input, and either it had no input, or it had no room for output and wrote none. -/
+theorem inflate_buf_stall {h : Heap} {i : Nat} {flush r : Int32} {h' : Heap} {z : ZStream}
+    (hv : InflateInv.Inv h (some i)) (hio : StreamIO h (some i)) (hc : h.crcTable = ZlibNg.Crc32Tbl.crc_table)
+    (e : ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h')) (hz : h.streams i = some z)
+    (hf1 : flush ≠ Z_FINISH) (hf2 : flush ≠ Z_BLOCK) (hf3 : flush ≠ Z_TREES) (hr : r = Z_BUF_ERROR) :
+    ∃ z', h'.streams i = some z' ∧ z'.avail_in = z.avail_in ∧
+      (z.avail_in = 0 ∨ (z.avail_out = 0 ∧ z'.avail_out = z.avail_out)) := by
+  obtain ⟨r2, h2, e2, -, -, -, -, -, hb⟩ := InflateTop.inflate_ok' flush hv hio hc
+  rw [e] at e2
+  cases e2
+  exact hb hr hf1 hf2 hf3 z hz
+
+open ZlibNg.Deflate (Z_NO_FLUSH) in
+/-- **`Z_BUF_ERROR` means no progress** (`flush == Z_NO_FLUSH`): the input count is unchanged, and so is the output
+count when there was input. -/
+theorem inflate_buf_error_stall {h : Heap} {i : Nat} {r : Int32} {h' : Heap} {z : ZStream}
+    (hv : InflateInv.Inv h (some i)) (hio : StreamIO h (some i)) (hc : h.crcTable = ZlibNg.Crc32Tbl.crc_table)
+    (e : ZlibNg.Inflate.inflate (some i) Z_NO_FLUSH h = .ok (r, h')) (hz : h.streams i = some z)
+    (hr : r = Z_BUF_ERROR) :
+    ∃ z', h'.streams i = some z' ∧ z'.avail_in = z.avail_in ∧ (z.avail_in ≠ 0 → z'.avail_out = z.avail_out) := by
+  obtain ⟨z', h1, h2, h3⟩ := inflate_buf_stall hv hio hc e hz (by decide) (by decide) (by decide) hr
+  exact ⟨z', h1, h2, fun hin => (h3.resolve_left hin).2⟩
+
+open ZlibNg.Deflate (Z_NO_FLUSH) in
+/-- **With input and room for output, `inflate(strm, Z_NO_FLUSH)` does not return `Z_BUF_ERROR`.** -/
+theorem inflate_no_buf_error {h : Heap} {i : Nat} {r : Int32} {h' : Heap} {z : ZStream}
+    (hv : InflateInv.Inv h (some i)) (hio : StreamIO h (some i)) (hc : h.crcTable = ZlibNg.Crc32Tbl.crc_table)
+    (e : ZlibNg.Inflate.inflate (some i) Z_NO_FLUSH h = .ok (r, h')) (hz : h.streams i = some z)
+    (hin : z.avail_in ≠ 0) (hout : z.avail_out ≠ 0) : r ≠ Z_BUF_ERROR := by
+  intro hr
+  obtain ⟨z', -, -, h3⟩ := inflate_buf_stall hv hio hc e hz (by decide) (by decide) (by decide) hr
+  rcases h3 with h3 | ⟨h3, -⟩
+  · exact hin h3
+  · exact hout h3
+
+/-- **`Z_OK` means progress**: the input and output counts together strictly decrease (neither grows). -/
+theorem inflate_ok_progress {h : Heap} {i : Nat} {flush r : Int32} {h' : Heap} {z : ZStream}
+    (hv : InflateInv.Inv h (some i)) (hio : StreamIO h (some i)) (hc : h.crcTable = ZlibNg.Crc32Tbl.crc_table)
+    (e : ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h')) (hz : h.streams i = some z) (hr : r = Z_OK) :
+    ∃ z', h'.streams i = some z' ∧ z'.avail_in ≤ z.avail_in ∧ z'.avail_out ≤ z.avail_out ∧
+      z'.avail_in.toNat + z'.avail_out.toNat < z.avail_in.toNat + z.avail_out.toNat := by
+  obtain ⟨r2, h2, e2, -, -, hp, -⟩ := InflateTop.inflate_ok flush hv hio hc
+  rw [e] at e2
+  cases e2
+  obtain ⟨i', z0, b, st, al, ei, hz0, hb, hst, -, -⟩ := hv
+  cases ei
+  rw [hz] at hz0; cases hz0
+  obtain ⟨z', S', h1, -, -, -, ⟨hin, -⟩, ⟨hout, -⟩, hlt⟩ := hp hr z b st hz hb hst
+  refine ⟨z', h1, hin, hout, ?_⟩
+  have a1 : z'.avail_in.toNat ≤ z.avail_in.toNat := hin
+  have a2 : z'.avail_out.toNat ≤ z.avail_out.toNat := hout
+  rcases hlt with h | h
+  · have : z'.avail_in.toNat < z.avail_in.toNat := h
+    omega
+  · have : z'.avail_out.toNat < z.avail_out.toNat := h
+    omega
+
 /-- `inflateInit2_`, whatever it returns: no deflate object changes, the static bytes stay, `nextBlk` does not
 shrink, the heap stays well formed and the object bound holds. On success the stream's state is the block numbered
 `h.nextBlk` (the first fresh block, so `nextBlk` grows), with the invariant. -/
