@@ -11,10 +11,10 @@ set_option autoImplicit false
 namespace ZlibNgF.Spec.Functional
 open ZlibNgF.Spec
 
-/-- `zlibVersion()` returns a read-only pointer to `"1.3.1.zlib-ng\0"` and preserves the heap. -/
+/-- `zlibVersion()` returns a read-only pointer to `"1.3.2.zlib-ng\0"` and preserves the heap. -/
 def Goal.zlibVersion_functional : Prop :=
   ∀ (h : C.Heap),
-    ∃ p, C.run ZlibNg.Zutil.zlibVersion h = .ok (p, h) ∧ StaticCString h p "1.3.1.zlib-ng"
+    ∃ p, C.run ZlibNg.Zutil.zlibVersion h = .ok (p, h) ∧ StaticCString h p "1.3.2.zlib-ng"
 
 /-- `zlibCompileFlags()` on LP64 Linux (`uInt = 4`, `uLong = 8`, `voidpf = 8`, `z_off_t = 8`) returns `0xa9`. -/
 def Goal.zlibCompileFlags_functional : Prop :=
@@ -39,16 +39,18 @@ def Goal.zError_functional : Prop :=
     ∃ p, C.run (ZlibNg.Zutil.zError err) h = .ok (p, h) ∧ StaticCString h p (expectedZError err)
 
 /-- For every power-of-two alignment `align = 2 ^ k` with `3 ≤ k ≤ 31` (e.g. `align = 64`), any non-null pointer
-returned by `zng_alloc_aligned(size, align)` has runtime address divisible by `align` under every `baseAddr` oracle. -/
+returned by `zng_alloc_aligned(size, align)` with `8 + size + align < 2^32` has runtime address divisible by
+`align` under every `baseAddr` oracle. -/
 def Goal.zng_alloc_aligned_alignment : Prop :=
   ∀ (h : C.Heap) (size align : UInt32) (k : Nat),
     3 ≤ k → k ≤ 31 → align.toNat = 2 ^ k →
+    8 + size.toNat + align.toNat < 2 ^ 32 →
     ∀ ret h',
       C.run (ZlibNg.Zutil.zng_alloc_aligned size align) h = .ok (ret, h') →
       ret ≠ .null →
       ∃ addr, C.run (C.addrOf ret) h' = .ok (addr, h') ∧ addr.toNat % align.toNat = 0
 
-/-- `adler32_z` (with Patch 0007) returns `1` for a `NULL` buffer with any `len`, and exact RFC 1950
+/-- `adler32_z` returns `1` for a `NULL` buffer with any `len`, and exact RFC 1950
 `adler32Update seed bytes` on every readable buffer of arbitrary 64-bit length (including across `NMAX = 5552`
 block boundaries and non-canonical seeds). -/
 def Goal.adler32_z_functional : Prop :=
@@ -57,7 +59,7 @@ def Goal.adler32_z_functional : Prop :=
     C.run (ZlibNg.Adler32.adler32_z seed buf len) h =
       .ok ((if buf = .null then 1 else ZlibNgF.Math.Adler32.adler32Update seed bytes), h)
 
-/-- `adler32` (with Patch 0007) returns `1` for a `NULL` buffer with any `len`, and exact RFC 1950
+/-- `adler32` returns `1` for a `NULL` buffer with any `len`, and exact RFC 1950
 `adler32Update seed bytes` on every readable buffer. -/
 def Goal.adler32_functional : Prop :=
   ∀ (h : C.Heap) (seed : UInt64) (buf : C.BPtr) (len : UInt32) (bytes : List UInt8),
@@ -84,21 +86,19 @@ def Goal.adler32_combine_functional : Prop := AdlerCombineSpec ZlibNg.Adler32.ad
 /-- `adler32_combine64` functional specification. -/
 def Goal.adler32_combine64_functional : Prop := AdlerCombineSpec ZlibNg.Adler32.adler32_combine64
 
-/-- Rejection semantics of `crc32_combine*` with Patch 0002: negative `len2` returns `0` in `crc32_combine`,
-`crc32_combine64`, `crc32_combine_gen`, and `crc32_combine_gen64`, and zero low-32-bit `op` returns `0` in
-`crc32_combine_op`. -/
+/-- Rejection semantics of `crc32_combine*`: negative `len2` returns `0` in `crc32_combine`,
+`crc32_combine64`, `crc32_combine_gen`, and `crc32_combine_gen64`. -/
 def Goal.crc32_combine_rejection_functional : Prop :=
-  ∀ (h : C.Heap) (crc1 crc2 op : UInt64) (len2 : Int64),
-    (len2 < 0 →
+  ∀ (h : C.Heap) (crc1 crc2 : UInt64) (len2 : Int64),
+    len2 < 0 →
       C.run (ZlibNg.Crc32Comb.crc32_combine crc1 crc2 len2) h = .ok (0, h) ∧
       C.run (ZlibNg.Crc32Comb.crc32_combine64 crc1 crc2 len2) h = .ok (0, h) ∧
       C.run (ZlibNg.Crc32Comb.crc32_combine_gen len2) h = .ok (0, h) ∧
-      C.run (ZlibNg.Crc32Comb.crc32_combine_gen64 len2) h = .ok (0, h)) ∧
-    (op.toUInt32 = 0 →
-      C.run (ZlibNg.Crc32Comb.crc32_combine_op crc1 crc2 op) h = .ok (0, h))
+      C.run (ZlibNg.Crc32Comb.crc32_combine_gen64 len2) h = .ok (0, h)
 
-/-- Exact `deflate_quick` + zlib-wrapper compressed bound formula (`compress.c:89-95`), valid without `UInt64`
-modular wraparound for all `sourceLen ≤ 0xe38e38e38e38e377` (`docs/en/deviations.md`). -/
+/-- Exact `deflate_quick` + zlib-wrapper compressed bound formula (`compress.c:104-110`) for all
+`sourceLen ≤ 0xe38e38e38e38e377`; above it the sum wraps and `compressBound_z` returns `(z_size_t)-1`
+(`docs/en/deviations.md`). -/
 def Goal.compressBound_functional : Prop :=
   ∀ (h : C.Heap) (sourceLen : UInt64),
     sourceLen.toNat ≤ 0xe38e38e38e38e377 →

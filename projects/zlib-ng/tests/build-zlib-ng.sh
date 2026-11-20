@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Usage: build-zlib-ng.sh <zlib-ng-checkout> <output-dir>
-# Copies the zlib-ng checkout (the upstream submodule, at the pinned tag) to <output-dir>/src, applies
+# Copies the zlib-ng checkout (the upstream submodule, at the pinned commit) to <output-dir>/src, applies
 # ../patches/*.patch there in name order, and builds the static libz.a in <output-dir> with the verified
 # configuration (the option set below). The checkout itself is never modified.
 #   CFLAGS=<flags>        extra compiler flags (e.g. sanitizers)
-#   EXCLUDE=<prefix>      skip the patches whose file name starts with <prefix> (e.g. 0007); used by the
+#   EXCLUDE=<prefix>      skip the patches whose file name starts with <prefix> (e.g. 0006); used by the
 #                         patch reproductions to build the source before one fix
+#   REPLACE=<prefix>=<file>  apply <file> instead of the patch whose file name starts with <prefix>; used by
+#                         the regression guards to build an earlier, defective version of one patch
 #   build-zlib-ng.sh --patch-digest   prints the digest of the current patches (one line per patch).
 #   build-zlib-ng.sh --cmake-options  prints the verified CMake option set.
 # After a build, <output-dir> holds libz.a and the generated zlib.h / zconf.h.
@@ -27,11 +29,29 @@ CMAKE_OPTIONS=(
   -DWITH_INFLATE_STRICT=OFF
   -DWITH_INFLATE_ALLOW_INVALID_DIST=OFF
 )
+# The gzip header byte OS_CODE (zutil.h) is the one target-dependent value of the library's output: zutil.h sets it
+# to 19 when __APPLE__ is defined and to 3 ("assume Unix") otherwise. The verified target is x86_64 Linux, where
+# __APPLE__ is never defined, so in the copy that is built the __APPLE__ branch is removed: every host then builds
+# the target's OS_CODE 3, the value the translation uses. On a Linux host this changes nothing.
+target_os_code() {
+  python3 - "$1" <<'PY'
+import sys
+p = sys.argv[1]
+t = open(p).read()
+old = "#ifdef __APPLE__\n#  define OS_CODE 19\n#endif\n"
+if t.count(old) != 1:
+    sys.exit("build-zlib-ng: the __APPLE__ OS_CODE branch of zutil.h was not found")
+open(p, "w").write(t.replace(old, ""))
+PY
+}
 selected_patches() {
   local p
   for p in $(ls "$patches"/*.patch 2>/dev/null | LC_ALL=C sort); do
     if [ -n "${EXCLUDE:-}" ]; then
       case "$(basename "$p")" in "$EXCLUDE"*) continue;; esac
+    fi
+    if [ -n "${REPLACE:-}" ]; then
+      case "$(basename "$p")" in "${REPLACE%%=*}"*) echo "${REPLACE#*=}"; continue;; esac
     fi
     echo "$p"
   done
@@ -46,6 +66,7 @@ build_digest() {
   done
   echo "cmake ${CMAKE_OPTIONS[*]}"
   echo "cflags ${CFLAGS:-}"
+  echo "target OS_CODE 3"
 }
 if [ "${1:-}" = "--patch-digest" ]; then build_digest; exit 0; fi
 if [ "${1:-}" = "--cmake-options" ]; then echo "${CMAKE_OPTIONS[*]}"; exit 0; fi
@@ -64,6 +85,7 @@ for p in $(selected_patches); do
   (cd "$out/src" && patch -p1 --batch --forward --quiet < "$p")
   basename "$p" >> "$out/PATCHES_APPLIED"
 done
+target_os_code "$out/src/zutil.h"
 cmake -S "$out/src" -B "$out/cmake" "${CMAKE_OPTIONS[@]}" \
   -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=None \
   -DCMAKE_C_FLAGS="-O1 ${CFLAGS:-}" >"$out/cmake.log" 2>&1 || { cat "$out/cmake.log"; exit 1; }

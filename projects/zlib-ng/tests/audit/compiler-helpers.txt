@@ -1,3 +1,6 @@
 # Compiler-generated execution auxiliaries of the pinned toolchain.
 C.cdoWhile.go._unsafe_rec
 C.cwhile.go._unsafe_rec
+C.gdoWhile.go._unsafe_rec
+C.gwhile.go._unsafe_rec
+C.Fs.lowestFd.go._unsafe_rec

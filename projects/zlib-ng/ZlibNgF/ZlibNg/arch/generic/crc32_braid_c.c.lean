@@ -1,25 +1,23 @@
-import ZlibNgF.Runtime.Libc
-import ZlibNgF.ZlibNg.«crc32_braid_tbl.h»
+import ZlibNgF.ZlibNg.«zbuild.h»
+import ZlibNgF.ZlibNg.«crc32_p.h»
 
 /-!
 # `arch/generic/crc32_braid_c.c` — braided CRC-32 kernel (`ZlibNgF`)
 
-Source: `zlib-ng/arch/generic/crc32_braid_c.c` and `zlib-ng/crc32_braid_p.h`,
-LP64 little-endian scalar build (`BRAID_N = 5`, `BRAID_W = 8`, `BYTE_ORDER == LITTLE_ENDIAN`).
+Source: `zlib-ng/arch/generic/crc32_braid_c.c` and `zlib-ng/crc32_braid_p.h`, `CRC32_BRAID_FALLBACK` defined,
+LP64 little-endian scalar build (`BRAID_N = 5`, `BRAID_W = 8`, `BYTE_ORDER == LITTLE_ENDIAN`, so
+`Z_WORD_FROM_LE(x)` is `x`). The conversion `(z_word_t const *)buf` is checked for 8-byte alignment
+(`Ptr.castAligned`); each `words[i]` is eight little-endian byte loads.
 -/
 
 set_option autoImplicit false
 
 namespace ZlibNg.Crc32Braid
-open C ZlibNg.Crc32Tbl
+open C ZlibNg.Zbuild ZlibNg.Crc32Tbl ZlibNg.Crc32P
 
 def BRAID_N : UInt64 := 5
 def BRAID_W : UInt64 := 8
 def BRAID_W_I32 : Int32 := 8
-
-/-- Read `crc_table[i]` from static read-only `st_crc_table`. -/
-def crcTab (i : UInt64) : M UInt32 :=
-  Ptr.index (Ptr.ref URef.st_crc_table 0) (Int.ofNat i.toNat)
 
 /-- Bounds-checked read `BRAID_TABLE[k][i]` (`crc_braid_table[8][256]`). -/
 def braidTab (k i : Nat) : M UInt32 :=
@@ -44,25 +42,7 @@ def loadWordAt (words : BPtr) (wordIdx : Nat) : M UInt64 := do
   return b0.toUInt64 ||| (b1.toUInt64 <<< 8) ||| (b2.toUInt64 <<< 16) ||| (b3.toUInt64 <<< 24) |||
     (b4.toUInt64 <<< 32) ||| (b5.toUInt64 <<< 40) ||| (b6.toUInt64 <<< 48) ||| (b7.toUInt64 <<< 56)
 
-/-- `#define CRC_DO1 c = crc_table[(c ^ *buf++) & 0xff] ^ (c >> 8)` (`crc32_braid_p.h:34`). -/
-def crc_do1 (c : UInt32) (buf : BPtr) : M (UInt32 × BPtr) := do
-  let b ← load8 buf
-  let buf ← buf.add 1
-  let t ← crcTab (((c ^^^ b.toUInt32) &&& 0xff).toUInt64)
-  return (t ^^^ (c >>> 8), buf)
-
-/-- `#define CRC_DO8` (`crc32_braid_p.h:35`). -/
-def crc_do8 (c : UInt32) (buf : BPtr) : M (UInt32 × BPtr) := do
-  let (c, buf) ← crc_do1 c buf
-  let (c, buf) ← crc_do1 c buf
-  let (c, buf) ← crc_do1 c buf
-  let (c, buf) ← crc_do1 c buf
-  let (c, buf) ← crc_do1 c buf
-  let (c, buf) ← crc_do1 c buf
-  let (c, buf) ← crc_do1 c buf
-  crc_do1 c buf
-
-/-- `static uint32_t crc_word(z_word_t data)` (`crc32_braid_c.c:45-50`, little-endian). -/
+/-- `static uint32_t crc_word(z_word_t data)` (`crc32_braid_c.c:50-55`, little-endian). -/
 def crc_word (data : UInt64) : M UInt32 := do
   let (data, _) ← cwhile
     (fun ((data, k) : UInt64 × Int32) => pure (k < BRAID_W_I32, (data, k)))
@@ -72,7 +52,7 @@ def crc_word (data : UInt64) : M UInt32 := do
     (data, (0 : Int32))
   return data.toUInt32
 
-/-- Braid loop state for `crc32_braid_internal`. -/
+/-- Braid loop state for `crc32_braid`. -/
 structure BraidState where
   crc0 : UInt64
   crc1 : UInt64
@@ -82,29 +62,20 @@ structure BraidState where
   words : BPtr
   blks : UInt64
 
-/-- `Z_INTERNAL uint32_t crc32_braid_internal(uint32_t c, const uint8_t *buf, size_t len)` (`crc32_braid_c.c:63-213`). -/
-def crc32_braid_internal (c : UInt32) (buf : BPtr) (len : UInt64) : M UInt32 := do
-  let mut c := c
+/-- `Z_INTERNAL uint32_t crc32_braid(uint32_t crc, const uint8_t *buf, size_t len)` (`crc32_braid_c.c:68-211`). -/
+def crc32_braid (crc : UInt32) (buf : BPtr) (len : UInt64) : M UInt32 := do
+  let mut crc := ~~~crc
   let mut buf := buf
   let mut len := len
   if len >= BRAID_N * BRAID_W + BRAID_W - 1 then
-    let (c', buf', len') ← cwhile
-      (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => do
-        if len != 0 then
-          let addr ← addrOf buf
-          pure ((addr &&& (BRAID_W - 1)) != 0, (c, buf, len))
-        else
-          pure (false, (c, buf, len)))
-      (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => do
-        let len := len - 1
-        let (c, buf) ← crc_do1 c buf
-        pure (c, buf, len))
-      (c, buf, len)
-    c := c'
-    buf := buf'
-    len := len'
+    let align_diff := MIN (← ALIGN_DIFF buf BRAID_W) len
+    if align_diff != 0 then
+      crc ← crc32_copy_small crc .null buf align_diff 7 0
+      len := len - align_diff
+      buf ← buf.add (Int.ofNat align_diff.toNat)
     let blks : UInt64 := len / (BRAID_N * BRAID_W)
     len := len - blks * BRAID_N * BRAID_W
+    let words ← Ptr.castAligned buf 8
     let st ← cwhile
       (fun (s : BraidState) =>
         let blks := s.blks - 1
@@ -141,7 +112,7 @@ def crc32_braid_internal (c : UInt32) (buf : BPtr) (len : UInt64) : M UInt32 := 
                    crc3 ^^^ t3.toUInt64, crc4 ^^^ t4.toUInt64), k + 1))
           ((c0.toUInt64, c1.toUInt64, c2.toUInt64, c3.toUInt64, c4.toUInt64), (1 : Int32))
         pure { s with crc0, crc1, crc2, crc3, crc4, words })
-      { crc0 := c.toUInt64, crc1 := 0, crc2 := 0, crc3 := 0, crc4 := 0, words := buf, blks }
+      { crc0 := crc.toUInt64, crc1 := 0, crc2 := 0, crc3 := 0, crc4 := 0, words, blks }
     let lw0 ← loadWordAt st.words 0
     let lw1 ← loadWordAt st.words 1
     let lw2 ← loadWordAt st.words 2
@@ -153,28 +124,15 @@ def crc32_braid_internal (c : UInt32) (buf : BPtr) (len : UInt64) : M UInt32 := 
     let comb3 ← crc_word (st.crc3 ^^^ lw3 ^^^ comb2.toUInt64)
     let comb4 ← crc_word (st.crc4 ^^^ lw4 ^^^ comb3.toUInt64)
     let words ← st.words.add 40
-    c := comb4
+    crc := comb4
     buf := words
-  let (c8, buf8, len8) ← cwhile
-    (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => pure (len >= 8, (c, buf, len)))
-    (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => do
-      let len := len - 8
-      let (c, buf) ← crc_do8 c buf
-      pure (c, buf, len))
-    (c, buf, len)
-  let (cf, _, _) ← cwhile
-    (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => pure (len != 0, (c, buf, len)))
-    (fun ((c, buf, len) : UInt32 × BPtr × UInt64) => do
-      let len := len - 1
-      let (c, buf) ← crc_do1 c buf
-      pure (c, buf, len))
-    (c8, buf8, len8)
-  return cf
+  return ~~~(← crc32_copy_small crc .null buf len 39 0)
 
-/-- `Z_INTERNAL uint32_t crc32_braid(uint32_t c, const uint8_t *buf, size_t len)` (`crc32_braid_c.c:215-222`). -/
-def crc32_braid (c : UInt32) (buf : BPtr) (len : UInt64) : M UInt32 := do
-  let c := ~~~c
-  let c ← crc32_braid_internal c buf len
-  return c ^^^ 0xffffffff
+/-- `Z_INTERNAL uint32_t crc32_copy_braid(uint32_t crc, uint8_t *dst, const uint8_t *src, size_t len)`
+(`crc32_braid_c.c:213-217`). -/
+def crc32_copy_braid (crc : UInt32) (dst : BPtr) (src : BPtr) (len : UInt64) : M UInt32 := do
+  let crc ← crc32_braid crc src len
+  Ptr.memcpy dst src len.toNat
+  return crc
 
 end ZlibNg.Crc32Braid
