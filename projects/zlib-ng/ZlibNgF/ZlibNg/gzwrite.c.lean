@@ -102,7 +102,8 @@ def gz_comp (state : GzPtr) (flush : Int32) : G Int32 := do
     wrG state fun s => { s with reset := 1 }
   return 0
 
-/-- `static int gz_zero(gz_state *state)` (`gzwrite.c:127-158`). -/
+/-- `static int gz_zero(gz_state *state)` (`gzwrite.c:127-158`, with patch 0022: each batch is taken off `skip` when
+it is added to `x.pos`, before `gz_comp` writes it, so that a failed write keeps `x.pos + skip`). -/
 def gz_zero (state : GzPtr) : G Int32 := do
   let strm ← strmOf state
   if (← rdG state (·.size)) == 0 then
@@ -126,10 +127,10 @@ def gz_zero (state : GzPtr) : G Int32 := do
       lm (wrZ strm fun z => { z with next_in := i })
       let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + n.toNat))
       wrG state fun st => { st with pos := np }
-      if (← gz_comp state Z_NO_FLUSH) == -1 then
-        return (first, .ret)
       let sk ← lm (chkI64 ((← rdG state (·.skip)).toInt - n.toNat))
       wrG state fun st => { st with skip := sk }
+      if (← gz_comp state Z_NO_FLUSH) == -1 then
+        return (first, .ret)
       return (first, .go))
     (fun (s : Int32 × Ctl) => do
       if s.2 != .go then return (false, s)
