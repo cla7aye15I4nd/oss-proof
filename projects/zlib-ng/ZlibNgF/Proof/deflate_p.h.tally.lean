@@ -404,7 +404,8 @@ end
 
 open ZlibNgF.Proof.DeflateInv in
 /-- The invariant's clauses after a tally: the view changes in `sym_next` only (`+ 3`, from below `sym_end`), the
-symbol's distance bytes are at most 32768, the pending bytes end before `sym_buf`, and the stream is past its header
+symbol's distance bytes are at most 32768, the pending bytes and the complete bytes of `bi_buf` end before
+`sym_buf`, and the stream is past its header
 (`BUSY_STATE` or `FINISH_STATE`). -/
 theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateState} {al : DeflateAllocs}
     {d : Array UInt8} {sbo : Nat} (v : UInt32) (c : DCore h (some i) z b (dview st) al) (hd : h.bytes b = some d)
@@ -417,7 +418,7 @@ theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Def
       st.sym_next.toNat % 3 = 0 → (st.sym_next + 3).toNat = st.sym_next.toNat + 3 → st.sym_next.toNat / 3 < 32767 →
       SymOk (W4 d (sbo + st.sym_next.toNat) v) sbo (st.sym_next + 3) st'.dyn_ltree st'.dyn_dtree)
     (hroom : ∃ pbo poo, st.pending_buf = .val (.ref (.heap b) pbo) ∧ st.pending_out = .val (.ref (.heap b) poo) ∧
-      poo - pbo + st.pending.toNat ≤ st.lit_bufsize.toNat + 8)
+      poo - pbo + st.pending.toNat + st.bi_valid.toInt.toNat / 8 ≤ st.lit_bufsize.toNat + 8)
     (hstat : st.status = ZlibNg.Deflate.BUSY_STATE ∨ st.status = ZlibNg.Deflate.FINISH_STATE) :
     DCore (SH H i z b st' (W4 d (sbo + st.sym_next.toNat) v)) (some i) z b (dview st') al := by
   rw [hv]

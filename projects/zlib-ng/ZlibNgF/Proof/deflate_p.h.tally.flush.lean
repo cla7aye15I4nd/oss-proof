@@ -4,7 +4,8 @@ import ZlibNgF.Proof.«deflate_p.h.flush»
 /-!
 # `FLUSH_BLOCK_ONLY` / `FLUSH_BLOCK` (`ZlibNgF`)
 
-`flush_block_only_ok`: from an invariant stream with valid and set buffers, no pending bytes, a level above 0 and the
+`flush_block_only_ok`: from an invariant stream with valid and set buffers, no pending bytes, fewer than 8 bits in
+`bi_buf`, a level above 0 and the
 window at offset `wo` of the block, `FLUSH_BLOCK_ONLY(s, window, last)` (the block `[block_start, strstart)` through
 `zng_tr_flush_block` (`TreesFacts.flush_block`), then `block_start = strstart` and `flush_pending`) does not fault and
 leaves `FBPost`: the invariant, valid and set buffers, a change of the stream record, the stream's block and the
@@ -88,6 +89,8 @@ structure FBPost (h h' : Heap) (i b : Nat) (z : ZStream) (st : DeflateState) : P
       data_type := z'.data_type } ∧
     (∀ ob oo, z.next_out = .ref (.heap ob) oo → z'.next_out = .ref (.heap ob) (oo + L)) ∧
     (z'.avail_out ≠ 0 → st'.pending = 0) ∧ st'.sym_next = 0 ∧ FBKeeps st st'
+  /-- fewer than 8 bits in `bi_buf` (`flush_pending` ran `zng_tr_flush_bits`) -/
+  bits : ∀ st', h'.dstate b = some st' → st'.bi_valid < 8
 
 /-- `FLUSH_BLOCK_ONLY(s, window, last)` from an invariant stream with no pending bytes at a level above 0; `window`
 evaluates to the window (offset `wo` of the block) without changing the heap. -/
@@ -96,7 +99,7 @@ theorem flush_block_only_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} 
     (hv : DInv h (some i))
     (hio : DStreamIO h (some i)) (hset : DBufsSet h (some i)) (hz : h.streams i = some z)
     (hb : z.state = some b) (hst : h.dstate b = some st) (hp0 : st.pending = 0) (hlv : 0 < st.level)
-    (hwin : st.window = .val (.ref (.heap b) wo)) (hwm : window h = .ok (.ref (.heap b) wo, h)) :
+    (h8 : st.bi_valid < 8) (hwin : st.window = .val (.ref (.heap b) wo)) (hwm : window h = .ok (.ref (.heap b) wo, h)) :
     ∃ h', C.run (FLUSH_BLOCK_ONLY (some b) window last) h = .ok ((), h') ∧ FBPost h h' i b z st := by
   have hw0 := DWork.of_inv hv
   obtain ⟨i', z0, b0, st0, al, e0, hz0, hb0, hst0, hal, c⟩ := hv
@@ -165,9 +168,11 @@ theorem flush_block_only_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} 
     rw [ZlibNgF.Proof.DeflatePrime.chk_ok _ hv0 hv1, hL32]
     refine Sat.bind (Sat.pure ?_)
     rw [hS]
-    have hpre : FlushBlockPre b buf len32.toUInt32 st := ⟨hp0, hlv, c.bits.2, hbuf⟩
+    have hpre : FlushBlockPre b buf len32.toUInt32 st := ⟨hp0, hlv, h8, hbuf⟩
     obtain ⟨h1', ef, W1, F1, K1, -, E1, X1⟩ := T.flush_block (some i) b buf len32.toUInt32 last hl0 hl1 h st hw0
-      ⟨i, z, rfl, hz, hb, hst⟩ hpre (pendRoom_of_core c) (fun hn => c.psym hn)
+      ⟨i, z, rfl, hz, hb, hst⟩ hpre (pendRoom_of_core c) (fun hn => by
+        obtain ⟨p1, p2, a1, a2, q⟩ := c.psym hn
+        exact ⟨p1, p2, a1, a2, by simp only [dview] at q; dsimp only; omega⟩)
     have hclr := T.flush_block_clears (some i) b buf len32.toUInt32 last hl0 hl1 h h1' st hw0 ⟨i, z, rfl, hz, hb, hst⟩
       hpre ef
     obtain ⟨dt, st1, d1', rfl⟩ := X1 i z rfl hz
@@ -205,7 +210,7 @@ theorem flush_block_only_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} 
       rw [← hH2]; simp only [SH]; rw [upd_ne _ _ _ _ hob]
     obtain ⟨h', ew, hv', P⟩ := flush_work hw2 hz2' hb hst2' ⟨ob, oo, ad, hno, by rw [hob2]; exact had, hoo⟩ hnb
     refine ⟨(), h', ew, ?_⟩
-    obtain ⟨L, z', st', hz', hst', hLm, hpen, hst'e, hav, hz'e, hadv, F2, O2, -⟩ := P
+    obtain ⟨L, z', st', hz', hst', hLm, hpen, hst'e, hav, hz'e, hadv, F2, O2, -, hbits⟩ := P
     have hLo : L ≤ z.avail_out.toNat := by rw [hLm]; exact Nat.min_le_right _ _
     have O : OutOnly h h' b ob oo L := by
       obtain ⟨o1, o2, o3⟩ := O2 ob oo hno
@@ -216,7 +221,8 @@ theorem flush_block_only_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} 
     have hgz : st'.gzhead = st.gzhead := by rw [hst'e]; show st1.gzhead = st.gzhead; rw [hK1]
     refine ⟨hv', streamIO_out hio hz hb hst hno hLo O hz' hzs (by rw [hz'e]) (by rw [hz'e]) (hadv ob oo hno) hav hst'
       hgz, ⟨z', ⟨i, rfl, hz'⟩, by rw [hadv ob oo hno]; simp, fun ha => ?_⟩, ?_, ⟨z', st', L, hz', hst', hLo, hav,
-      ?_, hadv, fun ha => ?_, ?_, st1, hK1, ?_⟩⟩
+      ?_, hadv, fun ha => ?_, ?_, st1, hK1, ?_⟩, fun st3 h3 => by
+        obtain rfl := Option.some.inj (hst'.symm.trans h3); exact hbits⟩
     · have : z'.next_in = z.next_in := by rw [hz'e]
       rw [this]; exact hni (by rw [hz'e] at ha; exact ha)
     · -- the frame
@@ -238,11 +244,11 @@ theorem flush_block_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} {b : 
     {st : DeflateState} {wo : Nat} (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1) (hv : DInv h (some i))
     (hio : DStreamIO h (some i)) (hset : DBufsSet h (some i)) (hz : h.streams i = some z)
     (hb : z.state = some b) (hst : h.dstate b = some st) (hp0 : st.pending = 0) (hlv : 0 < st.level)
-    (hwin : st.window = .val (.ref (.heap b) wo)) :
+    (h8 : st.bi_valid < 8) (hwin : st.window = .val (.ref (.heap b) wo)) :
     ∃ r h', C.run (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) h = .ok (r, h') ∧ FBPost h h' i b z st ∧
       ∃ z' st', h'.streams i = some z' ∧ h'.dstate b = some st' ∧
         (r = none ∧ st'.pending = 0 ∨ z'.avail_out = 0 ∧ r = some (if last != 0 then .finish_started else .need_more)) := by
-  obtain ⟨h', e, P⟩ := flush_block_only_ok T (pure (.ref (.heap b) wo)) last hl0 hl1 hv hio hset hz hb hst hp0 hlv hwin rfl
+  obtain ⟨h', e, P⟩ := flush_block_only_ok T (pure (.ref (.heap b) wo)) last hl0 hl1 hv hio hset hz hb hst hp0 hlv h8 hwin rfl
   obtain ⟨z', st', L, hz', hst', -, -, hze, -, hpz, -⟩ := P.out
   obtain ⟨i2, z2, b2, st2, al2, e2, L2, -, c2⟩ := live P.inv
   obtain rfl : i = i2 := Option.some.inj e2

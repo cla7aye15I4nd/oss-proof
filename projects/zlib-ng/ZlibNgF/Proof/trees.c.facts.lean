@@ -206,10 +206,12 @@ theorem flush_block_ok (hbt : BuildTreeSpec) (s : StreamPtr) (b : Nat) (buf : BP
       trees := ⟨tl, td, tb⟩
       sizes := c.sizes
       lay := ⟨d', wo, po, ho, pbo, by simp [SH], hw, hp, hh, hpb, l1, l2, l3, by rw [hsz]; exact l4, hsb, pbo,
-        by simp only [dview]; rw [hpo0, hpb], Nat.le_refl _, by simp only [dview]; omega⟩
+        by simp only [dview]; rw [hpo0, hpb], Nat.le_refl _, by
+          have z0 : (0 : Int32).toInt = 0 := rfl
+          simp only [dview]; omega⟩
       pout := fun _ => by simp only [dview]; exact hpo0
       syms := ⟨UInt32.le_iff_toNat_le.mpr (Nat.zero_le _), rfl⟩
-      bits := ⟨Int32.le_refl _, show (0 : Int32) < 8 by decide⟩
+      bits := ⟨Int32.le_refl _, show (0 : Int32) < 64 by decide⟩
       look := c.look
       strategy := c.strategy
       fns := c.fns

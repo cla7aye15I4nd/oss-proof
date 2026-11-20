@@ -49,15 +49,27 @@ theorem dcore_pend {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' : 
     (hbs : st'.block_start.toInt ≤ st.strstart.toNat)
     (hlo : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt) (hsym : st.sym_next = 0) :
     DCore H s z b (dview st') al := by
+  have hz : st'.bi_valid.toInt.toNat / 8 = 0 := by
+    have a := Int32.le_iff_toInt_le.mp h0
+    have a' := Int32.lt_iff_toInt_lt.mp h8
+    rw [show (0 : Int32).toInt = 0 from rfl] at a
+    rw [show (8 : Int32).toInt = 8 from rfl] at a'
+    omega
+  have h64 : st'.bi_valid < 64 := Int32.lt_iff_toInt_lt.mpr (by
+    have a' := Int32.lt_iff_toInt_lt.mp h8
+    rw [show (8 : Int32).toInt = 8 from rfl] at a'
+    rw [show (64 : Int32).toInt = 64 from rfl]
+    omega)
   obtain ⟨d, wo, po, ho, pbo', hd, hwo, hp, hh, hpb', h1, h2, h3, h4, hsb, -⟩ := c.lay
   simp only [dview] at hpb'
   rw [hpb] at hpb'
   obtain rfl : pbo = pbo' := by injection hpb' with e1; injection e1 with e1
   rw [he]
   exact { c with
-    lay := ⟨d, wo, po, ho, pbo, hd, hwo, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, hroom⟩
+    lay := ⟨d, wo, po, ho, pbo, hd, hwo, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, by
+      simp only [dview]; omega⟩
     pout := hpz
-    bits := ⟨h0, h8⟩
+    bits := ⟨h0, h64⟩
     psym := fun hn => absurd hsym hn
     bstart := hbs
     bs_lo := hlo }
@@ -158,7 +170,7 @@ theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
     (fun al _ c => dcore_mv (dcore_pend c he S.hpb hpo' hle' hroom' hpz' hb0' hb8' hbs1 hbs2 S.sym)
       S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_)
   · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl⟩
-  · refine ⟨Int32.le_iff_toInt_le.mpr (by rw [hbs', hnb]; show (0 : Int) ≤ _; omega), ?_⟩
+  · refine ⟨Int32.le_iff_toInt_le.mpr (by rw [hbs', hnb]; show (0 : Int) ≤ _; omega), ?_, hb8'⟩
     rw [he]; exact S.sym
 
 end ZlibNgF.Proof.StoredBlk

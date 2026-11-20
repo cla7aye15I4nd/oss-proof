@@ -264,7 +264,7 @@ theorem u32_toInt32_small (x : UInt32) (h : x.toNat ≤ 65536) : x.toInt32.toInt
 /-- The state fields that `deflateSetDictionary` never writes, as in `st0`. -/
 def SdK (st0 st : DeflateState) : Prop :=
   st.sym_next = st0.sym_next ∧ st.status = st0.status ∧ st.gzhead = st0.gzhead ∧ st.gzindex = st0.gzindex ∧
-    st.level = st0.level ∧ st.strategy = st0.strategy ∧ st.last_flush = st0.last_flush
+    st.level = st0.level ∧ st.strategy = st0.strategy ∧ st.last_flush = st0.last_flush ∧ st.bi_valid = st0.bi_valid
 
 /-- What `deflateSetDictionary` leaves, from state `st0`: the fields of `SdK` and `wrap` kept, `block_start` at
 `strstart`, no lookahead. -/
@@ -273,10 +273,10 @@ def SdPost (st0 st : DeflateState) : Prop :=
 
 theorem SdK.mv {st0 st st' : DeflateState} (k : SdK st0 st) (e1 : st'.sym_next = st.sym_next)
     (e2 : st'.status = st.status) (e3 : st'.gzhead = st.gzhead) (e4 : st'.gzindex = st.gzindex)
-    (e5 : st'.level = st.level) (e6 : st'.strategy = st.strategy) (e7 : st'.last_flush = st.last_flush) :
-    SdK st0 st' := by
-  obtain ⟨k1, k2, k3, k4, k5, k6, k7⟩ := k
-  exact ⟨e1.trans k1, e2.trans k2, e3.trans k3, e4.trans k4, e5.trans k5, e6.trans k6, e7.trans k7⟩
+    (e5 : st'.level = st.level) (e6 : st'.strategy = st.strategy) (e7 : st'.last_flush = st.last_flush)
+    (e8 : st'.bi_valid = st.bi_valid) : SdK st0 st' := by
+  obtain ⟨k1, k2, k3, k4, k5, k6, k7, k8⟩ := k
+  exact ⟨e1.trans k1, e2.trans k2, e3.trans k3, e4.trans k4, e5.trans k5, e6.trans k6, e7.trans k7, e8.trans k8⟩
 
 /-- `SdPost` of the state of stream `i` in `H'`. -/
 def SdOut (i : Nat) (st0 : DeflateState) (H' : Heap) : Prop :=
@@ -297,7 +297,7 @@ theorem fw_ok (W : WindowFacts) {H H1 : Heap} {i b : Nat} {z1 : ZStream} {st1 : 
     (hl3 : st1.lookahead.toNat < 3) (hp1 : pot z1 st1 ≤ 2 ^ 30 + 2 ^ 18) {st0 : DeflateState} (hk1 : SdK st0 st1) :
     Sat H1 (fill_window (some b)) (fun _ H2 => ∃ m', m' ≤ z1.avail_in.toNat ∧ LoopI H i b st0 m' () H2) := by
   obtain ⟨H2, e, hv2, hi2, f2, i2, z2, z2', b2, st2, st2', e2', hz2, hz2', hb2, hst2, hst2', hzz, hle2, hlk,
-      hcons, hdiff, -, -, hw2, hs2, hg2, hl2, hst2s, -, -, hsn2, hgi2, hlf2⟩ :=
+      hcons, hdiff, -, -, hw2, hs2, hg2, hl2, hst2s, -, -, hsn2, hgi2, hlf2, hbv2⟩ :=
     W.fill_window H1 (some i) b st1 hv1 ⟨i, z1, rfl, hz1, hb1, hst1⟩ hi1
       (fun h2 => absurd (hw1 ▸ h2) (by decide)) (by omega)
   obtain rfl : i = i2 := Option.some.inj e2'
@@ -315,8 +315,9 @@ theorem fw_ok (W : WindowFacts) {H H1 : Heap} {i b : Nat} {z1 : ZStream} {st1 : 
       omega
     · omega
   · unfold pot at hp1 ⊢; omega
-  · obtain ⟨k1, k2, k3, k4, k5, k6, k7⟩ := hk1
-    exact ⟨hsn2.trans k1, hs2.trans k2, hg2.trans k3, hgi2.trans k4, hl2.trans k5, hst2s.trans k6, hlf2.trans k7⟩
+  · obtain ⟨k1, k2, k3, k4, k5, k6, k7, k8⟩ := hk1
+    exact ⟨hsn2.trans k1, hs2.trans k2, hg2.trans k3, hgi2.trans k4, hl2.trans k5, hst2s.trans k6, hlf2.trans k7,
+      hbv2.trans k8⟩
 
 /-- The writes after the insertion of one loop trip, and `fill_window`. -/
 theorem body_rest (W : WindowFacts) {H H' : Heap} {i b : Nat} {z' : ZStream} {st' st'' : DeflateState}
@@ -364,7 +365,7 @@ theorem body_rest (W : WindowFacts) {H H' : Heap} {i b : Nat} {z' : ZStream} {st
   rw [SH_SH] at hv3
   refine Sat.bind (Sat.mono (fw_ok W (DFrame.trans f' dframe_SH') hv3
     (SH_streams _ _ _ _ _ _) hb' (SH_dstate _ _ _ _ _ _) (input_SH hi' hz' hb') hw'
-    (by rw [e2n]; decide) ?_ (SdK.mv hk rfl rfl rfl rfl rfl rfl rfl)) ?_)
+    (by rw [e2n]; decide) ?_ (SdK.mv hk rfl rfl rfl rfl rfl rfl rfl rfl)) ?_)
   · unfold pot; simp only []; rw [hsum, e2n]; omega
   · rintro _ H2 ⟨m', hm', hI2⟩
     refine Sat.pure ⟨m', ?_, hI2⟩
@@ -445,7 +446,7 @@ theorem tail_ok {H He : Heap} {i b : Nat} {ze : ZStream} {ste : DeflateState} {w
     obtain rfl : b = b' := Option.some.inj (hbe.symm.trans h2)
     rw [SH_dstate] at h3
     obtain rfl := Option.some.inj h3
-    exact ⟨SdK.mv hk rfl rfl rfl rfl rfl rfl rfl, hw0, hS, rfl⟩
+    exact ⟨SdK.mv hk rfl rfl rfl rfl rfl rfl rfl rfl, hw0, hS, rfl⟩
 
 /-- The insertion loop and the tail of `deflateSetDictionary` (`sdC`) from the invariant after the cut. -/
 theorem sdC_ok (W : WindowFacts) {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
@@ -614,7 +615,7 @@ theorem sdB_ok (W : WindowFacts) {h : Heap} {i : Nat} {z z1 : ZStream} {b : Nat}
     intro ss bs ins d2 o2 dl h1 h2 h3 h4 hsz hout hl2 hdl
     have hv0 := inv_cut c hz hb hdd hst hda a hla hh ss bs ins h1 h2 h3 h4 hsz hout
     refine Sat.mono (sdC_ok W hv0 (SH_streams _ _ _ _ _ _) hb (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _) rfl hla ib
-      _ hwr hrb (hgS _ _) hl2 hdl (st0 := st) ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ rfl) ?_
+      _ hwr hrb (hgS _ _) hl2 hdl (st0 := st) ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ rfl) ?_
     rintro _ _ ⟨hv', f, ho⟩
     exact ⟨hv', DFrame.trans dframe_SH' f, ho⟩
   have hss := UInt32.le_refl st.strstart
@@ -674,20 +675,21 @@ theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {
     ∃ r h', C.run (deflateSetDictionary s dict n) h = .ok (r, h') ∧ DInv h' s ∧
       DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
       (h' = h ∨ ∃ i z b st, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
-        st.wrap ≠ 2 ∧ SdOut i st h') := by
+        st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h') := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
   have hnb' := hnb b ⟨z, ⟨i, rfl, L.hz⟩, L.hb⟩
   obtain ⟨d, hdd⟩ := L.hd
   have hda : h.dallocs b = some al := by simpa [Heap.dallocsOf, hdd] using hal
   rw [show stateIds h (some i) = [b] by simp [stateIds, L.hz, L.hb]]
   suffices S : Sat (SH h i z b st d) (deflateSetDictionary (some i) dict n)
-      (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧ (h' = h ∨ (st.wrap ≠ 2 ∧ SdOut i st h'))) by
+      (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧
+        (h' = h ∨ (st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h'))) by
     rw [ZlibNgF.Proof.DeflateReset.SH_self L.hz L.hst hdd] at S
     obtain ⟨r, h', e, hv', f, ho⟩ := S
     refine ⟨r, h', e, hv', f, ?_⟩
-    rcases ho with ho | ⟨hw2, ho⟩
+    rcases ho with ho | ⟨hw2, hl0, ho⟩
     · exact Or.inl ho
-    · exact Or.inr ⟨i, z, b, st, rfl, L.hz, L.hb, L.dstate, hw2, ho⟩
+    · exact Or.inr ⟨i, z, b, st, rfl, L.hz, L.hb, L.dstate, hw2, hl0, ho⟩
   have k : DOk i z b st := ⟨L.za, L.zf, L.hb, L.ab, L.sm, L.lo, L.hi⟩
   have e0 : SH h i z b st d = h := ZlibNgF.Proof.DeflateReset.SH_self L.hz L.hst hdd
   unfold deflateSetDictionary
@@ -723,9 +725,10 @@ theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {
   have hw2 : st.wrap ≠ 2 := fun e => absurd (by simp [e]) hchk
   have hB : ∀ z1 : ZStream, z1 = { z with adler := z1.adler } →
       Sat (SH h i z1 b st d) (sdB (some i) (some b) ib st.wrap (.ref r o) n)
-        (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧ (h' = h ∨ (st.wrap ≠ 2 ∧ SdOut i st h'))) :=
+        (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧
+          (h' = h ∨ (st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h'))) :=
     fun z1 hz1 => Sat.mono (sdB_ok W c L.hz L.hb hdd L.hst hda hz1 hla ib hrb hg hle) fun _ _ ⟨a1, a2, a3⟩ =>
-      ⟨a1, a2, Or.inr ⟨hw2, a3⟩⟩
+      ⟨a1, a2, Or.inr ⟨hw2, hla, a3⟩⟩
   by_cases hw1 : (st.wrap == 1) = true
   · rw [ite_t hw1]
     refine Sat.bind (Sat.of_eq ldStream_SH ?_); try dsimp only
