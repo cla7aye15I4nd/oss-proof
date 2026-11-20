@@ -131,7 +131,6 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
         have := UInt32.le_iff_toNat_le.mp hm4; simpa [WANT_MIN_MATCH] using this
       obtain ⟨hmla, hm258, hms1, hms2⟩ := hmlf hm4'
       refine Sat.bind (Sat.of_eq ldDState_SH ?_)
-      dsimp -zeta only []
       extract_lets cd
       have hcd : cd.toNat = st.strstart.toNat - st1.match_start.toNat := by
         simp only [cd]; rw [hss1]; exact u32_sub_toNat (by omega)
@@ -141,7 +140,6 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
         (tally_dist_K (sli_slw I1) hle1 cd (ml' - STD_MIN_MATCH) (by omega) (by omega) (by omega))) ?_)
       rintro r H3 ⟨⟨-, W3, -, hle3, I3⟩, st3, d3, lo, hi, rfl, K3, Wr3, hlo⟩
       have G3 := cg_tally (sli_slw I1) G1 K3 Wr3 hlo
-      dsimp -zeta only []
       extract_lets bfl
       obtain ⟨st4, hst4⟩ : ∃ st4 : DeflateState, st4 = { st3 with lookahead := st3.lookahead - ml' } := ⟨_, rfl⟩
       refine Sat.bind (Sat.of_eq (wrD_eq _ st4 (by rw [hst4])) ?_)
@@ -160,7 +158,6 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have hcd2 : cd.toNat ≤ 32768 := by omega
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       rw [k4.2.1]
-      dsimp -zeta only []
       extract_lets jpI
       -- after the insertions
       have hI : ∀ (S2 : Nat → Prop) (d5 : Array UInt8),
@@ -248,7 +245,6 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
         (tally_lit_K (sli_slw I1) hle1 lc)) ?_)
       rintro r H3 ⟨⟨-, W3, -, -, I3⟩, st3, d3, lo, hi, rfl, K3, Wr3, hlo⟩
       have G3 := cg_tally (sli_slw I1) G1 K3 Wr3 hlo
-      dsimp -zeta only []
       extract_lets bfl
       obtain ⟨st4, hst4⟩ : ∃ st4 : DeflateState, st4 = { st3 with lookahead := st3.lookahead - 1 } := ⟨_, rfl⟩
       refine Sat.bind (Sat.of_eq (wrD_eq _ st4 (by rw [hst4])) ?_)
@@ -294,7 +290,6 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       rintro r _ ⟨⟨d1, rfl, hsz, hr, hk⟩, d1', e1, I1, g1⟩
       obtain ⟨-, -, rfl⟩ := SH_inj e1
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
-      dsimp -zeta only []
       extract_lets dist lc
       refine Sat.bind (Sat.of_eq ldDState_SH ?_)
       have G1 := cg_ins (cg_start (H0 := H0) (i := i) (z := z) (b := b) (st := st) (d := d) (fun _ => False)) g1
@@ -345,7 +340,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
     have hla' : st.lookahead.toNat < 262 := by
       have := UInt32.lt_iff_toNat_lt.mp hla; simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using this
     obtain ⟨_, H1, e1, hfill⟩ := sli_fill I0 hla'
-    rw [wrD_SH, FS_self] at e1
+    rw [wrD_eq _ st rfl] at e1
     obtain rfl : SH H i z b st d = H1 := by injection e1 with e; injection e with _ e'; exact e'
     obtain ⟨u, H2, e2, ⟨H0', z', st', d', rfl, I2, hsum, -, -⟩⟩ := hfill
     cases u
