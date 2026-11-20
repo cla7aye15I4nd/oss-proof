@@ -32,7 +32,7 @@ theorem shape_avail0 {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzSh
   refine ⟨?_, by simp only [ownL, hst]⟩
   have R := sh.read hr
   refine ⟨sh.mode, ownStr_keep sh.path fun _ _ => rfl, ⟨{ z with avail_in := 0 }, by simp [avail0]⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos,
-    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => ?_⟩,
+    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => ?_, R.pos_have, R.look_pos⟩,
     fun e => absurd (hr.symm.trans e) read_ne_write, fun hz c hc => sh.dead hz c (by rw [hst] at hc; exact hc)⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
@@ -108,7 +108,9 @@ theorem reset_keep {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzShap
   have sh2 : GzShape (freeMsg h s) (rstSt s) := by
     refine ⟨sh1.mode, sh1.path, sh1.strm, sh1.want_lo, sh1.want_hi, sh1.size,
       ⟨by rw [hsk]; decide, by rw [hpo, hsk]; decide, by rw [hpo]; decide, fun _ => by rw [hpo]; decide⟩,
-      ⟨sh1.msg.msg, sh1.msg.mem⟩, fun _ => ⟨Or.inl rfl, fun hsz => ?_, fun _ => rfl, fun e => absurd rfl e, fun hz => (R.fresh hz).of_strm rfl⟩,
+      ⟨sh1.msg.msg, sh1.msg.mem⟩, fun _ => ⟨Or.inl rfl, fun hsz => ?_, fun _ => rfl, fun e => absurd rfl e, fun hz => (R.fresh hz).of_strm rfl,
+        by show (0 : Int64).toInt + ((0 : UInt32).toNat : Int) ≤ _; decide,
+        fun _ _ => by show (0 : Int64).toInt + ((0 : UInt32).toNat : Int) ≤ _; decide⟩,
       fun e => absurd (hr.symm.trans e) read_ne_write, fun hz => sh1.dead hz⟩
     obtain ⟨c, base, z0, hb, hi, hz0, -, hai, hreg, hmsg⟩ := R.bufs hsz
     exact ⟨c, base, z0, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz0, Or.inl rfl, hai, hreg, hmsg⟩

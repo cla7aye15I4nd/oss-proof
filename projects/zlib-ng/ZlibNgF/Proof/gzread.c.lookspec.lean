@@ -42,7 +42,7 @@ theorem invR_setZS {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
   have hown : ownL H b s = ownL h b s := by simp only [ownL, hst]
   have shH : GzShape H s := by
     refine ⟨sh.mode, sh.path, ⟨z', hzH⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos, ⟨sh.msg.1, sh.msg.2⟩,
-      fun _ => ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz⟩,
+      fun _ => ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz, R.pos_have, R.look_pos⟩,
       fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
     obtain ⟨c, base, z0, hB, -, hz0, hhv, -, -⟩ := R.bufs hsz
     refine ⟨c, base, z', ⟨hB.size, hB.buffers, hB.inp, hB.out, hB.fits, hB.hdr⟩, hinv, hzH, hhv, hin c base hB, fun hp hrg => ?_, hmsg⟩
@@ -158,6 +158,11 @@ def HeadState (H : Heap) (s : GzState) : Prop :=
   ∃ z sb st, H.streams s.strm = some z ∧ z.state = some sb ∧ H.istate sb = some st ∧
     st.mode = ZlibNg.Inflate.HEAD ∧ st.bits = 0 ∧ st.last = 0
 
+/-- The position clauses of `GzRead` for the output `x.have` (patch 0016: what the `gzgetc()` macro may take). -/
+def PosHave (s : GzState) : Prop :=
+  s.pos.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt ∧
+    (s.how = LOOK → s.direct ≠ 0 → s.pos.toInt + s.«have».toNat ≤ 0)
+
 /-- What `gz_look` leaves on a read handle with `x.have == 0`: `-1` or `0`; a step of the call that only reads the file
 system; a state with the same `x.pos` and `skip`, with buffers when the result is `0`; when it switched to `GZIP`, the
 inflate state just reset (`HeadState`); the read invariant of the world with `x.have` cleared; and `x.have` bytes from
@@ -168,7 +173,8 @@ def LookPost (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : Wor
     (r = 0 → s'.how = GZIP → s.how = GZIP ∨ HeadState H s') ∧
     GzInvR { W with gzs := upd W.gzs b (some { s' with «have» := 0 }) } H (some b) ∧
     (s'.«have» = 0 ∨ (s'.size ≠ 0 ∧ ∀ c base, GzBufs H s' c base →
-      ∃ p, s'.next = .val p ∧ Inside c base (inSize s') (inSize s' + outSize s') p s'.«have».toNat))
+      ∃ p, s'.next = .val p ∧ Inside c base (inSize s') (inSize s' + outSize s') p s'.«have».toNat)) ∧
+    PosHave s'
 
 /-- A read handle whose `x.have` is already 0 gives the post-condition. -/
 theorem lookPost_of {w : World} {h : Heap} {b : Nat} {s : GzState} {r : Int32} {W : World} {H : Heap} {s' : GzState}
@@ -176,7 +182,8 @@ theorem lookPost_of {w : World} {h : Heap} {b : Nat} {s : GzState} {r : Int32} {
     (hs' : W.gz H b = some s') (hp : s'.pos = s.pos) (hk : s'.skip = s.skip) (hz : r = 0 → s'.size ≠ 0)
     (hg : r = 0 → s'.how = GZIP → s.how = GZIP ∨ HeadState H s')
     (h0 : s'.«have» = 0) : LookPost w h b s r W H := by
-  refine ⟨hr, g, hf, s', hs', hp, hk, hz, hg, ?_, Or.inl h0⟩
+  have R := ((inv_of hs' hv.1).1.read (modeOf hs' hv.2.1))
+  refine ⟨hr, g, hf, s', hs', hp, hk, hz, hg, ?_, Or.inl h0, R.pos_have, R.look_pos⟩
   rw [have0_self h0, DeflateReset.upd_self W.gzs b s' (gzs_of hs')]
   exact hv
 
@@ -187,7 +194,7 @@ theorem outSize_read {s : GzState} (hr : s.mode = GZ_READ) (d : Int32) :
 /-- A store of no output, another `x.next`, `how`, `direct` and `eof` keeps a read handle. -/
 theorem invR_look {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (nx : Ival BPtr) (hw : Int32) (hhow : hw = LOOK ∨ hw = ZlibNg.Gz.COPY ∨ hw = GZIP)
-    (d e : Int32) :
+    (d e : Int32) (hlk : hw = LOOK → d ≠ 0 → s.pos.toInt ≤ 0) :
     GzInvR { w with gzs := upd w.gzs b (some { s with «have» := 0, next := nx, how := hw, direct := d, eof := e }) } h
       (some b) ∧
     GStep w h { w with gzs := upd w.gzs b (some { s with «have» := 0, next := nx, how := hw, direct := d, eof := e }) }
@@ -202,13 +209,18 @@ theorem invR_look {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w 
   have sh' : GzShape h s' := by
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size, ⟨P.1, P.2, P.3, P.4⟩,
       ⟨sh.msg.1, sh.msg.2⟩, fun _ => ⟨hhow, fun hsz => ?_, fun _ => rfl, fun _ => ?_,
-        fun hz => (R.fresh hz).of_strm rfl⟩, fun e' => absurd (hr.symm.trans e') read_ne_write, fun hz => sh.dead hz⟩
+        fun hz => (R.fresh hz).of_strm rfl, ?_, fun h1 h2 => ?_⟩, fun e' => absurd (hr.symm.trans e') read_ne_write,
+        fun hz => sh.dead hz⟩
     · obtain ⟨c, base, z, hB, hi, hz, -, hai, hreg, hmsg⟩ := R.bufs hsz
       refine ⟨c, base, z, ⟨hB.size, hB.buffers, hB.inp, fun e' => ?_, ?_, hB.hdr⟩, hi, hz, Or.inl rfl, hai, hreg, hmsg⟩
       · rw [hio] at e'; exact hB.out e'
       · rw [hio]; exact hB.fits
     · show s.pos.toInt + s.skip.toInt + ((0 : UInt32).toNat : Int) ≤ GZ_OFF_MAX.toInt
       simpa using P.2
+    · show s.pos.toInt + ((0 : UInt32).toNat : Int) ≤ GZ_OFF_MAX.toInt
+      have := P.1; have := P.2; simp; omega
+    · show s.pos.toInt + ((0 : UInt32).toNat : Int) ≤ 0
+      have := hlk h1 h2; simpa using this
   have hn' : (ownL h b s').Nodup := hn
   refine ⟨(keeps_store hs (HLess.refl h) (fun _ e' => e') sh' hn' rfl rfl).1 hv, ?_⟩
   exact gstep_st hs w.fs rfl rfl rfl rfl
@@ -246,7 +258,7 @@ theorem resetTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
   refine GSat.bind (GSat.of_eq (wrG_app hsH _) ?_)
   refine GSat.bind (GSat.of_eq (wrG_app (gz_upd_same hsH _) _) ?_)
   refine GSat.pure ?_
-  obtain ⟨hv2, g2⟩ := invR_look hv1 hsH s.next GZIP (Or.inr (Or.inr rfl)) 0 s.eof
+  obtain ⟨hv2, g2⟩ := invR_look hv1 hsH s.next GZIP (Or.inr (Or.inr rfl)) 0 s.eof (fun e => absurd e (by decide))
   simp only [InflateInv.upd_upd]
   have es : ({ ({ s with how := GZIP } : GzState) with direct := 0 } : GzState) =
       { s with «have» := 0, next := s.next, how := GZIP, direct := 0, eof := s.eof } := by
@@ -288,7 +300,7 @@ open ZlibNg.Inflate in
 /-- The `if (magic)` tail of `gz_look` on a read handle with buffers and input. -/
 theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) {z : ZStream} (hz : h.streams s.strm = some z)
-    (hai : z.avail_in ≠ 0) (magic : Bool) :
+    (hai : z.avail_in ≠ 0) (hlook : s.how = LOOK) (magic : Bool) :
     GSat w h (lookTail (some b) (some s.strm) magic) (LookPost w h b s) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
@@ -310,13 +322,16 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
     refine GSat.bind (GSat.of_eq (wrG_app (gz_upd_same hs1 _) _) ?_)
     refine GSat.pure ?_
     obtain ⟨hv2, g2⟩ := invR_look hv1 hs1 s.next s.how R.how s.direct 1
+      (fun h1 h2 => by have := R.look_pos h1 h2; rw [h0] at this; simpa using this)
     simp only [InflateInv.upd_upd]
     have es : ({ ({ s with eof := 1 } : GzState) with «have» := 0 } : GzState) =
         { s with «have» := 0, next := s.next, how := s.how, direct := s.direct, eof := 1 } := rfl
     rw [es]
     exact lookPost_of (Or.inr rfl) (g1.trans g2 ⟨s, hs⟩ ⟨s, hs1⟩) (FsRd.refl _) hv2 (gz_upd_same hs1 _) rfl rfl
       (fun _ => hsz) (fun _ e => Or.inl e) rfl
-  intro _
+  intro hd0
+  have hdir : s.direct ≠ 0 := by simpa using hd0
+  have hpos0 : s.pos.toInt ≤ 0 := by have := R.look_pos hlook hdir; rw [h0] at this; simpa using this
   -- transparent: copy the input to the output buffer
   obtain ⟨c, base, z0, hB, -, hz0, -, hin, -⟩ := R.bufs hsz
   rw [hz] at hz0; cases hz0
@@ -364,7 +379,7 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
   have hvB := invR_strm (z' := z') hvA' hsA hsz hz1 rfl (fun _ _ _ => Or.inl rfl)
   have hsB : w.gz H2 b = some s := hsA
   obtain ⟨hvC, gC⟩ := invR_look hvB hsB (.val (.ref (.heap c) (base + inSize s))) ZlibNg.Gz.COPY
-    (Or.inr (Or.inl rfl)) 1 s.eof
+    (Or.inr (Or.inl rfl)) 1 s.eof (fun e => absurd e (by decide))
   have gA : GStep w h w H1 b [] := by
     have := gstep_hbuf hs hx hcb hown w.fs s rfl rfl rfl rfl
     rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
@@ -375,7 +390,7 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
   let s3 : GzState := { s with «have» := z.avail_in, next := .val o3, how := ZlibNg.Gz.COPY, direct := 1 }
   have hsW := gz_upd_same hsB s3
   refine ⟨Or.inr rfl, ?_, FsRd.refl _, s3, hsW, rfl, rfl, fun _ => hsz,
-    fun _ e => absurd e (by decide : ZlibNg.Gz.COPY ≠ GZIP), ?_, ?_⟩
+    fun _ e => absurd e (by decide : ZlibNg.Gz.COPY ≠ GZIP), ?_, ?_, ?_⟩
   · have g3 := gstep_st hsB w.fs (s' := s3) rfl rfl rfl rfl
     exact (gA.trans gB ⟨s, hs⟩ ⟨s, hsA⟩).trans g3 ⟨s, hs⟩ ⟨s, hsB⟩
   · simp only [InflateInv.upd_upd]; exact hvC
@@ -385,12 +400,17 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
     have ho3 : outSize s3 = outSize s := by simp [outSize, s3, hr, read_ne_write]
     refine ⟨_, rfl, inSize s, rfl, Nat.le_refl _, ?_⟩
     rw [hi3, ho3]; show inSize s + z.avail_in.toNat ≤ _; omega
+  · have hmx' := gzmax
+    have hw := sh.want_hi
+    refine ⟨?_, fun e => absurd e (by decide : ZlibNg.Gz.COPY ≠ LOOK)⟩
+    show s.pos.toInt + (z.avail_in.toNat : Int) ≤ _
+    rw [hin'] at hkn; omega
 
 open ZlibNg.Inflate in
 /-- The magic-number test reads `next_in[0]` and `next_in[1]` inside the `in` buffer. -/
 theorem lookMagic_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) {z : ZStream} (hz : h.streams s.strm = some z)
-    (hai : z.avail_in ≠ 0) :
+    (hai : z.avail_in ≠ 0) (hlook : s.how = LOOK) :
     GSat w h (lookMagic (some b) (some s.strm)) (LookPost w h b s) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
@@ -401,7 +421,7 @@ theorem lookMagic_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
   obtain ⟨d, hd, hds⟩ := hB.fits
   unfold lookMagic
   have T : ∀ m : Bool, GSat w h (lookTail (some b) (some s.strm) m) (LookPost w h b s) :=
-    lookTail_spec hv hs h0 hsz hz hai
+    lookTail_spec hv hs h0 hsz hz hai hlook
   refine GSat.bind (GSat.lm ⟨_, h, rdZ_app hz _, ?_⟩)
   dsimp only
   apply GSat.ite
@@ -424,14 +444,14 @@ theorem LookPost.pre {w W1 W : World} {h H1 H : Heap} {b : Nat} {s s1 : GzState}
     (hs : w.gz h b = some s) (g : GStep w h W1 H1 b []) (hf : FsRd w.fs W1.fs) (hs1 : W1.gz H1 b = some s1)
     (hp : s1.pos = s.pos) (hk : s1.skip = s.skip) (hw : s1.how = s.how) (q : LookPost W1 H1 b s1 r W H) :
     LookPost w h b s r W H := by
-  obtain ⟨hr, g2, hf2, s', hs', hp', hk', hz, hG, hv, hh⟩ := q
+  obtain ⟨hr, g2, hf2, s', hs', hp', hk', hz, hG, hv, hh, hph⟩ := q
   exact ⟨hr, g.trans g2 ⟨s, hs⟩ ⟨s1, hs1⟩, hf.trans hf2, s', hs', hp'.trans hp, hk'.trans hk, hz,
-    fun h1 h2 => (hG h1 h2).imp_left fun e => hw ▸ e, hv, hh⟩
+    fun h1 h2 => (hG h1 h2).imp_left fun e => hw ▸ e, hv, hh, hph⟩
 
 open ZlibNg.Inflate in
 /-- `gz_look` once the buffers exist. -/
 theorem lookRest_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
-    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) :
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hlook : s.how = LOOK) :
     GSat w h (lookRest (some b) (some s.strm)) (LookPost w h b s) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
@@ -467,16 +487,16 @@ theorem lookRest_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
     · intro hne
       have hai : z1.avail_in ≠ 0 := by simpa using hne
       rw [← hst1] at hz1 ⊢
-      exact (lookMagic_spec hv1 hs1 h01 hsz1 hz1 hai).mono fun r W' H' q =>
+      exact (lookMagic_spec hv1 hs1 h01 hsz1 hz1 hai (hw1.trans hlook)).mono fun r W' H' q =>
         LookPost.pre hs g1 hf1 hs1 hp1 hk1 hw1 q
   · intro hlt
     have hai : z.avail_in ≠ 0 := by
       intro e; rw [e] at hlt; exact hlt (by decide)
-    exact lookMagic_spec hv hs h0 hsz hz hai
+    exact lookMagic_spec hv hs h0 hsz hz hai hlook
 
 /-- **`gz_look`** on a read handle with `x.have == 0`. -/
 theorem gz_look_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
-    (hs : w.gz h b = some s) (h0 : s.«have» = 0) :
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hlook : s.how = LOOK) :
     GSat w h (gz_look (some b)) (LookPost w h b s) := by
   rw [gz_look_eq]
   refine GSat.bind (GSat.of_eq (strmOf_app hs) ?_)
@@ -501,10 +521,10 @@ theorem gz_look_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR
       have hne : r ≠ -1 := by simpa using hr1
       obtain ⟨-, hsz1, -⟩ := hres.resolve_right hne
       rw [← hst1]
-      exact (lookRest_spec hv1 hs1 h01 hsz1).mono fun r W' H' q => LookPost.pre hs g1 hf1' hs1 hp1 hk1 hw1 q
+      exact (lookRest_spec hv1 hs1 h01 hsz1 (hw1.trans hlook)).mono fun r W' H' q => LookPost.pre hs g1 hf1' hs1 hp1 hk1 hw1 q
   · intro hsz0
     have hsz : s.size ≠ 0 := by simpa using hsz0
-    exact lookRest_spec hv hs h0 hsz
+    exact lookRest_spec hv hs h0 hsz hlook
 
 /-! ## Consuming a pending skip from the output buffer -/
 
@@ -532,7 +552,7 @@ theorem consume_spec {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState}
     (hs' : W.gz H b = some s')
     (hout : s'.«have» = 0 ∨ (s'.size ≠ 0 ∧ ∀ c base, GzBufs H s' c base →
       ∃ p, s'.next = .val p ∧ Inside c base (inSize s') (inSize s' + outSize s') p s'.«have».toNat))
-    (hh : s'.«have» ≠ 0)
+    (hh : s'.«have» ≠ 0) (hph : PosHave s')
     (hk : ∀ W2 s2, W2.gz H b = some s2 → GzInvR W2 H (some b) → GStep W H W2 H b [] → W2.fs = W.fs →
       s2.pos.toInt + s2.skip.toInt = s'.pos.toInt + s'.skip.toInt → (s2.skip ≠ 0 → s2.«have» = 0) →
       GSat W2 H (k ()) Q) :
@@ -606,6 +626,7 @@ theorem consume_spec {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState}
       · refine Or.inr ⟨hsz, fun c' base' hb2 => ?_⟩
         have e1 := hb2.buffers; rw [hb.buffers] at e1; cases e1
         exact ⟨_, rfl, kk + n.toNat, by rw [Nat.add_assoc], by omega, by rw [hm1]; omega⟩) hkh
+    (by rw [e2, hm1]; have := hph.1; omega) (fun h1 h2 => by rw [e2, hm1]; have := hph.2 h1 h2; omega)
   simp only [InflateInv.upd_upd] at hvF ⊢
   have hsF : ({ W with gzs := upd W.gzs b (some sF) } : World).gz H b = some sF := gz_upd_same hs' sF
   exact hk _ sF hsF hvF (gstep_st hs' W.fs rfl rfl rfl rfl) rfl
@@ -617,7 +638,7 @@ theorem invR_restore {W : World} {H : Heap} {b : Nat} {s' : GzState}
     (hs' : W.gz H b = some s')
     (hout : s'.«have» = 0 ∨ (s'.size ≠ 0 ∧ ∀ c base, GzBufs H s' c base →
       ∃ p, s'.next = .val p ∧ Inside c base (inSize s') (inSize s' + outSize s') p s'.«have».toNat))
-    (hkh : s'.skip ≠ 0 → s'.«have» = 0) : GzInvR W H (some b) := by
+    (hkh : s'.skip ≠ 0 → s'.«have» = 0) (hph : PosHave s') : GzInvR W H (some b) := by
   let s0 : GzState := { s' with «have» := 0 }
   have hs0 : ({ W with gzs := upd W.gzs b (some s0) } : World).gz H b = some s0 := gz_upd_same hs' s0
   obtain ⟨sh, -⟩ := inv_of hs0 hv0.1
@@ -628,7 +649,7 @@ theorem invR_restore {W : World} {H : Heap} {b : Nat} {s' : GzState}
     rcases hout with e | ⟨hsz, f⟩
     · exact Or.inl e
     · exact Or.inr ⟨hsz, fun c base hb => f c base ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩⟩
-  have hv := invR_seek hv0 hs0 s'.«have» s'.next s'.pos s'.skip s'.how (sh.read hr).how P.1 P.2 P.3 hout' hkh
+  have hv := invR_seek hv0 hs0 s'.«have» s'.next s'.pos s'.skip s'.how (sh.read hr).how P.1 P.2 P.3 hout' hkh hph.1 hph.2
   simp only [InflateInv.upd_upd] at hv
   have es : ({ s0 with «have» := s'.«have», next := s'.next, pos := s'.pos, skip := s'.skip, how := s'.how } :
       GzState) = s' := by cases s'; rfl
@@ -662,20 +683,20 @@ theorem gzdirect_read {w : World} {h : Heap} {b : Nat} (hv : GzInvR w h (some b)
   · intro _
     refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
     apply GSat.ite
-    · intro _
+    · intro hlk0
       refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
       apply GSat.ite
       · intro h0
         have h0' : s.«have» = 0 := by simpa using h0
-        refine GSat.bind (GSat.mono (gz_look_spec hv hs h0') fun r W H q => ?_)
-        obtain ⟨-, g1, -, s', hs', -, -, -, -, hv0, hout⟩ := q
+        refine GSat.bind (GSat.mono (gz_look_spec hv hs h0' (by simpa using hlk0)) fun r W H q => ?_)
+        obtain ⟨-, g1, -, s', hs', -, -, -, -, hv0, hout, hph⟩ := q
         refine GSat.bind (GSat.of_eq (rdG_app' hs' _) ?_)
         refine GSat.bind (GSat.of_eq (rdG_app' hs' _) ?_)
         apply GSat.ite
         · intro hc
           have hh : s'.«have» ≠ 0 := by
             intro e; rw [e] at hc; simp at hc
-          exact consume_spec hv0 hs' hout hh fun W2 s2 hs2 hv2 g2 _ _ _ =>
+          exact consume_spec hv0 hs' hout hh hph fun W2 s2 hs2 hv2 g2 _ _ _ =>
             J W2 H hv2 (g1.trans g2 ⟨s, hs⟩ ⟨s', hs'⟩)
         · intro hc
           have hkh : s'.skip ≠ 0 → s'.«have» = 0 := by
@@ -683,7 +704,7 @@ theorem gzdirect_read {w : World} {h : Heap} {b : Nat} (hv : GzInvR w h (some b)
             by_cases hh : s'.«have» = 0
             · exact hh
             · exact absurd (by simp [hk, hh]) hc
-          exact J W H (invR_restore hv0 hs' hout hkh) g1
+          exact J W H (invR_restore hv0 hs' hout hkh hph) g1
       · intro _; exact J0
     · intro _; exact J0
   · intro _; exact J0

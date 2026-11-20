@@ -24,8 +24,10 @@ were asked for. `GzWF` bounds these by `2^62` so that the model's loop fuel (`2^
 An endless input (a pipe whose writer never stops) is outside the model; on it `gzread` may not return, as any reader
 would not.
 
-**Positions.** `x.pos` is kept below `2^63` by the code (patches 0004, 0016 and 0017), not by `GzWF`: the input bound
-does not limit a writer's position, which grows with every write, failed ones included.
+**Positions.** `x.pos` is kept below `2^63` by the code (patches 0004, 0016, 0017 and 0022), not by `GzWF`: the input
+bound does not limit a writer's position, which grows with every write, failed ones included. On a reader the library
+also keeps `x.pos + x.have ≤ GZ_OFF_MAX` (patch 0016), so the caller's `gzgetc()` macro, which adds to `x.pos` without
+a test, cannot overflow it: `GzGetcMacro` has no condition on the position.
 
 **`lseek` results.** POSIX `lseek` returns the resulting offset or `-1`. `GzWF` admits every oracle value of that
 form: `-1` or not negative. Linux files with unsigned offsets (`/dev/mem`, `/proc/<pid>/mem`) can return offsets of
@@ -95,10 +97,11 @@ def GzIn (w : World) (h : Heap) (f : GzPtr) (p : BPtr) (n : Nat) : Prop :=
 def GzOut (w : World) (h : Heap) (f : GzPtr) (p : BPtr) (n : Nat) : Prop :=
   n = 0 ∨ (WriteSlice h p n ∧ OutsideGz w h f p)
 
-/-- The caller's `gzgetc()` macro on `f` (`zlib.h`): with bytes available, `have--`, `pos++` (without overflow, else the
-caller's program is undefined), and `next++`; nothing else changes. -/
+/-- The caller's `gzgetc()` macro on `f` (`zlib.h`): with bytes available, `have--`, `pos++` and `next++`; nothing else
+changes. No condition on `pos`: the library keeps `pos + have ≤ GZ_OFF_MAX` between calls (patch 0016), so `pos++`
+does not overflow on a reachable file (proved, not assumed). -/
 def GzGetcMacro (w : World) (h : Heap) (w' : World) (h' : Heap) (f : GzPtr) : Prop :=
-  ∃ b s nx, f = some b ∧ w.gz h b = some s ∧ s.«have» ≠ 0 ∧ s.pos.toInt + 1 < 2 ^ 63 ∧ s.next = .val nx ∧
+  ∃ b s nx, f = some b ∧ w.gz h b = some s ∧ s.«have» ≠ 0 ∧ s.next = .val nx ∧
     ∃ nx', C.run (Ptr.add nx 1) h = .ok (nx', h) ∧
       w' = { w with gzs := upd w.gzs b (some { s with «have» := s.«have» - 1, pos := s.pos + 1, next := .val nx' }) } ∧
       h' = h
