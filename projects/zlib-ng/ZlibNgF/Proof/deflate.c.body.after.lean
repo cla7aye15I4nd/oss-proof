@@ -497,7 +497,7 @@ theorem afterBD_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {st : DeflateState}
         have B4 : Bud flush P 0 0 h i b H4 := B3.step ⟨st2, hst3⟩ ea4 eo4 fun s1 s2 g1 g2 => by
           obtain rfl := Option.some.inj (hst3.symm.trans g1)
           obtain rfl := Option.some.inj (h4.symm.trans g2)
-          have := psiS_zero flush s1
+          have := psiS_zero flush st2
           omega
         exact tl H4 W4 (fun st4 h4' => by
           obtain rfl := Option.some.inj (h4.symm.trans h4'); exact ⟨hb2', f8.trans hlf, k3⟩)
@@ -637,7 +637,7 @@ theorem after_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {flush : Int32} {bs :
     have B1 : Bud flush P e 0 h i b H1 := B.step ⟨st, hst⟩ (aIn_congr hz1) (aOut_congr hz1) fun s1 s2 g1 g2 => by
       obtain rfl := Option.some.inj (hst.symm.trans g1)
       obtain rfl := Option.some.inj (hst1.symm.trans g2)
-      have := psiS_finish flush s1 (by rw [k1]; decide)
+      have := psiS_finish flush st (by rw [k1]; decide)
       rw [hfs]; omega
     exact rest H1 _ R1 hz1 hst1 rfl k2 rfl (.inr rfl) (fun _ => hfin) rfl B1
       fun _ _ => by rw [mark_fin rfl]; exact Nat.zero_le _
