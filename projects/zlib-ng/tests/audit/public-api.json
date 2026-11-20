@@ -397,7 +397,11 @@
       "scope": "lp64-linux",
       "source": "ZlibNgF/ZlibNg/adler32.c.lean",
       "implementation": "ZlibNg.Adler32.adler32",
-      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_safety"
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_safety",
+      "other_goals": [
+        "ZlibNgF.Spec.Safety.Goal.adler32_nonvacuous",
+        "ZlibNgF.Spec.Functional.Goal.adler32_functional"
+      ]
     },
     {
       "function": "adler32_z",
@@ -405,7 +409,10 @@
       "scope": "lp64-linux",
       "source": "ZlibNgF/ZlibNg/adler32.c.lean",
       "implementation": "ZlibNg.Adler32.adler32_z",
-      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_z_safety"
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.adler32_z_safety",
+      "other_goals": [
+        "ZlibNgF.Spec.Functional.Goal.adler32_z_functional"
+      ]
     },
     {
       "function": "crc32",
