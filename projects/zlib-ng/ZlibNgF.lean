@@ -182,3 +182,5 @@ import ZlibNgF.Proof.«deflate_quick.c.tally»
 import ZlibNgF.Proof.«deflate_quick.c.emit»
 import ZlibNgF.Proof.«deflate_quick.c.match»
 import ZlibNgF.Proof.«deflate_quick.c.safety»
+import ZlibNgF.Proof.«deflate_quick.c.frame»
+import ZlibNgF.Proof.«deflate_quick.c.static»
