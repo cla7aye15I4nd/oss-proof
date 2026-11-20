@@ -19,7 +19,8 @@ are not clauses of `DCore` (which the working state `DWork` of the strategies an
   lookahead (`deflateParams` and the strategy dispatch of `deflate` read these);
 * the gzip header (`HdrOk`): in `GZIP_STATE` and the header states `wrap` is 2; in the header states
   (`EXTRA_STATE` .. `HCRC_STATE`) a header is registered, and the saved index `gzindex` is within the extra field
-  (`extra_len & 0xffff`) or the string being copied, which lies outside the library's block (so that the library's
+  (`extra_len & 0xffff`) or the string being copied (and 0 in `EXTRA_STATE` / `NAME_STATE` when that field is
+  `Z_NULL`: the next part reads it), which lies outside the library's block (so that the library's
   own stores between calls, such as `deflatePrime`'s, keep its length). The header is the caller's: the caller step
   keeps its fields and string lengths while the header is being written (`DCallerStep`), and the other calls do not
   write it. (That the header's buffers lie outside the library's block during a `deflate` call is part of
@@ -46,7 +47,9 @@ def HdrOk (h : Heap) (b : Nat) (st : DeflateState) : Prop :=
     (st.status = NAME_STATE → g.name ≠ .null →
       NotInBlock b g.name ∧ ∃ n, CStringLen h g.name n ∧ st.gzindex.toNat ≤ n) ∧
     (st.status = COMMENT_STATE → g.comment ≠ .null →
-      NotInBlock b g.comment ∧ ∃ n, CStringLen h g.comment n ∧ st.gzindex.toNat ≤ n))
+      NotInBlock b g.comment ∧ ∃ n, CStringLen h g.comment n ∧ st.gzindex.toNat ≤ n) ∧
+    (st.status = EXTRA_STATE → g.extra = .null → st.gzindex = 0) ∧
+    (st.status = NAME_STATE → g.name = .null → st.gzindex = 0))
 
 /-- `last_flush` is a flush value (0..5), -1 (output full) or -2 (no `deflate` call since the reset), and with -2
 there is no unfinished block and no lookahead (`deflateParams` then switches without a flush). -/
@@ -145,9 +148,10 @@ theorem HdrOk.move {h h' : Heap} {b b' : Nat} {st : DeflateState} (H : HdrOk h b
     HdrOk h' b' st := by
   obtain ⟨H1, H2⟩ := H
   refine ⟨H1, fun hs => ?_⟩
-  obtain ⟨k, g, hk, hgk, x1, x2, x3⟩ := H2 hs
+  obtain ⟨k, g, hk, hgk, x1, x2, x3, x4, x5⟩ := H2 hs
   obtain ⟨g', hg', e1, e2, e3, e4, c⟩ := m hs k g hk hgk
-  refine ⟨k, g', hk, hg', fun a q => ?_, fun a q => ?_, fun a q => ?_⟩
+  refine ⟨k, g', hk, hg', fun a q => ?_, fun a q => ?_, fun a q => ?_, fun a q => x4 a (by rw [← e1]; exact q),
+    fun a q => x5 a (by rw [← e3]; exact q)⟩
   · rw [e2]; exact x1 a (by rw [← e1]; exact q)
   · obtain ⟨nb, n, hn, hi⟩ := x2 a (by rw [← e3]; exact q)
     obtain ⟨c1, c2⟩ := c g.name n (Or.inl rfl) nb hn
