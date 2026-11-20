@@ -123,8 +123,8 @@ theorem blockCosts_sum_le (xs : List Symbol) : (blockCosts xs).sum ≤ 48 * xs.l
     exact symbolCost_le xs s)
   simpa [blockCosts] using this
 
-/-- A symbol costs at most 32 bits under the static trees. -/
-theorem staticCost_le (s : Symbol) : staticCost s ≤ 32 := by
+/-- A symbol costs at most 31 bits under the static trees (a match: 8 + 5 + 5 + 13). -/
+theorem staticCost_le (s : Symbol) : staticCost s ≤ 31 := by
   have h4 : lengthExtra (lengthCode s.value) ≤ 5 := by
     have := lengthCode_lt s.value
     generalize lengthCode s.value = c at this
@@ -141,11 +141,17 @@ theorem staticCost_le (s : Symbol) : staticCost s ≤ 32 := by
     · split
       · omega
       · split <;> omega
-  have := h1 s.value; have := h1 (lengthCode s.value + 257)
+  have h2 : staticLitLen (lengthCode s.value + 257) ≤ 8 := by
+    unfold staticLitLen; split
+    · omega
+    · split
+      · omega
+      · split <;> omega
+  have := h1 s.value
   unfold staticCost; split <;> omega
 
-theorem staticLen_le (xs : List Symbol) : staticLen xs ≤ 32 * xs.length + 7 := by
-  have := sum_le_mul 32 (xs.map staticCost) (fun c hc => by
+theorem staticLen_le (xs : List Symbol) : staticLen xs ≤ 31 * xs.length + 7 := by
+  have := sum_le_mul 31 (xs.map staticCost) (fun c hc => by
     simp only [List.mem_map] at hc
     obtain ⟨s, -, rfl⟩ := hc
     exact staticCost_le s)

@@ -477,26 +477,27 @@ theorem sli_fill {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss 
 
 /-! ## Tallies -/
 
-open ZlibNgF.Proof.Tally (W4 W4_wr dcore_tally tally_lit_SH tally_dist_SH symok_lit symok_dist incF) in
-/-- The loop invariant after a tally that advances `strstart` by `n` (1..258, at most `lookahead`): `SLW`, and `SLI`
-when the symbol buffer is not full. -/
-theorem sli_tally_core {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
-    {la ss : UInt32} (C : SLC h i b (SH H0 i z b (FS st la ss) d)) (n : UInt32) (hn1 : 1 ≤ n.toNat)
+open ZlibNgF.Proof.Tally (W4 W4_wr dcore_tally_le tally_lit_SH tally_dist_SH symok_lit symok_dist incF) in
+/-- The loop invariant after a tally that advances `strstart` by `n` (1..258, at most `lookahead`), from `SLF` with
+no pending bytes and `sym_next ≤ sym_end` (at `sym_next == sym_end` this is the continuation match of
+`deflate_fast` / `deflate_medium`, after which `FLUSH_BLOCK` follows): `SLW`, and `SLI` when the buffer had room
+(`sym_next < sym_end`) and is not full after the tally. -/
+theorem sli_tally_core_le {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    {la ss : UInt32} (F : SLF h i b (SH H0 i z b (FS st la ss) d)) (hp0 : st.pending = 0)
+    (hle : st.sym_next ≤ st.sym_end) (n : UInt32) (hn1 : 1 ≤ n.toNat)
     (hn : n.toNat ≤ 258) (hnl : n.toNat ≤ la.toNat) {sbo : Nat} (hsb : st.sym_buf = .val (.ref (.heap b) sbo))
     (v : UInt32) (lt dt : Array Ct) (hlts : lt.size = st.dyn_ltree.size) (hdts : dt.size = st.dyn_dtree.size)
     (hsy : ∀ sbo, sbo + st.sym_next.toNat + 4 ≤ d.size → SymOk d sbo st.sym_next st.dyn_ltree st.dyn_dtree →
-      st.sym_next.toNat % 3 = 0 → (st.sym_next + 3).toNat = st.sym_next.toNat + 3 → st.sym_next.toNat / 3 < 32767 →
+      st.sym_next.toNat % 3 = 0 → (st.sym_next + 3).toNat = st.sym_next.toNat + 3 → st.sym_next.toNat / 3 < 32768 →
       SymOk (W4 d (sbo + st.sym_next.toNat) v) sbo (st.sym_next + 3) lt dt) :
     SLW h i b (la - n) (ss + n) (SH H0 i z b { st with
       sym_next := st.sym_next + 3
       dyn_ltree := lt
       dyn_dtree := dt } (W4 d (sbo + st.sym_next.toNat) v)) ∧
-    (st.sym_next + 3 ≠ st.sym_end → SLI h i b (la - n) (ss + n) (SH H0 i z b { st with
+    (st.sym_next < st.sym_end → st.sym_next + 3 ≠ st.sym_end → SLI h i b (la - n) (ss + n) (SH H0 i z b { st with
       sym_next := st.sym_next + 3
       dyn_ltree := lt
       dyn_dtree := dt } (W4 d (sbo + st.sym_next.toNat) v))) := by
-  obtain ⟨F, hC⟩ := C
-  obtain ⟨hp0, hsl⟩ := hC _ (SH_dstate _ _ _ _ _ _)
   obtain ⟨hlv, hstat, hg⟩ := F.st _ (SH_dstate _ _ _ _ _ _)
   obtain ⟨z1, st1, al, hz1, hb, hst1, hal, c⟩ := F.live
   obtain rfl : z = z1 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz1)
@@ -522,7 +523,7 @@ theorem sli_tally_core {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
         ltree := lt
         dtree := dt } := by
     simp only [dview, hlts, hdts]
-  have c1 := dcore_tally (H := H0) v c (SH_bytes _ _ _ _ _ _) hsb hv hsl hsy hroom hstat
+  have c1 := dcore_tally_le (H := H0) v c (SH_bytes _ _ _ _ _ _) hsb hv hle hsy hroom hstat
   -- the numbers
   have hlook : ss.toNat + la.toNat ≤ st.window_size.toNat := c.look
   have hbs : st.block_start.toInt ≤ ss.toNat := c.bstart
@@ -532,15 +533,13 @@ theorem sli_tally_core {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
   have hws' : st.window_size = W_BUF_SIZE st.w_size := hws
   have hl2' : st.lit_bufsize.toNat ≤ 32768 := hl2
   have hse' : st.sym_end.toNat = 3 * (st.lit_bufsize.toNat - 1) := hse
-  have hsl' : st.sym_next.toNat < st.sym_end.toNat := UInt32.lt_iff_toNat_lt.mp hsl
+  have hle' : st.sym_next.toNat ≤ st.sym_end.toNat := UInt32.le_iff_toNat_le.mp hle
   have hmod : st.sym_next.toNat % 3 = 0 := c.syms.2
   have h65 : st.window_size.toNat ≤ 65536 := by
     rw [hws', DeflateInit.wbuf_toNat _ (by omega)]; unfold DeflateAlloc.dWS; split <;> omega
   have hssn : (ss + n).toNat = ss.toNat + n.toNat := by rw [UInt32.toNat_add]; omega
   have hlan : (la - n).toNat = la.toNat - n.toNat := UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr hnl)
   have hsn3 : (st.sym_next + 3).toNat = st.sym_next.toNat + 3 := by rw [UInt32.toNat_add]; simp; omega
-  have hsy3 : (st.sym_next + 3).toNat ≤ st.sym_end.toNat := UInt32.le_iff_toNat_le.mp c1.syms.1
-  rw [hsn3] at hsy3
   have c2 := dcore_set c1 (ss + n) (la - n) st.insert st.block_start
     (show (ss + n).toNat + (la - n).toNat ≤ st.window_size.toNat by omega)
     (show st.block_start.toInt ≤ (ss + n).toNat by omega)
@@ -556,59 +555,190 @@ theorem sli_tally_core {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
     · exfalso
       have e1 : ((ss + n).toNat : Int) = st.block_start.toInt := e0
       rw [hssn] at e1; omega
-  refine ⟨⟨H0, z, _, _, rfl, F2, hp0⟩, fun hne => ⟨H0, z, _, _, rfl, F2, fun st2 h2 => ?_⟩⟩
+  refine ⟨⟨H0, z, _, _, rfl, F2, hp0⟩, fun hlt hne => ⟨H0, z, _, _, rfl, F2, fun st2 h2 => ?_⟩⟩
   obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
   refine ⟨hp0, ?_⟩
   show st.sym_next + 3 < st.sym_end
+  have hlt' : st.sym_next.toNat < st.sym_end.toNat := UInt32.lt_iff_toNat_lt.mp hlt
   have : (st.sym_next + 3).toNat ≠ st.sym_end.toNat := fun e => hne (UInt32.toNat_inj.mp e)
   apply UInt32.lt_iff_toNat_lt.mpr; omega
 
+open ZlibNgF.Proof.Tally (W4) in
+/-- `sli_tally_core_le` from `SLC` (room for one more symbol): `SLW`, and `SLI` when the buffer is not full. -/
+theorem sli_tally_core {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    {la ss : UInt32} (C : SLC h i b (SH H0 i z b (FS st la ss) d)) (n : UInt32) (hn1 : 1 ≤ n.toNat)
+    (hn : n.toNat ≤ 258) (hnl : n.toNat ≤ la.toNat) {sbo : Nat} (hsb : st.sym_buf = .val (.ref (.heap b) sbo))
+    (v : UInt32) (lt dt : Array Ct) (hlts : lt.size = st.dyn_ltree.size) (hdts : dt.size = st.dyn_dtree.size)
+    (hsy : ∀ sbo, sbo + st.sym_next.toNat + 4 ≤ d.size → SymOk d sbo st.sym_next st.dyn_ltree st.dyn_dtree →
+      st.sym_next.toNat % 3 = 0 → (st.sym_next + 3).toNat = st.sym_next.toNat + 3 → st.sym_next.toNat / 3 < 32768 →
+      SymOk (W4 d (sbo + st.sym_next.toNat) v) sbo (st.sym_next + 3) lt dt) :
+    SLW h i b (la - n) (ss + n) (SH H0 i z b { st with
+      sym_next := st.sym_next + 3
+      dyn_ltree := lt
+      dyn_dtree := dt } (W4 d (sbo + st.sym_next.toNat) v)) ∧
+    (st.sym_next + 3 ≠ st.sym_end → SLI h i b (la - n) (ss + n) (SH H0 i z b { st with
+      sym_next := st.sym_next + 3
+      dyn_ltree := lt
+      dyn_dtree := dt } (W4 d (sbo + st.sym_next.toNat) v))) := by
+  have hc : st.pending = 0 ∧ st.sym_next < st.sym_end := C.2 (FS st la ss) (SH_dstate _ _ _ _ _ _)
+  have K := sli_tally_core_le C.1 hc.1 (UInt32.le_of_lt hc.2) n hn1 hn hnl hsb v lt dt hlts hdts hsy
+  exact ⟨K.1, K.2 hc.2⟩
+
 open ZlibNgF.Proof.Tally (W4 tally_lit_SH tally_dist_SH symok_lit symok_dist incF) in
+/-- The bytes of the symbol buffer for one more tally at `sym_next ≤ sym_end`, and the tree sizes, under `SLF`: the
+4-byte store at `sym_buf + sym_next` ends at most at `pending_buf + 4 * lit_bufsize + 9` (`PENDING_BUF_SIZE`). -/
+theorem slf_sym {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    (F : SLF h i b (SH H0 i z b st d)) (hle : st.sym_next ≤ st.sym_end) :
+    ∃ sbo, st.sym_buf = .val (.ref (.heap b) sbo) ∧ sbo + st.sym_next.toNat + 4 ≤ d.size ∧
+      st.dyn_ltree.size = HEAP_SIZE ∧ st.dyn_dtree.size = 2 * 30 + 1 := by
+  obtain ⟨z1, st1, al, hz1, hb, hst1, -, c⟩ := F.live
+  obtain rfl : st = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst1)
+  obtain ⟨d1, -, -, -, pbo, hd1, -, -, -, -, -, -, -, h4, hsb, -⟩ := c.lay
+  obtain rfl : d = d1 := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd1)
+  obtain ⟨-, -, -, hl1, -, -, hse⟩ := c.sizes
+  have hs1 := UInt32.le_iff_toNat_le.mp hle
+  have ht := c.trees
+  simp only [dview] at hsb h4 hse hs1 ht hl1
+  have h9 : pbo + st.lit_bufsize.toNat + 8 + st.sym_next.toNat + 4 ≤ pbo + 4 * st.lit_bufsize.toNat + 9 := by omega
+  exact ⟨_, hsb, Nat.le_trans h9 (by omega), ht.1, ht.2.1⟩
+
 /-- The bytes of the symbol buffer for one more tally, and the tree sizes, under `SLC`. -/
 theorem slc_sym {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
     (C : SLC h i b (SH H0 i z b st d)) :
     ∃ sbo, st.sym_buf = .val (.ref (.heap b) sbo) ∧ sbo + st.sym_next.toNat + 4 ≤ d.size ∧
-      st.dyn_ltree.size = HEAP_SIZE ∧ st.dyn_dtree.size = 2 * 30 + 1 := by
-  obtain ⟨z1, st1, al, hz1, hb, hst1, -, c⟩ := C.1.live
-  obtain rfl : st = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst1)
-  obtain ⟨d1, -, -, -, pbo, hd1, -, -, -, -, -, -, -, h4, hsb, -⟩ := c.lay
-  obtain rfl : d = d1 := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd1)
-  obtain ⟨-, -, -, -, -, -, hse⟩ := c.sizes
-  have hs1 := UInt32.le_iff_toNat_le.mp c.syms.1
-  have ht := c.trees
-  simp only [dview] at hsb h4 hse hs1 ht
-  exact ⟨_, hsb, by omega, ht.1, ht.2.1⟩
+      st.dyn_ltree.size = HEAP_SIZE ∧ st.dyn_dtree.size = 2 * 30 + 1 :=
+  slf_sym C.1 (UInt32.le_of_lt (C.2 st (SH_dstate _ _ _ _ _ _)).2)
 
-open ZlibNgF.Proof.Tally (W4 tally_lit_SH tally_dist_SH symok_lit symok_dist incF) in
+/-- The bytes of block `b` change from `H` to `H'` only at or after `sym_buf` (in `[sbo, hi)`, `sbo` the offset of
+`sym_buf`), so at or after the end of `head` (`MediumStep.chain_wr` keeps `ChainOk`). -/
+def SymWr (b : Nat) (H H' : Heap) : Prop :=
+  ∃ sbo hi d d', H.bytes b = some d ∧ H'.bytes b = some d' ∧
+    (∀ st, H.dstate b = some st → st.sym_buf = .val (.ref (.heap b) sbo)) ∧
+    ZlibNgF.Proof.DeflateBits.WrIn d sbo hi d'
+
+/-- The symbol buffer of `H` has room for one more tally that `zng_tr_flush_block` can take: `sym_next ≤ sym_end`. -/
+def SymLe (b : Nat) (H : Heap) : Prop := ∀ st, H.dstate b = some st → st.sym_next ≤ st.sym_end
+
+/-- One tally from below `sym_end` leaves `sym_next + 3 ≤ sym_end` (whole symbols, `sym_end = 3 * (lit_bufsize - 1)`). -/
+theorem slf_sym_step {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    (F : SLF h i b (SH H0 i z b st d)) (hlt : st.sym_next < st.sym_end) : st.sym_next + 3 ≤ st.sym_end := by
+  obtain ⟨z1, st1, al, -, -, hst1, -, c⟩ := F.live
+  obtain rfl : st = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst1)
+  have hm := c.syms.2
+  obtain ⟨-, -, -, -, hl2, -, hse⟩ := c.sizes
+  simp only [dview] at hm hse hl2
+  have hlt' := UInt32.lt_iff_toNat_lt.mp hlt
+  have hsn3 : (st.sym_next + 3).toNat = st.sym_next.toNat + 3 := by rw [UInt32.toNat_add]; simp; omega
+  apply UInt32.le_iff_toNat_le.mpr; rw [hsn3]; omega
+
+open ZlibNgF.Proof.Tally (W4 W4_wr tally_lit_SH symok_lit incF) in
+/-- `zng_tr_tally_lit(s, c)` (`strstart` advances by 1) from `SLF` with the locals `la` / `ss`, no pending bytes and
+`sym_next ≤ sym_end`: `SLW`, the bytes of the block changed only inside `sym_buf` (`SymWr`), the result
+`sym_next + 3 == sym_end`, and, when the buffer had room (`sym_next < sym_end`), `SymLe` after and `SLI` when the
+result is false. -/
+theorem slf_tally_lit {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    {la ss : UInt32} (F : SLF h i b (SH H0 i z b (FS st la ss) d)) (hp0 : st.pending = 0)
+    (hle : st.sym_next ≤ st.sym_end) (hl : 1 ≤ la.toNat) (c : UInt8) :
+    Sat (SH H0 i z b st d) (zng_tr_tally_lit (some b) c) (fun r H' => avIn H' i = avIn (SH H0 i z b st d) i ∧
+      SLW h i b (la - 1) (ss + 1) H' ∧ SymWr b (SH H0 i z b st d) H' ∧ r = (st.sym_next + 3 == st.sym_end) ∧
+      (st.sym_next < st.sym_end → SymLe b H') ∧
+      (st.sym_next < st.sym_end → r = false → SLI h i b (la - 1) (ss + 1) H')) := by
+  obtain ⟨sbo, hsb, hk, hlt, -⟩ := slf_sym F hle
+  refine Sat.mono (tally_lit_SH c hsb hk hlt) ?_
+  rintro r H' ⟨rfl, rfl⟩
+  have K := sli_tally_core_le F hp0 hle 1 (by decide) (by decide) hl hsb _ (incF st.dyn_ltree c.toNat)
+    st.dyn_dtree (by simp [incF]) rfl (fun sbo hk hs hm hn hb => symok_lit hs hm hn hk c hlt hb)
+  refine ⟨by rw [avIn_SH, avIn_SH], K.1, ⟨sbo, sbo + st.sym_next.toNat + 4, d, _, SH_bytes _ _ _ _ _ _,
+    SH_bytes _ _ _ _ _ _, fun st2 h2 => ?_, (W4_wr _ _ _).widen (by omega) (by omega)⟩, rfl,
+    fun hlt' st2 h2 => ?_, fun hlt' e => K.2 hlt' fun hne => by simp [hne] at e⟩
+  · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2); exact hsb
+  · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2); have e := slf_sym_step F hlt'; exact e
+
+open ZlibNgF.Proof.Tally (W4 W4_wr tally_dist_SH symok_dist incF) in
+/-- `zng_tr_tally_dist(s, dist, len)` with `len <= 255` and `1 <= dist <= 32768` (`strstart` advances by `n`,
+1..258, at most `lookahead`) from `SLF` with the locals `la` / `ss`, no pending bytes and `sym_next ≤ sym_end`: as
+`slf_tally_lit`. -/
+theorem slf_tally_dist {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    {la ss : UInt32} (F : SLF h i b (SH H0 i z b (FS st la ss) d)) (hp0 : st.pending = 0)
+    (hle : st.sym_next ≤ st.sym_end) (dist len n : UInt32) (hlen : len.toNat < 256) (hd1 : 1 ≤ dist.toNat)
+    (hd2 : dist.toNat ≤ 32768) (hn1 : 1 ≤ n.toNat) (hn : n.toNat ≤ 258) (hnl : n.toNat ≤ la.toNat) :
+    Sat (SH H0 i z b st d) (zng_tr_tally_dist (some b) dist len) (fun r H' =>
+      avIn H' i = avIn (SH H0 i z b st d) i ∧
+      SLW h i b (la - n) (ss + n) H' ∧ SymWr b (SH H0 i z b st d) H' ∧ r = (st.sym_next + 3 == st.sym_end) ∧
+      (st.sym_next < st.sym_end → SymLe b H') ∧
+      (st.sym_next < st.sym_end → r = false → SLI h i b (la - n) (ss + n) H')) := by
+  obtain ⟨sbo, hsb, hk, hlt, hdt⟩ := slf_sym F hle
+  refine Sat.mono (tally_dist_SH dist len hlen hd1 hd2 hsb hk hlt hdt) ?_
+  rintro r H' ⟨rfl, rfl⟩
+  have K := sli_tally_core_le F hp0 hle n hn1 hn hnl hsb _
+    (incF st.dyn_ltree (zng_length_code[len.toNat]!.toNat + 257)) (incF st.dyn_dtree (dCodeOf (dist.toNat - 1)))
+    (by simp [incF]) (by simp [incF]) (fun sbo hk hs hm hn hb => symok_dist hs hm hn hk dist len hlen hd1 hd2 hlt hdt hb)
+  refine ⟨by rw [avIn_SH, avIn_SH], K.1, ⟨sbo, sbo + st.sym_next.toNat + 4, d, _, SH_bytes _ _ _ _ _ _,
+    SH_bytes _ _ _ _ _ _, fun st2 h2 => ?_, (W4_wr _ _ _).widen (by omega) (by omega)⟩, rfl,
+    fun hlt' st2 h2 => ?_, fun hlt' e => K.2 hlt' fun hne => by simp [hne] at e⟩
+  · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2); exact hsb
+  · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2); have e := slf_sym_step F hlt'; exact e
+
+/-- `zng_tr_tally_lit(s, c)` in the loop (`strstart` advances by 1): `SLW`, the bytes changed only inside `sym_buf`
+(`SymWr`), `sym_next ≤ sym_end` after (`SymLe`: one more tally, the continuation of `deflate_fast` /
+`deflate_medium`, may follow before `FLUSH_BLOCK`), and `SLI` when the buffer is not full. -/
+theorem sli_tally_lit_le {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss H) (hl : 1 ≤ la.toNat)
+    (c : UInt8) :
+    Sat H (zng_tr_tally_lit (some b) c) (fun r H' => avIn H' i = avIn H i ∧ SLW h i b (la - 1) (ss + 1) H' ∧
+      SymWr b H H' ∧ SymLe b H' ∧ (r = false → SLI h i b (la - 1) (ss + 1) H')) := by
+  obtain ⟨H0, z, st, d, rfl, C⟩ := I
+  have hc : st.pending = 0 ∧ st.sym_next < st.sym_end := C.2 (FS st la ss) (SH_dstate _ _ _ _ _ _)
+  exact Sat.mono (slf_tally_lit C.1 hc.1 (UInt32.le_of_lt hc.2) hl c) fun _ _ q =>
+    ⟨q.1, q.2.1, q.2.2.1, q.2.2.2.2.1 hc.2, q.2.2.2.2.2 hc.2⟩
+
+/-- `zng_tr_tally_dist(s, dist, len)` in the loop with `len <= 255` and `1 <= dist <= 32768` (`strstart` advances by
+`n`, 1..258, at most `lookahead`): as `sli_tally_lit_le`. -/
+theorem sli_tally_dist_le {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss H) (dist len n : UInt32)
+    (hlen : len.toNat < 256) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768) (hn1 : 1 ≤ n.toNat)
+    (hn : n.toNat ≤ 258) (hnl : n.toNat ≤ la.toNat) :
+    Sat H (zng_tr_tally_dist (some b) dist len) (fun r H' => avIn H' i = avIn H i ∧
+      SLW h i b (la - n) (ss + n) H' ∧ SymWr b H H' ∧ SymLe b H' ∧ (r = false → SLI h i b (la - n) (ss + n) H')) := by
+  obtain ⟨H0, z, st, d, rfl, C⟩ := I
+  have hc : st.pending = 0 ∧ st.sym_next < st.sym_end := C.2 (FS st la ss) (SH_dstate _ _ _ _ _ _)
+  exact Sat.mono (slf_tally_dist C.1 hc.1 (UInt32.le_of_lt hc.2) dist len n hlen hd1 hd2 hn1 hn hnl) fun _ _ q =>
+    ⟨q.1, q.2.1, q.2.2.1, q.2.2.2.2.1 hc.2, q.2.2.2.2.2 hc.2⟩
+
 /-- `zng_tr_tally_lit(s, c)` in the loop (`strstart` advances by 1). -/
 theorem sli_tally_lit {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss H) (hl : 1 ≤ la.toNat)
     (c : UInt8) :
     Sat H (zng_tr_tally_lit (some b) c) (fun r H' => avIn H' i = avIn H i ∧ SLW h i b (la - 1) (ss + 1) H' ∧
-      (r = false → SLI h i b (la - 1) (ss + 1) H')) := by
-  obtain ⟨H0, z, st, d, rfl, C⟩ := I
-  obtain ⟨sbo, hsb, hk, hlt, -⟩ := slc_sym C
-  refine Sat.mono (tally_lit_SH c hsb hk hlt) ?_
-  rintro r H' ⟨rfl, rfl⟩
-  have K := sli_tally_core C 1 (by decide) (by decide) hl hsb _ (incF st.dyn_ltree c.toNat) st.dyn_dtree
-    (by simp [incF]) rfl (fun sbo hk hs hm hn hb => symok_lit hs hm hn hk c hlt hb)
-  exact ⟨by rw [avIn_SH, avIn_SH], K.1, fun e => K.2 fun hne => by simp [hne] at e⟩
+      (r = false → SLI h i b (la - 1) (ss + 1) H')) :=
+  Sat.mono (sli_tally_lit_le I hl c) fun _ _ q => ⟨q.1, q.2.1, q.2.2.2.2⟩
 
-open ZlibNgF.Proof.Tally (W4 tally_lit_SH tally_dist_SH symok_lit symok_dist incF) in
 /-- `zng_tr_tally_dist(s, dist, len)` in the loop with `len <= 255` and `1 <= dist <= 32768` (`strstart` advances by
 `n`, 1..258, at most `lookahead`). -/
 theorem sli_tally_dist {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss H) (dist len n : UInt32)
     (hlen : len.toNat < 256) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768) (hn1 : 1 ≤ n.toNat)
     (hn : n.toNat ≤ 258) (hnl : n.toNat ≤ la.toNat) :
     Sat H (zng_tr_tally_dist (some b) dist len) (fun r H' => avIn H' i = avIn H i ∧
-      SLW h i b (la - n) (ss + n) H' ∧ (r = false → SLI h i b (la - n) (ss + n) H')) := by
-  obtain ⟨H0, z, st, d, rfl, C⟩ := I
-  obtain ⟨sbo, hsb, hk, hlt, hdt⟩ := slc_sym C
-  refine Sat.mono (tally_dist_SH dist len hlen hd1 hd2 hsb hk hlt hdt) ?_
-  rintro r H' ⟨rfl, rfl⟩
-  have K := sli_tally_core C n hn1 hn hnl hsb _ (incF st.dyn_ltree (zng_length_code[len.toNat]!.toNat + 257))
-    (incF st.dyn_dtree (dCodeOf (dist.toNat - 1))) (by simp [incF]) (by simp [incF])
-    (fun sbo hk hs hm hn hb => symok_dist hs hm hn hk dist len hlen hd1 hd2 hlt hdt hb)
-  exact ⟨by rw [avIn_SH, avIn_SH], K.1, fun e => K.2 fun hne => by simp [hne] at e⟩
+      SLW h i b (la - n) (ss + n) H' ∧ (r = false → SLI h i b (la - n) (ss + n) H')) :=
+  Sat.mono (sli_tally_dist_le I dist len n hlen hd1 hd2 hn1 hn hnl) fun _ _ q => ⟨q.1, q.2.1, q.2.2.2.2⟩
+
+/-- A tally after one that filled the symbol buffer (`SLW` with `sym_next ≤ sym_end`, i.e. `sym_next == sym_end`):
+the continuation match of `deflate_fast` (`deflate_fast.c:108`) and `deflate_medium` (`bflush |= tally`) before
+their `FLUSH_BLOCK`. `SLW` again (`sym_next = sym_end + 3`, which `DCore.syms` and `zng_tr_flush_block` allow) and the
+bytes changed only inside `sym_buf`. -/
+theorem slw_tally_lit {h H : Heap} {i b : Nat} {la ss : UInt32} (W : SLW h i b la ss H) (hle : SymLe b H)
+    (hl : 1 ≤ la.toNat) (c : UInt8) :
+    Sat H (zng_tr_tally_lit (some b) c) (fun _ H' => avIn H' i = avIn H i ∧ SLW h i b (la - 1) (ss + 1) H' ∧
+      SymWr b H H') := by
+  obtain ⟨H0, z, st, d, rfl, F, hp0⟩ := W
+  exact Sat.mono (slf_tally_lit F hp0 (hle st (SH_dstate _ _ _ _ _ _)) hl c) fun _ _ q => ⟨q.1, q.2.1, q.2.2.1⟩
+
+/-- `zng_tr_tally_dist(s, dist, len)` after a tally that filled the symbol buffer: as `slw_tally_lit`. -/
+theorem slw_tally_dist {h H : Heap} {i b : Nat} {la ss : UInt32} (W : SLW h i b la ss H) (hle : SymLe b H)
+    (dist len n : UInt32) (hlen : len.toNat < 256) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768)
+    (hn1 : 1 ≤ n.toNat) (hn : n.toNat ≤ 258) (hnl : n.toNat ≤ la.toNat) :
+    Sat H (zng_tr_tally_dist (some b) dist len) (fun _ H' => avIn H' i = avIn H i ∧
+      SLW h i b (la - n) (ss + n) H' ∧ SymWr b H H') := by
+  obtain ⟨H0, z, st, d, rfl, F, hp0⟩ := W
+  exact Sat.mono (slf_tally_dist F hp0 (hle st (SH_dstate _ _ _ _ _ _)) dist len n hlen hd1 hd2 hn1 hn hnl)
+    fun _ _ q => ⟨q.1, q.2.1, q.2.2.1⟩
 
 /-! ## The end of the loop -/
 

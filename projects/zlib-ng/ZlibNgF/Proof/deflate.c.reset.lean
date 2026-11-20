@@ -119,7 +119,7 @@ theorem reset_inv_nn {h : Heap} {s : StreamPtr} (hv : DInv h s)
       sizes := q1
       lay := q2
       pout := q0
-      syms := q3
+      syms := ⟨syms_of_le q3.1 (by have := q1.2.2.2.2.2.2; have := q1.2.2.2.2.1; omega), q3.2⟩
       bits := q4
       look := q5
       strategy := q6

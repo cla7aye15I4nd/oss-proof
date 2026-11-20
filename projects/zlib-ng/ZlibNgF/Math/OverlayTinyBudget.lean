@@ -9,9 +9,9 @@ noncomputable section
 At `lit_bufsize = 128` and `256` (memLevel 1 and 2) the header bound of 2283 bits alone exceeds the room, so the
 budget uses the block at hand: the header against a reference bit-length code (`header_128`, `header_256`), the
 block choice of `zng_tr_flush_block` (`choice_row`, from `Chosen`), Kraft and the Fibonacci leaf bounds of the
-two data trees (`data_kraft`, `data_leaf`; with at most `B - 1` symbols both trees weigh at most `B + 2`, so no
+two data trees (`data_kraft`, `data_leaf`; with at most `B` symbols both trees weigh at most `B + 3`, so no
 length exceeds 9 resp. 11 and no repair happens), the symbol count and the match balance. The certificate of
-`OverlayTiny` then gives `H + E ≤ 983` at `B = 128` and `H + E ≤ 1899` at `B = 256`, below the `1021` and `2045`
+`OverlayTiny` then gives `H + E ≤ 989` at `B = 128` and `H + E ≤ 1910` at `B = 256`, below the `1014` and `2038`
 bits the budget allows with `b0 ≤ 7`.
 
 `dynamic_budget_tiny`: the budget at `B = 128` and `256` for every dynamic block (`Chosen`).
@@ -45,7 +45,7 @@ theorem lit_codes_ge (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) :
   simp only at ge
   omega
 
-/-- **The small-buffer facts of a block** with at most `B - 1 ≤ 255` symbols. -/
+/-- **The small-buffer facts of a block** with at most `B ≤ 256` symbols. -/
 theorem tiny_facts (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) {W : Nat} (hW : xs.length + 3 ≤ W)
     (hW2 : W < 2584) :
     mass (fun v => OverlayTiny.kraftTerm (litLens xs v)) 286 ≤ 2 ^ 15 ∧
@@ -73,9 +73,9 @@ theorem tiny_facts (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) {W : Nat} 
     fun v hv => data_leaf (by omega) oL (by omega) v hv, fun v hv => data_leaf (by omega) oD (by omega) v hv⟩
 
 /-- **Header plus excess** of a small block, from the certificate of `OverlayTiny`. -/
-theorem tiny_header_excess_block {B : Nat} (xs : List Symbol) (hB : B = 128 ∨ B = 256) (hn : xs.length + 1 ≤ B)
+theorem tiny_header_excess_block {B : Nat} (xs : List Symbol) (hB : B = 128 ∨ B = 256) (hn : xs.length ≤ B)
     (valid : ∀ s ∈ xs, s.Valid) (hc : Chosen xs) :
-    blockHeader xs + bitExcess (blockCosts xs) ≤ (if B = 128 then 983 else 1899) := by
+    blockHeader xs + bitExcess (blockCosts xs) ≤ (if B = 128 then 989 else 1910) := by
   have literalKeys : ∀ s ∈ xs, s.literalKey lengthCode < 286 := by
     intro s hs
     have := (valid s hs).2
@@ -119,12 +119,12 @@ theorem tiny_header_excess_block {B : Nat} (xs : List Symbol) (hB : B = 128 ∨ 
   have hdr : blockHeader xs = headerBits (litLens xs) (buildTree 286 (litFreq xs)).maxCode1 (distLens xs)
       (buildTree 30 (distFreq xs)).maxCode1 := rfl
   rcases hB with rfl | rfl
-  · obtain ⟨kL, kD, leafL, leafD⟩ := tiny_facts xs valid (W := 130) (by omega) (by omega)
+  · obtain ⟨kL, kD, leafL, leafD⟩ := tiny_facts xs valid (W := 131) (by omega) (by omega)
     have lenL : ∀ v, v < 286 → litLens xs v ≤ 9 := fun v hv => OverlayTiny.leaf_len_le_9 (leafL v hv)
     have lenD : ∀ v, v < 30 → distLens xs v ≤ 9 := fun v hv => OverlayTiny.leaf_len_le_9 (leafD v hv)
     have eobL := leafL 256 (by omega)
     rw [endF] at eobL
-    have eob : litFreq xs 256 = 1 ∧ 1 ≤ litLens xs 256 ∧ fib (litLens xs 256 + 1) + fib (litLens xs 256) ≤ 130 := by
+    have eob : litFreq xs 256 = 1 ∧ 1 ≤ litLens xs 256 ∧ fib (litLens xs 256 + 1) + fib (litLens xs 256) ≤ 131 := by
       rcases eobL with ⟨h, _⟩ | ⟨_, h1, h2⟩
       · omega
       · exact ⟨endF, h1, by simpa using h2⟩
@@ -135,12 +135,12 @@ theorem tiny_header_excess_block {B : Nat} (xs : List Symbol) (hB : B = 128 ∨ 
       (blockHeader xs) 30 (Nat.le_refl _) kL kD (fun v hv _ => leafL v hv) eob leafD (by omega) balance header choice
     simp only [ite_true]
     omega
-  · obtain ⟨kL, kD, leafL, leafD⟩ := tiny_facts xs valid (W := 258) (by omega) (by omega)
+  · obtain ⟨kL, kD, leafL, leafD⟩ := tiny_facts xs valid (W := 259) (by omega) (by omega)
     have lenL : ∀ v, v < 286 → litLens xs v ≤ 11 := fun v hv => OverlayTiny.leaf_len_le_11 (leafL v hv)
     have lenD : ∀ v, v < 30 → distLens xs v ≤ 11 := fun v hv => OverlayTiny.leaf_len_le_11 (leafD v hv)
     have eobL := leafL 256 (by omega)
     rw [endF] at eobL
-    have eob : litFreq xs 256 = 1 ∧ 1 ≤ litLens xs 256 ∧ fib (litLens xs 256 + 1) + fib (litLens xs 256) ≤ 258 := by
+    have eob : litFreq xs 256 = 1 ∧ 1 ≤ litLens xs 256 ∧ fib (litLens xs 256 + 1) + fib (litLens xs 256) ≤ 259 := by
       rcases eobL with ⟨h, _⟩ | ⟨_, h1, h2⟩
       · omega
       · exact ⟨endF, h1, by simpa using h2⟩
@@ -155,7 +155,7 @@ theorem tiny_header_excess_block {B : Nat} (xs : List Symbol) (hB : B = 128 ∨ 
 /-- **The dynamic-block overlay budget for `lit_bufsize` 128 and 256** (memLevel 1 and 2), for every block that
 `zng_tr_flush_block` sends with dynamic trees. -/
 theorem dynamic_budget_tiny {B b0 : Nat} (xs : List Symbol) (hB : B = 128 ∨ B = 256) (hb0 : b0 ≤ 7)
-    (hn : xs.length + 1 ≤ B) (valid : ∀ s ∈ xs, s.Valid) (hc : Chosen xs) :
+    (hn : xs.length ≤ B) (valid : ∀ s ∈ xs, s.Valid) (hc : Chosen xs) :
     Budget B (b0 + 3 + blockHeader xs) (blockCosts xs) := by
   have h := tiny_header_excess_block xs hB hn valid hc
   unfold Budget
@@ -167,7 +167,7 @@ theorem dynamic_budget_tiny {B b0 : Nat} (xs : List Symbol) (hB : B = 128 ∨ B 
 `1024 .. 32768`), for every block that `zng_tr_flush_block` sends with dynamic trees. -/
 theorem dynamic_budget {B b0 : Nat} (xs : List Symbol)
     (hB : B = 128 ∨ B = 256 ∨ B = 512 ∨ (1024 ≤ B ∧ B ≤ 32768)) (hb0 : b0 ≤ 7)
-    (hn : xs.length + 1 ≤ B) (valid : ∀ s ∈ xs, s.Valid) (hc : Chosen xs) :
+    (hn : xs.length ≤ B) (valid : ∀ s ∈ xs, s.Valid) (hc : Chosen xs) :
     Budget B (b0 + 3 + blockHeader xs) (blockCosts xs) := by
   rcases hB with h | h | h
   · exact dynamic_budget_tiny xs (Or.inl h) hb0 hn valid hc
