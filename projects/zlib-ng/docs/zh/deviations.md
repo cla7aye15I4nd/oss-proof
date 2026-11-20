@@ -1,4 +1,4 @@
-<!-- source-sha256: 63ec05f585983711bc1f4a74ff90ee5f2812d59f298396bd06e832d43919baa8 -->
+<!-- source-sha256: ff3ef4809ea2a6aa5efc36f0b4f82cbfaffa615638d82b0b431fc65d2ef7aed5 -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -23,6 +23,7 @@
 | 函数 | 前提 | Lean | 原因 |
 | --- | --- | --- | --- |
 | `compressBound`（仅取值） | `sourceLen ≤ 0xe38e38e38e38e377`。 | `Goal.compressBound_functional` | 超过此值时和会回绕，函数返回 `ULONG_MAX`。安全性对每个 `sourceLen` 成立。 |
+| `compressBound_z`（仅取值） | `sourceLen ≤ 0xe38e38e38e38e377`。 | `Goal.compressBound_z_functional` | 超过此值时和会回绕，函数返回 `(z_size_t)-1`。安全性对每个 `sourceLen` 成立。 |
 | `crc32_combine_op` | `op` 的低 32 位不为 0。 | `Goal.crc32_combine_op_safety` | `zlib.h` 只允许由 `crc32_combine_gen` 从非负长度生成的 `op`，它永不为 0；低半部为 0 时 `multmodp` 不返回。 |
 | `zng_alloc_aligned`（内部） | `align ≥ 8` 且 `8 + size + align < 2^32`；对齐定理要求 `align = 2^k`，`3 ≤ k ≤ 31`。 | `Goal.zng_alloc_aligned_safety`、`Goal.zng_alloc_aligned_alignment` | 唯一调用者（`gz_buffer_alloc`）传入 64 与至多 `3 * 2^30` 字节。 |
 

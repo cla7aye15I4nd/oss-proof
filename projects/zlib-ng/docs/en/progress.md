@@ -2,6 +2,9 @@
 
 Overall library status: **not done**.
 
+Safety of every public function of `zlib.h` in this build is done. The `deflate` / `inflate` round trip
+is not done. `gzopen_w` is Windows only and not part of this build.
+
 | Area | Kind | Status |
 | --- | --- | --- |
 | Strict ISO C17 pointer and `memset` UB rejection (runtime) | Runtime model | done |
@@ -12,8 +15,7 @@ Overall library status: **not done**.
 | `adler32_combine`, `adler32_combine64`: safety and combination value | Public C API | done |
 | `get_crc_table`, `crc32`, `crc32_z`: safety | Public C API | done |
 | `crc32_combine`, `crc32_combine64`, `crc32_combine_gen`, `crc32_combine_gen64`, `crc32_combine_op`: safety and rejection values | Public C API | done |
-| `compressBound`: safety and exact value | Public C API | done |
-| `compressBound_z`: safety | Public C API | not done |
+| `compressBound`, `compressBound_z`: safety and exact value | Public C API | done |
 | `deflateInit_`, `deflateInit2_`: safety | Public C API | done |
 | `deflate`, `deflateEnd`, `deflateParams`, `deflateTune`, `deflatePrime`, `deflateSetDictionary`, `deflateGetDictionary`, `deflateSetHeader`, `deflatePending`, `deflateUsed`, `deflateBound`, `deflateBound_z`, `deflateReset`, `deflateResetKeep`, `deflateCopy`: safety | Public C API | done |
 | `inflateInit_`, `inflateInit2_`, `inflateUndermine`: safety | Public C API | done |

@@ -39,7 +39,7 @@ The verified library is built with these options (all other options keep their d
 - `get_crc_table`, `crc32` and `crc32_z` are safe on every readable buffer, for every alignment of
   the buffer in memory; the five `crc32_combine*` functions are safe for every argument and reject
   negative lengths with 0.
-- `compressBound` is safe and returns the exact bound of the `deflate_quick` path.
+- `compressBound` and `compressBound_z` are safe and return the exact bound of the `deflate_quick` path.
 - Two internal allocation helpers used by the `gz*` functions (`zcalloc` / `zcfree`,
   `zng_alloc_aligned` / `zng_free_aligned`) are safe, and `zng_alloc_aligned` returns aligned
   memory.
@@ -47,8 +47,8 @@ The verified library is built with these options (all other options keep their d
   functions, the one-shot `compress*` functions, and every `gz*` file function (`gzopen`, `gzdopen`,
   reading, writing, `gzprintf`, seeking, `gzclose` and the others) are safe.
 
-`compressBound_z` and the round trip are not done; `gzopen_w` is Windows only and not part of this
-build. Every public function of `zlib.h` is listed as done or not done.
+Every public function of `zlib.h` in this build is safe; the round trip is not done. `gzopen_w` is
+Windows only and not part of this build. Every public function of `zlib.h` is listed as done or not done.
 
 The translation of each function above is also compared with the real C library, built with the
 configuration above, on generated inputs. Such tests are evidence that the translation matches the C,
