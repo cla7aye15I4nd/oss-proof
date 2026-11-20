@@ -182,6 +182,7 @@ import ZlibNgF.Proof.«gzread.c.close»
 import ZlibNgF.Proof.«gzread.c.facts»
 import ZlibNgF.Proof.«gzread.c.load»
 import ZlibNgF.Proof.«gzread.c.look»
+import ZlibNgF.Proof.«gzread.c.init»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
 import ZlibNgF.Proof.«gzwrite.c.error»
