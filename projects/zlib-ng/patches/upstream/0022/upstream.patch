@@ -1,0 +1,177 @@
+From 3cc8f74a9bda391815f9ade0236e21909e511ad5 Mon Sep 17 00:00:00 2001
+From: M0nd0R <150439604+M0nd0R@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 16:35:10 +0000
+Subject: [PATCH 1/2] Discard unconsumed zero fill in gz_zero() on a write
+ error.
+
+If gz_comp() stalled on a write before consuming the current zero-fill chunk,
+that chunk remained in the input buffer while state->x.pos had already been
+advanced and state->skip had not been reduced. Advance state->x.pos and
+reduce state->skip only by the bytes actually consumed (n - strm->avail_in),
+and discard unconsumed zero fill on failure so retries regenerate it cleanly.
+
+Adapted from madler/zlib@51c7cd2c for zlib-ng's gz_zero().
+---
+ gzwrite.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/gzwrite.c b/gzwrite.c
+index 14593da3..9db58c0b 100644
+--- a/gzwrite.c
++++ b/gzwrite.c
+@@ -149,10 +149,15 @@ static int gz_zero(gz_state *state) {
+         }
+         strm->avail_in = n;
+         strm->next_in = state->in;
++        int ret = gz_comp(state, Z_NO_FLUSH);
++        n -= strm->avail_in;
+         state->x.pos += n;
+-        if (gz_comp(state, Z_NO_FLUSH) == -1)
+-            return -1;
+         state->skip -= n;
++        if (ret == -1) {
++            strm->avail_in = 0;
++            strm->next_in = state->in;
++            return -1;
++        }
+     } while (state->skip);
+     return 0;
+ }
+
+From 8e2a39fb2e78946f5259c31ef0d01897e5bffa2d Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH 2/2] Add regression tests for gz_zero() write errors
+
+Cover preserving gztell() at GZ_OFF_MAX on failed zero-fill writes and
+retrying a write after EAGAIN on a non-blocking pipe without duplicating zeros.
+---
+ test/test_gzio.cc | 111 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 111 insertions(+)
+
+diff --git a/test/test_gzio.cc b/test/test_gzio.cc
+index b6c4d163..75e81541 100644
+--- a/test/test_gzio.cc
++++ b/test/test_gzio.cc
+@@ -10,6 +10,13 @@
+ #include <stdio.h>
+ #include <stdint.h>
+ #include <stdlib.h>
++#include <errno.h>
++#include <fcntl.h>
++#ifndef _WIN32
++#  include <unistd.h>
++#else
++#  include <io.h>
++#endif
+ #include <string.h>
+ #include <vector>
+ 
+@@ -155,3 +162,107 @@ TEST(gzip, setparams_small_output_buffer) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
+ #endif
+ }
++
++#ifndef _WIN32
++TEST(gzip, write_pending_seek_error_preserves_tell) {
++    const z_off64_t off_max =
++        (z_off64_t)((((uint64_t)1 << (sizeof(z_off64_t) * 8 - 2)) - 1) * 2 + 1);
++#  if !defined(ZLIB_COMPAT)
++    typedef z_off64_t woff_t;
++#    define W_GZSEEK PREFIX(gzseek)
++#    define W_GZTELL PREFIX(gztell)
++#  elif defined(Z_LARGE64)
++    typedef z_off64_t woff_t;
++#    define W_GZSEEK PREFIX4(gzseek)
++#    define W_GZTELL PREFIX4(gztell)
++#  else
++    if (sizeof(z_off_t) != sizeof(z_off64_t))
++        GTEST_SKIP() << "Requires 64-bit gzseek";
++    typedef z_off_t woff_t;
++#    define W_GZSEEK PREFIX(gzseek)
++#    define W_GZTELL PREFIX(gztell)
++#  endif
++
++    int fd = open("/dev/null", O_RDONLY);
++    ASSERT_GE(fd, 0);
++    gzFile file = PREFIX(gzdopen)(fd, "wbT");
++    if (file == NULL)
++        close(fd);
++    ASSERT_NE(file, (gzFile)NULL);
++
++    ASSERT_EQ(W_GZSEEK(file, (woff_t)off_max, SEEK_SET), (woff_t)off_max);
++    EXPECT_EQ(PREFIX(gzwrite)(file, "x", 1), 0);
++    EXPECT_EQ(W_GZTELL(file), (woff_t)off_max);
++
++    PREFIX(gzclearerr)(file);
++    EXPECT_EQ(PREFIX(gzputc)(file, 'y'), -1);
++    EXPECT_EQ(W_GZTELL(file), (woff_t)off_max);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_ERRNO);
++}
++
++TEST(gzip, write_pending_seek_eagain_retry) {
++    int fds[2];
++    ASSERT_EQ(pipe(fds), 0);
++    int flags = fcntl(fds[1], F_GETFL);
++    ASSERT_NE(flags, -1);
++    ASSERT_EQ(fcntl(fds[1], F_SETFL, flags | O_NONBLOCK), 0);
++
++    /* Fill the pipe write buffer so the first gz_zero() write hits EAGAIN. */
++    uint8_t fill[4096];
++    memset(fill, 'F', sizeof(fill));
++    size_t prefill = 0;
++    for (;;) {
++        ssize_t n = write(fds[1], fill, sizeof(fill));
++        if (n > 0) {
++            prefill += (size_t)n;
++            continue;
++        }
++        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
++            break;
++        FAIL() << "Unexpected pipe prefill failure: errno=" << errno;
++    }
++
++    gzFile file = PREFIX(gzdopen)(fds[1], "wbT");
++    if (file == NULL) {
++        close(fds[0]);
++        close(fds[1]);
++        FAIL() << "gzdopen failed";
++    }
++    EXPECT_EQ(PREFIX(gzbuffer)(file, 4096), Z_OK);
++    EXPECT_EQ(PREFIX(gzseek)(file, 10000, SEEK_SET), 10000);
++    EXPECT_EQ(PREFIX(gzwrite)(file, "abc", 3), 0);
++    int err = Z_OK;
++    PREFIX(gzerror)(file, &err);
++    EXPECT_EQ(err, Z_ERRNO);
++    EXPECT_EQ(PREFIX(gztell)(file), 10000);
++
++    /* Drain the pipe, clear the error, and retry writing after the seek. */
++    size_t drained = 0;
++    while (drained < prefill) {
++        ssize_t n = read(fds[0], fill, sizeof(fill));
++        ASSERT_GT(n, 0);
++        drained += (size_t)n;
++    }
++    ASSERT_EQ(fcntl(fds[1], F_SETFL, flags), 0);
++    PREFIX(gzclearerr)(file);
++
++    EXPECT_EQ(PREFIX(gzwrite)(file, "abc", 3), 3);
++    EXPECT_EQ(PREFIX(gztell)(file), 10003);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++
++    std::vector<uint8_t> got;
++    for (;;) {
++        ssize_t n = read(fds[0], fill, sizeof(fill));
++        if (n == 0)
++            break;
++        ASSERT_GT(n, 0);
++        got.insert(got.end(), fill, fill + n);
++    }
++    close(fds[0]);
++
++    ASSERT_EQ(got.size(), 10003U);
++    for (size_t i = 0; i < 10000; i++)
++        EXPECT_EQ(got[i], 0);
++    EXPECT_EQ(memcmp(got.data() + 10000, "abc", 3), 0);
++}
++#endif

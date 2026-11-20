@@ -1,0 +1,64 @@
+From 7319627422624877db30ea6adfc421b3cda2e1b0 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Check gzip buffer allocation before computing state->out
+
+gz_buffer_alloc() evaluated `state->buffers + in_size` before checking whether
+the aligned allocation returned NULL (ISO C17 6.5.6p8). Check state->buffers
+first and add an opt-in allocation failure GoogleTest.
+---
+ gzlib.c                        | 13 +++++--------
+ test/test_gzfile_api_errors.cc | 16 ++++++++++++++++
+ 2 files changed, 21 insertions(+), 8 deletions(-)
+
+diff --git a/gzlib.c b/gzlib.c
+index b827351..42604b3 100644
+--- a/gzlib.c
++++ b/gzlib.c
+@@ -85,17 +85,14 @@ int Z_INTERNAL gz_buffer_alloc(gz_state *state) {
+     }
+ 
+     state->buffers = (unsigned char *)zng_alloc_aligned((in_size + out_size), 64);
+-    state->in = state->buffers;
+-    if (out_size) {
+-        state->out = state->buffers + (in_size); // Outbuffer goes after inbuffer
+-    }
+-
+-    /* Return error if memory allocation failed */
+-    if (state->in == NULL || (out_size && state->out == NULL)) {
+-        gz_buffer_free(state);
++    if (state->buffers == NULL) {
+         PREFIX(gz_error)(state, Z_MEM_ERROR, "out of memory");
+         return -1;
+     }
++    state->in = state->buffers;
++    if (out_size) {
++        state->out = state->buffers + in_size; // Outbuffer goes after inbuffer
++    }
+ 
+     state->size = want; // mark state as initialized
+     return 0;
+diff --git a/test/test_gzfile_api_errors.cc b/test/test_gzfile_api_errors.cc
+index 2ee59b6..b27ce25 100644
+--- a/test/test_gzfile_api_errors.cc
++++ b/test/test_gzfile_api_errors.cc
+@@ -1003,3 +1003,19 @@ TEST(gzfile_api_errors, setparams_direct_write) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
+     remove("gzapi_err_setparams.gz");
+ }
++
++#ifndef _WIN32
++TEST(gzfile_api_errors, gzip_buffer_allocation_failure) {
++    if (getenv("ZLIB_NG_TEST_GZ_ALLOC_LIMIT") == NULL)
++        GTEST_SKIP() << "Requires an allocator limit below 3 GiB";
++
++    gzFile file = PREFIX(gzopen)("/dev/null", "wb");
++    ASSERT_NE(file, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzbuffer)(file, 1U << 30), Z_OK);
++    EXPECT_EQ(PREFIX(gzwrite)(file, "abc", 3), 0);
++    int err = Z_OK;
++    PREFIX(gzerror)(file, &err);
++    EXPECT_EQ(err, Z_MEM_ERROR);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_MEM_ERROR);
++}
++#endif

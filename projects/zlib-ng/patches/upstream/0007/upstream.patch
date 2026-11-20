@@ -1,0 +1,259 @@
+From 00996039e54ac50493277f795d6d1497f239aa0f Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Avoid comparing inflate output with a separate sliding window
+
+chunkcopy_safe() / CHUNKCOPY_SAFE() compare and subtract their source and
+destination pointers to handle self-overlapping copies. When inflate() copies a
+match from its internal sliding window into the caller's output buffer, those
+pointers refer to distinct allocations (ISO C17 6.5.6p9, 6.5.8p5).
+
+Because inflate() guarantees window copies fit the remaining output space and
+cannot overlap the caller buffer, copy with memcpy() directly:
+- In inflate.c MATCH state, use memcpy().
+- In the non-safe inflate_fast() instantiation (called only by inflate()), use
+  memcpy() unconditionally with no branch.
+- In the USE_SAFE_MODE instantiation (shared with inflateBack(), where beg ==
+  window and copies inside the window may overlap), retain CHUNKCOPY_SAFE() /
+  chunkcopy_safe() when window == beg and use memcpy() otherwise.
+
+Add tests for chunked inflate() window copies and overlapping inflateBack()
+windows.
+---
+ inffast_tpl.h                     | 48 +++++++++++++----
+ inflate.c                         |  4 +-
+ test/test_inflate_back.cc         | 90 +++++++++++++++++++++++++++++++
+ test/test_inflate_far_distance.cc | 28 ++++++++++
+ 4 files changed, 159 insertions(+), 11 deletions(-)
+
+diff --git a/inffast_tpl.h b/inffast_tpl.h
+index 25298c6..f1c8896 100644
+--- a/inffast_tpl.h
++++ b/inffast_tpl.h
+@@ -255,32 +255,60 @@ void Z_INTERNAL INFLATE_FAST(PREFIX3(stream) *strm, uint32_t start) {
+                         from += wsize - op;
+                         if (UNLIKELY(op < len)) {       /* some from end of window */
+                             len -= op;
+-                            out = CHUNKCOPY_SAFE(out, from, op, safe);
++#ifdef USE_SAFE_MODE
++                            if (window == beg) {
++                                out = CHUNKCOPY_SAFE(out, from, op, safe);
++                            } else {
++                                memcpy(out, from, op);
++                                out += op;
++                            }
++#else
++                            memcpy(out, from, op);
++                            out += op;
++#endif
+                             from = window;              /* more from start of window */
+                             op = wnext;
+-                            /* This (rare) case can create a situation where
+-                               the first chunkcopy below must be checked.
+-                             */
+                         }
+                     }
+                     if (UNLIKELY(op < len)) {           /* still need some from output */
+                         len -= op;
+ #ifndef USE_SAFE_MODE
+-                        out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        memcpy(out, from, op);
++                        out += op;
+                         out = CHUNKUNROLL(out, &dist, &len);
+                         out = CHUNKCOPY_SAFE(out, out - dist, len, safe);
+ #elif defined(HAVE_MASKED_READWRITE)
+-                        out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        if (window == beg) {
++                            out = CHUNKCOPY_SAFE(out, from, op, safe);
++                        } else {
++                            memcpy(out, from, op);
++                            out += op;
++                        }
+                         out = CHUNKCOPY_SAFE(out, out - dist, len, safe);
+ #else
+-                        out = chunkcopy_safe(out, from, op, safe);
++                        if (window == beg) {
++                            out = chunkcopy_safe(out, from, op, safe);
++                        } else {
++                            memcpy(out, from, op);
++                            out += op;
++                        }
+                         out = chunkcopy_safe(out, out - dist, len, safe);
+ #endif
+                     } else {
+-#if !defined(USE_SAFE_MODE) || defined(HAVE_MASKED_READWRITE)
+-                        out = CHUNKCOPY_SAFE(out, from, len, safe);
++#ifndef USE_SAFE_MODE
++                        memcpy(out, from, len);
++                        out += len;
+ #else
+-                        out = chunkcopy_safe(out, from, len, safe);
++                        if (window == beg) {
++#  ifdef HAVE_MASKED_READWRITE
++                            out = CHUNKCOPY_SAFE(out, from, len, safe);
++#  else
++                            out = chunkcopy_safe(out, from, len, safe);
++#  endif
++                        } else {
++                            memcpy(out, from, len);
++                            out += len;
++                        }
+ #endif
+                     }
+                 } else {
+diff --git a/inflate.c b/inflate.c
+index 9c88b53..c057249 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -1097,7 +1097,9 @@ int32_t Z_EXPORT PREFIX(inflate)(PREFIX3(stream) *strm, int32_t flush) {
+                 copy = MIN(copy, state->length);
+                 copy = MIN(copy, left);
+ 
+-                put = chunkcopy_safe(put, from, copy, put + left);
++                /* The sliding window and caller output buffer are separate objects. */
++                memcpy(put, from, copy);
++                put += copy;
+             } else {
+                 copy = MIN(state->length, left);
+ 
+diff --git a/test/test_inflate_back.cc b/test/test_inflate_back.cc
+index 4c8535a..790f31d 100644
+--- a/test/test_inflate_back.cc
++++ b/test/test_inflate_back.cc
+@@ -14,6 +14,7 @@
+ #include <stdint.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <vector>
+ 
+ #include <gtest/gtest.h>
+ 
+@@ -320,3 +321,92 @@ TEST(inflate_back_distance, match_inside_output) {
+     EXPECT_EQ(decoded[2], 0xa5);
+     EXPECT_EQ(decoded[3], 0xa5);
+ }
++
++/* Verify that inflateBack() handles wrapping window copies and full-window
++ * distances across all supported windowBits (8..15). */
++TEST_F(inflate_back, wrapping_window_overlap) {
++    struct FixedEncoder {
++        std::vector<uint8_t> comp;
++        std::vector<uint8_t> src;
++        uint32_t bitbuf = 0;
++        int bitcnt = 0;
++
++        void put_bits(uint32_t val, int n) {
++            bitbuf |= val << bitcnt;
++            bitcnt += n;
++            while (bitcnt >= 8) {
++                comp.push_back((uint8_t)(bitbuf & 0xff));
++                bitbuf >>= 8;
++                bitcnt -= 8;
++            }
++        }
++        void put_huff(uint32_t code, int n) {
++            for (int i = n - 1; i >= 0; i--)
++                put_bits((code >> i) & 1U, 1);
++        }
++        void lit(uint8_t b) {
++            if (b < 144)
++                put_huff(0x30U + b, 8);
++            else
++                put_huff(0x190U + (b - 144U), 9);
++            src.push_back(b);
++        }
++        void match32(uint32_t dist) {
++            /* Fixed Huffman length 32: code 272 (272 - 256 = 16 in 7b) + 1 in 2b. */
++            put_huff(16U, 7);
++            put_bits(1U, 2);
++            static const uint32_t dbase[30] = {
++                1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385,
++                513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577
++            };
++            int dc = 29;
++            while (dc > 0 && dbase[dc] > dist)
++                dc--;
++            put_huff((uint32_t)dc, 5);
++            int dext = dc < 4 ? 0 : (dc / 2 - 1);
++            if (dext)
++                put_bits(dist - dbase[dc], dext);
++            for (uint32_t i = 0; i < 32; i++)
++                src.push_back(src[src.size() - dist]);
++        }
++        void finish() {
++            put_huff(0U, 7); /* EOB (256) */
++            if (bitcnt > 0)
++                comp.push_back((uint8_t)(bitbuf & 0xff));
++        }
++    };
++
++    const int wbits_list[] = {8, 9, 15};
++    for (int wb : wbits_list) {
++        SCOPED_TRACE(testing::Message() << "wbits " << wb);
++        const uint32_t ws = 1U << wb;
++        FixedEncoder enc;
++        enc.put_bits(1U, 1); /* BFINAL = 1 */
++        enc.put_bits(1U, 2); /* BTYPE = 01 (fixed Huffman) */
++
++        uint32_t seq = 0;
++        for (uint32_t i = 0; i < ws + 4; i++)
++            enc.lit((uint8_t)((seq++ * 73U + 19U) & 0xffU));
++        enc.match32(20);
++        enc.match32(ws);
++        enc.match32(3);
++        while (enc.src.size() < ws * 2 - 24)
++            enc.lit((uint8_t)((seq++ * 73U + 19U) & 0xffU));
++        enc.match32(ws - 16);
++        for (uint32_t i = 0; i < 40; i++)
++            enc.lit((uint8_t)((seq++ * 73U + 19U) & 0xffU));
++        enc.finish();
++
++        std::vector<uint8_t> win(ws, 0x55);
++        std::vector<uint8_t> out(enc.src.size());
++        struct output_state out_state = {out.data(), out.size(), 0};
++        PREFIX3(stream) d_strm = {};
++        ASSERT_EQ(PREFIX(inflateBackInit)(&d_strm, wb, win.data()), Z_OK);
++        d_strm.next_in = enc.comp.data();
++        d_strm.avail_in = (uint32_t)enc.comp.size();
++        EXPECT_EQ(PREFIX(inflateBack)(&d_strm, pull_all, &d_strm, push_all, &out_state), Z_STREAM_END);
++        EXPECT_EQ(PREFIX(inflateBackEnd)(&d_strm), Z_OK);
++        ASSERT_EQ(out_state.pos, enc.src.size());
++        EXPECT_EQ(memcmp(out.data(), enc.src.data(), enc.src.size()), 0);
++    }
++}
+diff --git a/test/test_inflate_far_distance.cc b/test/test_inflate_far_distance.cc
+index ea6da78..bb65bf3 100644
+--- a/test/test_inflate_far_distance.cc
++++ b/test/test_inflate_far_distance.cc
+@@ -184,3 +184,31 @@ TEST_P(inflate_far_distance, chunked_output) {
+    the window copies of inflate_fast and of the slow path. */
+ INSTANTIATE_TEST_SUITE_P(inflate, inflate_far_distance,
+     ::testing::Values(0u, 1u, 7u, 64u, 300u, 1000u, 4096u, 16384u, 32767u));
++
++TEST(inflate, copies_matches_from_history_window) {
++    static uint8_t input[100000], compressed[200000], output[100000];
++    for (size_t i = 0; i < sizeof(input); i++)
++        input[i] = (uint8_t)("abcdefghij"[i % 10] + i / 5000);
++
++    z_uintmax_t compressed_len = sizeof(compressed);
++    ASSERT_EQ(PREFIX(compress2)(compressed, &compressed_len, input, sizeof(input), 6), Z_OK);
++
++    const uint32_t chunks[] = {1, 300};
++    for (uint32_t chunk : chunks) {
++        PREFIX3(stream) stream = {};
++        ASSERT_EQ(PREFIX(inflateInit)(&stream), Z_OK);
++        stream.next_in = compressed;
++        stream.avail_in = (uint32_t)compressed_len;
++        stream.next_out = output;
++        int ret;
++        do {
++            size_t remaining = sizeof(output) - stream.total_out;
++            stream.avail_out = remaining < chunk ? (uint32_t)remaining : chunk;
++            ret = PREFIX(inflate)(&stream, Z_NO_FLUSH);
++        } while (ret == Z_OK && stream.total_out < sizeof(output));
++        EXPECT_EQ(ret, Z_STREAM_END);
++        EXPECT_EQ(stream.total_out, sizeof(input));
++        EXPECT_EQ(memcmp(output, input, sizeof(input)), 0);
++        EXPECT_EQ(PREFIX(inflateEnd)(&stream), Z_OK);
++    }
++}

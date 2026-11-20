@@ -1,0 +1,431 @@
+From b8ab36b716e52f25a07583beaa455f6ba0b9a07a Mon Sep 17 00:00:00 2001
+From: Mark Adler <git@madler.net>
+Date: Mon, 21 Sep 2026 00:28:56 +0000
+Subject: [PATCH 1/4] Avoid signed-overflow undefined behaviors in gzseek.
+
+Adapted from madler/zlib@6995c67b.
+---
+ gzguts.h     |  7 +++++++
+ gzlib.c      | 38 ++++++++++++++++++++------------------
+ zlib-ng.h.in |  3 ++-
+ zlib.h.in    |  3 ++-
+ 4 files changed, 31 insertions(+), 20 deletions(-)
+
+diff --git a/gzguts.h b/gzguts.h
+index 93bd943..0f67319 100644
+--- a/gzguts.h
++++ b/gzguts.h
+@@ -158,4 +158,11 @@ unsigned Z_INTERNAL gz_intmax(void);
+    (possible z_off64_t types off_t, off64_t, and long are all signed) */
+ #define GT_OFF(x) (sizeof(int) == sizeof(z_off64_t) && (x) > INT_MAX)
+ 
++/* Largest value representable in z_off64_t. */
++#ifndef CHAR_BIT
++#  define CHAR_BIT 8
++#endif
++#define GZ_OFF_MAX \
++    ((((z_off64_t)1 << (sizeof(z_off64_t) * CHAR_BIT - 2)) - 1) * 2 + 1)
++
+ #endif /* GZGUTS_H_ */
+diff --git a/gzlib.c b/gzlib.c
+index b827351..84aee65 100644
+--- a/gzlib.c
++++ b/gzlib.c
+@@ -387,7 +387,7 @@ z_int32_t Z_EXPORT PREFIX(gzrewind)(gzFile file) {
+ /* -- see zlib.h -- */
+ z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence) {
+     unsigned n;
+-    z_off64_t ret;
++    z_off64_t ret, pos;
+     gz_state *state;
+ 
+     /* get internal structure and check integrity */
+@@ -405,17 +405,21 @@ z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence) {
+     if (whence != SEEK_SET && whence != SEEK_CUR)
+         return -1;
+ 
+-    /* normalize offset to a SEEK_CUR specification */
+-    if (whence == SEEK_SET)
+-        offset -= state->x.pos;
+-    else {
+-        offset += state->past ? 0 : state->skip;
++    /* compute the absolute position */
++    pos = whence == SEEK_SET ? 0 :
++          state->x.pos + (state->past ? 0 : state->skip);
++    if (offset > GZ_OFF_MAX - pos)
++        return -1;                          /* would overflow z_off64_t */
++    if (whence != SEEK_SET)
+         state->skip = 0;
+-    }
++    if (offset < -pos)
++        return -1;                          /* before start of file */
++    pos += offset;
+ 
+     /* if within raw area while reading, just go there */
+-    if (state->mode == GZ_READ && state->how == COPY && state->x.pos + offset >= 0) {
+-        ret = LSEEK(state->fd, offset - (z_off64_t)state->x.have, SEEK_CUR);
++    if (state->mode == GZ_READ && state->how == COPY) {
++        ret = LSEEK(state->fd, pos - state->x.pos - (z_off64_t)state->x.have,
++                    SEEK_CUR);
+         if (ret == -1)
+             return -1;
+         state->x.have = 0;
+@@ -424,20 +428,18 @@ z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence) {
+         state->skip = 0;
+         PREFIX(gz_error)(state, Z_OK, NULL);
+         state->strm.avail_in = 0;
+-        state->x.pos += offset;
+-        return state->x.pos;
++        state->x.pos = pos;
++        return pos;
+     }
+ 
+-    /* calculate skip amount, rewinding if needed for back seek when reading */
+-    if (offset < 0) {
++    /* rewind if needed for back seek when reading */
++    if (pos < state->x.pos) {
+         if (state->mode != GZ_READ)         /* writing -- can't go backwards */
+             return -1;
+-        offset += state->x.pos;
+-        if (offset < 0)                     /* before start of file! */
+-            return -1;
+-        if (PREFIX(gzrewind)(file) == -1)   /* rewind, then skip to offset */
++        if (PREFIX(gzrewind)(file) == -1)   /* rewind, then skip to pos */
+             return -1;
+     }
++    offset = pos - state->x.pos;
+ 
+     /* if reading, skip what's in output buffer (one less gzgetc() check) */
+     if (state->mode == GZ_READ) {
+@@ -450,7 +452,7 @@ z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence) {
+ 
+     /* request skip (if not zero) */
+     state->skip = offset;
+-    return state->x.pos + offset;
++    return pos;
+ }
+ 
+ /* -- see zlib.h -- */
+diff --git a/zlib-ng.h.in b/zlib-ng.h.in
+index dd2bf19..174dee4 100644
+--- a/zlib-ng.h.in
++++ b/zlib-ng.h.in
+@@ -1610,7 +1610,8 @@ z_off64_t zng_gzseek(gzFile file, z_off64_t offset, int whence);
+      gzseek returns the resulting offset location as measured in bytes from
+    the beginning of the uncompressed stream, or -1 in case of error, in
+    particular if the file is opened for writing and the new starting position
+-   would be before the current position.
++   would be before the current position, or if the resulting position would
++   not be representable in the offset type.
+ */
+ 
+ Z_EXTERN Z_EXPORT
+diff --git a/zlib.h.in b/zlib.h.in
+index 588337b..4364c34 100644
+--- a/zlib.h.in
++++ b/zlib.h.in
+@@ -1592,7 +1592,8 @@ Z_EXTERN z_off_t Z_EXPORT gzseek (gzFile file, z_off_t offset, int whence);
+      gzseek returns the resulting offset location as measured in bytes from
+    the beginning of the uncompressed stream, or -1 in case of error, in
+    particular if the file is opened for writing and the new starting position
+-   would be before the current position.
++   would be before the current position, or if the resulting position would
++   not be representable in the offset type.
+ */
+ 
+ Z_EXTERN int Z_EXPORT gzrewind(gzFile file);
+
+From 869b2cf87b55b8ed0a2466f367a167a540278616 Mon Sep 17 00:00:00 2001
+From: Mark Adler <git@madler.net>
+Date: Mon, 21 Sep 2026 01:01:14 +0000
+Subject: [PATCH 2/4] Leave the stream position unchanged when gzseek() fails.
+
+Adapted from madler/zlib@6ed77c48.
+---
+ gzlib.c      | 2 --
+ zlib-ng.h.in | 3 ++-
+ zlib.h.in    | 3 ++-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/gzlib.c b/gzlib.c
+index 84aee65..0d406d7 100644
+--- a/gzlib.c
++++ b/gzlib.c
+@@ -410,8 +410,6 @@ z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence) {
+           state->x.pos + (state->past ? 0 : state->skip);
+     if (offset > GZ_OFF_MAX - pos)
+         return -1;                          /* would overflow z_off64_t */
+-    if (whence != SEEK_SET)
+-        state->skip = 0;
+     if (offset < -pos)
+         return -1;                          /* before start of file */
+     pos += offset;
+diff --git a/zlib-ng.h.in b/zlib-ng.h.in
+index 174dee4..297a0f5 100644
+--- a/zlib-ng.h.in
++++ b/zlib-ng.h.in
+@@ -1611,7 +1611,8 @@ z_off64_t zng_gzseek(gzFile file, z_off64_t offset, int whence);
+    the beginning of the uncompressed stream, or -1 in case of error, in
+    particular if the file is opened for writing and the new starting position
+    would be before the current position, or if the resulting position would
+-   not be representable in the offset type.
++   not be representable in the offset type. If gzseek returns -1, the stream
++   position is unchanged.
+ */
+ 
+ Z_EXTERN Z_EXPORT
+diff --git a/zlib.h.in b/zlib.h.in
+index 4364c34..5d0201b 100644
+--- a/zlib.h.in
++++ b/zlib.h.in
+@@ -1593,7 +1593,8 @@ Z_EXTERN z_off_t Z_EXPORT gzseek (gzFile file, z_off_t offset, int whence);
+    the beginning of the uncompressed stream, or -1 in case of error, in
+    particular if the file is opened for writing and the new starting position
+    would be before the current position, or if the resulting position would
+-   not be representable in the offset type.
++   not be representable in the offset type. If gzseek returns -1, the stream
++   position is unchanged.
+ */
+ 
+ Z_EXTERN int Z_EXPORT gzrewind(gzFile file);
+
+From 81be2d4b6f471944377191143ce203dff677b2bc Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH 3/4] Guard gzseek against signed overflow from negative read
+ positions
+
+gzungetc() at position zero leaves state->x.pos negative. Before computing
+GZ_OFF_MAX - pos, pos - state->x.pos, or LSEEK offsets in COPY mode, ensure
+arithmetic stays within z_off64_t and discard pushback before position zero.
+
+Add regression tests covering signed-overflow rejection, preserving stream
+position on failure (including pending skips), and seeks after gzungetc() at
+position zero.
+---
+ gzlib.c             | 57 ++++++++++++++++++---------
+ test/test_gzseek.cc | 94 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 133 insertions(+), 18 deletions(-)
+
+diff --git a/gzlib.c b/gzlib.c
+index 0d406d7..f7f647d 100644
+--- a/gzlib.c
++++ b/gzlib.c
+@@ -405,29 +405,40 @@ z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence) {
+     if (whence != SEEK_SET && whence != SEEK_CUR)
+         return -1;
+ 
+-    /* compute the absolute position */
+-    pos = whence == SEEK_SET ? 0 :
+-          state->x.pos + (state->past ? 0 : state->skip);
+-    if (offset > GZ_OFF_MAX - pos)
++    /* compute the absolute position without signed overflow */
++    if (whence == SEEK_SET) {
++        pos = 0;
++    } else {
++        z_off64_t skip = state->past ? 0 : state->skip;
++        if (state->x.pos > GZ_OFF_MAX - skip)
++            return -1;
++        pos = state->x.pos + skip;
++    }
++    if (pos >= 0 && offset > GZ_OFF_MAX - pos)
+         return -1;                          /* would overflow z_off64_t */
+-    if (offset < -pos)
++    if (pos < 0 ? offset < 0 || offset + pos < 0 : offset < -pos)
+         return -1;                          /* before start of file */
+     pos += offset;
+ 
+     /* if within raw area while reading, just go there */
+-    if (state->mode == GZ_READ && state->how == COPY) {
+-        ret = LSEEK(state->fd, pos - state->x.pos - (z_off64_t)state->x.have,
+-                    SEEK_CUR);
+-        if (ret == -1)
+-            return -1;
+-        state->x.have = 0;
+-        state->eof = 0;
+-        state->past = 0;
+-        state->skip = 0;
+-        PREFIX(gz_error)(state, Z_OK, NULL);
+-        state->strm.avail_in = 0;
+-        state->x.pos = pos;
+-        return pos;
++    if (state->mode == GZ_READ && state->how == COPY && !GT_OFF(state->x.have)) {
++        z_off64_t have = (z_off64_t)state->x.have;
++        if (state->x.pos <= GZ_OFF_MAX - have) {
++            z_off64_t base = state->x.pos + have;
++            if (base >= 0 || pos <= GZ_OFF_MAX + base) {
++                ret = LSEEK(state->fd, pos - base, SEEK_CUR);
++                if (ret == -1)
++                    return -1;
++                state->x.have = 0;
++                state->eof = 0;
++                state->past = 0;
++                state->skip = 0;
++                PREFIX(gz_error)(state, Z_OK, NULL);
++                state->strm.avail_in = 0;
++                state->x.pos = pos;
++                return pos;
++            }
++        }
+     }
+ 
+     /* rewind if needed for back seek when reading */
+@@ -437,6 +448,16 @@ z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence) {
+         if (PREFIX(gzrewind)(file) == -1)   /* rewind, then skip to pos */
+             return -1;
+     }
++    /* discard pushback before position zero so pos - state->x.pos fits */
++    if (state->mode == GZ_READ && state->x.pos < 0) {
++        unsigned drop = (unsigned)(-state->x.pos);
++        if (drop > state->x.have)
++            drop = state->x.have;
++        state->x.have -= drop;
++        if (drop)
++            state->x.next += drop;
++        state->x.pos += (z_off64_t)drop;
++    }
+     offset = pos - state->x.pos;
+ 
+     /* if reading, skip what's in output buffer (one less gzgetc() check) */
+diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
+index c14a073..e2acc1c 100644
+--- a/test/test_gzseek.cc
++++ b/test/test_gzseek.cc
+@@ -62,3 +62,97 @@ TEST(gzip, seek) {
+     PREFIX(gzclose)(file);
+ #endif
+ }
++
++#if !defined(ZLIB_COMPAT)
++typedef z_off64_t seek_test_off_t;
++#  define SEEK_TEST_GZSEEK PREFIX(gzseek)
++#  define SEEK_TEST_GZTELL PREFIX(gztell)
++#elif defined(Z_LARGE64)
++typedef z_off64_t seek_test_off_t;
++#  define SEEK_TEST_GZSEEK PREFIX4(gzseek)
++#  define SEEK_TEST_GZTELL PREFIX4(gztell)
++#else
++typedef z_off_t seek_test_off_t;
++#  define SEEK_TEST_GZSEEK PREFIX(gzseek)
++#  define SEEK_TEST_GZTELL PREFIX(gztell)
++#endif
++
++TEST(gzip, seek_offset_overflow) {
++    const seek_test_off_t off_max =
++        (seek_test_off_t)((((uint64_t)1 << (sizeof(seek_test_off_t) * 8 - 2)) - 1) * 2 + 1);
++    const seek_test_off_t off_min = -off_max - 1;
++
++    FILE *fp = fopen("seek_overflow_raw.txt", "wb");
++    ASSERT_NE(fp, nullptr);
++    ASSERT_EQ(fwrite("abcdef", 1, 6, fp), 6U);
++    ASSERT_EQ(fclose(fp), 0);
++
++    gzFile rfile = PREFIX(gzopen)("seek_overflow_raw.txt", "rb");
++    ASSERT_NE(rfile, (gzFile)NULL);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(rfile, off_min, SEEK_SET), (seek_test_off_t)-1);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(rfile, off_max, SEEK_SET), off_max);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(rfile, 1, SEEK_CUR), (seek_test_off_t)-1);
++    EXPECT_EQ(SEEK_TEST_GZTELL(rfile), off_max);
++    EXPECT_EQ(PREFIX(gzclose)(rfile), Z_OK);
++    remove("seek_overflow_raw.txt");
++
++#ifndef NO_GZCOMPRESS
++    gzFile wfile = PREFIX(gzopen)("seek_overflow_w.gz", "wb");
++    ASSERT_NE(wfile, (gzFile)NULL);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(wfile, 1, SEEK_SET), (seek_test_off_t)1);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(wfile, off_max, SEEK_CUR), (seek_test_off_t)-1);
++    EXPECT_EQ(SEEK_TEST_GZTELL(wfile), (seek_test_off_t)1);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(wfile, off_min, SEEK_CUR), (seek_test_off_t)-1);
++    EXPECT_EQ(SEEK_TEST_GZTELL(wfile), (seek_test_off_t)1);
++    EXPECT_EQ(PREFIX(gzwrite)(wfile, "a", 1), 1);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(wfile, 100, SEEK_CUR), (seek_test_off_t)102);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(wfile, -200, SEEK_CUR), (seek_test_off_t)-1);
++    EXPECT_EQ(SEEK_TEST_GZTELL(wfile), (seek_test_off_t)102);
++    /* Cancel the pending skip before gzclose() so nothing is zero filled. */
++    EXPECT_EQ(PREFIX(gzseek)(wfile, 2, SEEK_SET), 2);
++    EXPECT_EQ(PREFIX(gzclose)(wfile), Z_OK);
++    remove("seek_overflow_w.gz");
++#endif
++}
++
++TEST(gzip, seek_from_negative_read_position) {
++    const seek_test_off_t off_max =
++        (seek_test_off_t)((((uint64_t)1 << (sizeof(seek_test_off_t) * 8 - 2)) - 1) * 2 + 1);
++
++    FILE *fp = fopen("seek_neg_raw.txt", "wb");
++    ASSERT_NE(fp, nullptr);
++    ASSERT_EQ(fwrite("ab", 1, 2, fp), 2U);
++    ASSERT_EQ(fclose(fp), 0);
++
++    gzFile rfile = PREFIX(gzopen)("seek_neg_raw.txt", "rb");
++    ASSERT_NE(rfile, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzungetc)('x', rfile), 'x');
++    EXPECT_EQ(SEEK_TEST_GZTELL(rfile), (seek_test_off_t)-1);
++    /* Seeking to zero via either whence discards pushback cleanly. */
++    EXPECT_EQ(SEEK_TEST_GZSEEK(rfile, 0, SEEK_SET), (seek_test_off_t)0);
++    EXPECT_EQ(PREFIX(gzungetc)('x', rfile), 'x');
++    /* At pos = -1, seeking by 0 is still before start of file, and off_max stays valid. */
++    EXPECT_EQ(SEEK_TEST_GZSEEK(rfile, 0, SEEK_CUR), (seek_test_off_t)-1);
++    EXPECT_EQ(SEEK_TEST_GZTELL(rfile), (seek_test_off_t)-1);
++    EXPECT_EQ(SEEK_TEST_GZSEEK(rfile, off_max, SEEK_SET), off_max);
++    EXPECT_EQ(PREFIX(gzclose)(rfile), Z_OK);
++    remove("seek_neg_raw.txt");
++
++#ifndef NO_GZCOMPRESS
++    gzFile wfile = PREFIX(gzopen)("seek_neg_gz.gz", "wb");
++    ASSERT_NE(wfile, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzwrite)(wfile, "ab", 2), 2);
++    EXPECT_EQ(PREFIX(gzclose)(wfile), Z_OK);
++
++    gzFile zfile = PREFIX(gzopen)("seek_neg_gz.gz", "rb");
++    ASSERT_NE(zfile, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzungetc)('x', zfile), 'x');
++    EXPECT_EQ(SEEK_TEST_GZSEEK(zfile, 1, SEEK_CUR), (seek_test_off_t)0);
++    EXPECT_EQ(PREFIX(gzgetc)(zfile), 'a');
++    EXPECT_EQ(PREFIX(gzrewind)(zfile), 0);
++    EXPECT_EQ(PREFIX(gzungetc)('x', zfile), 'x');
++    EXPECT_EQ(SEEK_TEST_GZSEEK(zfile, off_max, SEEK_SET), off_max);
++    EXPECT_EQ(PREFIX(gzclose)(zfile), Z_OK);
++    remove("seek_neg_gz.gz");
++#endif
++}
+
+From ee2f41bf5355e277c21f037c6ba20f3939b0b486 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH 4/4] Avoid pointer arithmetic on unset state->x.next in
+ gzseek()
+
+Skip advancing state->x.next when nothing in the output buffer is consumed so
+seeking before the first read (or by zero bytes) does not evaluate `next += 0`
+on an uninitialized pointer (ISO C17 6.5.6p8).
+---
+ gzlib.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/gzlib.c b/gzlib.c
+index f7f647d..37654d9 100644
+--- a/gzlib.c
++++ b/gzlib.c
+@@ -460,13 +460,15 @@ z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence) {
+     }
+     offset = pos - state->x.pos;
+ 
+-    /* if reading, skip what's in output buffer (one less gzgetc() check) */
+-    if (state->mode == GZ_READ) {
++    /* if reading, skip what's in output buffer without modifying an unset next */
++    if (state->mode == GZ_READ && state->x.have) {
+         n = GT_OFF(state->x.have) || (z_off64_t)state->x.have > offset ? (unsigned)offset : state->x.have;
+-        state->x.have -= n;
+-        state->x.next += n;
+-        state->x.pos += n;
+-        offset -= n;
++        if (n) {
++            state->x.have -= n;
++            state->x.next += n;
++            state->x.pos += n;
++            offset -= n;
++        }
+     }
+ 
+     /* request skip (if not zero) */

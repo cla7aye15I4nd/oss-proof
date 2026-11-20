@@ -1,0 +1,145 @@
+From 2a52b0e12b9196cec032a594fa5d6d4866d1a526 Mon Sep 17 00:00:00 2001
+From: M0nd0R <150439604+M0nd0R@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 16:35:20 +0000
+Subject: [PATCH 1/2] Apply a pending skip in gzdirect() after gz_look().
+
+Adapted from madler/zlib@b2596bde: for input that is not a gzip stream,
+gz_look() copies what it read to the output buffer as available data. If a
+forward gzseek() is pending at that point, consume the pending skip from
+whatever gz_look() materialized inside gzdirect().
+---
+ gzread.c | 32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
+
+diff --git a/gzread.c b/gzread.c
+index 0c6937f..49190c8 100644
+--- a/gzread.c
++++ b/gzread.c
+@@ -254,23 +254,29 @@ static int gz_fetch(gz_state *state) {
+ }
+ 
+ /* Skip len uncompressed bytes of output.  Return -1 on error, 0 on success. */
++/* Apply as much of a pending skip request as the output already available in
++   state->x allows. */
++static void gz_skip_have(gz_state *state) {
++    unsigned n;
++
++    n = GT_OFF(state->x.have) ||
++        (z_off64_t)state->x.have > state->skip ?
++        (unsigned)state->skip : state->x.have;
++    state->x.have -= n;
++    state->x.next += n;
++    state->x.pos += n;
++    state->skip -= n;
++}
++
+ /* Skip state->skip (> 0) uncompressed bytes of output.  Return -1 on error, 0
+    on success. */
+ static int gz_skip(gz_state *state) {
+-    unsigned n;
+-
+     /* skip over state->skip bytes or reach end-of-file, whichever comes first */
+     do {
+         /* skip over whatever is in output buffer */
+-        if (state->x.have) {
+-            n = GT_OFF(state->x.have) ||
+-                (z_off64_t)state->x.have > state->skip ?
+-                (unsigned)state->skip : state->x.have;
+-            state->x.have -= n;
+-            state->x.next += n;
+-            state->x.pos += n;
+-            state->skip -= n;
+-        } else if (state->eof && state->strm.avail_in == 0) {
++        if (state->x.have)
++            gz_skip_have(state);
++        else if (state->eof && state->strm.avail_in == 0) {
+             /* output buffer empty -- return if we're at the end of the input */
+             break;
+         } else {
+@@ -580,8 +586,10 @@ z_int32_t Z_EXPORT PREFIX(gzdirect)(gzFile file) {
+ 
+     /* if the state is not known, but we can find out, then do so (this is
+        mainly for right after a gzopen() or gzdopen()) */
+-    if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0)
++    if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0) {
+         (void)gz_look(state);
++        gz_skip_have(state);        /* apply skip to current buffer */
++    }
+ 
+     /* return 1 if transparent, 0 if processing a gzip stream */
+     return state->direct == 1;
+
+From 83b6e848ea1afd32d03961ca829fd8233595f56b Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH 2/2] Guard gz_skip_have() in gzdirect() and add pending-seek
+ test
+
+Only call gz_skip_have() when gz_look() materialized buffered output while a
+skip is pending, avoiding pointer arithmetic on an unset x.next when empty or
+unseeked. Cover both normal seeks and seeks to GZ_OFF_MAX before gzdirect().
+---
+ gzread.c            |  3 ++-
+ test/test_gzseek.cc | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 40 insertions(+), 1 deletion(-)
+
+diff --git a/gzread.c b/gzread.c
+index 49190c8..619fa9c 100644
+--- a/gzread.c
++++ b/gzread.c
+@@ -588,7 +588,8 @@ z_int32_t Z_EXPORT PREFIX(gzdirect)(gzFile file) {
+        mainly for right after a gzopen() or gzdopen()) */
+     if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0) {
+         (void)gz_look(state);
+-        gz_skip_have(state);        /* apply skip to current buffer */
++        if (state->x.have && state->skip)
++            gz_skip_have(state);    /* apply skip to current buffer */
+     }
+ 
+     /* return 1 if transparent, 0 if processing a gzip stream */
+diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
+index c14a073..b523f8c 100644
+--- a/test/test_gzseek.cc
++++ b/test/test_gzseek.cc
+@@ -62,3 +62,41 @@ TEST(gzip, seek) {
+     PREFIX(gzclose)(file);
+ #endif
+ }
++
++TEST(gzip, direct_read_keeps_pending_seek) {
++    const char *path = "seek_direct_pending.txt";
++    FILE *fp = fopen(path, "wb");
++    ASSERT_NE(fp, nullptr);
++    ASSERT_EQ(fwrite("abcde", 1, 5, fp), 5U);
++    ASSERT_EQ(fclose(fp), 0);
++
++    gzFile file = PREFIX(gzopen)(path, "rb");
++    ASSERT_NE(file, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzseek)(file, 3, SEEK_SET), 3);
++    EXPECT_EQ(PREFIX(gzdirect)(file), 1);
++    EXPECT_EQ(PREFIX(gzgetc)(file), 'd');
++    EXPECT_EQ(PREFIX(gztell)(file), 4);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++
++    /* Seeking near the signed limit before gzdirect() must also consume buffered
++       bytes so subsequent gzgetc() and gztell() do not overflow. */
++    const z_off64_t off_max =
++        (z_off64_t)((((uint64_t)1 << (sizeof(z_off64_t) * 8 - 2)) - 1) * 2 + 1);
++#if !defined(ZLIB_COMPAT) || defined(Z_LARGE64)
++    file = PREFIX(gzopen)(path, "rb");
++    ASSERT_NE(file, (gzFile)NULL);
++#  ifdef ZLIB_COMPAT
++    EXPECT_EQ(PREFIX4(gzseek)(file, off_max, SEEK_SET), off_max);
++    EXPECT_EQ(PREFIX(gzdirect)(file), 1);
++    EXPECT_EQ(PREFIX(gzgetc)(file), -1);
++    EXPECT_EQ(PREFIX4(gztell)(file), 5);
++#  else
++    EXPECT_EQ(PREFIX(gzseek)(file, off_max, SEEK_SET), off_max);
++    EXPECT_EQ(PREFIX(gzdirect)(file), 1);
++    EXPECT_EQ(PREFIX(gzgetc)(file), -1);
++    EXPECT_EQ(PREFIX(gztell)(file), 5);
++#  endif
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++#endif
++    remove(path);
++}

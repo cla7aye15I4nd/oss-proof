@@ -1,0 +1,92 @@
+From 49b4addbe44ca51f12685fd2f6d6d4734a319828 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Truncate gzhead->extra_len to 16 bits in deflateBound()
+
+deflate() writes only the low 16 bits of gzhead->extra_len into the gzip header
+(put_short and the EXTRA_STATE copy loop both mask with 0xffff), whereas a gzip
+extra field cannot exceed 65535 bytes on valid inputs.
+
+Because extra_len is uint32_t (unsigned int) and 2 is int, `2 + s->gzhead->extra_len`
+uses 32-bit unsigned arithmetic on every platform before widening to z_size_t:
+- For 0x10000..0xfffffffd, deflateBound() overestimates by up to 4 GiB.
+- For the two values 0xfffffffe and 0xffffffff, it wraps to 0 or 1 instead of
+  65536 or 65537, causing deflate(Z_FINISH) with avail_out == deflateBound()
+  to return Z_OK instead of Z_STREAM_END (with no buffer overflow).
+
+Mask extra_len to 16 bits (matching deflate(), keeping the 32-bit sum <= 65537)
+and add a regression test.
+---
+ deflate.c                  |  2 +-
+ test/test_deflate_bound.cc | 48 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+diff --git a/deflate.c b/deflate.c
+index 2cfd7d2..7c4fc7f 100644
+--- a/deflate.c
++++ b/deflate.c
+@@ -734,7 +734,7 @@ z_size_t Z_EXPORT PREFIX(deflateBound_z)(PREFIX3(stream) *strm, z_size_t sourceL
+         if (s->gzhead != NULL) {            /* user-supplied gzip header */
+             unsigned char *str;
+             if (s->gzhead->extra != NULL) {
+-                wraplen += 2 + s->gzhead->extra_len;
++                wraplen += 2 + (s->gzhead->extra_len & 0xffff);
+             }
+             str = s->gzhead->name;
+             if (str != NULL) {
+diff --git a/test/test_deflate_bound.cc b/test/test_deflate_bound.cc
+index c86d4e0..e934526 100644
+--- a/test/test_deflate_bound.cc
++++ b/test/test_deflate_bound.cc
+@@ -97,3 +97,51 @@ TEST_P(deflate_bound_variant, estimate) {
+ }
+ 
+ INSTANTIATE_TEST_SUITE_P(deflate_bound, deflate_bound_variant, testing::ValuesIn(tests));
++
++#ifndef TEST_STOCK_ZLIB
++TEST(deflate_bound, gzip_extra_len_truncated) {
++    uint8_t extra[0xffff];
++    memset(extra, 'e', sizeof(extra));
++
++    PREFIX(gz_header) header = {};
++    header.os = 3;
++    header.extra = extra;
++
++    const uint32_t max_u32_len = UINT32_MAX;
++    header.extra_len = 0xffff;
++    PREFIX3(stream) stream = {};
++    ASSERT_EQ(PREFIX(deflateInit2)(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY), Z_OK);
++    ASSERT_EQ(PREFIX(deflateSetHeader)(&stream, &header), Z_OK);
++    z_size_t bound_16bit = PREFIX(deflateBound)(&stream, 0);
++    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++
++    header.extra_len = max_u32_len;
++    memset(&stream, 0, sizeof(stream));
++    ASSERT_EQ(PREFIX(deflateInit2)(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY), Z_OK);
++    ASSERT_EQ(PREFIX(deflateSetHeader)(&stream, &header), Z_OK);
++    z_size_t bound_u32max = PREFIX(deflateBound)(&stream, 0);
++    EXPECT_EQ(bound_u32max, bound_16bit);
++
++    uint8_t *out = (uint8_t *)malloc(bound_u32max);
++    ASSERT_NE(out, nullptr);
++    stream.next_out = out;
++    stream.avail_out = (uint32_t)bound_u32max;
++    EXPECT_EQ(PREFIX(deflate)(&stream, Z_FINISH), Z_STREAM_END);
++    free(out);
++    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++
++    header.extra_len = 0x10000;
++    memset(&stream, 0, sizeof(stream));
++    ASSERT_EQ(PREFIX(deflateInit2)(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY), Z_OK);
++    ASSERT_EQ(PREFIX(deflateSetHeader)(&stream, &header), Z_OK);
++    z_size_t bound_64k = PREFIX(deflateBound)(&stream, 0);
++    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++
++    header.extra_len = 0;
++    memset(&stream, 0, sizeof(stream));
++    ASSERT_EQ(PREFIX(deflateInit2)(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY), Z_OK);
++    ASSERT_EQ(PREFIX(deflateSetHeader)(&stream, &header), Z_OK);
++    EXPECT_EQ(bound_64k, PREFIX(deflateBound)(&stream, 0));
++    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++}
++#endif
