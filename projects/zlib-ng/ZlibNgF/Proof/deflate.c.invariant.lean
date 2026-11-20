@@ -20,7 +20,7 @@ that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the 
 valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
 are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
 `strstart - block_start` bounded; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
-tree descriptors of `zng_tr_init`; `lit_bufsize` a multiple of 16.
+tree descriptors of `zng_tr_init`; `lit_bufsize` a multiple of 16; the sizes of the scratch arrays of `trees.c`.
 -/
 
 set_option autoImplicit false
@@ -70,6 +70,9 @@ structure DView where
   d_stat : Ival StaticDescPtr
   bl_dyn : Ival CtPtr
   bl_stat : Ival StaticDescPtr
+  pqlsize : Nat
+  pqssize : Nat
+  blcsize : Nat
 
 /-- The constrained fields of `st`. -/
 def dview (st : DeflateState) : DView :=
@@ -78,7 +81,7 @@ def dview (st : DeflateState) : DView :=
     st.pending_buf_size, st.sym_buf, st.sym_end, st.sym_next, st.pending, st.pending_out, st.bi_valid, st.strstart,
     st.lookahead, st.strategy, st.longest_match, st.insert_batch, st.block_start, st.insert, st.fill_end,
     st.dyn_ltree, st.dyn_dtree, st.l_desc.dyn_tree, st.l_desc.stat_desc, st.d_desc.dyn_tree, st.d_desc.stat_desc,
-    st.bl_desc.dyn_tree, st.bl_desc.stat_desc⟩
+    st.bl_desc.dyn_tree, st.bl_desc.stat_desc, st.pq_leaves.size, st.pq_scratch.size, st.bl_count.size⟩
 
 /-! ## The tallied symbols -/
 
@@ -148,7 +151,8 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   al_buf : al.buf_start = .val (.ref (.heap b) 0)
   status_lo : INIT_STATE ≤ v.status
   status_hi : v.status ≤ MAX_STATE
-  wrap : v.wrap = 0 ∨ v.wrap = 1 ∨ v.wrap = 2
+  /-- `wrap` is 0 (raw), 1 (zlib) or 2 (gzip), negated by `deflate` once the trailer is written (`Z_FINISH`) -/
+  wrap : v.wrap = 0 ∨ v.wrap = 1 ∨ v.wrap = 2 ∨ v.wrap = -1 ∨ v.wrap = -2
   gzhead : ∃ hp, v.gzhead = .val hp
   /-- `w_size = 1 << w_bits` is not zero (`W_BITS` takes its trailing zeros) -/
   w_size : v.w_size ≠ 0
@@ -217,6 +221,9 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   /-- `lit_bufsize = 1 << (memLevel + 6)` is a multiple of 16 (`alloc_deflate` of `deflateCopy` aligns the state that
   follows `pending_buf` with it) -/
   lmod : v.lit_bufsize.toNat % 16 = 0
+  /-- the scratch arrays of `build_tree` / `gen_bitlen` have their C sizes: `pq_leaves` and `pq_scratch` `L_CODES + 1`
+  entries, `bl_count` `MAX_BITS + 1` -/
+  scratch : v.pqlsize = 287 ∧ v.pqssize = 287 ∧ v.blcsize = 16
 
 /-- The clauses read the heap only through block `b`. -/
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}

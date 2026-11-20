@@ -245,7 +245,7 @@ kernel does not unfold state records field by field). -/
 theorem DCore.mv {h : Heap} {s : StreamPtr} {z z' : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
     (c : DCore h s z b v al) (hza : z'.zalloc = z.zalloc) (hzf : z'.zfree = z.zfree) (ss la : UInt32) (bs : Int32)
     (ins : UInt32) (wr : Int32) (hlook : ss.toNat + la.toNat ≤ v.window_size.toNat) (hbs : bs.toInt ≤ ss.toNat)
-    (hins : ins ≤ ss) (hlo : (ss.toNat : Int) - bs.toInt ≤ 2 ^ 30) (hwr : wr = 0 ∨ wr = 1 ∨ wr = 2) :
+    (hins : ins ≤ ss) (hlo : (ss.toNat : Int) - bs.toInt ≤ 2 ^ 30) (hwr : wr = 0 ∨ wr = 1 ∨ wr = 2 ∨ wr = -1 ∨ wr = -2) :
     DCore h s z' b { v with strstart := ss, lookahead := la, block_start := bs, insert := ins, wrap := wr } al :=
   { c with
     zalloc := hza.trans c.zalloc
@@ -386,7 +386,7 @@ theorem body_ok (W : WindowFacts) {H H' : Heap} {i b m : Nat} (ib : InsertBatchF
 
 /-- The final updates after the insertion loop. -/
 theorem tail_ok {H He : Heap} {i b : Nat} {ze : ZStream} {ste : DeflateState} {wrap0 : Int32}
-    (hwr : wrap0 = 0 ∨ wrap0 = 1 ∨ wrap0 = 2) (next : BPtr) (avail : UInt32) (hve : DInvW He (some i))
+    (hwr : wrap0 = 0 ∨ wrap0 = 1 ∨ wrap0 = 2 ∨ wrap0 = -1 ∨ wrap0 = -2) (next : BPtr) (avail : UInt32) (hve : DInvW He (some i))
     (fe : DFrame H He [i] [b] [] []) (hze : He.streams i = some ze) (hbe : ze.state = some b)
     (hste : He.dstate b = some ste) :
     Sat He (sdTail (some i) (some b) wrap0 next avail)
@@ -421,7 +421,7 @@ theorem sdC_ok (W : WindowFacts) {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {s
     {d : Array UInt8} (hv : DInv H (some i)) (hz : H.streams i = some z) (hb : z.state = some b)
     (hst : H.dstate b = some st) (hd : H.bytes b = some d) (hw0 : st.wrap = 0) (hla0 : st.lookahead = 0)
     (ib : InsertBatchFn) (hl : Bool)
-    {wrap0 : Int32} (hwr : wrap0 = 0 ∨ wrap0 = 1 ∨ wrap0 = 2) {r : BRef} {o : Nat} {data : Array UInt8}
+    {wrap0 : Int32} (hwr : wrap0 = 0 ∨ wrap0 = 1 ∨ wrap0 = 2 ∨ wrap0 = -1 ∨ wrap0 = -2) {r : BRef} {o : Nat} {data : Array UInt8}
     {dl : UInt32} (hrb : r ≠ .heap b) (hg : Space.get H r = some data) (hle : o + dl.toNat ≤ data.size)
     (hdl : dl.toNat ≤ 32768) :
     Sat H (sdC (some i) (some b) ib hl wrap0 (.ref r o) dl)
@@ -539,6 +539,7 @@ theorem inv_cut {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
     ins := h2
     wpow := c.wpow
     lmod := c.lmod
+    scratch := c.scratch
     fe_mod := c.fe_mod
     fe_hi := c.fe_hi
     bs_lo := h4

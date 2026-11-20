@@ -165,6 +165,7 @@ theorem dcore_set {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView}
   bs_lo := hlo
   descs := c.descs
   lmod := c.lmod
+  scratch := c.scratch
 
 /-- `SLF` after a change of the state record and the bytes of block `b` (sizes kept) that keeps the invariant's
 clauses, the header pointer, the level and the status, and `GapOk`. -/
