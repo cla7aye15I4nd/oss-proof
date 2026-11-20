@@ -1184,7 +1184,7 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
     cases r with
     | none =>
       refine Sat.pure (slf_post F2 _ _ hn ⟨fun e => cf_of_avIn (by rw [hav2]; exact hin), hxio.2.1,
-        fun _ e => by rcases hbs with rfl | rfl <;> rcases e with e | e <;> cases e,
+        fun _ e => (by rcases hbs with rfl | rfl <;> rcases e with e | e <;> cases e),
         fun e => ⟨(hxio.2.2.2 e).1, (hxio.2.2.2 e).2.1, by rw [hav2]; exact hin⟩⟩ (fun st2 h2 =>
         ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1, fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩,
           fun _ => (hx st2 h2).1⟩) (lastSlack_tail hlb))

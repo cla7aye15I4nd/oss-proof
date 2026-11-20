@@ -1004,7 +1004,7 @@ theorem trip_s {h H : Heap} {i b wo : Nat} {flush : Int32} {last la ss : UInt32}
         have hz' : st'.lookahead = 0 := by simpa using hz
         have hai0 : z'.avail_in = 0 := hend.resolve_left (by rw [hz']; decide)
         refine Sat.pure ⟨⟨H3, z', st', d', rfl, F2, Nat.le_refl _, by rw [hz']; simp, hz', hpo2,
-          fun e0 => ?_, hB2, hai0, fun e => by rw [hz', e] at hx; revert hx; decide, ⟨ea, A2, ?_⟩⟩,
+          fun e0 => ?_, hB2, hai0, fun e => (by rw [hz', e] at hx; revert hx; decide), ⟨ea, A2, ?_⟩⟩,
           by simp [ZlibNgF.Proof.QuickP.QM]⟩
         · obtain ⟨-, a2, a3, a4⟩ := hbo (ebo ▸ e0)
           exact ⟨ep.trans a2, by rw [ebv]; exact a3, a4⟩
