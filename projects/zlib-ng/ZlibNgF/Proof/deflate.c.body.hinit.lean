@@ -17,21 +17,24 @@ open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNgF.Proof.DeflateBits (WrIn put_byte_SH put_short_SH put_short_msb_SH put_uint32_SH put_uint32_msb_SH)
 open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f)
 
-/-- `last_flush` is -1: the call returns `Z_OK` with output pending. -/
-def LastM1 (H : Heap) (b : Nat) : Prop := ∀ st, H.dstate b = some st → st.last_flush = -1
+/-- `last_flush` is -1: the call returns `Z_OK` with output pending (the output of stream `i` full). -/
+def LastM1 (H : Heap) (i b : Nat) : Prop :=
+  (∀ st, H.dstate b = some st → st.last_flush = -1) ∧ ∀ z, H.streams i = some z → z.avail_out = 0
 
 /-- What a header part leaves when it returns (`true`: `return Z_OK` with `last_flush = -1`; `false`: the code goes
 on, with the facts `K` of the state). -/
 def HRet (h : Heap) (i b : Nat) (K : DeflateState → Prop) (r : Bool) (H : Heap) : Prop :=
-  Run h i b H ∧ (r = true → LastM1 H b) ∧ (r = false → ∀ st, H.dstate b = some st → K st)
+  Run h i b H ∧ (r = true → LastM1 H i b) ∧ (r = false → ∀ st, H.dstate b = some st → K st)
 
-/-- `last_flush = -1` keeps `Run`. -/
-theorem run_lf {h H : Heap} {i b : Nat} (R : Run h i b H) :
-    Sat H (wrD (some b) fun s => { s with last_flush := -1 }) (fun _ H' => Run h i b H' ∧ LastM1 H' b) := by
+/-- `last_flush = -1` keeps `Run`, with a full output. -/
+theorem run_lf {h H : Heap} {i b : Nat} (R : Run h i b H) (hao : ∀ z, H.streams i = some z → z.avail_out = 0) :
+    Sat H (wrD (some b) fun s => { s with last_flush := -1 }) (fun _ H' => Run h i b H' ∧ LastM1 H' i b) := by
   obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, e, c⟩ := R.live
+  have ha0 := hao z hz
   rw [← e]
   refine Sat.of_eq (wrD_SH _) ⟨?_, fun st' hst' => by
-    rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'; rfl⟩
+    rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'; rfl, fun z' hz' => by
+    rw [SH_streams] at hz'; obtain rfl := Option.some.inj hz'; exact ha0⟩
   refine run_SH (z' := z) (st' := { st with last_flush := -1 }) (d' := d) R hz hst hal
     (DCore.of_heap (by simp [hd]) c) rfl rfl rfl rfl rfl rfl ?_
   obtain ⟨S1, S2, S3, S4, S5, S6⟩ := R.side st hst
@@ -42,17 +45,22 @@ theorem run_lf {h H : Heap} {i b : Nat} (R : Run h i b H) :
   · rw [SH_bytes] at hd'; obtain rfl := Option.some.inj hd'
     exact S5 d hd
 
-/-- `pendingReturn`. -/
+/-- `pendingReturn`, after a flush (pending bytes left only with a full output). -/
 theorem pend_ret {h H : Heap} {i b : Nat} {K : DeflateState → Prop} (R : Run h i b H)
-    (hK : ∀ st, H.dstate b = some st → st.pending = 0 → K st) :
+    (hK : ∀ st, H.dstate b = some st → st.pending = 0 → K st)
+    (hpf : ∀ z st, H.streams i = some z → H.dstate b = some st → st.pending ≠ 0 → z.avail_out = 0) :
     Sat H (pendingReturn (some b)) (HRet h i b K) := by
   obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, e, c⟩ := R.live
+  have hpf' := hpf z st hz hst
   unfold pendingReturn
   rw [← e] at R hK ⊢
   refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
   by_cases hp : (st.pending != 0) = true
   · rw [ite_t hp]
-    exact Sat.bind (Sat.mono (run_lf R) fun _ H' q => Sat.pure ⟨q.1, fun _ => q.2, nofun⟩)
+    have ha0 := hpf' (by simpa using hp)
+    exact Sat.bind (Sat.mono (run_lf R fun z' hz' => by
+      rw [SH_streams] at hz'; obtain rfl := Option.some.inj hz'; exact ha0)
+      fun _ H' q => Sat.pure ⟨q.1, fun _ => q.2, nofun⟩)
   · rw [ite_f hp]
     refine Sat.pure ⟨R, nofun, fun _ st' hst' => ?_⟩
     rw [SH_dstate] at hst'
@@ -70,7 +78,8 @@ theorem HdrMove.same {H H' H'' : Heap} {b : Nat} {st : DeflateState} (m : HdrMov
 
 /-- `pendingReturn` changes no byte object and no header record. -/
 theorem pend_ret_sp {h H : Heap} {i b : Nat} {K : DeflateState → Prop} (R : Run h i b H)
-    (hK : ∀ st, H.dstate b = some st → st.pending = 0 → K st) :
+    (hK : ∀ st, H.dstate b = some st → st.pending = 0 → K st)
+    (hpf : ∀ z st, H.streams i = some z → H.dstate b = some st → st.pending ≠ 0 → z.avail_out = 0) :
     Sat H (pendingReturn (some b)) (fun r H' => HRet h i b K r H' ∧ H'.gzheaders = H.gzheaders ∧
       (∀ r : BRef, Space.get H' r = Space.get H r) ∧ H'.streams = H.streams ∧
       ∀ st st', H.dstate b = some st → H'.dstate b = some st' → st'.pending = st.pending) := by
@@ -79,7 +88,7 @@ theorem pend_ret_sp {h H : Heap} {i b : Nat} {K : DeflateState → Prop} (R : Ru
     by_cases hr : r = .heap b
     · subst hr; show (SH H i z b st' d).bytes b = H.bytes b; rw [SH_bytes, hd]
     · exact DeflateSetDict.space_SH_ne hr
-  have q := pend_ret R hK
+  have q := pend_ret R hK hpf
   rw [← e] at q ⊢
   unfold pendingReturn at q ⊢
   obtain ⟨r, H', ex, hq⟩ := q
@@ -103,11 +112,14 @@ theorem flush_ret {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H)
           bi_valid := st'.bi_valid }) := by
   obtain ⟨H', e, R', k⟩ := run_flush R.w
   obtain ⟨z, hz, -⟩ := R.blk
-  obtain ⟨z', st', hz', hst', hse, -, -, -, -, -⟩ := k z st hz hst
+  obtain ⟨z', st', hz', hst', hse, -, hpz, -, -, -⟩ := k z st hz hst
   refine Sat.bind ⟨(), H', e, ?_⟩
-  exact pend_ret R' fun st2 hst2 hp => by
-    obtain rfl := Option.some.inj (hst'.symm.trans hst2)
+  refine pend_ret R' (fun st2 hst2 hp => ?_) fun z2 st2 hz2 hst2 hp => ?_
+  · obtain rfl := Option.some.inj (hst'.symm.trans hst2)
     exact ⟨hp, hse⟩
+  · obtain rfl := Option.some.inj (hst'.symm.trans hst2)
+    obtain rfl := Option.some.inj (hz'.symm.trans hz2)
+    exact Classical.byContradiction fun hne => hp (hpz hne)
 
 /-- `flush_pending`, `pendingReturn`, then a continuation on the result. -/
 theorem flush_ret_k {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
@@ -122,9 +134,12 @@ theorem flush_ret_k {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b 
     Sat H (do ZlibNg.DeflateP.flush_pending (some i); let r ← pendingReturn (some b); k r) Q := by
   obtain ⟨H', e, R', kk⟩ := run_flush R.w
   obtain ⟨z, hz, -⟩ := R.blk
-  obtain ⟨z', st', hz', hst', hse, -, -, -, hm, hav⟩ := kk z st hz hst
+  obtain ⟨z', st', hz', hst', hse, -, hpz, -, hm, hav⟩ := kk z st hz hst
   refine Sat.bind ⟨(), H', e, ?_⟩
-  refine Sat.bind (Sat.mono (pend_ret_sp R' fun st2 hst2 hp => ?_) fun r H'' ⟨q, g1, g2, g3, g4⟩ =>
+  refine Sat.bind (Sat.mono (pend_ret_sp R' (fun st2 hst2 hp => ?_) fun z2 st2 hz2 hst2 hp => by
+      obtain rfl := Option.some.inj (hst'.symm.trans hst2)
+      obtain rfl := Option.some.inj (hz'.symm.trans hz2)
+      exact Classical.byContradiction fun hne => hp (hpz hne)) fun r H'' ⟨q, g1, g2, g3, g4⟩ =>
     hk r H'' q (HdrMove.same hm g1 g2) fun z1 z2 st2 h1 h2 h3 => by
       obtain rfl := Option.some.inj (hz.symm.trans h1)
       rw [g3] at h2; obtain rfl := Option.some.inj (hz'.symm.trans h2)

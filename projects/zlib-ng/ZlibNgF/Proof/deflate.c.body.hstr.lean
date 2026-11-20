@@ -139,7 +139,7 @@ def SI (h : Heap) (i b k : Nat) (g : GzHeader) (str : GzHeader → BPtr) (S : In
 
 /-- What the loop leaves. -/
 def SQ (h : Heap) (i b k : Nat) (S : Int32) (L : Int32) (s : Bool × UInt32 × UInt8) (H : Heap) : Prop :=
-  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → SegAt h i b (SF S k s.2.1 L) H)
+  (s.1 = true → Run h i b H ∧ LastM1 H i b) ∧ (s.1 = false → SegAt h i b (SF S k s.2.1 L) H)
 
 /-- The header facts of a state in `NAME_STATE` / `COMMENT_STATE` with `gzindex` within its string. -/
 theorem hdrOk_str {X : Heap} {b : Nat} {st : DeflateState} {k : Nat} {g : GzHeader} {str : GzHeader → BPtr}
@@ -342,7 +342,7 @@ theorem string_ok {h H : Heap} {i b : Nat} {st : DeflateState} {str : GzHeader �
     (hsel : StrSel S str) (R : Run h i b H) (hst : H.dstate b = some st) (hs : st.status = S)
     (h0 : st.sym_next = 0) (hpo : st.pending_out = st.pending_buf) (hple : st.pending ≤ st.pending_buf_size)
     {k : Nat} {g : GzHeader} (hgz : st.gzhead = .val (some k)) (hg : H.gzheaders k = some g) (hn : str g ≠ .null) :
-    Sat H (headersString (some b) (some i) str) (fun r H' => (r = true → Run h i b H' ∧ LastM1 H' b) ∧
+    Sat H (headersString (some b) (some i) str) (fun r H' => (r = true → Run h i b H' ∧ LastM1 H' i b) ∧
       (r = false → SegAt h i b (SF S k 0 st.last_flush) H')) := by
   obtain ⟨hw, nb, n, hc, hgi⟩ := str_of_hdr hsel (R.side st hst).2.2.1 hs hgz hg hn
   have hg0 : h.gzheaders k = some g := by

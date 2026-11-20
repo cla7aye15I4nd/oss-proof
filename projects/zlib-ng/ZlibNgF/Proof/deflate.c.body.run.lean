@@ -5,7 +5,8 @@ import ZlibNgF.Proof.«deflate.c.body.base»
 
 `Run h i b H`: inside a `deflate` call on stream `i` (state block `b`) that started at heap `h`, the heap `H` has the
 invariant, valid and set buffers, the CRC tables, the frame of the call so far (the output buffer at entry and the
-library's block), the output buffer a tail of the one at entry (`OutTail`), and the between-call facts except the one
+library's block), the output buffer a tail of the one at entry (`OutTail`), the input a tail of the one at entry
+(`InTail`), and the between-call facts except the one
 on `last_flush` (`SideR`), which `deflate` sets on entry and settles before every return. `RunW` is the same with up to
 63 bits in `bi_buf` (`DWork`; the bit clause of `SymsOk` waived), as after a block emitter; `flush_pending` turns it
 into `Run` (`run_flush`). `Run.done` gives the post of `DeflateOk`.
@@ -37,6 +38,7 @@ structure Run (h : Heap) (i b : Nat) (H : Heap) : Prop where
   blk0 : ∃ z, h.streams i = some z ∧ z.state = some b
   frame : DFrame h H [i] [b] [] (dOutputRanges h (some i))
   out : OutTail h H i
+  inp : InTail h H i
   side : ∀ st, H.dstate b = some st → SideR H b st
 
 /-- `Run` with up to 63 bits in `bi_buf`. -/
@@ -49,6 +51,7 @@ structure RunW (h : Heap) (i b : Nat) (H : Heap) : Prop where
   blk0 : ∃ z, h.streams i = some z ∧ z.state = some b
   frame : DFrame h H [i] [b] [] (dOutputRanges h (some i))
   out : OutTail h H i
+  inp : InTail h H i
   side : ∀ st, H.dstate b = some st → SideR H b { st with bi_valid := 0 }
 
 /-! ## Basic facts -/
@@ -63,7 +66,7 @@ theorem SideR.of_zero {H : Heap} {b : Nat} {st : DeflateState} (S : SideR H b { 
   exact ⟨⟨a1, a2, a3, a4, fun e => absurd h8 (Int32.not_lt.mpr e)⟩, s2, s3, s4, s5, s6⟩
 
 theorem Run.w {h H : Heap} {i b : Nat} (R : Run h i b H) : RunW h i b H :=
-  ⟨DWork.of_inv R.inv, R.io, R.set, R.crc, R.blk, R.blk0, R.frame, R.out, fun st hs => (R.side st hs).zero⟩
+  ⟨DWork.of_inv R.inv, R.io, R.set, R.crc, R.blk, R.blk0, R.frame, R.out, R.inp, fun st hs => (R.side st hs).zero⟩
 
 theorem crc_frame {H H' : Heap} {S B G : List Nat} {W : List (BPtr × Nat)} (f : DFrame H H' S B G W)
     (c : CrcGlobals H) : CrcGlobals H' := by
@@ -213,7 +216,8 @@ theorem run_SH {h H : Heap} {i b : Nat} {z z' : ZStream} {st st' : DeflateState}
     streamIO_out R.io hz hb hst hno (Nat.zero_le _) O (SH_streams _ _ _ _ _ _) hzs h1 h2 (by rw [h3, hno]; rfl)
       (by rw [h4]; rfl) (SH_dstate _ _ _ _ _ _) hgz,
     ⟨z', ⟨i, rfl, SH_streams _ _ _ _ _ _⟩, by rw [h3]; exact hnn, fun ha => by rw [h1]; exact hni (by rw [← h2]; exact ha)⟩,
-    crc_frame fr R.crc, ⟨z', SH_streams _ _ _ _ _ _, hb'⟩, R.blk0, ?_, ?_, fun st2 hst2 => ?_⟩
+    crc_frame fr R.crc, ⟨z', SH_streams _ _ _ _ _ _, hb'⟩, R.blk0, ?_, ?_,
+    R.inp.keep hz (SH_streams _ _ _ _ _ _) h1 h2, fun st2 hst2 => ?_⟩
   · exact out_frame R.frame R.out hz (dframe_nil _ fr) (Nat.zero_le _)
   · exact out_tail R.out hz (SH_streams _ _ _ _ _ _) (Nat.zero_le _) (fun _ _ e => by rw [h3, e]; rfl) (by rw [h4]; rfl)
   · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst2)
@@ -268,7 +272,8 @@ theorem run_flush {h H : Heap} {i b : Nat} (R : RunW h i b H) :
         have : z'.next_in = z.next_in := by rw [hzeq]
         rw [this]; exact hni (by rw [hzeq] at ha; exact ha)⟩,
       crc_frame F2 R.crc, ⟨z', hz', hb'⟩, R.blk0, out_frame R.frame R.out hz F2 hLo,
-      out_tail R.out hz hz' hLo hadv hav, fun st2 hst2 => ?_⟩, fun z4 st4 hz4 hst4 => ?_⟩
+      out_tail R.out hz hz' hLo hadv hav, R.inp.keep hz hz' (by rw [hzeq]) (by rw [hzeq]), fun st2 hst2 => ?_⟩,
+      fun z4 st4 hz4 hst4 => ?_⟩
   · obtain rfl := Option.some.inj (hst'.symm.trans hst2)
     obtain ⟨⟨a1, a2, a3, a4, -⟩, s2, s3, s4, s5, s6⟩ := R.side st hst
     have hst'' := hsteq
@@ -289,5 +294,115 @@ theorem run_flush {h H : Heap} {i b : Nat} (R : RunW h i b H) :
   · obtain rfl := Option.some.inj (hz.symm.trans hz4)
     obtain rfl := Option.some.inj (hst.symm.trans hst4)
     exact ⟨z', st', hz', hst', hsteq, hzeq, hpz, hbits, hdr_out R.io hz hb hst hno hLo O, by omega⟩
+
+/-! ## The stream's buffer counts across a call -/
+
+/-- `avail_in` of stream `i` (0 without a record). -/
+def aIn (H : Heap) (i : Nat) : Nat :=
+  match H.streams i with
+  | some z => z.avail_in.toNat
+  | none => 0
+
+/-- `avail_out` of stream `i` (0 without a record). -/
+def aOut (H : Heap) (i : Nat) : Nat :=
+  match H.streams i with
+  | some z => z.avail_out.toNat
+  | none => 0
+
+theorem aIn_of {H : Heap} {i : Nat} {z : ZStream} (hz : H.streams i = some z) : aIn H i = z.avail_in.toNat := by
+  simp [aIn, hz]
+
+theorem aOut_of {H : Heap} {i : Nat} {z : ZStream} (hz : H.streams i = some z) : aOut H i = z.avail_out.toNat := by
+  simp [aOut, hz]
+
+theorem aIn_congr {H H' : Heap} {i : Nat} (e : H'.streams i = H.streams i) : aIn H' i = aIn H i := by
+  simp [aIn, e]
+
+theorem aOut_congr {H H' : Heap} {i : Nat} (e : H'.streams i = H.streams i) : aOut H' i = aOut H i := by
+  simp [aOut, e]
+
+/-- What the return of a `deflate` call from `h` (entered with `flush`) leaves at `H`, returning `r`: with a flush other
+than `Z_FINISH` and a result other than `Z_STREAM_ERROR`, all input consumed or the output full; with `Z_OK` under
+`Z_FINISH`, or under `Z_NO_FLUSH` with input at entry, from an output with room at entry, input consumed or output
+produced. -/
+def DIO (h H : Heap) (i : Nat) (flush r : Int32) : Prop :=
+  (flush ≠ Z_FINISH → r ≠ Z_STREAM_ERROR → aIn H i = 0 ∨ aOut H i = 0) ∧
+  (r = Z_OK → (flush = Z_FINISH ∨ (flush = Z_NO_FLUSH ∧ aIn h i ≠ 0)) → aOut h i ≠ 0 →
+    aIn H i < aIn h i ∨ aOut H i < aOut h i)
+
+/-- `DIO` with a full output. -/
+theorem DIO.o0 {h H : Heap} {i : Nat} {flush r : Int32} (e : aOut H i = 0) : DIO h H i flush r :=
+  ⟨fun _ _ => .inr e, fun _ _ hne => .inr (by omega)⟩
+
+/-- `DIO` for a result other than `Z_OK`. -/
+theorem DIO.err {h H : Heap} {i : Nat} {flush r : Int32} (hr : r ≠ Z_OK)
+    (hc : flush ≠ Z_FINISH → r ≠ Z_STREAM_ERROR → aIn H i = 0 ∨ aOut H i = 0) : DIO h H i flush r :=
+  ⟨hc, fun e => absurd e hr⟩
+
+/-- `DIO` from all input consumed or the output full, and progress under `Z_FINISH`. -/
+theorem DIO.cf {h H : Heap} {i : Nat} {flush r : Int32} (hc : aIn H i = 0 ∨ aOut H i = 0)
+    (hF : r = Z_OK → flush = Z_FINISH → aOut h i ≠ 0 → aIn H i < aIn h i ∨ aOut H i < aOut h i) :
+    DIO h H i flush r := by
+  refine ⟨fun _ _ => hc, fun er ef hne => ?_⟩
+  rcases ef with ef | ⟨-, hin⟩
+  · exact hF er ef hne
+  · rcases hc with e | e
+    · left; omega
+    · right; omega
+
+/-- `DIO` moves to a heap with the same stream record. -/
+theorem DIO.congr {h H H' : Heap} {i : Nat} {flush r : Int32} (q : DIO h H i flush r)
+    (e : H'.streams i = H.streams i) : DIO h H' i flush r := by
+  unfold DIO; rw [aIn_congr e, aOut_congr e]; exact q
+
+/-- The counts do not grow over a `Run`. -/
+theorem Run.mono {h H : Heap} {i b : Nat} (R : Run h i b H) : aIn H i ≤ aIn h i ∧ aOut H i ≤ aOut h i := by
+  obtain ⟨z0, z, ob, oo, k, h0, h1, -, -, ek⟩ := R.out
+  obtain ⟨z0', z', k', h0', h1', ek', -⟩ := R.inp
+  obtain rfl := Option.some.inj (h0.symm.trans h0')
+  obtain rfl := Option.some.inj (h1.symm.trans h1')
+  rw [aIn_of h0, aIn_of h1, aOut_of h0, aOut_of h1]; omega
+
+theorem dframe_self (h : Heap) (S B G : List Nat) (W : List (BPtr × Nat)) : DFrame h h S B G W :=
+  ⟨⟨fun _ _ => rfl, fun _ _ => rfl, fun _ _ _ => ⟨rfl, rfl⟩, fun _ _ _ data hd => ⟨data, hd, rfl, fun _ _ _ => rfl⟩,
+    fun _ _ _ hn => hn, rfl, rfl, rfl, rfl, Nat.le_refl _⟩, fun _ _ _ => ⟨rfl, rfl⟩⟩
+
+/-- `Run` from the current heap. -/
+theorem Run.rebase {h H : Heap} {i b : Nat} (R : Run h i b H) : Run H i b H := by
+  obtain ⟨z, hz, hb⟩ := R.blk
+  obtain ⟨z2, ⟨i2, e2, hz2⟩, hnn, -⟩ := R.set
+  obtain rfl : i = i2 := Option.some.inj e2
+  obtain rfl : z = z2 := Option.some.inj (hz.symm.trans hz2)
+  have hio0 := R.io
+  obtain ⟨z3, b3, hp, ⟨i3, e3, hz3⟩, hb3, -, -, -, hout, -, -⟩ := hio0
+  obtain rfl : i = i3 := Option.some.inj e3
+  obtain rfl : z = z3 := Option.some.inj (hz.symm.trans hz3)
+  obtain ⟨ob, oo, ad, hno, -, -⟩ := hout.resolve_left hnn
+  exact ⟨R.inv, R.io, R.set, R.crc, R.blk, R.blk, dframe_self _ _ _ _ _,
+    ⟨z, z, ob, oo, 0, hz, hz, hno, by rw [hno]; rfl, by omega⟩, InTail.refl hz hz rfl rfl, R.side⟩
+
+/-- `RunW` from the current heap. -/
+theorem RunW.rebase {h H : Heap} {i b : Nat} (R : RunW h i b H) : RunW H i b H := by
+  obtain ⟨z, hz, hb⟩ := R.blk
+  obtain ⟨z2, ⟨i2, e2, hz2⟩, hnn, -⟩ := R.set
+  obtain rfl : i = i2 := Option.some.inj e2
+  obtain rfl : z = z2 := Option.some.inj (hz.symm.trans hz2)
+  have hio0 := R.io
+  obtain ⟨z3, b3, hp, ⟨i3, e3, hz3⟩, hb3, -, -, -, hout, -, -⟩ := hio0
+  obtain rfl : i = i3 := Option.some.inj e3
+  obtain rfl : z = z3 := Option.some.inj (hz.symm.trans hz3)
+  obtain ⟨ob, oo, ad, hno, -, -⟩ := hout.resolve_left hnn
+  exact ⟨R.work, R.io, R.set, R.crc, R.blk, R.blk, dframe_self _ _ _ _ _,
+    ⟨z, z, ob, oo, 0, hz, hz, hno, by rw [hno]; rfl, by omega⟩, InTail.refl hz hz rfl rfl, R.side⟩
+
+theorem sat_and {α : Type} {H : Heap} {m : M α} {P Q : α → Heap → Prop} (a : Sat H m P) (c : Sat H m Q) :
+    Sat H m (fun r H' => P r H' ∧ Q r H') := by
+  obtain ⟨r, H', e, p⟩ := a
+  obtain ⟨r2, H2, e2, q⟩ := c
+  rw [e] at e2
+  injection e2 with e3
+  injection e3 with e4 e5
+  subst e4; subst e5
+  exact ⟨r, H', e, p, q⟩
 
 end ZlibNgF.Proof.DeflateBody

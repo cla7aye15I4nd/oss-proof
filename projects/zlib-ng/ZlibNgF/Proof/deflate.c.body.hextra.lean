@@ -162,7 +162,7 @@ def EF (h : Heap) (i b k : Nat) (g : GzHeader) (L : Int32) (beg left : UInt32) (
 
 /-- The loop's invariant. -/
 def EI (h : Heap) (i b k : Nat) (g : GzHeader) (L : Int32) (s : Bool × UInt32 × UInt32) (H : Heap) : Prop :=
-  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → EF h i b k g L s.2.1 s.2.2 H)
+  (s.1 = true → Run h i b H ∧ LastM1 H i b) ∧ (s.1 = false → EF h i b k g L s.2.1 s.2.2 H)
 
 /-- The facts of the stream's state and block under `EF`. -/
 structure EFacts (h : Heap) (i b k : Nat) (g : GzHeader) (L : Int32) (beg left : UInt32) (H : Heap) (z : ZStream)
@@ -300,7 +300,7 @@ theorem exBody_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {L : Int32} {beg lef
 
 /-- What the copy loop leaves. -/
 def EQ (h : Heap) (i b k : Nat) (g : GzHeader) (L : Int32) (s : Bool × UInt32 × UInt32) (H : Heap) : Prop :=
-  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → EF h i b k g L s.2.1 s.2.2 H ∧
+  (s.1 = true → Run h i b H ∧ LastM1 H i b) ∧ (s.1 = false → EF h i b k g L s.2.1 s.2.2 H ∧
     ∀ st, H.dstate b = some st → st.pending.toNat + s.2.2.toNat ≤ st.pending_buf_size.toNat)
 
 /-- The loop condition and, when it holds, the trip. -/
