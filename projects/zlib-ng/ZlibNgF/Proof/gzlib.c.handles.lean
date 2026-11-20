@@ -5,8 +5,8 @@ import ZlibNgF.Proof.«gzread.c.lookspec»
 /-!
 # The induction over reachable files, and the goals proved on every handle (`ZlibNgF`)
 
-`greach (W : GWriteSteps) (R : GReadPending) : GzReachable w h f → GzInvR w h f ∨ GzInvWS w h f`. Each goal of a
-read-side call follows from `GWriteSteps` (what the write side owes) and `GReadPending` (the read-side calls whose
+`greachI (W : GWriteSteps) (R : GReadPending) : GzReachable w h f → (GzInvR w h f ∧ LookIdle w h f) ∨ GzInvWS w h f`
+(`LookIdle` is a between-call fact carried next to the read invariant). Each goal of a read-side call follows from `GWriteSteps` (what the write side owes) and `GReadPending` (the read-side calls whose
 preservation of the read invariant is not proved yet).
 -/
 
@@ -17,46 +17,47 @@ open C ZlibNgF.Spec ZlibNgF.Spec.Safety ZlibNg.Gz ZlibNgF.Proof.GzInv ZlibNgF.Pr
 
 /-! ## The induction -/
 
-/-- The read-side calls whose preservation of the invariant is not proved yet. -/
+/-- The read-side calls whose preservation of the invariant (with `LookIdle`) is not proved yet. -/
 structure GReadPending : Prop where
-  read : KeepsR SRead
-  fread : KeepsR SFread
-  getc : KeepsR SGetc
-  getc_ : KeepsR SGetc_
-  ungetc : KeepsR SUngetc
-  gets : KeepsR SGets
+  read : KeepsRI SRead
+  fread : KeepsRI SFread
+  getc : KeepsRI SGetc
+  getc_ : KeepsRI SGetc_
+  ungetc : KeepsRI SUngetc
+  gets : KeepsRI SGets
 
 theorem step_keeps (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
-    (hv : GzInvR w h f ∨ GzInvWS w h f) (hs : GzStep w h w' h' f) : GzInvR w' h' f ∨ GzInvWS w' h' f := by
-  rcases hv with hv | hv
+    (hv : (GzInvR w h f ∧ LookIdle w h f) ∨ GzInvWS w h f) (hs : GzStep w h w' h' f) :
+    (GzInvR w' h' f ∧ LookIdle w' h' f) ∨ GzInvWS w' h' f := by
+  rcases hv with ⟨hv, hi⟩ | hv
   · left
     rcases hs with x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x
-    · exact buffer_keeps.1 _ _ _ _ _ hv x
-    · exact R.read _ _ _ _ _ hv x
-    · exact R.fread _ _ _ _ _ hv x
-    · exact R.getc _ _ _ _ _ hv x
-    · exact R.getc_ _ _ _ _ _ hv x
-    · exact R.ungetc _ _ _ _ _ hv x
-    · exact R.gets _ _ _ _ _ hv x
-    · exact direct_keepsR _ _ _ _ _ hv x
-    · exact wstep_keepsR _ _ _ _ _ hv (Or.inl x)
-    · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inl x))
-    · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inl x)))
-    · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inl x))))
-    · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x)))))
-    · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x))))))
-    · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x)))))))
-    · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr x)))))))
-    · exact seek64R_keeps _ _ _ _ _ hv x
-    · exact seekR_keeps _ _ _ _ _ hv x
-    · exact rewind_keepsR _ _ _ _ _ hv x
-    · exact tell64_keeps.1 _ _ _ _ _ hv x
-    · exact tell_keeps.1 _ _ _ _ _ hv x
-    · exact offset64_keeps.1 _ _ _ _ _ hv x
-    · exact offset_keeps.1 _ _ _ _ _ hv x
-    · exact eof_keeps.1 _ _ _ _ _ hv x
-    · exact error_keeps.1 _ _ _ _ _ hv x
-    · exact clearerr_keeps.1 _ _ _ _ _ hv x
+    · exact buffer_keepsI _ _ _ _ _ hv hi x
+    · exact R.read _ _ _ _ _ hv hi x
+    · exact R.fread _ _ _ _ _ hv hi x
+    · exact R.getc _ _ _ _ _ hv hi x
+    · exact R.getc_ _ _ _ _ _ hv hi x
+    · exact R.ungetc _ _ _ _ _ hv hi x
+    · exact R.gets _ _ _ _ _ hv hi x
+    · exact direct_keepsRI _ _ _ _ _ hv hi x
+    · exact wstep_keepsRI _ _ _ _ _ hv hi (Or.inl x)
+    · exact wstep_keepsRI _ _ _ _ _ hv hi (Or.inr (Or.inl x))
+    · exact wstep_keepsRI _ _ _ _ _ hv hi (Or.inr (Or.inr (Or.inl x)))
+    · exact wstep_keepsRI _ _ _ _ _ hv hi (Or.inr (Or.inr (Or.inr (Or.inl x))))
+    · exact wstep_keepsRI _ _ _ _ _ hv hi (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x)))))
+    · exact wstep_keepsRI _ _ _ _ _ hv hi (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x))))))
+    · exact wstep_keepsRI _ _ _ _ _ hv hi (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x)))))))
+    · exact wstep_keepsRI _ _ _ _ _ hv hi (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr x)))))))
+    · exact seek64R_keepsI _ _ _ _ _ hv hi x
+    · exact seekR_keepsI _ _ _ _ _ hv hi x
+    · exact rewind_keepsRI _ _ _ _ _ hv hi x
+    · exact tell64_keepsI _ _ _ _ _ hv hi x
+    · exact tell_keepsI _ _ _ _ _ hv hi x
+    · exact offset64_keepsI _ _ _ _ _ hv hi x
+    · exact offset_keepsI _ _ _ _ _ hv hi x
+    · exact eof_keepsI _ _ _ _ _ hv hi x
+    · exact error_keepsI _ _ _ _ _ hv hi x
+    · exact clearerr_keepsI _ _ _ _ _ hv hi x
   · right
     rcases hs with x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x | x
     · exact buffer_keeps.2 _ _ _ _ _ hv x
@@ -96,21 +97,44 @@ theorem open_keeps {m : G GzPtr} {w : World} {h : Heap} {f : GzPtr} {w' : World}
   · exact Or.inl ⟨⟨b, s, rfl, hs', sh, hn⟩, ⟨b, s, rfl, hs', hm⟩, GzWFr.of hwf⟩
   · exact Or.inr ⟨⟨b, s, rfl, hs', sh, hn⟩, ⟨b, s, rfl, hs', hm⟩, GzWFw.of hwf⟩
 
-/-- **The induction.** A reachable file is a read handle or a write handle. -/
-theorem greach (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {f : GzPtr} (hr : GzReachable w h f) :
-    GzInvR w h f ∨ GzInvWS w h f := by
+/-- A successful opening call leaves no buffers, so `LookIdle` holds on a read handle. -/
+theorem open_keepsI {m : G GzPtr} {w : World} {h : Heap} {f : GzPtr} {w' : World} {h' : Heap}
+    (hs : GSat w h m (GzOpen.OpenPost w h)) (e : GzRun m w h f w' h') (hne : f ≠ none) :
+    (GzInvR w' h' f ∧ LookIdle w' h' f) ∨ GzInvWS w' h' f := by
+  rcases open_keeps hs e hne with hv | hv
+  · left
+    refine ⟨hv, ?_⟩
+    obtain ⟨r, w2, h2, e2, q⟩ := hs
+    have e' : m w h = .ok ((f, w'), h') := e
+    rw [e2] at e'
+    cases e'
+    cases f with
+    | none => exact absurd rfl hne
+    | some b =>
+      obtain ⟨-, s, hs', -, hsz, -⟩ := q.2.2 b rfl
+      exact idle_of hv hs' (Or.inr (Or.inr hsz))
+  · exact Or.inr hv
+
+/-- **The induction.** A reachable file is a read handle with `LookIdle` or a write handle. -/
+theorem greachI (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {f : GzPtr} (hr : GzReachable w h f) :
+    (GzInvR w h f ∧ LookIdle w h f) ∨ GzInvWS w h f := by
   induction hr with
   | gzopen w h w' h' path mode f hwf hp hm e hne =>
-    exact open_keeps (GzOpenPublic.gzopen_spec hwf path mode (Or.inr hp) (Or.inr hm)) e hne
+    exact open_keepsI (GzOpenPublic.gzopen_spec hwf path mode (Or.inr hp) (Or.inr hm)) e hne
   | gzopen64 w h w' h' path mode f hwf hp hm e hne =>
-    exact open_keeps (GzOpenPublic.gzopen64_spec hwf path mode (Or.inr hp) (Or.inr hm)) e hne
+    exact open_keepsI (GzOpenPublic.gzopen64_spec hwf path mode (Or.inr hp) (Or.inr hm)) e hne
   | gzdopen w h w' h' fd mode f hwf hm e hne =>
-    exact open_keeps (GzOpenPublic.gzdopen_spec hwf fd mode (Or.inr hm)) e hne
+    exact open_keepsI (GzOpenPublic.gzdopen_spec hwf fd mode (Or.inr hm)) e hne
   | step w h w' h' f _ hs ih => exact step_keeps W R ih hs
   | caller w h w' h' f _ hc ih =>
-    rcases ih with ih | ih
-    · exact Or.inl (caller_keepsR _ _ _ _ _ ih hc)
+    rcases ih with ⟨ih, hi⟩ | ih
+    · exact Or.inl (caller_keepsRI _ _ _ _ _ ih hi hc)
     · exact Or.inr (caller_keepsW _ _ _ _ _ ih hc)
+
+/-- A reachable file is a read handle or a write handle. -/
+theorem greach (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {f : GzPtr} (hr : GzReachable w h f) :
+    GzInvR w h f ∨ GzInvWS w h f :=
+  (greachI W R hr).imp_left And.left
 
 /-- An accepted file is `NULL`, a read handle or a write handle. -/
 theorem handle (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {f : GzPtr} (hh : GzHandle w h f) :
@@ -243,7 +267,7 @@ theorem gzdirect_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzdirect_
   rcases handle W R hh with rfl | hv | hv
   · exact ⟨0, w, h, rfl, gzframe_refl w h none []⟩
   · obtain ⟨b, s, rfl, -, -, -⟩ := hv.1
-    obtain ⟨r, w', h', e, -, g⟩ := (gzdirect_read hv).run
+    obtain ⟨r, w', h', e, -, g, -⟩ := (gzdirect_read hv).run
     exact ⟨r, w', h', e, g.frame⟩
   · obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
     exact ⟨_, _, _, gzdirect_write hs (modeOf hs hv.2.1), gzframe_refl w h _ []⟩
