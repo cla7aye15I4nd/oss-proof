@@ -56,7 +56,11 @@ theorem pullbyte_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {
     have hc1 : (1 : UInt32) ≤ l.have_ := by rw [UInt32.le_iff_toNat_le]; exact hh1
     have li1 := li.consume hnx 1 hc1 { l with have_ := l.have_ - 1, next := .ref r (o + 1) }
       rfl rfl rfl rfl rfl rfl
-    refine ⟨rfl, li1.setBits rfl rfl rfl rfl rfl ?_, ⟨rfl, ?_⟩, hb8, by rw [hsub]; omega⟩
+    have hlt : l.have_ - 1 < E.A0 := by
+      have : l.have_.toNat ≤ E.A0.toNat := li.inAt.1
+      rw [UInt32.lt_iff_toNat_lt, hsub]; omega
+    refine ⟨rfl, li1.setBits rfl rfl rfl rfl rfl ?_ rfl rfl (fun _ => Fr.ofLt hlt), ⟨rfl, ?_⟩, hb8,
+      by rw [hsub]; omega⟩
     · show l.bits + 8 ≤ 39
       rw [UInt8.le_iff_toNat_le, hb8]; exact hb
     · show 8 * (l.have_ - 1).toNat + (l.bits + 8).toNat = _
@@ -483,10 +487,11 @@ theorem bad_withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     {m : Nat} (S' : InflateState)
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view { S' with mode := BAD }) al)
     (hh : S'.head = S.head) (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) < m) (msg : String)
-    {i : Nat} (hi : strTable.findIdx? (· == msg) = some i) :
+    {i : Nat} (hi : strTable.findIdx? (· == msg) = some i) (hlast : S'.last = S.last := by rfl) :
     SatX (withS H E.b S') { l with ret := v } (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ())
       (Post E m) := by
   have li1 := li.withS { S' with mode := BAD } keep hh (Or.inr fun _ => show rank BAD ≤ 2 by decide)
+    (fun h => h.mono rfl fun ⟨a, b, _, d⟩ => ⟨a, hlast ▸ b, Or.inr (Or.inr rfl), d⟩)
   have hs : Sat (withS H E.b S') (SET_BAD E.c msg) (fun _ H' => ∃ z', LI E l H' z' { S' with mode := BAD }) := by
     unfold SET_BAD
     refine Sat.bind (Sat.of_eq (wrS_withS li.hs S' _) ?_)
@@ -648,6 +653,7 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
   have li1r : ret = 0 → LI E { l1 with ret := ret } H1 z1 S1 :=
     fun h0 => li1.setRet ret (by rw [h0]; decide)
+      (fun h => h.mono rfl (FrS.keep (Nat.le_refl _) rfl (Or.inl rfl) (Or.inr (by show ret ≠ Z_STREAM_END; rw [h0]; decide))))
   refine SatX.bind (SatX.modify (SatX.ite (fun hne => ?_) (fun hne => ?_)))
   · have h0 : ret ≠ 0 := by simpa using hne
     obtain rfl := herr h0
@@ -698,6 +704,7 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
   have li1r2 : ret2 = 0 → LI E { { l1 with ret := ret } with ret := ret2 } H1 z1 S1 :=
     fun h02 => (li1r h0).setRet ret2 (by rw [h02]; decide)
+      (fun h => h.mono rfl (FrS.keep (Nat.le_refl _) rfl (Or.inl rfl) (Or.inr (by show ret2 ≠ Z_STREAM_END; rw [h02]; decide))))
   refine SatX.bind (SatX.modify (SatX.ite (fun hne2 => ?_) (fun hne2 => ?_)))
   · have h02 : ret2 ≠ 0 := by simpa using hne2
     have ho := herr2 h02

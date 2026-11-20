@@ -86,9 +86,10 @@ theorem storeLens_withS {H : Heap} {b : Nat} {S : InflateState} (hs : H.istate b
 theorem LI.withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (S' : InflateState)
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view S') al)
-    (hh : S'.head = S.head) (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank S'.mode ≤ 2) := by exact Or.inr id) :
+    (hh : S'.head = S.head) (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank S'.mode ≤ 2) := by exact Or.inr id)
+    (hfr : Fr E l S → Fr E l S' := by frt) :
     LI E l (withS H E.b S') z S' := by
-  obtain ⟨_, H', e, hl⟩ := li.wrS (fun _ => S') keep hh ho
+  obtain ⟨_, H', e, hl⟩ := li.wrS (fun _ => S') keep hh ho hfr
   rw [wrS_app li.hs] at e
   obtain ⟨-, rfl⟩ := Prod.mk.inj (Except.ok.inj e)
   exact hl
@@ -388,7 +389,8 @@ theorem run_LENLENS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_CODELENS (�
         mode := CODELENS } (fun _ _ c => core_CL c hm2 hcs hws
           (by have : (1332 : Nat) ≤ ENOUGH := by decide
               have e : (if ZlibNg.Inftrees.CODES = ZlibNg.Inftrees.DISTS then 592 else 1332) = 1332 := by decide
-              omega) lb hct') rfl (Or.inl (li2.outEq (by rw [hm2]; decide)))).setRet ret (by rw [h0]; decide)) rfl m ?_
+              omega) lb hct') rfl (Or.inl (li2.outEq (by rw [hm2]; decide)))).setRet ret (by rw [h0]; decide)
+      (fun h => h.mono rfl (FrS.keep (Nat.le_refl _) rfl (Or.inl rfl) (Or.inr (by show ret ≠ Z_STREAM_END; rw [h0]; decide))))) rfl m ?_
     unfold μ; dsimp only; rw [rank_CODELENS]; omega
 
 /-! ## `TABLE` -/
@@ -404,7 +406,8 @@ theorem LI.drop {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (
     LI E { l with hold := l.hold >>> n.toUInt64, bits := l.bits - n.toUInt8 } H z S :=
   li.setBits rfl rfl rfl rfl rfl (by
     rw [UInt8.le_iff_toNat_le, drop_toNat hn hb]; have := li.bits; rw [UInt8.le_iff_toNat_le] at this
-    show _ ≤ 39; have : l.bits.toNat ≤ 39 := this; omega)
+    show _ ≤ 39; have : l.bits.toNat ≤ 39 := this; omega) rfl rfl
+    (fun h => h.mono rfl (FrS.dec (by show (l.bits - n.toUInt8).toNat ≤ _; rw [drop_toNat hn hb]; omega) rfl))
 
 theorem bits4_le (x : UInt64) : (x &&& ((1 : UInt32) <<< (4 : UInt32) - 1).toUInt64).toUInt32 + 4 ≤ 19 := by
   have e : ((1 : UInt32) <<< (4 : UInt32) - 1).toUInt64 = 15 := by decide

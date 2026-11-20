@@ -50,7 +50,7 @@ theorem LI.wrBytes {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
     LI E l { H with bytes := upd H.bytes bd (some a') } z S := by
   have hbb : (upd H.bytes bd (some a')) E.b = H.bytes E.b := upd_ne _ _ _ _ (fun e => hne e.symm)
   refine ⟨inv_bytes_ne li.inv ?_, ?_, ?_, li.hz, li.hb, ?_, li.head, li.hdr, li.inAt, li.outAt, li.bits, li.inn,
-    li.outO, li.retB, li.sacc, li.msgK⟩
+    li.outO, li.retB, li.sacc, li.msgK, li.fr⟩
   · rintro b' ⟨z', ⟨i', hi', hz'⟩, hb'⟩
     cases hi'
     rw [li.hz] at hz'; cases hz'; rw [li.hb] at hb'; cases hb'
@@ -160,7 +160,11 @@ theorem LI.consume {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
   have hle' : l.have_.toNat ≤ E.A0.toNat := hle
   have hs : (l.have_ - c).toNat = l.have_.toNat - c.toNat := UInt32.toNat_sub_of_le _ _ hc
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, ?_, by rw [e3, e4, e5]; exact li.outAt,
-    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn, by rw [e4]; exact li.outO, by rw [e8]; exact li.retB, li.sacc, li.msgK⟩
+    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn, by rw [e4]; exact li.outO, by rw [e8]; exact li.retB, li.sacc, li.msgK, fun hf ha => by
+      have h0 : l.have_ = E.A0 := UInt32.toNat_inj.mp (by
+        have := congrArg UInt32.toNat ha; rw [e2, hs] at this; omega)
+      obtain ⟨a, b, c', d⟩ := li.fr hf h0
+      exact ⟨e6 ▸ a, b, c', e8 ▸ d⟩⟩
   rw [e1, e2]
   refine ⟨by rw [UInt32.le_iff_toNat_le, hs]; omega, ?_⟩
   revert hat
@@ -428,13 +432,13 @@ theorem run_NAME (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_COMMENT (·.mo
   intro l H z S li hm m hμ
   have hμ' : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 20 ≤ m := by
     unfold μ at hμ; rwa [hm, rank_NAME] at hμ
-  have tail : ∀ l' H' z' S', LI E l' H' z' S' → l'.out = E.O0 →
+  have tail : ∀ l' H' z' S', LI E l' H' z' S' → S'.mode = NAME → l'.out = E.O0 →
       32 * (8 * l'.have_.toNat + l'.bits.toNat + l'.left.toNat) + 19 ≤ m →
       SatX H' l' (do
         (MonadLiftT.monadLift (ZlibNg.Inflate.wrS E.c.st fun s => { s with length := 0 }) : X Unit)
         (MonadLiftT.monadLift (setMode E.c.st COMMENT) : X Unit)
         inflate_COMMENT E.c) (Post E m) := by
-    intro l' H' z' S' li' hO hb
+    intro l' H' z' S' li' hS' hO hb
     refine SatX.bind (SatX.lift (Sat.mono (li'.wrS (fun s => { s with length := 0 })
       (fun _ _ c => { c with }) rfl) ?_))
     intro _ H2 li2
@@ -446,11 +450,11 @@ theorem run_NAME (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_COMMENT (·.mo
   · refine strPart_ok eo (·.name) (·.name_max) (fun li k g hk hg => (li.hbufs eo hk hg).2.1) li
       _ ?_
     intro l' H' S' li' hm' hb hl hh
-    exact tail _ _ _ _ li' (li'.outEq (by rw [hm', hm]; decide)) (by rw [hb, hl]; omega)
+    exact tail _ _ _ _ li' (hm'.trans hm) (li'.outEq (by rw [hm', hm]; decide)) (by rw [hb, hl]; omega)
   · refine hdr1_tail eo li (fun g => { g with name := .null })
       (fun g => ⟨Or.inl rfl, rfl, Or.inr rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
     intro H3 li3
-    exact tail _ _ _ _ li3 (li3.outEq (by rw [hm]; decide)) (by omega)
+    exact tail _ _ _ _ li3 hm (li3.outEq (by rw [hm]; decide)) (by omega)
 
 /-! ## `EXTRA` -/
 
@@ -469,7 +473,8 @@ theorem leaveLen {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} 
 /-- `state->length = 0; state->mode = NAME;` and the fall-through into `NAME`, from `EXTRA`. -/
 theorem tailN {E : Env} (hN : ModeRun E inflate_NAME (·.mode = NAME)) {l : IL} {H : Heap} {z : ZStream}
     {S : InflateState} (li : LI E l H z S) {m : Nat}
-    (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 20 ≤ m) (hO : l.out = E.O0) :
+    (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 20 ≤ m) (hO : l.out = E.O0)
+    (hS : S.mode = EXTRA) :
     SatX H l (do
       (MonadLiftT.monadLift (ZlibNg.Inflate.wrS E.c.st fun s => { s with length := 0 }) : X Unit)
       (MonadLiftT.monadLift (setMode E.c.st NAME) : X Unit)
@@ -673,17 +678,17 @@ theorem run_EXTRA (E : Env) (eo : EnvOK E) (hN : ModeRun E inflate_NAME (·.mode
           · exact e
         rw [UInt32.lt_iff_toNat_lt]; omega
       refine leaveLen li'' _ (fun _ => Why.read hA)
-        (fun _ => tailN hN li'' ?_ (li''.outEq (by rw [hm'']; decide)))
+        (fun _ => tailN hN li'' ?_ (li''.outEq (by rw [hm'']; decide)) (by first | exact hm'' | exact hm''.trans hm))
       rw [hb, hl]; omega
     · rename_i hc0'
       have hc0 : c = 0 := by simpa using hc0'
       refine leaveLen li1 _ (fun hl => ?_) (fun _ => tailN hN li1
         (by show 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + 20 ≤ m; omega)
-        (li1.outEq (by rw [hm]; decide)))
+        (li1.outEq (by rw [hm]; decide)) hm)
       rcases hcv with e | e
       · exact Why.have0 (show l.have_ = 0 by rw [← e, hc0])
       · exact absurd (show S.length = 0 by rw [← hc0, e]) hl
   · refine SatX.ite (fun h => absurd h hf) (fun _ => ?_)
-    exact tailN hN li (by omega) (li.outEq (by rw [hm]; decide))
+    exact tailN hN li (by omega) (li.outEq (by rw [hm]; decide)) hm
 
 end ZlibNgF.Proof.InflateLoop

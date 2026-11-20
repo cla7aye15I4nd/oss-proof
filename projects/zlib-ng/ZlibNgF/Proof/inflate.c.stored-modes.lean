@@ -50,7 +50,8 @@ theorem LI.produce {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
   have hc' : c.toNat ≤ l.left.toNat := hc
   have hs : (l.left - c).toNat = l.left.toNat - c.toNat := UInt32.toNat_sub_of_le _ _ hc
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [e1, e2]; exact li.inAt, ?_,
-    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn, by rw [e4]; exact li.outO, by rw [e8]; exact li.retB, li.sacc, li.msgK⟩
+    by rw [e6]; exact li.bits, by rw [e7]; exact li.inn, by rw [e4]; exact li.outO, by rw [e8]; exact li.retB, li.sacc, li.msgK,
+    li.fr.mono e2 fun ⟨a, b, c, d⟩ => ⟨e6 ▸ a, b, c, e8 ▸ d⟩⟩
   rw [e3, e4, e5]
   refine ⟨by rw [UInt32.le_iff_toNat_le, hs]; omega, ob, h1, h2, ?_⟩
   rw [hp] at hput
@@ -247,12 +248,12 @@ theorem decodeMode_rank {M : UInt32} (h : DecodeMode M) : 2 < rank M := by
 
 open ZlibNgF.Proof.InflateInv (DecodeMode) in
 theorem LI.setLen {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
-    (hd : DecodeMode S.mode) :
+    (hd : DecodeMode S.mode) (hfr : Fr E l S → Fr E l { S with mode := LEN } := by frt) :
     Sat H (setMode (some E.b) LEN) (fun _ H' => LI E l H' z { S with mode := LEN }) :=
   li.wrS (fun s => { s with mode := LEN }) (fun _ _ c => { c with
     mode_lo := by show HEAD ≤ LEN; decide
     mode_hi := by show LEN ≤ SYNC; decide
-    modes := modeOK_len _ S c.modes hd }) rfl (Or.inl (li.outEq (decodeMode_rank hd)))
+    modes := modeOK_len _ S c.modes hd }) rfl (Or.inl (li.outEq (decodeMode_rank hd))) hfr
 
 theorem run_LIT (E : Env) (eo : EnvOK E) : ModeRun E inflate_LIT (·.mode = LIT) := by
   intro l H z S li hm m hμ
