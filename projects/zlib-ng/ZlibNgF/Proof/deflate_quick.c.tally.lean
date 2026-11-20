@@ -31,8 +31,8 @@ theorem slf_flush_only (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M 
       (∀ z2 st2, H2.streams i = some z2 → H2.dstate b = some st2 → z2.avail_out ≠ 0 → st2.pending = 0)) := by
   obtain ⟨z, st, al, hz, hb, hst, hal, c⟩ := F.live
   obtain ⟨hp0, hwin⟩ := hp st hst
-  obtain ⟨hlv, -, -⟩ := F.st st hst
-  obtain ⟨h', e, P⟩ := flush_block_only_ok T window last hl0 hl1 F.inv F.io F.set hz hb hst hp0 hlv hwin hwm
+  obtain ⟨hlv, -, -, h8⟩ := F.st st hst
+  obtain ⟨h', e, P⟩ := flush_block_only_ok T window last hl0 hl1 F.inv F.io F.set hz hb hst hp0 hlv h8 hwin hwm
   obtain ⟨z', st', -, hz', hst', -, -, -, -, hpz', -, -⟩ := P.out
   refine ⟨(), h', e, ?_⟩
   obtain ⟨z2, st2, L, hz2, hst2, hLo, hav, hze, hadv, hpz, hsym, st1, hK1, hst2e⟩ := P.out
@@ -82,7 +82,7 @@ theorem slf_flush_only (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M 
     exact StratKeeps.trans (hw st hst) hK
   · intro st3 hst3
     obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)
-    exact ⟨by rw [hk4]; exact hlv, by rw [hk5]; exact (F.st st hst).2.1, fun _ => hsym⟩
+    exact ⟨by rw [hk4]; exact hlv, by rw [hk5]; exact (F.st st hst).2.1, fun _ => hsym, P.bits _ hst'⟩
   · obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)
     exact ⟨hsym, hsend, st, hst, hk1, hk2, hk3⟩
   · obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)

@@ -46,18 +46,19 @@ theorem lt_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {
   simp [Ptr.lt, ZlibNgF.Proof.InflateAlloc.space_get_heap, h1, h2]
 
 /-- What `deflatePrime` leaves on the state of block `b`: new `pending`, `bi_buf`, `bi_valid`, the bytes changed
-only after the old pending bytes, fewer than 8 bits, and at most `T` pending bytes. -/
+only after the old pending bytes, at most 63 bits; either fewer than 8 bits and at most `T` pending bytes, or (an
+early return) the old `pending` and `bi_valid`. -/
 def PPost (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8) (pbo T : Nat)
     (H' : Heap) : Prop :=
   ∃ np bb bv d', H' = SH H i z b { st with pending := np, bi_buf := bb, bi_valid := bv } d' ∧
-    WrIn d (pbo + st.pending.toNat) (pbo + np.toNat) d' ∧ 0 ≤ bv.toInt ∧ bv.toInt < 8 ∧
-    st.pending.toNat ≤ np.toNat ∧ np.toNat ≤ T
+    WrIn d (pbo + st.pending.toNat) (pbo + np.toNat) d' ∧ 0 ≤ bv.toInt ∧ bv.toInt < 64 ∧
+    st.pending.toNat ≤ np.toNat ∧ ((bv.toInt < 8 ∧ np.toNat ≤ T) ∨ (bv = st.bi_valid ∧ np = st.pending))
 
 /-- The loop state of `deflatePrime`: `x.1` bits still to insert, all the bits counted. -/
 def PInv (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8) (pbo tot : Nat)
     (x : Int32 × UInt64) (H' : Heap) : Prop :=
   ∃ np bb bv d', H' = SH H i z b { st with pending := np, bi_buf := bb, bi_valid := bv } d' ∧
-    WrIn d (pbo + st.pending.toNat) (pbo + np.toNat) d' ∧ 0 ≤ bv.toInt ∧ bv.toInt < 8 ∧
+    WrIn d (pbo + st.pending.toNat) (pbo + np.toNat) d' ∧ 0 ≤ bv.toInt ∧ bv.toInt < 64 ∧
     0 ≤ x.1.toInt ∧ x.1.toInt ≤ 64 ∧ np.toNat * 8 + bv.toInt.toNat + x.1.toInt.toNat = tot ∧
     st.pending.toNat ≤ np.toNat
 
@@ -65,11 +66,11 @@ theorem prime_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
     {pbo lb : Nat} (k : DOk i z b st) (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
     (hsb : st.sym_buf = .val (.ref (.heap b) (pbo + lb + 8))) (hpend : st.pending.toNat ≤ 4 * lb + 9)
     (hd : pbo + 4 * lb + 64 ≤ d.size) (hlb : lb ≤ 32768) (hv0 : 0 ≤ st.bi_valid.toInt)
-    (hv8 : st.bi_valid.toInt < 8) (bits value : Int32) :
+    (hv8 : st.bi_valid.toInt < 64) (bits value : Int32) :
     Sat (SH H i z b st d) (deflatePrime (some i) bits value)
-      (fun _ H' => PPost H i z b st d pbo (max st.pending.toNat (lb + 8)) H') := by
-  have hrefl : PPost H i z b st d pbo (max st.pending.toNat (lb + 8)) (SH H i z b st d) :=
-    ⟨st.pending, st.bi_buf, st.bi_valid, d, rfl, WrIn.refl _ _ _, hv0, hv8, Nat.le_refl _, Nat.le_max_left _ _⟩
+      (fun _ H' => PPost H i z b st d pbo (lb + 8) H') := by
+  have hrefl : PPost H i z b st d pbo (lb + 8) (SH H i z b st d) :=
+    ⟨st.pending, st.bi_buf, st.bi_valid, d, rfl, WrIn.refl _ _ _, hv0, hv8, Nat.le_refl _, Or.inr ⟨rfl, rfl⟩⟩
   unfold deflatePrime
   refine Sat.bind (Sat.of_eq (check_SH k) ?_)
   simp only [Bool.false_eq_true, ↓reduceIte]
@@ -106,7 +107,7 @@ theorem prime_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
     omega
   refine Sat.bind (Sat.mono (sat_cdoWhile (PInv H i z b st d pbo
       (st.pending.toNat * 8 + st.bi_valid.toInt.toNat + bits.toInt.toNat)) (fun x => x.1.toInt.toNat)
-    (fun _ H' => PPost H i z b st d pbo (max st.pending.toNat (lb + 8)) H') ?_
+    (fun _ H' => PPost H i z b st d pbo (lb + 8) H') ?_
     ⟨st.pending, st.bi_buf, st.bi_valid, d, rfl, WrIn.refl _ _ _, hv0, hv8, hb0, hb64, rfl, Nat.le_refl _⟩
     (by show bits.toInt.toNat < 2 ^ 64; omega)) (fun _ _ q => Sat.pure q))
   rintro ⟨br, v⟩ H1 ⟨np, bb, bv, d1, rfl, w1, hbv0, hbv8, hbr0, hbr64, htot, hnp⟩
@@ -141,8 +142,8 @@ theorem prime_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
     have w12 : WrIn d (pbo + st.pending.toNat) (pbo + np2.toNat) d2 :=
       (w1.widen (Nat.le_refl _) (by omega)).trans (w2.widen (by omega) (Nat.le_refl _)) (Nat.le_refl _)
         (Nat.le_refl _)
-    refine Sat.pure (Sat.pure ⟨fun hc => ⟨⟨np2, bb2, bv2, d2, rfl, w12, h20, h28, ?_, ?_, ?_, by omega⟩, ?_⟩,
-      fun _ => ⟨np2, bb2, bv2, d2, rfl, w12, h20, h28, by omega, ?_⟩⟩)
+    refine Sat.pure (Sat.pure ⟨fun hc => ⟨⟨np2, bb2, bv2, d2, rfl, w12, h20, by omega, ?_, ?_, ?_, by omega⟩, ?_⟩,
+      fun _ => ⟨np2, bb2, bv2, d2, rfl, w12, h20, by omega, by omega, Or.inl ⟨h28, ?_⟩⟩⟩)
     · dsimp only; omega
     · dsimp only; omega
     · dsimp only; omega
@@ -183,8 +184,8 @@ theorem prime_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
     have w12 : WrIn d (pbo + st.pending.toNat) (pbo + np2.toNat) d2 :=
       (w1.widen (Nat.le_refl _) (by omega)).trans (w2.widen (by omega) (Nat.le_refl _)) (Nat.le_refl _)
         (Nat.le_refl _)
-    refine Sat.pure (Sat.pure ⟨fun hc => ⟨⟨np2, bb2, bv2, d2, rfl, w12, h20, h28, ?_, ?_, ?_, by omega⟩, ?_⟩,
-      fun _ => ⟨np2, bb2, bv2, d2, rfl, w12, h20, h28, by omega, ?_⟩⟩)
+    refine Sat.pure (Sat.pure ⟨fun hc => ⟨⟨np2, bb2, bv2, d2, rfl, w12, h20, by omega, ?_, ?_, ?_, by omega⟩, ?_⟩,
+      fun _ => ⟨np2, bb2, bv2, d2, rfl, w12, h20, by omega, by omega, Or.inl ⟨h28, ?_⟩⟩⟩)
     · dsimp only; omega
     · dsimp only; omega
     · dsimp only; omega
@@ -219,17 +220,23 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
   obtain ⟨-, -, -, l1, l2, -, -⟩ := c.sizes
   obtain ⟨d, wo, po, ho, pbo, hd, hw, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hpoo, hpe⟩ := c.lay
   obtain ⟨b0, b8⟩ := c.bits
+  have hq0 := c.psym
   simp only [dview] at l1 l2 hw hp hh hpb h1 h2 h3 h4 hsb hpo hpoo hpe b0 b8
   have hda : h.dallocs b = some al := by simpa [Heap.dallocsOf, hd] using hal
   have v0 : 0 ≤ st.bi_valid.toInt := by have := Int32.le_iff_toInt_le.mp b0; simpa using this
-  have v8 : st.bi_valid.toInt < 8 := by have := Int32.lt_iff_toInt_lt.mp b8; simpa using this
+  have v8 : st.bi_valid.toInt < 64 := by have := Int32.lt_iff_toInt_lt.mp b8; simpa using this
   have S := prime_SH (H := h) (d := d) (lb := st.lit_bufsize.toNat) ⟨L.za, L.zf, L.hb, L.ab, L.sm, L.lo, L.hi⟩
     hpb hsb (by omega) h4 l2 v0 v8 bits value
   rw [DeflateReset.SH_self L.hz L.hst hd] at S
-  obtain ⟨r, h', e, np, bb, bv, d', rfl, w, h0, h8, hle, hge⟩ := S
+  obtain ⟨r, h', e, np, bb, bv, d', rfl, w, h0, h8, hle, hor⟩ := S
   refine ⟨i, z, b, rfl, L.hz, L.hb, r, _, e, dframe_SH0 L.hz _ _ _, fun st0 h0 => ?_, fun hpr => ?_⟩
   · obtain rfl := Option.some.inj (h0.symm.trans L.dstate)
-    exact ⟨_, _, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩⟩
+    refine ⟨_, _, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun hc => ?_⟩⟩
+    have hc' : 8 ≤ bv := hc
+    rcases hor with ⟨h8', -⟩ | ⟨e8, -⟩
+    · have := Int32.le_iff_toInt_le.mp hc'
+      rw [show (8 : Int32).toInt = 8 from rfl] at this; omega
+    · rw [← e8]; exact hc'
   obtain ⟨b1, st1, ⟨⟨z1, ⟨i1, hi1, hz1⟩, hb1⟩, hst1⟩, hpo1⟩ := hpr
   obtain rfl := Option.some.inj hi1
   rw [L.hz] at hz1; obtain rfl := Option.some.inj hz1
@@ -258,11 +265,15 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
     trees := c.trees
     sizes := c.sizes
     lay := ⟨d', wo, po, ho, pbo, by simp [SH], hw, hp, hh, hpb, h1, h2, h3, by rw [w.1]; exact h4, hsb, pbo, hpo,
-      Nat.le_refl _, by simp only [dview]; omega⟩
+      Nat.le_refl _, by
+        simp only [dview]
+        rcases hor with ⟨h8', h9'⟩ | ⟨rfl, rfl⟩
+        · omega
+        · omega⟩
     pout := fun _ => by simp only [dview]; rw [hpo, hpb]
     syms := c.syms
     bits := ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact h0),
-      Int32.lt_iff_toInt_lt.mpr (by rw [show (8 : Int32).toInt = 8 from rfl]; exact h8)⟩
+      Int32.lt_iff_toInt_lt.mpr (by rw [show (64 : Int32).toInt = 64 from rfl]; exact h8)⟩
     look := c.look
     strategy := c.strategy
     fns := c.fns
@@ -279,7 +290,10 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
       rw [hpb] at hp1; rw [hpo] at ho1
       obtain rfl : pbo = pbo1 := by injection hp1 with e1; injection e1
       obtain rfl : pbo = poo1 := by injection ho1 with e1; injection e1
-      have hnp : np.toNat ≤ st.lit_bufsize.toNat + 8 := by omega
+      have hnp : np.toNat ≤ st.lit_bufsize.toNat + 8 := by
+        rcases hor with ⟨-, h9'⟩ | ⟨-, rfl⟩
+        · omega
+        · omega
       exact w.2 _ (Or.inr (by omega))
     psym := fun hn => by
       obtain ⟨pbo1, poo1, hp1, ho1, hq⟩ := c.psym hn
@@ -287,7 +301,10 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
       rw [hpb] at hp1; rw [hpo] at ho1
       obtain rfl : pbo = pbo1 := by injection hp1 with e1; injection e1
       obtain rfl : pbo = poo1 := by injection ho1 with e1; injection e1
-      exact ⟨pbo, pbo, hpb, hpo, by omega⟩
+      refine ⟨pbo, pbo, hpb, hpo, ?_⟩
+      rcases hor with ⟨h8', h9'⟩ | ⟨rfl, rfl⟩
+      · omega
+      · omega
     hdr := c.hdr
     bstart := c.bstart
     ins := c.ins

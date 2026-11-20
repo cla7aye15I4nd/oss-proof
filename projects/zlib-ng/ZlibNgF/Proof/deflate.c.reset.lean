@@ -53,7 +53,8 @@ state, and the window positions, `level`, `strategy`, `sym_end` kept. -/
 def KeepSt (st st' : DeflateState) : Prop :=
   st'.sym_next = 0 ∧ st'.last_flush = -2 ∧ (st'.status = GZIP_STATE ∨ st'.status = INIT_STATE) ∧
     (st'.status = GZIP_STATE → st'.wrap = 2) ∧ st'.strstart = st.strstart ∧ st'.block_start = st.block_start ∧
-    st'.lookahead = st.lookahead ∧ st'.level = st.level ∧ st'.strategy = st.strategy ∧ st'.sym_end = st.sym_end
+    st'.lookahead = st.lookahead ∧ st'.level = st.level ∧ st'.strategy = st.strategy ∧ st'.sym_end = st.sym_end ∧
+    st'.bi_valid = 0
 
 theorem keep_trS (b : Nat) (st : DeflateState) (A B C : Array Ct) : KeepSt st (trS b (rkS st) A B C) := by
   by_cases hw : (st.wrap == 2) = true
@@ -61,7 +62,7 @@ theorem keep_trS (b : Nat) (st : DeflateState) (A B C : Array Ct) : KeepSt st (t
     simp [KeepSt, trS, rkS, e]
   · simp only [KeepSt, trS, rkS, hw, Bool.false_eq_true, ↓reduceIte]
     exact ⟨trivial, trivial, Or.inr trivial, fun e => absurd e (by decide), trivial, trivial, trivial, trivial,
-      trivial, trivial⟩
+      trivial, trivial, by first | trivial | rfl⟩
 
 /-- The post of `deflateResetKeep` on block `b`, from heap `h`. -/
 def KeepPost (h : Heap) (i b : Nat) (h' : Heap) : Prop :=

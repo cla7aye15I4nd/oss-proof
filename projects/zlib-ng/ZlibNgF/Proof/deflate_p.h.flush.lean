@@ -191,7 +191,7 @@ def OutOnly (h h' : Heap) (b ob oo n : Nat) : Prop :=
     ∀ j, (c = ob → j < oo ∨ oo + n ≤ j) → data'[j]! = data[j]!
 
 /-- What `flush_pending` leaves (see the module comment): `len = min(pending + bi_valid / 8, avail_out)` bytes
-moved. -/
+moved, and fewer than 8 bits in `bi_buf` (`zng_tr_flush_bits`). -/
 def FlushPost (h h' : Heap) (i b : Nat) (z : ZStream) (st : DeflateState) : Prop :=
   ∃ (len : Nat) (z' : ZStream) (st' : DeflateState), h'.streams i = some z' ∧ h'.dstate b = some st' ∧
     len = min (st.pending.toNat + st.bi_valid.toInt.toNat / 8) z.avail_out.toNat ∧
@@ -209,7 +209,8 @@ def FlushPost (h h' : Heap) (i b : Nat) (z : ZStream) (st : DeflateState) : Prop
     (∀ ob off, z.next_out = .ref (.heap ob) off → z'.next_out = .ref (.heap ob) (off + len)) ∧
     DFrame h h' [i] [b] [] [(z.next_out, len)] ∧
     (∀ ob oo, z.next_out = .ref (.heap ob) oo → OutOnly h h' b ob oo len) ∧
-    (∀ pbo, st.pending_buf = .val (.ref (.heap b) pbo) → PbufOnly h h' b pbo (4 * st.lit_bufsize.toNat + 9))
+    (∀ pbo, st.pending_buf = .val (.ref (.heap b) pbo) → PbufOnly h h' b pbo (4 * st.lit_bufsize.toNat + 9)) ∧
+    st'.bi_valid < 8
 
 /-- The frame of `OH`: stream `i`, block `b`, and the first `n` bytes from offset `oo` of block `ob`. -/
 theorem dframe_OH {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d ad : Array UInt8}
@@ -305,13 +306,16 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
         refine ⟨d1, wo, po, ho, pbo, OH_bytes_b hob, hwo, hp, hh, hpb, h1, h2, h3, by rw [hd1]; exact h4, hsb, ?_⟩
         by_cases hP : P = 0
         · refine ⟨pbo, by simp only [dview]; rw [hpz hP, hpb], Nat.le_refl _, ?_⟩
-          simp only [dview, hP]; simp
+          simp only [dview, hP]
+          have h0' : (0 : UInt32).toNat = 0 := rfl
+          omega
         · refine ⟨poo + L, by simp only [dview]; rw [hpnz hP], by omega, ?_⟩
           simp only [dview]; omega
       pout := fun hP => by simp only [dview] at hP ⊢; rw [hpz hP]
       syms := c.syms
       bits := ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact hb0'),
-        Int32.lt_iff_toInt_lt.mpr (by rw [show (8 : Int32).toInt = 8 from rfl]; exact hb8')⟩
+        Int32.lt_iff_toInt_lt.mpr (by
+          rw [show (64 : Int32).toInt = 64 from rfl]; exact Int.lt_trans hb8' (by decide))⟩
       look := c.look
       strategy := c.strategy
       fns := c.fns
@@ -329,7 +333,10 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
         simp only [dview] at hn ⊢
         have := hsymb hn
         by_cases hP : P = 0
-        · exact ⟨pbo, pbo, hpb, by rw [hpz hP, hpb], by rw [hP]; simp⟩
+        · refine ⟨pbo, pbo, hpb, by rw [hpz hP, hpb], ?_⟩
+          rw [hP]
+          have h0' : (0 : UInt32).toNat = 0 := rfl
+          omega
         · exact ⟨pbo, poo + L, hpb, hpnz hP, by omega⟩
       hdr := c.hdr
       bstart := c.bstart
@@ -346,7 +353,8 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
   · refine ⟨L, { z with next_out := no, avail_out := av, total_out := tt },
       { st with pending := P, pending_out := Q, bi_buf := bb, bi_valid := bv }, by simp [OH], OH_dstate hob,
       by rw [hL, hnp], by simp only []; omega, rfl, hav, rfl,
-      fun ob' off' h' => ?_, by rw [hno]; exact dframe_OH hob had d1 poo, fun ob' oo' h' => ?_, fun pbo' hpb' => ?_⟩
+      fun ob' off' h' => ?_, by rw [hno]; exact dframe_OH hob had d1 poo, fun ob' oo' h' => ?_, fun pbo' hpb' => ?_,
+      Int32.lt_iff_toInt_lt.mpr (by rw [show (8 : Int32).toInt = 8 from rfl]; exact hb8')⟩
     · rw [hno] at h'
       injection h' with e1 e2; injection e1 with e1
       subst e1; subst e2; exact hno'

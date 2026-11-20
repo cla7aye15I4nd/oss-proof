@@ -13,7 +13,8 @@ import ZlibNgF.Proof.«deflate.c.fill_window.facts»
 are not clauses of `DCore` (which the working state `DWork` of the strategies and the window state `DInvW` contain):
 
 * `SymsOk` (room for one more symbol, the level-0 and level-1
-  `Z_FIXED` states without symbols, no symbols at `block_start == strstart`), which a strategy needs on entry;
+  `Z_FIXED` states without symbols, no symbols at `block_start == strstart`, 8 or more bits in `bi_buf` only at
+  level 1 with `Z_FIXED` and with lookahead), which a strategy needs on entry;
 * after a call with a flush that completed (`last_flush > 0`), no symbols; in `FINISH_STATE`, no symbols and no
   lookahead (`deflateParams` and the strategy dispatch of `deflate` read these);
 * the gzip header (`HdrOk`): in `GZIP_STATE` and the header states `wrap` is 2; in the header states
@@ -70,10 +71,16 @@ theorem SideAt.of_state {h : Heap} {b : Nat} {st st' : DeflateState} (S : SideAt
     (e4 : st'.gzindex = st.gzindex) (e5 : st'.sym_next = st.sym_next) (e6 : st'.sym_end = st.sym_end)
     (e7 : st'.strstart = st.strstart) (e8 : st'.block_start = st.block_start) (e9 : st'.level = st.level)
     (e10 : st'.lookahead = st.lookahead) (e11 : st'.strategy = st.strategy)
-    (e12 : st'.last_flush = st.last_flush) : SideAt h b st' := by
+    (e12 : st'.last_flush = st.last_flush) (e13 : 8 ≤ st'.bi_valid → 8 ≤ st.bi_valid) : SideAt h b st' := by
   obtain ⟨S1, S2, S3, S4⟩ := S
   refine ⟨?_, ?_, ?_, S4.of_state e1 e2 e3 e4⟩
-  · unfold SymsOk at *; rw [e5, e6, e7, e8, e9, e10, e11]; exact S1
+  · obtain ⟨a1, a2, a3, a4, a5⟩ := S1
+    refine ⟨?_, ?_, ?_, ?_, fun hb => ?_⟩
+    · rw [e5, e6]; exact a1
+    · rw [e9, e8, e5, e10]; exact a2
+    · rw [e9, e11, e5]; exact a3
+    · rw [e7, e8, e5]; exact a4
+    · rw [e9, e11, e10]; exact a5 (e13 hb)
   · rw [e12, e5]; exact S2
   · rw [e1, e5, e10]; exact S3
 
@@ -104,7 +111,7 @@ theorem HdrOk.move {h h' : Heap} {b b' : Nat} {st : DeflateState} (H : HdrOk h b
 theorem SideAt.move {h h' : Heap} {b b' : Nat} {st st' : DeflateState} (S : SideAt h b st)
     (m : HdrMove h h' b b' st) (e : SideEq st st') : SideAt h' b' st' := by
   have S' := S.of_state e.status e.wrap e.gzhead e.gzindex e.sym_next e.sym_end e.strstart e.block_start e.level
-    e.lookahead e.strategy e.last_flush
+    e.lookahead e.strategy e.last_flush e.bits
   have m' : HdrMove h h' b b' st' := fun hs k g hk hg =>
     m (by unfold HdrState at hs ⊢; rwa [e.status] at hs) k g (by rw [← e.gzhead]; exact hk) hg
   exact ⟨S'.1, S'.2.1, S'.2.2.1, S'.2.2.2.move m'⟩
@@ -146,7 +153,7 @@ theorem side_setD {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflate
 theorem tune_side {h : Heap} {s : StreamPtr} (hv : DInv h s) (hs : DSide h s) (g l n c : Int32) :
     ∃ h', C.run (deflateTune s g l n c) h = .ok (Z_OK, h') ∧ DSide h' s := by
   obtain ⟨i, z, b, st, rfl, hz, hb, hst, e, -⟩ := DeflateControl.deflateTune_inv hv g l n c
-  exact ⟨_, e, side_setD hz hb hst hs fun S => S.of_state rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl⟩
+  exact ⟨_, e, side_setD hz hb hst hs fun S => S.of_state rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl id⟩
 
 /-- `deflateSetHeader` keeps `DSide` when called before the first `deflate` call (`GZIP_STATE`, not a header
 state; `wrap` is kept). -/
@@ -205,18 +212,19 @@ theorem symEnd_pos {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : Defl
   simp only [dview] at l1 se
   rw [UInt32.lt_iff_toNat_lt, se]; simp; omega
 
-/-- A state with no symbols, `block_start` at `strstart`, no lookahead satisfies `SymsOk`. -/
+/-- A state with no symbols, `block_start` at `strstart`, no lookahead, fewer than 8 bits satisfies `SymsOk`. -/
 theorem symsOk_clean {st : DeflateState} (h0 : 0 < st.sym_end) (hs : st.sym_next = 0)
-    (hb : st.block_start.toInt = st.strstart.toNat) (hl : st.lookahead = 0) : SymsOk st := by
-  refine ⟨by rw [hs]; exact h0, fun _ => ⟨?_, hs, hl⟩, fun _ _ => hs, fun _ => hs⟩
+    (hb : st.block_start.toInt = st.strstart.toNat) (hl : st.lookahead = 0) (h8 : st.bi_valid < 8) : SymsOk st := by
+  refine ⟨by rw [hs]; exact h0, fun _ => ⟨?_, hs, hl⟩, fun _ _ => hs, fun _ => hs,
+    fun hc => absurd hc (Int32.not_le.mpr h8)⟩
   rw [Int32.le_iff_toInt_le, hb]; simp
 
 /-- `SideAt` of a state with no symbols, `block_start` at `strstart`, no lookahead, outside the header states, with
-`wrap = 2` in `GZIP_STATE`. -/
+`wrap = 2` in `GZIP_STATE`, fewer than 8 bits. -/
 theorem sideAt_clean {h : Heap} {b : Nat} {st : DeflateState} (h0 : 0 < st.sym_end) (hs : st.sym_next = 0)
-    (hb : st.block_start.toInt = st.strstart.toNat) (hl : st.lookahead = 0) (hn : ¬ HdrState st)
-    (hg : st.status = GZIP_STATE → st.wrap = 2) : SideAt h b st :=
-  ⟨symsOk_clean h0 hs hb hl, fun _ => hs, fun _ => ⟨hs, hl⟩,
+    (hb : st.block_start.toInt = st.strstart.toNat) (hl : st.lookahead = 0) (h8 : st.bi_valid < 8)
+    (hn : ¬ HdrState st) (hg : st.status = GZIP_STATE → st.wrap = 2) : SideAt h b st :=
+  ⟨symsOk_clean h0 hs hb hl h8, fun _ => hs, fun _ => ⟨hs, hl⟩,
     ⟨fun e => e.elim hg (fun e2 => absurd e2 hn), fun e => absurd e hn⟩⟩
 
 /-- `deflateInit*` and `deflateReset` leave `DSide` (`FreshSt`). -/
@@ -229,8 +237,8 @@ theorem side_fresh {h : Heap} {s : StreamPtr} (hv : DInv h s) (hf : DFreshOf h s
   obtain rfl := Option.some.inj (hz0.symm.trans hz')
   obtain rfl := Option.some.inj (hb0.symm.trans hb')
   obtain rfl := Option.some.inj (hst0.symm.trans hst')
-  obtain ⟨f1, f2, f3, f4, -, f6, f7⟩ := f
-  refine sideAt_clean (symEnd_pos c) f1 (by rw [f2, f3]; rfl) f4 ?_ f7
+  obtain ⟨f1, f2, f3, f4, -, f6, f7, f8⟩ := f
+  refine sideAt_clean (symEnd_pos c) f1 (by rw [f2, f3]; rfl) f4 (by rw [f8]; decide) ?_ f7
   unfold HdrState
   rcases f6 with e | e <;> rw [e] <;> decide
 
@@ -315,13 +323,13 @@ theorem setDict_side {h h' : Heap} {s : StreamPtr} {d : BPtr} {n : UInt32} {r : 
     (e : C.run (deflateSetDictionary s d n) h = .ok (r, h')) : DSide h' s := by
   obtain ⟨r0, h0, e0, hv', -, ho⟩ := ZlibNgF.Proof.DeflateSetDict.setDict_inv ZlibNgF.Proof.FillFacts.windowFacts hv hd hnb
   rw [e] at e0; cases e0
-  rcases ho with rfl | ⟨i, z, b, st, rfl, hz, hzb, hst, hw2, hout⟩
+  rcases ho with rfl | ⟨i, z, b, st, rfl, hz, hzb, hst, hw2, hl0, hout⟩
   · exact hs
   intro b' st' hs'
   obtain ⟨z', al', c'⟩ := core_of hv' hs'
   obtain ⟨i', z2, e1, hz2, hzb2, hst2⟩ := hs'
   obtain rfl := Option.some.inj e1
-  obtain ⟨⟨k1, k2, -, -, -, -, -⟩, -, kb, kl⟩ := hout z2 b' st' hz2 hzb2 hst2
+  obtain ⟨⟨k1, k2, -, -, -, -, -, k8⟩, -, kb, kl⟩ := hout z2 b' st' hz2 hzb2 hst2
   obtain ⟨b3, st3, ⟨⟨z3, ⟨i3, e3, hz3⟩, hzb3⟩, hst3⟩, h0⟩ := hdr
   obtain rfl := Option.some.inj e3
   obtain rfl := Option.some.inj (hz.symm.trans hz3)
@@ -329,7 +337,11 @@ theorem setDict_side {h h' : Heap} {s : StreamPtr} {d : BPtr} {n : UInt32} {r : 
   obtain rfl := Option.some.inj (hst.symm.trans hst3)
   have H1 := (hs b st ⟨i, z, rfl, hz, hzb, hst⟩).2.2.2.1
   have hnh : ¬ (st.status = GZIP_STATE ∨ HdrState st) := fun hh => hw2 (H1 hh)
-  refine sideAt_clean (symEnd_pos c') (k1.trans h0) kb kl ?_ ?_
+  have h8 : st'.bi_valid < 8 := by
+    rw [k8]
+    refine Int32.not_le.mp fun hc => ?_
+    exact ((hs b st ⟨i, z, rfl, hz, hzb, hst⟩).1.2.2.2.2 hc).2.2 hl0
+  refine sideAt_clean (symEnd_pos c') (k1.trans h0) kb kl h8 ?_ ?_
   · intro hh; unfold HdrState at hh; rw [k2] at hh; exact hnh (Or.inr hh)
   · intro hh; rw [k2] at hh; exact absurd (Or.inl hh) hnh
 
@@ -413,14 +425,15 @@ theorem resetKeep_side {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : DInv h s)
   obtain rfl := Option.some.inj e1
   obtain rfl := Option.some.inj (hz.symm.trans hz1)
   obtain rfl := Option.some.inj (hzb.symm.trans hzb1)
-  obtain ⟨st', hst', k1, -, k3, k4, k5, k6, k7, -, -, -⟩ := hk2 st1 hst1
+  obtain ⟨st', hst', k1, -, k3, k4, k5, k6, k7, -, -, -, k8⟩ := hk2 st1 hst1
   intro b2 st2 hs2
   obtain ⟨z', al, c⟩ := core_of hv' hs2
   obtain ⟨i2, z2, e2, hz2, hzb2, hst2⟩ := hs2
   obtain rfl := Option.some.inj e2
   obtain rfl := Option.some.inj ((hk1 z2 hz2).symm.trans hzb2)
   obtain rfl := Option.some.inj (hst'.symm.trans hst2)
-  refine sideAt_clean (symEnd_pos c) k1 (by rw [k5, k6]; exact hss.symm) (by rw [k7]; exact hl) ?_ k4
+  refine sideAt_clean (symEnd_pos c) k1 (by rw [k5, k6]; exact hss.symm) (by rw [k7]; exact hl) (by rw [k8]; decide)
+    ?_ k4
   unfold HdrState
   rcases k3 with e3 | e3 <;> rw [e3] <;> decide
 
