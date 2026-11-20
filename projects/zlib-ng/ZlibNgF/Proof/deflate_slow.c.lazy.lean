@@ -16,7 +16,7 @@ Heap-free facts about one trip of `deflate_slow` (`deflate_slow.c:31-152`):
 set_option autoImplicit false
 
 namespace ZlibNgF.Proof.SlowLazy
-open ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateFacts
+open C ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateFacts
 
 /-- The match length `ml` that a trip keeps, from the pending `prev_length` `pl`, `match_floor` `mf`,
 `match_discard` `md`, the `prev_length` `bl = MAX(pl, mf)` that `longest_match` sees (its initial best length
@@ -27,13 +27,16 @@ theorem ml_cases (pl mf md bl bl0 r ms ss la lb ml : Nat) (hmf : mf ≤ md) (hbl
     (hml : ml = if r ≤ md then 2 else if ss ≤ ms then 2 else r) (h3 : 3 ≤ ml) :
     (3 ≤ pl ∧ ml ≤ pl) ∨ (ml ≤ 258 ∧ ml ≤ la ∧ lb ≤ ms ∧ ms < ss) := by
   subst hbl hbl0 hml
-  split_ifs at * <;> omega
+  by_cases a : r ≤ md <;> by_cases c : ss ≤ ms <;> by_cases e : max pl mf ≠ 0 <;>
+    simp only [a, c, e, ↓reduceIte] at hpr h3 ⊢ <;> omega
 
 /-- `limit_base <= match_start` bounds the distance `strstart - match_start` by `MAX_DIST`. -/
 theorem dist_le (st : DeflateState) (ms : Nat) (h : (ZlibNgF.Proof.LongestMatch.limitBase st).toNat ≤ ms)
     (hw : 262 ≤ st.w_size.toNat) : st.strstart.toNat - ms ≤ (MAX_DIST st).toNat := by
+  have hML : MIN_LOOKAHEAD.toNat = 262 := by decide
   have hmd : (MAX_DIST st).toNat = st.w_size.toNat - 262 := by
-    unfold MAX_DIST; rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by simpa using hw))]; rfl
+    unfold MAX_DIST
+    rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by rw [hML]; exact hw)), hML]
   unfold ZlibNgF.Proof.LongestMatch.limitBase at h
   split at h
   · rename_i hg
