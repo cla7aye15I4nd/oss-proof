@@ -224,21 +224,54 @@ theorem loadLoop_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.g
       have := UInt32.le_iff_toNat_le.mp (UInt32.not_lt.mp hc)
       simp only; omega
 
+/-! ## `gz_error` keeps the stream -/
+
+theorem GSat.and {α : Type} {w : World} {h : Heap} {m : G α} {P Q : α → World → Heap → Prop} (p : GSat w h m P)
+    (q : GSat w h m Q) : GSat w h m (fun r W H => P r W H ∧ Q r W H) := by
+  obtain ⟨r, W, H, e, hp⟩ := p
+  obtain ⟨r', W', H', e', hq⟩ := q
+  rw [e] at e'; cases e'
+  exact ⟨r, W, H, e, hp, hq⟩
+
+/-- `gz_error` on a read handle does not change the heap's streams. -/
+theorem gz_error_strm {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+    (hs : w.gz h b = some s) (e : Int32) (msg : BPtr) (hmsg : msg = .null ∨ CStr h msg)
+    (hmk : ∀ c o, msg ≠ .ref (.heap c) o) :
+    GSat w h (gz_error (some b) e msg) (fun _ _ H => H.streams = h.streams) := by
+  have hlit : LitOk w h := hv.2.2.lit
+  obtain ⟨⟨b0, s0, e0, hs0, sh, hn⟩, -, hw⟩ := hv
+  cases e0; rw [hs] at hs0; cases hs0
+  obtain ⟨db, hdb⟩ := gz_live hs
+  have fr : FreshBlocks h := hw.2.1.1
+  have hdb1 : (freeMsg h s).bytes b = some db := freeMsg_bytes_b hn hdb
+  have hs1 : ({ w with gzs := upd w.gzs b (some (errSt s e)) } : World).gz (freeMsg h s) b = some (errSt s e) := by
+    unfold World.gz; rw [hdb1]; simp
+  obtain ⟨sh1, -⟩ := err0_keep sh hn e
+  have fr1 : FreshBlocks (freeMsg h s) := (HLess.free h s).freshB fr
+  obtain ⟨r, W, H, eq, -, -, -, -, -, x, -, -⟩ := errTail_spec hs1 fr1
+    (LitOk.ext (w := w) hlit rfl fun k a e' => by rw [freeMsg_consts]; exact e') sh1.path rfl e rfl msg
+    (hmsg.imp_right fun hp => cstr_free hp hmk)
+  exact ⟨r, W, H, by rw [gz_error_run hs sh.msg (msg_ne_b hn) e msg]; exact eq,
+    x.streams.trans (freeMsg_streams h s)⟩
+
 /-! ## `gz_avail` with its read measure -/
 
 /-- What `gz_decomp` needs of a `gz_avail` that returned 0, beyond `AvailPost`: only `next_in` and `avail_in` of the
 stream `z` changed, the input in the buffer grew by at most what came out of the read measure, and there is input or
 `eof` is set. -/
 def AvailBudget (w : World) (b : Nat) (s : GzState) (z : ZStream) (r : Int32) (W : World) (H : Heap) : Prop :=
-  r = 0 → ∃ s' z', W.gz H b = some s' ∧ H.streams s.strm = some z' ∧
+  (r = 0 → ∃ s' z', W.gz H b = some s' ∧ H.streams s.strm = some z' ∧
     z' = { z with next_in := z'.next_in, avail_in := z'.avail_in } ∧
-    rdLeft W.fs s.fd + z'.avail_in.toNat ≤ rdLeft w.fs s.fd + z.avail_in.toNat ∧ (z'.avail_in ≠ 0 ∨ s'.eof ≠ 0)
+    rdLeft W.fs s.fd + z'.avail_in.toNat ≤ rdLeft w.fs s.fd + z.avail_in.toNat ∧ (z'.avail_in ≠ 0 ∨ s'.eof ≠ 0)) ∧
+  (r = -1 → H.streams s.strm = some z) ∧
+  (r = 0 → (s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) ∧ ∀ s', W.gz H b = some s' → s'.err = s.err) ∧
+  (r = -1 → ∀ s', W.gz H b = some s' → ¬(s'.err = ZlibNg.Inflate.Z_OK ∨ s'.err = ZlibNg.Inflate.Z_BUF_ERROR))
 
 theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hnc : s.how ≠ ZlibNg.Gz.COPY) {c base : Nat} {z : ZStream}
     (hB : GzBufs h s c base) (hz : h.streams s.strm = some z)
     (hai : z.avail_in = 0 ∨ Inside c base 0 (inSize s) z.next_in z.avail_in.toNat)
-    {H : Heap} (x : HBuf h H c base (base + inSize s)) :
+    {H : Heap} (x : HBuf h H c base (base + inSize s)) (hok : s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) :
     GSat w H (availTail (some b) (some s.strm)) (fun r W H' => AvailPost w H b s r W H' ∧ AvailBudget w b s z r W H') := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
@@ -285,10 +318,13 @@ theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : Gz
   · intro _
     obtain ⟨pm, am, ez, hcs, hmk⟩ := zstrerror_spec { w with fs := fs' } H1
     refine GSat.bind (GSat.of_eq ez ?_)
-    refine GSat.bind (GSat.mono (gz_error_inv (invR_lit hv1 am) hs1 Z_ERRNO pm (Or.inr hcs) hmk) fun _ W H2 q => ?_)
-    obtain ⟨s', hsW, herr, hvW, -, hfsW, hstep⟩ := q
+    refine GSat.bind (GSat.mono (GSat.and (gz_error_inv (invR_lit hv1 am) hs1 Z_ERRNO pm (Or.inr hcs) hmk)
+      (gz_error_strm (invR_lit hv1 am) hs1 Z_ERRNO pm (Or.inr hcs) hmk)) fun _ W H2 q => ?_)
+    obtain ⟨⟨s', hsW, herr, hvW, -, hfsW, hstep⟩, hstr⟩ := q
+    have hzH1 : H1.streams s.strm = some z := by obtain ⟨t, rfl, -⟩ := x1; exact hzH
     refine GSat.pure (GSat.pure ⟨⟨Or.inl rfl, hvW, ?_, by rw [hfsW]; exact hfs, s', hsW, errOf_shape herr h0⟩,
-      fun e => absurd e (by decide)⟩)
+      fun e => absurd e (by decide), fun _ => by rw [hstr]; exact hzH1, fun e => absurd e (by decide),
+      fun _ s2 h2 => by rw [hsW] at h2; cases h2; rcases herr.2 with e | e <;> rw [e] <;> decide⟩)
     exact (g1.trans (gstep_lit hs1 am) ⟨s, hsH⟩ ⟨s, hs1⟩).trans hstep ⟨s, hsH⟩ ⟨s, hs1⟩
   · intro hneg
     have hz1 : H1.streams s.strm = some z := by
@@ -318,7 +354,11 @@ theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : Gz
           (by rw [wrZ_app (z := z1) (by simp)]; simp [InflateInv.upd_upd, z1, z']), ?_⟩)
         have hsum : (z.avail_in + lp.hv).toNat = z.avail_in.toNat + lp.hv.toNat := by
           rw [UInt32.toNat_add]; rw [hlen] at hlp; omega
-        refine GSat.pure ⟨⟨Or.inr rfl, ?_, ?_, hfs, _, hs2, rfl⟩, fun _ => ⟨_, z', hs2, by simp, rfl, ?_, ?_⟩⟩
+        refine GSat.pure ⟨⟨Or.inr rfl, ?_, ?_, hfs, _, hs2, rfl⟩, fun _ => ⟨_, z', hs2, by simp, rfl, ?_, ?_⟩,
+          fun e => absurd e (by decide), fun _ => ⟨hok, fun s2 h2 => by
+            unfold World.gz at h2; split at h2
+            · simp at h2; rw [← h2]
+            · cases h2⟩, fun e => absurd e (by decide)⟩
         · obtain ⟨sh1, hn1⟩ := inv_of hs1 hv1.1
           have sh1' := shape_msg sh1 e s.past s.err s.msg ⟨sh1.msg.1, sh1.msg.2⟩
           have hvE : GzInvR { w with fs := fs', gzs := upd w.gzs b (some { s with eof := e }) } H1 (some b) :=
@@ -367,25 +407,34 @@ theorem gz_avail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzI
   subst ez
   obtain ⟨hcb, hpath, hst, hown⟩ := buf_facts hs hn hsz hB
   obtain ⟨d, hd, hds⟩ := hB.fits
-  have done0 : s.eof ≠ 0 → AvailPost w h b s 0 w h ∧ AvailBudget w b s z 0 w h := fun he =>
-    ⟨⟨Or.inr rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩,
-      fun _ => ⟨s, z, hs, hz, rfl, Nat.le_refl _, Or.inr he⟩⟩
-  have tail : ∀ H, HBuf h H c base (base + inSize s) →
+  have done0 : (s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) → s.eof ≠ 0 → AvailPost w h b s 0 w h ∧ AvailBudget w b s z 0 w h :=
+    fun hok he => ⟨⟨Or.inr rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩,
+      fun _ => ⟨s, z, hs, hz, rfl, Nat.le_refl _, Or.inr he⟩, fun e => absurd e (by decide),
+      fun _ => ⟨hok, fun s2 h2 => by rw [hs] at h2; cases h2; rfl⟩, fun e => absurd e (by decide)⟩
+  have tail : ∀ H, HBuf h H c base (base + inSize s) → (s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) →
       GSat w H (availTail (some b) (some s.strm)) (fun r W H' => AvailPost w h b s r W H' ∧ AvailBudget w b s z r W H') := by
-    intro H x
+    intro H x hok
     have hsH : w.gz H b = some s := by rw [x.gz hcb]; exact hs
     have g : GStep w h w H b [] := by
       have := gstep_hbuf hs x hcb hown w.fs s rfl rfl rfl rfl
       rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
       exact this
-    exact (availTail_budget hv hs h0 hsz hnc hB hz hai x).mono fun r W H' p => ⟨AvailPost.pre g hs hsH p.1, p.2⟩
+    exact (availTail_budget hv hs h0 hsz hnc hB hz hai x hok).mono fun r W H' p => ⟨AvailPost.pre g hs hsH p.1, p.2⟩
   unfold gz_avail
   refine GSat.bind (GSat.of_eq (strmOf_app hs) ?_)
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
   apply GSat.ite
-  · intro _; exact GSat.pure ⟨⟨Or.inl rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩, fun e => absurd e (by decide)⟩
-  · intro _
+  · intro hbad
+    have hb' : ¬(s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) := by
+      rintro (e | e) <;> simp [e] at hbad
+    exact GSat.pure ⟨⟨Or.inl rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩, fun e => absurd e (by decide),
+      fun _ => hz, fun e => absurd e (by decide), fun _ s2 h2 => by rw [hs] at h2; cases h2; exact hb'⟩
+  · intro hok0
+    have hok : s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR := by
+      by_cases e1 : s.err = ZlibNg.Inflate.Z_OK
+      · exact Or.inl e1
+      · right; simpa [e1] using hok0
     refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
     apply GSat.ite
     · intro _
@@ -404,10 +453,10 @@ theorem gz_avail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzI
           refine GSat.bind (GSat.mono (copy_spec hd (base := base) (j := k) z.avail_in hne' (by omega))
             fun _ W H q => ?_)
           obtain ⟨rfl, x⟩ := q
-          exact tail H ((HBuf.refl h c base (base + inSize s)).trans x (Nat.le_refl _) (by omega))
-        · intro _; exact tail h (HBuf.refl _ _ _ _)
-      · intro _; exact tail h (HBuf.refl _ _ _ _)
-    · intro he; exact GSat.pure (done0 (by simpa using he))
+          exact tail H ((HBuf.refl h c base (base + inSize s)).trans x (Nat.le_refl _) (by omega)) hok
+        · intro _; exact tail h (HBuf.refl _ _ _ _) hok
+      · intro _; exact tail h (HBuf.refl _ _ _ _) hok
+    · intro he; exact GSat.pure (done0 hok (by simpa using he))
 
 
 /-! ## The output target of `gz_decomp` and the buffers of `inflate` -/
@@ -707,36 +756,6 @@ theorem inflate_gz (G : InflateGz) (M : InflateMsg) {W : World} {H : Heap} {b : 
   intro FF ⟨z5, sb5, st5, hz5, hsb5, hst5, hm5, hb5, hl5⟩ hse z6 hz6
   rw [hz] at hz5; cases hz5
   exact FF.fresh_end H s.strm _ r H' hI hio hcrc e z sb5 st5 hz hsb5 hst5 hm5 hb5 hl5 hse z6 hz6
-
-/-! ## `gz_error` keeps the stream -/
-
-theorem GSat.and {α : Type} {w : World} {h : Heap} {m : G α} {P Q : α → World → Heap → Prop} (p : GSat w h m P)
-    (q : GSat w h m Q) : GSat w h m (fun r W H => P r W H ∧ Q r W H) := by
-  obtain ⟨r, W, H, e, hp⟩ := p
-  obtain ⟨r', W', H', e', hq⟩ := q
-  rw [e] at e'; cases e'
-  exact ⟨r, W, H, e, hp, hq⟩
-
-/-- `gz_error` on a read handle does not change the heap's streams. -/
-theorem gz_error_strm {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
-    (hs : w.gz h b = some s) (e : Int32) (msg : BPtr) (hmsg : msg = .null ∨ CStr h msg)
-    (hmk : ∀ c o, msg ≠ .ref (.heap c) o) :
-    GSat w h (gz_error (some b) e msg) (fun _ _ H => H.streams = h.streams) := by
-  have hlit : LitOk w h := hv.2.2.lit
-  obtain ⟨⟨b0, s0, e0, hs0, sh, hn⟩, -, hw⟩ := hv
-  cases e0; rw [hs] at hs0; cases hs0
-  obtain ⟨db, hdb⟩ := gz_live hs
-  have fr : FreshBlocks h := hw.2.1.1
-  have hdb1 : (freeMsg h s).bytes b = some db := freeMsg_bytes_b hn hdb
-  have hs1 : ({ w with gzs := upd w.gzs b (some (errSt s e)) } : World).gz (freeMsg h s) b = some (errSt s e) := by
-    unfold World.gz; rw [hdb1]; simp
-  obtain ⟨sh1, -⟩ := err0_keep sh hn e
-  have fr1 : FreshBlocks (freeMsg h s) := (HLess.free h s).freshB fr
-  obtain ⟨r, W, H, eq, -, -, -, -, -, x, -, -⟩ := errTail_spec hs1 fr1
-    (LitOk.ext (w := w) hlit rfl fun k a e' => by rw [freeMsg_consts]; exact e') sh1.path rfl e rfl msg
-    (hmsg.imp_right fun hp => cstr_free hp hmk)
-  exact ⟨r, W, H, by rw [gz_error_run hs sh.msg (msg_ne_b hn) e msg]; exact eq,
-    x.streams.trans (freeMsg_streams h s)⟩
 
 /-- `gz_error(state, e, msg)` on a read handle, with the stream kept. -/
 theorem err_strm {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
@@ -1097,7 +1116,7 @@ theorem body_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : N
         rcases hr with e | e
         · exact absurd (by rw [e]; rfl) hr0
         · exact e
-      obtain ⟨s2, z1, hs2, hz1, ez1, hbud, hie⟩ := hB hr0'
+      obtain ⟨s2, z1, hs2, hz1, ez1, hbud, hie⟩ := hB.1 hr0'
       rw [hstrm] at hz1; rw [hfd] at hbud
       rw [hs1] at hs2; cases hs2
       have hd1 := dmu_of (W := W1) hz1

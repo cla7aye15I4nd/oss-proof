@@ -366,7 +366,16 @@ system, and a state that differs from `s` at most in the buffers, the error and 
 success. -/
 def InitPost (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : World) (H : Heap) : Prop :=
   GzInvR W H (some b) ∧ GStep w h W H b [] ∧ W.fs = w.fs ∧
-    ∃ s', W.gz H b = some s' ∧ SameBut s s' ∧ (r = 0 ∧ s'.size ≠ 0 ∧ s'.err = s.err ∨ r = -1)
+    ∃ s', W.gz H b = some s' ∧ SameBut s s' ∧ (r = 0 ∧ s'.size ≠ 0 ∧ s'.err = s.err ∨ r = -1) ∧
+      (∀ z', H.streams s.strm = some z' → z'.avail_in = 0) ∧ (r = -1 → ¬(s'.err = ZlibNg.Inflate.Z_OK ∨ s'.err = ZlibNg.Inflate.Z_BUF_ERROR))
+
+/-- A read handle without buffers has no input (`FreshStrm`). -/
+theorem fresh_avail {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvR W H (some b))
+    (hs : W.gz H b = some s) (h0 : s.size = 0) : ∀ z', H.streams s.strm = some z' → z'.avail_in = 0 := by
+  intro z' hz'
+  obtain ⟨sh, -⟩ := inv_of hs hv.1
+  obtain ⟨z, hz, -, -, ha⟩ := (sh.read (modeOf hs hv.2.1)).fresh h0
+  rw [hz] at hz'; cases hz'; exact ha
 
 set_option maxRecDepth 20000 in
 open ZlibNgF.Proof.InflateAlloc (initZ allocHeap) in
@@ -383,14 +392,19 @@ theorem gz_read_init_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : G
   have hbn : b < h.nextBlk := live_lt fr ⟨db, hdb⟩
   -- the end of an error path: one more `gz_error` with "out of memory" may follow
   have tailErr : ∀ (W1 : World) (H1 : Heap) (s1 : GzState), GzInvR W1 H1 (some b) → W1.gz H1 b = some s1 →
-      GStep w h W1 H1 b [] → W1.fs = w.fs → SameBut s s1 →
+      GStep w h W1 H1 b [] → W1.fs = w.fs → SameBut s s1 → s1.size = 0 →
       GSat W1 H1 (gzLit "out of memory") (fun p W2 H2 => GSat W2 H2 (gz_error (some b) ZlibNg.Inflate.Z_MEM_ERROR p)
         (fun _ W3 H3 => InitPost w h b s (-1) W3 H3)) := by
-    intro W1 H1 s1 hv1 hs1 g1 hf1 hb1
+    intro W1 H1 s1 hv1 hs1 g1 hf1 hb1 hz1
     refine GSat.mono (err_lit hv1 hs1 ZlibNg.Inflate.Z_MEM_ERROR "out of memory" 0 GzReach.lit_oom (by decide))
       fun p W2 H2 q => GSat.mono q fun _ W3 H3 q3 => ?_
     obtain ⟨s3, hs3, he3, hv3, hf3, g3⟩ := q3
-    exact ⟨hv3, g1.trans g3 ⟨s, hs⟩ ⟨s1, hs1⟩, hf3.trans hf1, s3, hs3, sameBut_err hhv hb1 he3, Or.inr rfl⟩
+    have hsb := sameBut_err hhv hb1 he3
+    have hz3 : s3.size = 0 := by rw [he3.1]; exact hz1
+    have hst3 : s3.strm = s.strm := by rw [hsb]
+    exact ⟨hv3, g1.trans g3 ⟨s, hs⟩ ⟨s1, hs1⟩, hf3.trans hf1, s3, hs3, hsb, Or.inr rfl,
+      fun z' hz' => fresh_avail hv3 hs3 hz3 z' (by rw [hst3]; exact hz'),
+      fun _ => by rcases he3.2 with e | e <;> rw [e] <;> decide⟩
   unfold gz_read_init
   refine GSat.bind ?_
   cases hok : h.allocOk h.nalloc
@@ -408,7 +422,7 @@ theorem gz_read_init_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : G
     apply GSat.ite
     · intro _
       refine GSat.bind (GSat.mono (tailErr W3 H3 s3 hv3 hs3 (g1.trans g3 ⟨s, hs⟩ ⟨_, hs1⟩) hf3
-        (sameBut_err hhv (show SameBut s (bfSt s) from rfl) he3)) fun p W4 H4 q => GSat.bind (GSat.mono q fun _ W5 H5 q5 => GSat.pure q5))
+        (sameBut_err hhv (show SameBut s (bfSt s) from rfl) he3) (by rw [he3.1]; rfl)) fun p W4 H4 q => GSat.bind (GSat.mono q fun _ W5 H5 q5 => GSat.pure q5))
     · intro hne; exact absurd (by decide) hne
   · -- the buffers are allocated
     have hlo := sh.want_lo
@@ -469,7 +483,7 @@ theorem gz_read_init_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : G
             have : (freeH H1f c0).bytes b = some db := by rw [freeH_bytes_ne (Ne.symm hcb)]; exact hdb1
             unfold World.gz; rw [this]; simp
         refine GSat.bind ?_
-        exact GSat.mono (tailErr _ _ _ hv1 hsW g1 rfl rfl)
+        exact GSat.mono (tailErr _ _ _ hv1 hsW g1 rfl rfl rfl)
           fun p W2 H2 q => GSat.bind (GSat.mono q fun _ W3 H3 q3 => GSat.pure q3)
       · intro hne; exact absurd (by decide) hne
     · -- `inflateInit2` succeeds
@@ -506,10 +520,13 @@ theorem gz_read_init_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : G
         simp [InflateInv.setZS] at hz2; exact hz2.symm
       obtain ⟨hvI, gI⟩ := ok_inv hv hs h0 x ha (by simp [arr, n]) ho hsv (hinv rfl) hz2 hzs2 hst2 hhd2
         (by rw [hai2]; exact hai) (by rw [hz2']; exact hzm)
-      refine ⟨hvI, gI, rfl, baSt s c0 o, ?_, rfl, Or.inl ⟨rfl, ?_, rfl⟩⟩
+      refine ⟨hvI, gI, rfl, baSt s c0 o, ?_, rfl, Or.inl ⟨rfl, ?_, rfl⟩, fun z3 hz3 => ?_, fun e => absurd e (by decide)⟩
       · have hb2 : b ≠ h.nextBlk + 1 := by omega
         unfold World.gz
         simp [InflateInv.setZS, allocHeap, H1, alH, upd_ne _ _ _ _ hb2, upd_ne _ _ _ _ hbc, hdb]; rfl
       · show s.want ≠ 0; intro e0; rw [e0] at hlo; simp at hlo
+      · have e3 : z3 = z2 := by
+          have := hz2; simp only [InflateInv.setZS] at this hz3; rw [hz3] at this; exact Option.some.inj this
+        rw [e3, hai2]; exact hai
 
 end ZlibNgF.Proof.GzMode

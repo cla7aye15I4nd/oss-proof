@@ -222,6 +222,56 @@ def KeepsR (S : World → Heap → World → Heap → GzPtr → Prop) : Prop :=
 def KeepsW (S : World → Heap → World → Heap → GzPtr → Prop) : Prop :=
   ∀ w h w' h' f, GzInvWS w h f → S w h w' h' f → GzInvWS w' h' f
 
+/-- **Between calls, a handle that may still turn out transparent holds fewer than two bytes of input.** While `how` is
+`LOOK` and transparent reading is allowed (`direct ≠ 0`), the input buffer has fewer than two bytes: `gz_look` either
+leaves `LOOK` (it switches to `COPY` or `GZIP`), or reads no input past the test `avail_in < 2`. So the next
+`gz_look` calls `gz_avail` (which fails on a pending error) before it can copy input to the output. Not a clause of
+`GzRead`: inside `gz_look` it fails between `gz_avail` and the switch. -/
+def LookIdle (w : World) (h : Heap) (f : GzPtr) : Prop :=
+  ∀ b s z, f = some b → w.gz h b = some s → h.streams s.strm = some z →
+    s.how = LOOK → s.direct ≠ 0 → z.avail_in.toNat < 2
+
+/-- `S` keeps the invariant of read handles together with `LookIdle`. -/
+def KeepsRI (S : World → Heap → World → Heap → GzPtr → Prop) : Prop :=
+  ∀ w h w' h' f, GzInvR w h f → LookIdle w h f → S w h w' h' f → GzInvR w' h' f ∧ LookIdle w' h' f
+
+theorem idle_mk {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (H : ∀ z, h.streams s.strm = some z → s.how = LOOK → s.direct ≠ 0 → z.avail_in.toNat < 2) :
+    LookIdle w h (some b) := by
+  intro b' s' z e hs' hz
+  cases e; rw [hs] at hs'; cases hs'; exact H z hz
+
+theorem idle_get {w : World} {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (hi : LookIdle w h (some b))
+    (hs : w.gz h b = some s) (hz : h.streams s.strm = some z) : s.how = LOOK → s.direct ≠ 0 → z.avail_in.toNat < 2 :=
+  hi b s z rfl hs hz
+
+/-- `LookIdle` carries over to a state with the same `how`, `direct` and stream, and the same stream record. -/
+theorem idle_same {w W : World} {h H : Heap} {b : Nat} {s s' : GzState} (hi : LookIdle w h (some b))
+    (hs : w.gz h b = some s) (hs' : W.gz H b = some s') (e1 : s'.how = s.how) (e2 : s'.direct = s.direct)
+    (e3 : s'.strm = s.strm) (e4 : H.streams s.strm = h.streams s.strm) : LookIdle W H (some b) := by
+  refine idle_mk hs' fun z hz h1 h2 => ?_
+  rw [e3, e4] at hz; rw [e1] at h1; rw [e2] at h2
+  exact idle_get hi hs hz h1 h2
+
+/-- `LookIdle` of a state whose stream has no input. -/
+theorem idle_zero {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (H : ∀ z, h.streams s.strm = some z → z.avail_in = 0) : LookIdle w h (some b) :=
+  idle_mk hs fun z hz _ _ => by rw [H z hz]; decide
+
+/-- `LookIdle` of a read handle that is not looking at transparent-capable input, or has no buffers. -/
+theorem idle_of {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b)) (hs : w.gz h b = some s)
+    (hc : s.how ≠ LOOK ∨ s.direct = 0 ∨ s.size = 0) : LookIdle w h (some b) := by
+  refine idle_mk hs fun z hz h1 h2 => ?_
+  rcases hc with hc | hc | hc
+  · exact absurd h1 hc
+  · exact absurd hc h2
+  · obtain ⟨⟨b', s', e, hs', sh, -⟩, hm, -⟩ := hv
+    cases e; rw [hs] at hs'; cases hs'
+    have hr : s.mode = GZ_READ := by
+      obtain ⟨b2, s2, e2, hs2, hm2⟩ := hm; cases e2; rw [hs] at hs2; cases hs2; exact hm2
+    obtain ⟨z', hz', -, -, h0⟩ := (sh.read hr).fresh hc
+    rw [hz] at hz'; cases hz'; rw [h0]; decide
+
 /-- **What the write side owes**: on a write handle, the write-side calls keep `GzInvWS` (the caller's steps keep it:
 `caller_keepsW`). -/
 structure GWriteSteps : Prop where
@@ -1106,5 +1156,116 @@ theorem caller_keepsW : KeepsW GzCallerStep := by
   rcases hc with hc | hc
   · exact macro_keepsW hv hc
   · exact keeps_keepsW hv hc
+
+/-! ## `LookIdle` through the steps that leave `how`, `direct` and the stream alone -/
+
+/-- A step that keeps the read invariant and, on a read handle, leaves a state with the same `how`, `direct` and
+stream, and the same stream record, keeps `LookIdle` too. -/
+theorem keepsRI_of {S : World → Heap → World → Heap → GzPtr → Prop} (hK : KeepsR S)
+    (hI : ∀ w h w' h' b s, GzInvR w h (some b) → w.gz h b = some s → S w h w' h' (some b) →
+      ∃ s', w'.gz h' b = some s' ∧ s'.how = s.how ∧ s'.direct = s.direct ∧ s'.strm = s.strm ∧
+        h'.streams s.strm = h.streams s.strm) : KeepsRI S := by
+  intro w h w' h' f hv hi hst
+  obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+  obtain ⟨s', hs', e1, e2, e3, e4⟩ := hI w h w' h' b s hv hs hst
+  exact ⟨hK w h w' h' _ hv hst, idle_same hi hs hs' e1 e2 e3 e4⟩
+
+/-- A step that changes neither the world nor the heap on a read handle. -/
+theorem keepsRI_same {S : World → Heap → World → Heap → GzPtr → Prop}
+    (hS : ∀ w h w' h' b s, w.gz h b = some s → s.mode = GZ_READ → S w h w' h' (some b) → w' = w ∧ h' = h) :
+    KeepsRI S := by
+  intro w h w' h' f hv hi hst
+  obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+  obtain ⟨rfl, rfl⟩ := hS w h w' h' b s hs (modeOf hs hv.2.1) hst
+  exact ⟨hv, hi⟩
+
+/-- A step of `keeps_outside` keeps `LookIdle`. -/
+theorem keeps_outsideI {S : World → Heap → World → Heap → GzPtr → Prop}
+    (hS : ∀ w h w' h' f, (GzInvR w h f ∨ GzInvWS w h f) → S w h w' h' f →
+      w'.gzs = w.gzs ∧ GzOpen.FsLe w.fs w'.fs ∧ (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) ∧
+      (LitOk w h → LitOk w' h')) : KeepsRI S := by
+  refine keepsRI_of (keeps_outside hS).1 fun w h w' h' b s hv hs hst => ?_
+  obtain ⟨hg, -, hh, -⟩ := hS w h w' h' (some b) (Or.inl hv) hst
+  refine ⟨s, ?_, rfl, rfl, rfl, by rcases hh with e | ⟨a, e⟩ <;> rw [e]⟩
+  unfold World.gz at hs ⊢; rw [hg]; rcases hh with e | ⟨a, e⟩ <;> rw [e] <;> exact hs
+
+theorem wstep_keepsRI : KeepsRI GzWStep := by
+  refine keepsRI_same fun w h w' h' b s hs hm hst => ?_
+  rcases hst with ⟨buf, len, r, -, e⟩ | ⟨buf, sz, ni, r, -, e⟩ | ⟨c, r, e⟩ | ⟨p, r, -, -, e⟩ | ⟨p, r, -, e⟩ |
+    ⟨p, r, -, e⟩ | ⟨fl, r, e⟩ | ⟨l, st, r, e⟩
+  · exact (gdet e (gzwrite_read hs hm buf len)).2
+  · exact (gdet e (gzfwrite_read hs hm buf sz ni)).2
+  · exact (gdet e (gzputc_read hs hm c)).2
+  · exact (gdet e (gzputs_read hs hm p)).2
+  · exact (gdet e (gzprintf_read hs hm p)).2
+  · exact (gdet e (gzvprintf_read hs hm p)).2
+  · exact (gdet e (gzflush_read hs hm fl)).2
+  · exact (gdet e (gzsetparams_read hs hm l st)).2
+
+theorem tell64_keepsI : KeepsRI STell64 := keeps_outsideI fun w h w' h' f hv ⟨r, e⟩ => by
+  obtain ⟨r', e'⟩ := GzReach.gztell64_inv (Or.inr (parts' hv))
+  obtain ⟨-, rfl, rfl⟩ := gdet e e'
+  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl, id⟩
+
+theorem tell_keepsI : KeepsRI STell := keeps_outsideI fun w h w' h' f hv ⟨r, e⟩ => by
+  obtain ⟨r', e'⟩ := GzReach.gztell_inv (Or.inr (parts' hv))
+  obtain ⟨-, rfl, rfl⟩ := gdet e e'
+  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl, id⟩
+
+theorem eof_keepsI : KeepsRI SEof := keeps_outsideI fun w h w' h' f hv ⟨r, e⟩ => by
+  obtain ⟨r', e'⟩ := GzReach.gzeof_inv (Or.inr (parts' hv))
+  obtain ⟨-, rfl, rfl⟩ := gdet e e'
+  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl, id⟩
+
+theorem error_keepsI : KeepsRI SError := keeps_outsideI fun w h w' h' f hv ⟨ee, r, e⟩ => by
+  obtain ⟨r', w2, h2, e', -, hg, hf, hh, hL⟩ := GzReach.gzerror_inv ee (Or.inr (parts' hv))
+  obtain ⟨-, rfl, rfl⟩ := gdet e e'
+  exact ⟨hg, by rw [hf]; exact GzOpen.FsLe.refl _, hh, hL⟩
+
+theorem offset64_keepsI : KeepsRI SOffset64 := keeps_outsideI fun _ _ _ _ _ hv ⟨_, e⟩ =>
+  offset_fs (parts' hv) (fun hl hv' => GzReach.gzoffset64_inv hl hv') e (lseek_ok hv)
+
+theorem offset_keepsI : KeepsRI SOffset := keeps_outsideI fun _ _ _ _ _ hv ⟨_, e⟩ =>
+  offset_fs (parts' hv) (fun hl hv' => GzReach.gzoffset_inv hl hv') e (lseek_ok hv)
+
+theorem buffer_keepsI : KeepsRI SBuffer := by
+  refine keepsRI_of buffer_keeps.1 fun w h w' h' b s hv hs ⟨n, r, e⟩ => ?_
+  rcases gzbuffer_run hs (inv_of hs hv.1).1.mode n with ⟨-, e'⟩ | ⟨-, v, -, -, e'⟩
+  · obtain ⟨-, rfl, rfl⟩ := gdet e e'
+    exact ⟨s, hs, rfl, rfl, rfl, rfl⟩
+  · obtain ⟨-, rfl, rfl⟩ := gdet e e'
+    exact ⟨_, gz_upd_same hs _, rfl, rfl, rfl, rfl⟩
+
+theorem clearerr_keepsI : KeepsRI SClearerr := by
+  refine keepsRI_of clearerr_keeps.1 fun w h w' h' b s hv hs ⟨r, e⟩ => ?_
+  obtain ⟨sh, hn⟩ := inv_of hs hv.1
+  obtain ⟨-, rfl, rfl⟩ := gdet e (gzclearerr_run hs sh.mode sh.msg (msg_ne_b hn))
+  have hdb : ∀ d, h.bytes b = some d → (freeMsg h s).bytes b = some d := by
+    intro d hd
+    rw [freeMsg_bytes h s b fun hc => ?_]; exact hd
+    revert hc
+    cases e : s.msg with
+    | uninit => simp [blkOf]
+    | val p =>
+      cases p with
+      | null => simp [blkOf]
+      | ref r o =>
+        cases r with
+        | heap c => simp only [blkOf, List.mem_singleton]; intro e'; exact msg_ne_b hn c o e e'.symm
+        | const k => simp [blkOf]
+        | str k => simp [blkOf]
+  obtain ⟨d, hd⟩ := gz_live hs
+  refine ⟨_, ?_, ?_, ?_, clrSt_strm s, by rw [freeMsg_streams]⟩
+  · unfold World.gz; rw [hdb d hd]; simp
+  · by_cases hm : s.mode = GZ_READ <;> simp [errSt, clrSt, hm]
+  · by_cases hm : s.mode = GZ_READ <;> simp [errSt, clrSt, hm]
+
+theorem caller_keepsRI : KeepsRI GzCallerStep := by
+  refine keepsRI_of caller_keepsR fun w h w' h' b s hv hs hc => ?_
+  rcases hc with ⟨b1, s1, nx, e1, hs1, -, -, nx', -, rfl, rfl⟩ | ⟨-, -, -, b1, s1, e1, hs1, hs1', hstr, -⟩
+  · cases e1; rw [hs] at hs1; cases hs1
+    exact ⟨_, gz_upd_same hs _, rfl, rfl, rfl, rfl⟩
+  · cases e1; rw [hs] at hs1; cases hs1
+    exact ⟨s, hs1', rfl, rfl, rfl, hstr⟩
 
 end ZlibNgF.Proof.GzMode

@@ -1,5 +1,6 @@
 import ZlibNgF.Proof.«deflate.c.invariant»
 import ZlibNgF.Proof.«deflate.c.init»
+import ZlibNgF.Proof.«deflate.c.psi»
 
 /-!
 # Callee facts of `deflate` (`ZlibNgF`)
@@ -155,6 +156,16 @@ theorem InTail.le {h H : Heap} {i : Nat} (A : InTail h H i) {z0 z : ZStream} (h0
   obtain rfl := Option.some.inj (h0.symm.trans h0')
   obtain rfl := Option.some.inj (h1.symm.trans h1')
   omega
+
+/-- The allowance of a strategy call that returns `bs` in the potential: `2^18` for the last block after
+`finish_started` / `finish_done` (`deflate` then sets `s->status = FINISH_STATE`, which releases it:
+`DeflatePsi.content_finish`), else none. -/
+def finSlack (bs : BlockState) : Nat := if bs = .finish_started ∨ bs = .finish_done then 2 ^ 18 else 0
+
+/-- The potential of a strategy call that returns `bs` (`DeflatePsi.PsiAcc`): from `h` to `h'`, `psiS` drops by the
+bytes produced, less `G` per input byte consumed and `finSlack bs`. -/
+def PsiPost (h : Heap) (s : StreamPtr) (bs : BlockState) (h' : Heap) : Prop :=
+  ∀ i b, s = some i → StateBlock h s b → DeflatePsi.PsiAcc (finSlack bs) h h' i b
 
 /-- What a strategy call with `flush` leaves: the invariant, valid and set buffers, a change of the stream record, the
 stream's block and the output buffer only, the output buffer after a tail of the one before (`OutTail`), the stream's
