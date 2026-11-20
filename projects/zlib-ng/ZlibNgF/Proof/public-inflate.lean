@@ -78,17 +78,18 @@ theorem loopPart_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {
       | some v => return v
       | none => infLeave E.c) (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → InflateLeave.Prog E H') ∧
         (v = Z_BUF_ERROR → E.flush ≠ Z_FINISH → E.flush ≠ Z_BLOCK → E.flush ≠ Z_TREES → InflateLeave.BufOut E H') ∧
-        ResAcc E v H') ∧ Fin E H') := by
+        ResAcc E v H' ∧ (v = Z_STREAM_END → InflateLeave.EndIn E H')) ∧ Fin E H') := by
   refine SatX.bind (satX_tryCatch ?_)
   refine SatX.bind (SatX.mono (loop_ok (tripOK E eo) li) ?_)
   rintro r l' H' p
   match r, p with
   | .error .leave, ⟨⟨z', S', li'⟩, hw⟩ =>
     exact SatX.pure (SatX.mono (InflateLeave.leave_ok E eo li' hw)
-      (fun r l2 H2 ⟨⟨v, hr, hp, hb, hres⟩, hf⟩ => ⟨⟨v, hr, hp, hb, resAcc_of_leave hres⟩, hf⟩))
+      (fun r l2 H2 ⟨⟨v, hr, hp, hb, hres, hend⟩, hf⟩ => ⟨⟨v, hr, hp, hb, resAcc_of_leave hres, hend⟩, hf⟩))
   | .error (.ret v), hf =>
     have hc := ret_cases hf.2
-    exact SatX.pure (SatX.pure ⟨⟨v, rfl, fun e => absurd e hc.1, fun e => absurd e hc.2.1, hc.2.2⟩, hf.1⟩)
+    exact SatX.pure (SatX.pure ⟨⟨v, rfl, fun e => absurd e hc.1, fun e => absurd e hc.2.1, hc.2.2, fun e => by
+      rcases hf.2.2 with h | h <;> rw [h] at e <;> exact absurd e (by decide)⟩, hf.1⟩)
 
 theorem space_get_eq {h H1 : Heap} (hB : H1.bytes = h.bytes) (hK : H1.consts = h.consts) (r : BRef) :
     Space.get H1 r = Space.get h r := by
@@ -210,13 +211,20 @@ def MsgRes (h h' : Heap) (i : Nat) : Prop :=
   ∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧
     (z'.msg = z.msg ∨ ∃ k, z'.msg = .ref (.str k) 0 ∧ k < strTable.size)
 
+/-- A call of `inflate` from a just reset state of stream `i` (mode `HEAD`, no bits held, not the last block) consumed
+input. -/
+def FreshEnd (h h' : Heap) (i : Nat) : Prop :=
+  ∀ z sb st, h.streams i = some z → z.state = some sb → h.istate sb = some st → st.mode = HEAD → st.bits = 0 →
+    st.last = 0 → ∀ z', h'.streams i = some z' → z'.avail_in < z.avail_in
+
 /-- The codes `inflate` returns. -/
 def InfRes (r : Int32) : Prop :=
   r = Z_OK ∨ r = Z_STREAM_END ∨ r = Z_NEED_DICT ∨ r = Z_BUF_ERROR ∨ r = Z_DATA_ERROR ∨ r = Z_STREAM_ERROR
 
-/-- `inflate_ok'` with the result codes (`InfRes`) and the exact accounting (`IoRes`) for every code but
-`Z_STREAM_ERROR`, and for every code when the entry check passes (`EntryOK`). -/
-theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) (hio : StreamIO h (some i))
+/-- `inflate_ok'` with the result codes (`InfRes`), the exact accounting (`IoRes`) for every code but
+`Z_STREAM_ERROR`, and for every code when the entry check passes (`EntryOK`), the message (`MsgRes`), and that
+`Z_STREAM_END` from a just reset state consumed input (`FreshEnd`). -/
+theorem inflate_full2 {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) (hio : StreamIO h (some i))
     (hc : h.crcTable = ZlibNg.Crc32Tbl.crc_table) :
     Sat h (ZlibNg.Inflate.inflate (some i) flush) (fun r h' => Inv h' (some i) ∧
       Frame h h' [i] (stateIds h (some i)) (headerIds h (some i)) (outputRanges h (some i)) ∧
@@ -224,7 +232,8 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
       (∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧ z'.state = z.state) ∧
       (∀ hq, RegisteredHeader h' (some i) hq → RegisteredHeader h (some i) hq) ∧
       (r = Z_BUF_ERROR → flush ≠ Z_FINISH → flush ≠ Z_BLOCK → flush ≠ Z_TREES → BufStall h h' i) ∧
-      (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r ∧ MsgRes h h' i) := by
+      (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r ∧ MsgRes h h' i ∧
+      (r = Z_STREAM_END → FreshEnd h h' i)) := by
   have hv' := hv
   obtain ⟨i', z, b, st, al, e, hz, hb, hst, hal, c⟩ := hv'
   cases e
@@ -252,7 +261,8 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
         · obtain ⟨h1, h2⟩ := e z hz
           exfalso; revert hchk0
           rcases h2 with h2 | h2 <;> simp [h1, h2],
-      Or.inr (Or.inr (Or.inr (Or.inr (Or.inr rfl)))), fun z0 h0 => ⟨z0, h0, Or.inl rfl⟩⟩
+      Or.inr (Or.inr (Or.inr (Or.inr (Or.inr rfl)))), fun z0 h0 => ⟨z0, h0, Or.inl rfl⟩,
+      fun e => absurd e (by decide)⟩
   rename_i hchk
   have hno : z.next_out ≠ .null := by
     intro e; simp [e] at hchk
@@ -264,6 +274,8 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
   have tail : ∀ (H1 : Heap) (S1 : InflateState), Inv H1 (some i) → H1.streams i = some z → H1.istate b = some S1 →
       S1.head = .val hp → H1.bytes = h.bytes → H1.gzheaders = h.gzheaders → H1.crcTable = h.crcTable →
       H1.consts = h.consts → Touch h H1 i b →
+      (st.mode = HEAD → st.bits = 0 → st.last = 0 → ∀ S0, H1.istate b = some S0 →
+        (S0.mode = HEAD ∨ S0.mode = TYPEDO) ∧ S0.bits = 0 ∧ S0.last = 0) →
       Sat H1 (do
         let g ← uninitLocals 0
         let __x ← (ExceptT.run (do
@@ -290,8 +302,9 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
           (∀ z0, h.streams i = some z0 → ∃ z', h'.streams i = some z' ∧ z'.state = z0.state) ∧
           (∀ hq, RegisteredHeader h' (some i) hq → RegisteredHeader h (some i) hq) ∧
           (r = Z_BUF_ERROR → flush ≠ Z_FINISH → flush ≠ Z_BLOCK → flush ≠ Z_TREES → BufStall h h' i) ∧
-          (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r ∧ MsgRes h h' i) := by
-    intro H1 S1 hv1 hz1 hs1 hh1 hB hG hC hK ht
+          (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r ∧ MsgRes h h' i ∧
+          (r = Z_STREAM_END → FreshEnd h h' i)) := by
+    intro H1 S1 hv1 hz1 hs1 hh1 hB hG hC hK ht hF
     obtain ⟨bo, oo, hpo, eo⟩ := envOK_of (H1 := H1) flush hz hb hst hhead hok hin hout hdisj hnb hno hni hc hB hG hC hK
     obtain ⟨al1, -, c1⟩ : ∃ al, H1.iallocsOf b = some al ∧ Core H1 (some i) z b (view S1) al := by
       obtain ⟨i', z', b', st', al', e, hz', hb', hst', hal', c'⟩ := hv1
@@ -305,7 +318,9 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
         InflateLeave.BufOut ⟨H1, i, b, flush, z.next_in, z.avail_in, bo, oo, z.avail_out, hp, headerIds h (some i),
           outputRanges h (some i)⟩ H') ∧
       ResAcc ⟨H1, i, b, flush, z.next_in, z.avail_in, bo, oo, z.avail_out, hp, headerIds h (some i),
-          outputRanges h (some i)⟩ v H') ∧
+          outputRanges h (some i)⟩ v H' ∧
+      (v = Z_STREAM_END → InflateLeave.EndIn ⟨H1, i, b, flush, z.next_in, z.avail_in, bo, oo, z.avail_out, hp,
+          headerIds h (some i), outputRanges h (some i)⟩ H')) ∧
       Fin ⟨H1, i, b, flush, z.next_in, z.avail_in, bo, oo, z.avail_out, hp, headerIds h (some i),
         outputRanges h (some i)⟩ H') ?_ ?_)
     · show SatX H1 _ _ (fun r _ H' => (∃ v, r = Except.ok v ∧
@@ -315,7 +330,9 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
           InflateLeave.BufOut ⟨H1, i, b, flush, z.next_in, z.avail_in, bo, oo, z.avail_out, hp,
             headerIds h (some i), outputRanges h (some i)⟩ H') ∧
         ResAcc ⟨H1, i, b, flush, z.next_in, z.avail_in, bo, oo, z.avail_out, hp, headerIds h (some i),
-          outputRanges h (some i)⟩ v H') ∧
+          outputRanges h (some i)⟩ v H' ∧
+        (v = Z_STREAM_END → InflateLeave.EndIn ⟨H1, i, b, flush, z.next_in, z.avail_in, bo, oo, z.avail_out, hp,
+            headerIds h (some i), outputRanges h (some i)⟩ H')) ∧
         Fin ⟨H1, i, b, flush, z.next_in, z.avail_in, bo, oo, z.avail_out, hp, headerIds h (some i),
           outputRanges h (some i)⟩ H')
       refine SatX.bind ?_
@@ -326,7 +343,10 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
       refine SatX.bind (SatX.modify ?_)
       refine loopPart_ok _ eo (z := z) (S := S1) ?_
       refine ⟨hv1, touchFrame (Touch.refl H1 i b) _ _, SizeKeep.refl _ _, hz1, hb, hs1, hh1, ?_, ?_, ?_, ?_, rfl,
-        Or.inl rfl, Or.inl rfl, ?_, fun z0 h0 => Or.inl (by rw [hz1] at h0; cases h0; rfl)⟩
+        Or.inl rfl, Or.inl rfl, ?_, fun z0 h0 => Or.inl (by rw [hz1] at h0; cases h0; rfl), fun hf _ => by
+          obtain ⟨hm0, hb0, hl0⟩ := hf S1 hs1
+          exact ⟨by show S1.bits.toUInt8 = 0; rw [hb0]; rfl, hl0, hm0.elim Or.inl (fun e => Or.inr (Or.inl e)),
+            by show Z_OK ≠ Z_STREAM_END; decide⟩⟩
       · show HdrOK H1 H1 hp
         unfold HdrOK
         rcases hok with e | ⟨k, g, e, hg, -⟩
@@ -357,10 +377,10 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
           · simp
         · show z.next_out = _
           rw [hpo]; simp
-    · rintro ⟨r, l'⟩ H' ⟨⟨v, hr, hpg, hbg, hra⟩, hf⟩
+    · rintro ⟨r, l'⟩ H' ⟨⟨v, hr, hpg, hbg, hra, hend⟩, hf⟩
       dsimp only at hr
       subst hr
-      refine Sat.pure ⟨hf.1, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      refine Sat.pure ⟨hf.1, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · rw [hsid]
         have f1 := touchFrame ht (headerIds h (some i)) (outputRanges h (some i))
         exact Frame.trans f1 hf.2.1
@@ -396,6 +416,13 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
         rw [hz] at hz0; cases hz0
         obtain ⟨-, z', e1, -, e5⟩ := hra
         exact ⟨z', e1, e5 z hz1⟩
+      · intro hv0 z0 sb st0 hz0 hsb hst0 hm0 hb0 hl0 z' hz'
+        rw [hz] at hz0; cases hz0
+        rw [hb] at hsb; cases hsb
+        rw [hst] at hst0; cases hst0
+        obtain ⟨z'', e1, e2⟩ := hend hv0 (hF hm0 hb0 hl0)
+        rw [e1] at hz'; cases hz'
+        exact e2
   split
   · obtain ⟨e, hv1⟩ := InflateInv.wrS (h := h) (s := some i) hv (fun s => { s with mode := TYPEDO }) ⟨z, ⟨i, rfl, hz⟩, hb⟩
       hst (fun _ _ c => { c with
@@ -403,9 +430,26 @@ theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) 
         mode_hi := by show TYPEDO ≤ SYNC; decide
         modes := InflateInv.ModeOK.quiet _ _ (Or.inl (show TYPEDO < LENLENS by decide)) })
     refine Sat.bind (Sat.of_eq e ?_)
+    rename_i hT
     refine tail _ { st with mode := TYPEDO } hv1 hz (InflateLoop.istate_withS hst _) hhead rfl rfl rfl rfl
-      ⟨rfl, fun _ _ => rfl, fun c hc => upd_ne _ _ _ _ hc, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
-  · exact tail h st hv hz hst hhead rfl rfl rfl rfl (Touch.refl h i b)
+      ⟨rfl, fun _ _ => rfl, fun c hc => upd_ne _ _ _ _ hc, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ fun hm0 => by
+        rw [hm0] at hT; exact absurd hT (by decide)
+  · exact tail h st hv hz hst hhead rfl rfl rfl rfl (Touch.refl h i b) fun hm0 hb0 hl0 S0 hS0 => by
+      rw [hst] at hS0; cases hS0; exact ⟨Or.inl hm0, hb0, hl0⟩
+
+/-- `inflate_full2` without `FreshEnd`. -/
+theorem inflate_full {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) (hio : StreamIO h (some i))
+    (hc : h.crcTable = ZlibNg.Crc32Tbl.crc_table) :
+    Sat h (ZlibNg.Inflate.inflate (some i) flush) (fun r h' => Inv h' (some i) ∧
+      Frame h h' [i] (stateIds h (some i)) (headerIds h (some i)) (outputRanges h (some i)) ∧
+      (r = Z_OK → Progress h h' i) ∧
+      (∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧ z'.state = z.state) ∧
+      (∀ hq, RegisteredHeader h' (some i) hq → RegisteredHeader h (some i) hq) ∧
+      (r = Z_BUF_ERROR → flush ≠ Z_FINISH → flush ≠ Z_BLOCK → flush ≠ Z_TREES → BufStall h h' i) ∧
+      (r ≠ Z_STREAM_ERROR ∨ EntryOK h i → IoRes h h' i) ∧ InfRes r ∧ MsgRes h h' i) :=
+  Sat.mono (inflate_full2 flush hv hio hc) (fun _ _ q =>
+    ⟨q.1, q.2.1, q.2.2.1, q.2.2.2.1, q.2.2.2.2.1, q.2.2.2.2.2.1, q.2.2.2.2.2.2.1, q.2.2.2.2.2.2.2.1,
+      q.2.2.2.2.2.2.2.2.1⟩)
 
 /-- `inflate_ok` with the meaning of `Z_BUF_ERROR` (`BufStall`). -/
 theorem inflate_ok' {h : Heap} {i : Nat} (flush : Int32) (hv : Inv h (some i)) (hio : StreamIO h (some i))

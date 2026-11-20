@@ -1,6 +1,6 @@
 # zlib-ng
 
-Verification target: the zlib-ng `develop` branch at commit `5f1f4899` with sixteen patches, built as
+Verification target: the zlib-ng `develop` branch at commit `5f1f4899` with twenty patches, built as
 the zlib-compatible (`ZLIB_COMPAT`) x86_64 Linux LP64 library with the generic C kernels: every
 dispatched function (`adler32`, `crc32`, …) runs its portable C version, with no SIMD code.
 
@@ -43,9 +43,10 @@ The verified library is built with these options (all other options keep their d
 - Two internal allocation helpers used by the `gz*` functions (`zcalloc` / `zcfree`,
   `zng_alloc_aligned` / `zng_free_aligned`) are safe, and `zng_alloc_aligned` returns aligned
   memory.
+- The streaming `inflate*` and `inflateBack*` functions, `uncompress*`, the streaming `deflate*`
+  functions, and `gzopen`, `gzopen64`, `gzdopen` are safe.
 
-Streaming `deflate*` and `inflate*`, one-shot `compress*` and `uncompress*`, the `gz*` family and
-the round trip are not done. Every public function of `zlib.h` is listed as done or not done.
+One-shot `compress*`, the other `gz*` functions and the round trip are not done. Every public function of `zlib.h` is listed as done or not done.
 
 The translation of each function above is also compared with the real C library, built with the
 configuration above, on generated inputs. Such tests are evidence that the translation matches the C,

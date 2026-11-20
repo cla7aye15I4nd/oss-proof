@@ -210,11 +210,23 @@ theorem streamIO_W {H : Heap} {s : GzState} {c base : Nat} {z : ZStream} (hB : G
           · rw [e2] at e; cases e
     · cases e
 
-/-- The `deflate` clause of `DeflateGz` for a measure `μ`. -/
-def DeflateClause (μ : Int32 → C.DeflateState → Nat) : Prop :=
+/-- No `gz_header` is registered on the deflate state of a write handle with buffers. -/
+theorem regNone {H : Heap} {s : GzState} {c base : Nat} {z : ZStream} (hz : H.streams s.strm = some z)
+    (WB : GzWBuf H s c base z) (hdi : DeflateInv.DInv H (some s.strm)) : DRegisteredHeader H (some s.strm) none := by
+  obtain ⟨i, z0, sb, st, al, e0, hz0, hsb, hst, -, core⟩ := hdi
+  cases e0; rw [hz] at hz0; cases hz0
+  obtain ⟨hp, hhp⟩ := core.gzhead
+  have hhp' : st.gzhead = .val hp := hhp
+  refine ⟨sb, st, ⟨⟨z, ⟨_, rfl, hz⟩, hsb⟩, hst⟩, ?_⟩
+  cases hp with
+  | none => exact hhp'
+  | some k => exact absurd hhp' (WB.nohdr sb st k hsb hst)
+
+/-- The `deflate` clause of `DeflateGz` for a potential `ψ` and growth `G`. -/
+def DeflateClause (ψ : Int32 → C.DeflateState → Nat) (G : Nat) : Prop :=
   ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), DeflateInv.DInv h s → DeflateSide.DSide h s → CrcGlobals h →
-    DStreamIO h s → C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') →
-    CallOk (μ flush) 5 h h' s ∧ DKeep h h' s ∧ (flush ≠ ZlibNg.Inflate.Z_FINISH → r ≠ ZlibNg.Inflate.Z_STREAM_ERROR →
+    DStreamIO h s → DRegisteredHeader h s none → C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') →
+    CallOk (ψ flush) G 5 h h' s ∧ DKeep h h' s ∧ (flush ≠ ZlibNg.Inflate.Z_FINISH → r ≠ ZlibNg.Inflate.Z_STREAM_ERROR →
       ∀ z', StreamAt h' s z' → z'.avail_in = 0 ∨ z'.avail_out = 0)
 
 /-- The buffer positions of `GzWBuf` after a call that moves the buffer fields (`BufAdv`). -/
@@ -245,13 +257,15 @@ theorem wbuf_adv {s : GzState} {c base : Nat} {z z' : ZStream} (hd : s.direct = 
 
 /-- **`deflate`** on the stream of a write handle with buffers (not direct): no fault, the buffer fields move
 (`BufAdv`), the measure and progress facts of `DeflateGz`, and the invariant of the handle. -/
-theorem deflate_stepW (P : DeflateReach.DPending) {μ : Int32 → C.DeflateState → Nat} (hD : DeflateClause μ)
+theorem deflate_stepW (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → Nat} {G : Nat}
+    (hD : DeflateClause ψ G)
     {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvWS W H (some b)) (hs : W.gz H b = some s)
     (hsz : s.size ≠ 0) (hd : s.direct = 0) (flush : Int32) :
     ∃ r H' z z', ZlibNg.Deflate.deflate (some s.strm) flush H = .ok (r, H') ∧ H.streams s.strm = some z ∧
       H'.streams s.strm = some z' ∧ BufAdv z z' ∧
-      (z'.avail_in = z.avail_in → ∀ sb st st', DStateOf H (some s.strm) sb st → DStateOf H' (some s.strm) sb st' →
-        μ flush st' + (z.avail_out.toNat - z'.avail_out.toNat) ≤ μ flush st + (if z'.avail_out = 0 then 5 else 0)) ∧
+      (∀ sb st st', DStateOf H (some s.strm) sb st → DStateOf H' (some s.strm) sb st' →
+        ψ flush st' + (z.avail_out.toNat - z'.avail_out.toNat) ≤
+          ψ flush st + G * (z.avail_in.toNat - z'.avail_in.toNat) + (if z'.avail_out = 0 then 5 else 0)) ∧
       (flush ≠ ZlibNg.Inflate.Z_FINISH → r ≠ ZlibNg.Inflate.Z_STREAM_ERROR → z'.avail_in = 0 ∨ z'.avail_out = 0) ∧
       GzInvWS W H' (some b) ∧ W.gz H' b = some s ∧ GStep W H W H' b [] := by
   have hwm := modeOf hs hv.2.1
@@ -268,7 +282,7 @@ theorem deflate_stepW (P : DeflateReach.DPending) {μ : Int32 → C.DeflateState
     simp at this; exact this
   have hio := streamIO_W hB hz hwm hd WB hsb hcs hdi
   obtain ⟨r, H', e, f, -, hdi', hside'⟩ := P.deflate H (some s.strm) flush hdi hside hv.2.2.1 hio
-  obtain ⟨hco, hk, hdone⟩ := hD H H' (some s.strm) flush r hdi hside hv.2.2.1 hio e
+  obtain ⟨hco, hk, hdone⟩ := hD H H' (some s.strm) flush r hdi hside hv.2.2.1 hio (regNone hz WB hdi) e
   obtain ⟨z', ⟨i', e1, hz'⟩, hadv, hmu⟩ := hco z ⟨_, rfl, hz⟩
   cases e1
   have hsi : stateIds H (some s.strm) = [sb] := by simp [stateIds, hz, hsb]
