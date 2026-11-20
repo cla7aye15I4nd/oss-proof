@@ -82,13 +82,14 @@ def StratPre (h : Heap) (s : StreamPtr) (flush : Int32) : Prop :=
 
 /-- What a strategy call with `flush` leaves: the invariant, valid and set buffers, a change of the stream record, the
 stream's block and the output buffer only, no pending bytes after `block_done` / `finish_done`; `SymsOk` again, the
-fields of `StratKeeps` unchanged, no symbols after a call with a flush (every such return goes through `FLUSH_BLOCK`,
-or the strategy never tallies), and no symbols and no lookahead after `finish_started` / `finish_done`. -/
+fields of `StratKeeps` unchanged, no symbols after a call with a flush that leaves output room (every such return
+goes through `FLUSH_BLOCK`, or the strategy never tallies; `deflate_slow` returns on a full output right after a
+tally), and no symbols and no lookahead after `finish_started` / `finish_done`. -/
 def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' : Heap) : Prop :=
   DInv h' s ∧ DStreamIO h' s ∧ DBufsSet h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] (dOutputRanges h s) ∧
     (bs = .block_done ∨ bs = .finish_done → ∃ b st, DStateIs h' s b st ∧ st.pending = 0) ∧
     ∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
-      (flush ≠ Z_NO_FLUSH → st'.sym_next = 0) ∧
+      (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt h' s z' → z'.avail_out ≠ 0) → st'.sym_next = 0) ∧
       (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0)
 
 /-- A strategy `f` that `deflate` dispatches to on states with `dispatch`: from `StratPre` and `dispatch`, no fault
