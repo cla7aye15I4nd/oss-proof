@@ -29,6 +29,7 @@ import ZlibNgF.Math.TreesLabeled
 import ZlibNgF.Math.TreesRank
 import ZlibNgF.Proof.«trees.c.merge»
 import ZlibNgF.Proof.«trees.c.bitlen»
+import ZlibNgF.Proof.«trees.c.codes»
 import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Gz
