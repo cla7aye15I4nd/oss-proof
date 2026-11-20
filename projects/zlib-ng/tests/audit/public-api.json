@@ -33,15 +33,19 @@
     },
     {
       "function": "deflate",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflate_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflate",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflate_safety"
     },
     {
       "function": "deflateEnd",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateEnd_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateEnd",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateEnd_safety"
     },
     {
       "function": "inflate",
@@ -61,63 +65,83 @@
     },
     {
       "function": "deflateSetDictionary",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateSetDictionary_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateSetDictionary",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateSetDictionary_safety"
     },
     {
       "function": "deflateGetDictionary",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateGetDictionary_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateGetDictionary",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateGetDictionary_safety"
     },
     {
       "function": "deflateCopy",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateCopy_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateCopy",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateCopy_safety"
     },
     {
       "function": "deflateReset",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateReset_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateReset",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateReset_safety"
     },
     {
       "function": "deflateParams",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateParams_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateParams",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateParams_safety"
     },
     {
       "function": "deflateTune",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateTune_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateTune",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateTune_safety"
     },
     {
       "function": "deflateBound",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateBound_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateBound",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateBound_safety"
     },
     {
       "function": "deflatePending",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflatePending_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflatePending",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflatePending_safety"
     },
     {
       "function": "deflatePrime",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflatePrime_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflatePrime",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflatePrime_safety"
     },
     {
       "function": "deflateSetHeader",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateSetHeader_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateSetHeader",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateSetHeader_safety"
     },
     {
       "function": "inflateSetDictionary",
@@ -661,9 +685,11 @@
     },
     {
       "function": "deflateResetKeep",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateResetKeep_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateResetKeep",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateResetKeep_safety"
     },
     {
       "function": "gzopen_w",
@@ -697,15 +723,19 @@
     },
     {
       "function": "deflateBound_z",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateBound_z_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateBound_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateBound_z_safety"
     },
     {
       "function": "deflateUsed",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.deflateUsed_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/deflate.c.lean",
+      "implementation": "ZlibNg.Deflate.deflateUsed",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.deflateUsed_safety"
     },
     {
       "function": "uncompress_z",
