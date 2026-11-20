@@ -22,6 +22,7 @@ import ZlibNgF.Proof.«trees.c.prims»
 import ZlibNgF.Proof.«trees.c.scan»
 import ZlibNgF.Proof.«trees.c.force»
 import ZlibNgF.Proof.«trees.c.header»
+import ZlibNgF.Proof.«trees.c.sendtree»
 import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Gz
