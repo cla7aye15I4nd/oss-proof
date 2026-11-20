@@ -183,6 +183,7 @@ import ZlibNgF.Proof.«gzread.c.facts»
 import ZlibNgF.Proof.«gzread.c.load»
 import ZlibNgF.Proof.«gzread.c.look»
 import ZlibNgF.Proof.«gzread.c.init»
+import ZlibNgF.Proof.«gzread.c.lookspec»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
 import ZlibNgF.Proof.«deflate.c.gz»
