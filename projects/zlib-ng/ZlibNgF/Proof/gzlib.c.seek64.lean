@@ -189,7 +189,7 @@ theorem shape_seek {h : Heap} {s : GzState} (sh : GzShape h s) (hr : s.mode = GZ
   have R := sh.read hr
   refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size,
     ⟨hk0, hpk, hp, fun e => absurd (hr.symm.trans e) read_ne_write⟩, ⟨sh.msg.msg, sh.msg.mem⟩,
-    fun _ => ⟨hhow, fun hsz => ?_, fun hsz => ?_, fun hk => ?_⟩, fun e => absurd (hr.symm.trans e) read_ne_write,
+    fun _ => ⟨hhow, fun hsz => ?_, fun hsz => ?_, fun hk => ?_, fun hz => (R.fresh hz).of_strm rfl⟩, fun e => absurd (hr.symm.trans e) read_ne_write,
     fun hz => sh.dead hz⟩
   · obtain ⟨c, base, z, hb, hi, hz, -, hai, hreg⟩ := R.bufs hsz
     refine ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz, ?_, hai, hreg⟩

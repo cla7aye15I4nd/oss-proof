@@ -108,7 +108,7 @@ theorem reset_keep {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzShap
   have sh2 : GzShape (freeMsg h s) (rstSt s) := by
     refine ⟨sh1.mode, sh1.path, sh1.strm, sh1.want_lo, sh1.want_hi, sh1.size,
       ⟨by rw [hsk]; decide, by rw [hpo, hsk]; decide, by rw [hpo]; decide, fun _ => by rw [hpo]; decide⟩,
-      ⟨sh1.msg.msg, sh1.msg.mem⟩, fun _ => ⟨Or.inl rfl, fun hsz => ?_, fun _ => rfl, fun e => absurd rfl e⟩,
+      ⟨sh1.msg.msg, sh1.msg.mem⟩, fun _ => ⟨Or.inl rfl, fun hsz => ?_, fun _ => rfl, fun e => absurd rfl e, fun hz => (R.fresh hz).of_strm rfl⟩,
       fun e => absurd (hr.symm.trans e) read_ne_write, fun hz => sh1.dead hz⟩
     obtain ⟨c, base, z0, hb, hi, hz0, -, hai, hreg⟩ := R.bufs hsz
     exact ⟨c, base, z0, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz0, Or.inl rfl, hai, hreg⟩
