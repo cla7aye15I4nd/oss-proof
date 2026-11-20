@@ -183,13 +183,13 @@ theorem slf_flush_mg (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32)
         ∃ st, H.dstate b = some st ∧ st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
           st2.window = st.window) ∧
       (r = none → ∀ st2, H2.dstate b = some st2 → st2.pending = 0) ∧
-      (r ≠ none → r = some (if last != 0 then .finish_started else .need_more))) := by
+      (r ≠ none → r = some (if last != 0 then .finish_started else .need_more)) ∧ (r ≠ none → O0 H2 i)) := by
   refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T last hl0 hl1 F hp)
     (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush_chain T last hl0 hl1 F hp) (slf_flush_ws T last hl0 hl1 F hp))) ?_
-  rintro r H2 ⟨⟨a1, a2, a3, a4, a5⟩, K, KW⟩
+  rintro r H2 ⟨⟨a1, a2, a3, a4, a5, a6⟩, K, KW⟩
   obtain ⟨z, st, -, -, -, hst, -, -⟩ := F.live
   obtain ⟨d, hd⟩ := bytes_of_dstate hst
-  exact ⟨a1, a2, chainAll_keep K Ch ⟨st, d, hst, hd⟩, KW, a3, a4, a5⟩
+  exact ⟨a1, a2, chainAll_keep K Ch ⟨st, d, hst, hd⟩, KW, a3, a4, a5, a6⟩
 
 open ZlibNgF.Proof.Tally (W4 tally_lit_SH tally_dist_SH incF) in
 /-- `zng_tr_tally_lit` from `SLF` changes only `sym_next`, `dyn_ltree` and the bytes. -/

@@ -21,9 +21,9 @@ open ZlibNg.DeflateP
 
 /-- `slf_post` for a strategy entered at level 2 (any strategy, `Z_FIXED` included). -/
 theorem slf_post_l {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2)
+    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2) (hx : ExitIO H i flush bs)
     (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
-  refine slf_postL F flush bs (fun st0 h0 e => absurd ((hn st0 h0).symm.trans e) (by decide))
+  refine slf_postL F flush bs hx (fun st0 h0 e => absurd ((hn st0 h0).symm.trans e) (by decide))
     (fun st0 h0 L st hst => ?_) hs
   obtain ⟨st1, h1, hk⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
@@ -45,7 +45,7 @@ theorem sli_entry_l {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : St
   obtain ⟨hlv, hl1⟩ := hE b st1 hD
   have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hl1 (hg8 e8).1⟩
   refine ⟨st1, hst1, sli_of_slc ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
-    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
+    InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩,
     fun st h1 => ?_⟩ hst1⟩
   · have hio0 := hio
@@ -63,9 +63,9 @@ theorem sli_entry_l {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : St
     exact ⟨hp0, hsym⟩
 
 /-- `slc_post` at level 2. -/
-theorem slc_post_l {h H : Heap} {i b : Nat} (C : SLC h i b H) (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2) :
-    StratPost h (some i) Z_NO_FLUSH .need_more H := by
-  refine slf_post_l C.1 _ _ hn fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
+theorem slc_post_l {h H : Heap} {i b : Nat} (C : SLC h i b H) (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2)
+    (hc : CF H i) : StratPost h (some i) Z_NO_FLUSH .need_more H := by
+  refine slf_post_l C.1 _ _ hn (exitIO_nmNF hc) fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
   · intro e; rcases e with e | e <;> cases e
   · intro e; exact absurd rfl e
   · intro e; rcases e with e | e <;> cases e

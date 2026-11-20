@@ -443,7 +443,7 @@ theorem slc_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d 
       hb, SH_dstate _ _ _ _ _ _⟩ (SH_bytes _ _ _ _ _ _) (slf_input C.1) (fun _ => C.1.crc) hla Ch e2 st' d'
       ⟨i, z', rfl, SH_streams _ _ _ _ _ _, hb6, SH_dstate _ _ _ _ _ _⟩ (SH_bytes _ _ _ _ _ _)
   · obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, -, hb6, hst6, hst7, -, -, -, -, -, hgap0, -, -, -, -,
-      hlv, hsg, -, -, -, -, hlf, -, hpl3, hle, hma, hla', hs1⟩ := FI.post
+      hlv, hsg, -, -, -, -, hlf, -, hpl3, hle, hma, hla', hs1, -⟩ := FI.post
     obtain rfl : i = i6 := Option.some.inj e6
     obtain rfl : z = z6 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz6)
     obtain rfl : b = b6 := Option.some.inj (hb.symm.trans hb6)
@@ -558,7 +558,7 @@ theorem slow_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Str
   obtain ⟨hlv, hn1, -⟩ := tab_lv hT1
   have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hn1 (hg8 e8).1⟩
   refine ⟨st1, hst1, ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
-    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
+    InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩,
     fun st h1 => ?_⟩, hL, hlf, hT1⟩
   · have hio0 := hio
