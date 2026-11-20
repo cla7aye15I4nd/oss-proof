@@ -138,6 +138,7 @@ import ZlibNgF.Proof.«match_tpl.h.safety»
 import ZlibNgF.Proof.«match_tpl.h.accept»
 import ZlibNgF.Proof.«match_tpl.h.top»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.find»
+import ZlibNgF.Proof.«deflate_medium_tpl.h.insert»
 import ZlibNgF.Proof.«slide_hash_c.c.safety»
 import ZlibNgF.Proof.«deflate_p.h.readbuf»
 import ZlibNgF.Math.WinMask
