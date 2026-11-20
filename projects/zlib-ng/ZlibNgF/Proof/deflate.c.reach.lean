@@ -22,10 +22,9 @@ steps `deflatePending`, `deflateUsed`, `deflateTune`, `deflateSetHeader`, `defla
 (`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`), `deflateSetDictionary`
 (`Proof/deflate.c.setdict.lean`, with the window facts `FillFacts.windowFacts`), and `deflateCopy` on the source.
 Every other case is a field of `DPending`, the list of obligations not proved yet: `deflate` (`deflateParams` follows
-from it, `Proof/deflate.c.params.lean`), and
-the hash chains (`ChainOk`, the last part of `DSide`) after `deflateSetDictionary` (after `deflateInit_`,
-`deflateInit2_` and `deflateReset` they follow from `lm_init`'s `CLEAR_HASH`, `FreshHead`; `deflateResetKeep` keeps
-them; `deflateCopy` copies them, `ChainCopy`).
+from it, `Proof/deflate.c.params.lean`). The hash chains (`ChainOk`, the last part of `DSide`) follow after
+`deflateSetDictionary` from `DeflateSetDict.setDict_chain`, after `deflateInit_`, `deflateInit2_` and `deflateReset`
+from `lm_init`'s `CLEAR_HASH` (`FreshHead`); `deflateResetKeep` keeps them; `deflateCopy` copies them (`ChainCopy`).
 The `*_safety_of` theorems derive registered goals from `DPending`; a goal is registered as proved only once
 `DPending` is.
 -/
@@ -38,18 +37,12 @@ open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv
 open ZlibNgF.Proof.DeflateSide (DSide)
 open ZlibNgF.Proof.DeflateFacts (ChainOk DStateIs)
 
-/-- The hash chains of stream `s` in `h` (`ChainOk` of its state, the part of `DSide` about `head` / `prev`). -/
-def DChain (h : Heap) (s : StreamPtr) : Prop := ∀ b st d, DStateIs h s b st → h.bytes b = some d → ChainOk b d st
-
 /-- The obligations still to prove: each remaining public step keeps the invariant and the between-call facts
 (`DSide`). -/
 structure DPending : Prop where
   /-- `deflate`: no fault, its frame, the same state block, the invariant and `DSide` (`deflateParams` follows:
   `DeflateParams.params_ok`). -/
   deflate : DeflateParams.DeflateOk
-  setDict_chain : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (n : UInt32) (r : Int32), DInv h s → DSide h s →
-    DictReady h s → NullOrRead h d n.toNat → (∀ b, StateBlock h s b → NotInBlock b d) →
-    C.run (ZlibNg.Deflate.deflateSetDictionary s d n) h = .ok (r, h') → DChain h' s
 
 /-- Two runs of one computation on one heap agree. -/
 theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h = .ok (r, h'))
@@ -86,7 +79,8 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
     rw [det e e0']; exact ⟨hi, hs'⟩
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateSetDict.setDict_inv FillFacts.windowFacts hv hd hnb
     rw [det e e0]
-    have hs' := DeflateSide.setDict_side hv hsd hdr hd hnb e (P.setDict_chain h h' s d n r hv hsd hdr hd hnb e)
+    have hs' := DeflateSide.setDict_side hv hsd hdr hd hnb e (DeflateSetDict.setDict_chain hv hd hnb e
+      (fun b st d hs hd => (hsd b st hs).2.2.2.2.2 d hd))
     exact ⟨hi, by rw [← det e e0]; exact hs'⟩
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateDict.getDict_inv hasLen hv hd hnb
     rw [det e e0]
