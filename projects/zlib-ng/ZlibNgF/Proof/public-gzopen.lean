@@ -146,7 +146,7 @@ theorem post_drop {w : World} {h HS : Heap} {r : GzPtr} {W : World} {H : Heap} (
     have hsz0 : ¬ s.size ≠ 0 := fun e => e hsz
     refine ⟨sh.mode, ⟨c, n', hpc, .heap c, 0, d', rfl, by show (upd H.bytes h.nextBlk none) c = _; rw [upd_ne _ _ _ _ hcL]; exact e2, e3⟩,
       sh.strm, sh.want_lo, sh.want_hi, sh.size, sh.pos, ⟨Or.inl hmsg, fun _ => hmsg⟩,
-      fun hr => ⟨(sh.read hr).how, fun e => absurd e hsz0, (sh.read hr).nobuf, (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd e hsz0⟩,
+      fun hr => ⟨(sh.read hr).how, fun e => absurd e hsz0, (sh.read hr).nobuf, (sh.read hr).skip_have, (sh.read hr).fresh⟩, fun _ => ⟨fun e => absurd e hsz0⟩,
       fun hz c2 hc2 => ?_⟩
     refine ⟨?_, (sh.dead hz c2 hc2).2⟩
     show (upd H.bytes h.nextBlk none) c2 = none
