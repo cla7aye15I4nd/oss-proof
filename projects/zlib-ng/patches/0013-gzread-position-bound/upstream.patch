@@ -1,15 +1,25 @@
-From bbf27f89aa057fa1ce626d3228de356b02169bc6 Mon Sep 17 00:00:00 2001
+From ba0fd77fe50f8692704716a28c14f99727932466 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 02:26:17 -0800
 Subject: [PATCH] Bound the read position of the gz readers at GZ_OFF_MAX
 
-The readers added the bytes they delivered to the signed 64-bit x.pos without a
-bound. gz_fetch() now fills the output buffer at most up to GZ_OFF_MAX and
-gz_read() stops there with Z_DATA_ERROR, so x.pos + x.have <= GZ_OFF_MAX holds
-whenever a call returns, also for the gzgetc() macro.
+The readers added the bytes they delivered to the signed 64-bit x.pos
+without a bound. After gzseek() to near the largest position on a descriptor
+that accepts the seek and keeps delivering data (Linux /dev/zero), gz_read()
+overflowed x.pos, and so did the gzgetc() macro of zlib.h in the caller,
+which takes bytes from the output buffer.
+
+gz_fetch() now fills the output buffer at most up to GZ_OFF_MAX and fails
+with Z_DATA_ERROR there, and gz_read() stops at GZ_OFF_MAX with the same
+error, so x.pos + x.have <= GZ_OFF_MAX holds whenever a call returns. Both
+tests compare in 64 bits, since z_off64_t may be as narrow as unsigned.
+
+Add a test that reads /dev/zero up to the largest position with gzgetc(),
+gzread() and gzgets().
 ---
- gzread.c | 31 +++++++++++++++++++++++++++++--
- 1 file changed, 29 insertions(+), 2 deletions(-)
+ gzread.c          | 31 +++++++++++++++++++++++--
+ test/test_gzio.cc | 59 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 88 insertions(+), 2 deletions(-)
 
 diff --git a/gzread.c b/gzread.c
 index 0c6937f..e6fdedd 100644
@@ -81,3 +91,70 @@ index 0c6937f..e6fdedd 100644
          /* first just try copying data from the output buffer */
          if (state->x.have) {
              if (state->x.have < n)
+diff --git a/test/test_gzio.cc b/test/test_gzio.cc
+index b6c4d16..c43fa5b 100644
+--- a/test/test_gzio.cc
++++ b/test/test_gzio.cc
+@@ -155,3 +155,62 @@ TEST(gzip, setparams_small_output_buffer) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
+ #endif
+ }
++
++#ifndef _WIN32
++/* Reading up to the largest position: /dev/zero is read in copy mode and,
++ * on Linux, accepts any seek; the readers stop at the largest position with
++ * Z_DATA_ERROR instead of moving the position past it, also through the
++ * gzgetc() macro, which takes buffered bytes in the caller. */
++TEST(gzip, read_position_limit) {
++    typedef decltype(PREFIX(gzseek)((gzFile)NULL, 0, SEEK_SET)) off_type;
++    if (sizeof(off_type) != sizeof(z_off64_t))
++        GTEST_SKIP() << "gzseek() does not take a z_off64_t offset";
++    const off_type off_max = (off_type)(((uint64_t)1 << (sizeof(off_type) * 8 - 1)) - 1);
++    int err;
++
++    /* gzgetc() */
++    gzFile file = PREFIX(gzopen)("/dev/zero", "rb");
++    ASSERT_TRUE(file != NULL);
++    EXPECT_EQ(PREFIX(gzgetc)(file), 0);
++    if (PREFIX(gzseek)(file, off_max - 4, SEEK_SET) != off_max - 4) {
++        PREFIX(gzclose)(file);
++        GTEST_SKIP() << "/dev/zero does not accept the seek";
++    }
++    for (int i = 0; i < 4; i++)
++        EXPECT_EQ(PREFIX(gzgetc)(file), 0);
++    EXPECT_EQ(PREFIX(gztell)(file), off_max);
++    EXPECT_EQ(PREFIX(gzgetc)(file), -1);
++    PREFIX(gzerror)(file, &err);
++    EXPECT_EQ(err, Z_DATA_ERROR);
++    EXPECT_EQ(PREFIX(gztell)(file), off_max);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++
++    /* gzread() */
++    uint8_t buf[16];
++    file = PREFIX(gzopen)("/dev/zero", "rb");
++    ASSERT_TRUE(file != NULL);
++    EXPECT_EQ(PREFIX(gzgetc)(file), 0);
++    ASSERT_EQ(PREFIX(gzseek)(file, off_max - 4, SEEK_SET), off_max - 4);
++    EXPECT_EQ(PREFIX(gzread)(file, buf, 4), 4);
++    PREFIX(gzerror)(file, &err);
++    EXPECT_EQ(err, Z_OK);
++    EXPECT_EQ(PREFIX(gztell)(file), off_max);
++    EXPECT_EQ(PREFIX(gzread)(file, buf, 1), -1);
++    PREFIX(gzerror)(file, &err);
++    EXPECT_EQ(err, Z_DATA_ERROR);
++    EXPECT_EQ(PREFIX(gztell)(file), off_max);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++
++    /* gzgets(): two bytes fit, then the next fetch fails */
++    char line[16];
++    file = PREFIX(gzopen)("/dev/zero", "rb");
++    ASSERT_TRUE(file != NULL);
++    EXPECT_EQ(PREFIX(gzgetc)(file), 0);
++    ASSERT_EQ(PREFIX(gzseek)(file, off_max - 2, SEEK_SET), off_max - 2);
++    EXPECT_TRUE(PREFIX(gzgets)(file, line, sizeof(line)) == NULL);
++    PREFIX(gzerror)(file, &err);
++    EXPECT_EQ(err, Z_DATA_ERROR);
++    EXPECT_EQ(PREFIX(gztell)(file), off_max);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++}
++#endif
