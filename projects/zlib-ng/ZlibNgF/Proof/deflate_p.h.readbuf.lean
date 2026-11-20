@@ -60,7 +60,7 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
     (hin : os + z.avail_in.toNat ≤ src.size) (hc : st.wrap = 2 → H.crcTable = ZlibNg.Crc32Tbl.crc_table)
     {off : Nat} (size : UInt32) (hbuf : off + size.toNat ≤ d.size) :
     Sat (SH H i z b st d) (ZlibNg.DeflateP.read_buf (some i) (.ref (.heap b) off) size)
-      (fun n H' => n.toNat ≤ size.toNat ∧ n.toNat ≤ z.avail_in.toNat ∧ (n = 0 → H' = SH H i z b st d ∧ (z.avail_in = 0 ∨ size = 0)) ∧
+      (fun n H' => n.toNat = min size.toNat z.avail_in.toNat ∧ n.toNat ≤ z.avail_in.toNat ∧ (n = 0 → H' = SH H i z b st d ∧ (z.avail_in = 0 ∨ size = 0)) ∧
         ∃ d' a, H' = SH H i (RBZ z n r os a) b st d' ∧ WrIn d off (off + size.toNat) d') := by
   unfold ZlibNg.DeflateP.read_buf
   refine Sat.bind (Sat.of_eq (dstateOf_SH hzb) ?_)
@@ -74,6 +74,10 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
     rw [hlen]; split
     · rename_i h; simp only [gt_iff_lt, UInt32.lt_iff_toNat_lt] at h; omega
     · omega
+  have hlm : len.toNat = min size.toNat z.avail_in.toNat := by
+    rw [hlen]; split
+    · rename_i h; simp only [gt_iff_lt, UInt32.lt_iff_toNat_lt] at h; omega
+    · rename_i h; simp only [gt_iff_lt, UInt32.lt_iff_toNat_lt] at h; omega
   rw [← hlen]
   show Sat _ (if (len == 0) = true then _ else _) _
   split
@@ -86,7 +90,7 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
       split at hlen
       · exact Or.inr hlen.symm
       · exact Or.inl hlen.symm
-    exact Sat.pure ⟨by simp, by simp, fun _ => ⟨rfl, h0'⟩, d, z.adler, by rw [e], WrIn.refl _ _ _⟩
+    exact Sat.pure ⟨hlm, by simp, fun _ => ⟨rfl, h0'⟩, d, z.adler, by rw [e], WrIn.refl _ _ _⟩
   rename_i h0
   have hlen0 : len ≠ 0 := by simpa using h0
   refine Sat.bind (Sat.of_eq ldDState_SH ?_)
@@ -97,7 +101,7 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
   extract_lets jp
   have hjp : ∀ (a : UInt64) (d' : Array UInt8), WrIn d off (off + size.toNat) d' →
       Sat (SH H i { z with adler := a } b st d') (jp ())
-        (fun n H' => n.toNat ≤ size.toNat ∧ n.toNat ≤ z.avail_in.toNat ∧ (n = 0 → H' = SH H i z b st d ∧ (z.avail_in = 0 ∨ size = 0)) ∧
+        (fun n H' => n.toNat = min size.toNat z.avail_in.toNat ∧ n.toNat ≤ z.avail_in.toNat ∧ (n = 0 → H' = SH H i z b st d ∧ (z.avail_in = 0 ∨ size = 0)) ∧
           ∃ d' a, H' = SH H i (RBZ z n r os a) b st d' ∧ WrIn d off (off + size.toNat) d') := by
     intro a d' hd'
     simp only [jp]
@@ -117,7 +121,7 @@ theorem read_buf_SH (hzb : z.state = some b) {r : BRef} {os : Nat} {src : Array 
     refine Sat.bind (Sat.of_eq (hadd _) ?_)
     refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_)
     refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_)
-    exact Sat.pure ⟨hl1, hl2, fun h => absurd h hlen0, d', a, rfl, hd'⟩
+    exact Sat.pure ⟨hlm, hl2, fun h => absurd h hlen0, d', a, rfl, hd'⟩
   clear_value jp
   split
   · rename_i hw2

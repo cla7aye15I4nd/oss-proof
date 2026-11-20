@@ -246,7 +246,7 @@ theorem win_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
           bstart := by simp only [dview]; omega
           bs_lo := by simp only [dview]; omega } : DCore H (some i) z b (dview { st with
             block_start := Int32.ofInt (st.block_start.toInt + ↑lf.toNat) }) al)
-        S.hd (SH_bytes _ _ _ _ _ _) rfl S.sym rfl rfl) ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl⟩
+        S.hd (SH_bytes _ _ _ _ _ _) rfl S.sym rfl rfl) ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl, rfl⟩
       ⟨Int32.le_iff_toInt_le.mpr
         (by show (0 : Int) ≤ (Int32.ofInt (st.block_start.toInt + ↑lf.toNat)).toInt; omega), S.sym, S.b8⟩
   · rw [SH_dstate] at h2; cases h2; exact hp
@@ -428,7 +428,7 @@ theorem hdr_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
     refine sf_next F S.hz S.hst S.hno S.hX (L := pend.toNat) hX4 hXo hAo rfl (Or.inl ⟨rfl, rfl⟩)
       (Nat.le_refl _) hno' hav' (fun al _ c => dcore_mv (dcore_flush c he hP hQ hb0' hb8')
         S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_
-    · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl⟩
+    · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl, rfl⟩
     · exact ⟨by rw [he]; exact (F.st st S.hst).1, by rw [he]; exact S.sym, hb8'⟩
   · rw [SH_dstate] at h2; cases h2; rw [hP, hp]
   · rw [S.hst] at h2; cases h2
@@ -455,13 +455,42 @@ theorem len1_le (left ai : UInt32) :
     have : ZlibNg.DeflateP.MAX_STORED.toNat = 65535 := rfl
     omega
 
+theorem len1_eq (left ai : UInt32) :
+    (if ZlibNg.DeflateP.MAX_STORED.toUInt64 > left.toUInt64 + ai.toUInt64 then left + ai
+      else ZlibNg.DeflateP.MAX_STORED).toNat = min (left.toNat + ai.toNat) 65535 := by
+  split
+  · rename_i h
+    have h' := UInt64.lt_iff_toNat_lt.mp h
+    simp only [UInt64.toNat_add, UInt32.toNat_toUInt64] at h'
+    have : ZlibNg.DeflateP.MAX_STORED.toUInt64.toNat = 65535 := rfl
+    have : ZlibNg.DeflateP.MAX_STORED.toNat = 65535 := rfl
+    have := UInt32.toNat_lt left; have := UInt32.toNat_lt ai
+    rw [UInt32.toNat_add]; omega
+  · rename_i h
+    have h' := UInt64.not_lt.mp h
+    have h'' := UInt64.le_iff_toNat_le.mp h'
+    simp only [UInt64.toNat_add, UInt32.toNat_toUInt64] at h''
+    have : ZlibNg.DeflateP.MAX_STORED.toUInt64.toNat = 65535 := rfl
+    have : ZlibNg.DeflateP.MAX_STORED.toNat = 65535 := rfl
+    have := UInt32.toNat_lt left; have := UInt32.toNat_lt ai
+    omega
+
+/-- Where the copy loop stops by a `break` (`deflate_stored.c:44`, `:58`): no room for a header and a block of
+`min_block` bytes in `avail_out`, or fewer than `min_block` bytes left in the window and the input. -/
+def TExit (H : Heap) (i b : Nat) (mb : UInt32) : Prop :=
+  ∀ z st, H.streams i = some z → H.dstate b = some st →
+    z.avail_out.toNat < (st.bi_valid.toInt.toNat + 42) / 8 + mb.toNat ∨
+      ((st.strstart.toNat : Int) - st.block_start.toInt) + z.avail_in.toNat < mb.toNat
+
 /-- One trip of the copy loop from `SF` with no pending bytes: `SF` and no pending bytes after; a trip that does not
-break lowers `avail_out`. -/
+break lowers `avail_out`; `last` set only under `Z_FINISH`; a trip that breaks stops at `TExit`. -/
 theorem trip_ok {h H : Heap} {i b wo : Nat} (flush : Int32) (min_block : UInt32) (last : Int32)
     (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
-    (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) :
+    (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
+    (hmb : min_block.toNat ≤ 65535) (hL : last ≠ 0 → flush = Z_FINISH) :
     Sat H (stored_trip (some b) (.ref (.heap b) wo) flush min_block last) (fun v H' =>
-      SF h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ (v.2 = false → avOut H' i < avOut H i)) := by
+      SF h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ (v.2 = false → avOut H' i < avOut H i) ∧
+        (v.1 ≠ 0 → flush = Z_FINISH) ∧ (v.2 = true → TExit H' i b min_block)) := by
   obtain ⟨z, st, d, ob, oo, X, pbo, S⟩ := F.facts hw0
   have e0 : SH (setB H ob X) i z b st d = H := by
     rw [setB_self S.hX]; exact ZlibNgF.Proof.DeflateReset.SH_self S.hz S.hsts S.hd
@@ -483,7 +512,10 @@ theorem trip_ok {h H : Heap} {i b wo : Nat} (flush : Int32) (min_block : UInt32)
   refine Sat.bind (Sat.of_eq (erz _) ?_)
   by_cases hbr : z.avail_out < hv
   · simp only [hbr, ↓reduceIte]
-    exact Sat.pure ⟨F, hp0, fun e => by cases e⟩
+    refine Sat.pure ⟨F, hp0, (fun e => by cases e), hL, fun _ z1 st1 h1 h2 => ?_⟩
+    rw [S.hz] at h1; cases h1; rw [S.hst] at h2; cases h2
+    have := UInt32.lt_iff_toNat_lt.mp hbr
+    left; omega
   simp only [hbr, ↓reduceIte]
   have hA : hv.toNat ≤ z.avail_out.toNat := UInt32.le_iff_toNat_le.mp (UInt32.not_lt.mp hbr)
   refine Sat.bind (Sat.of_eq esm ?_)
@@ -492,14 +524,20 @@ theorem trip_ok {h H : Heap} {i b wo : Nat} (flush : Int32) (min_block : UInt32)
   refine Sat.bind (Sat.of_eq esm ?_)
   refine Sat.bind (Sat.of_eq (erz _) ?_)
   have hl1 := len1_le left z.avail_in
+  have hl1e := len1_eq left z.avail_in
   have hsub : (z.avail_out - hv).toNat = z.avail_out.toNat - hv.toNat := UInt32.toNat_sub_of_le _ _
     (UInt32.not_lt.mp hbr)
   generalize (if ZlibNg.DeflateP.MAX_STORED.toUInt64 > left.toUInt64 + z.avail_in.toUInt64 then left + z.avail_in
-      else ZlibNg.DeflateP.MAX_STORED) = len1 at hl1 ⊢
+      else ZlibNg.DeflateP.MAX_STORED) = len1 at hl1 hl1e ⊢
   have hlen := min32_toNat len1 (z.avail_out - hv)
   generalize MIN32 len1 (z.avail_out - hv) = len at hlen ⊢
   split
-  · exact Sat.pure ⟨F, hp0, fun e => by cases e⟩
+  · rename_i hc
+    have hc1 : len.toNat < min_block.toNat := by
+      simp only [Bool.and_eq_true, decide_eq_true_eq] at hc; exact UInt32.lt_iff_toNat_lt.mp hc.1
+    refine Sat.pure ⟨F, hp0, (fun e => by cases e), hL, fun _ z1 st1 h1 h2 => ?_⟩
+    rw [S.hz] at h1; cases h1; rw [S.hst] at h2; cases h2
+    omega
   refine hdr_ok F hp0 hw0 _ _ (fun z2 st2 h2 h3 => ?_) _ _ ?_
   · rw [S.hz] at h2; cases h2; rw [S.hst] at h3; cases h3; omega
   intro H1 F1 hp1 hav1 hai1 hk1
@@ -515,6 +553,10 @@ theorem trip_ok {h H : Heap} {i b wo : Nat} (flush : Int32) (min_block : UInt32)
     have e5 : avIn H2 i = z3.avail_in.toNat := by simp [avIn, h3]
     omega
   rintro v H3 ⟨rfl, F3, hp3, hav3, -⟩
-  exact ⟨F3, hp3, fun _ => by omega⟩
+  refine ⟨F3, hp3, fun _ => by omega, fun hne => ?_, fun e => by cases e⟩
+  simp only [] at hne
+  split at hne
+  · rename_i hc; simp only [Bool.and_eq_true, beq_iff_eq] at hc; exact hc.1
+  · exact absurd rfl hne
 
 end ZlibNgF.Proof.StoredTrip

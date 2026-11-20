@@ -27,14 +27,16 @@ open ZlibNgF.Proof.FillIO (streamIO_in)
 open ZlibNgF.Proof.WinInv (InTail InTail.trans)
 
 /-- The fields that `deflate_stored` reads back from its entry state: those of `StratKeeps`, `window` and `w_size`
-(read once into locals), and `lookahead` (never written at level 0). -/
+(read once into locals), `lookahead` (never written at level 0), and `pending_buf_size`. -/
 def SK (st0 st : DeflateState) : Prop :=
-  StratKeeps st0 st ∧ st.window = st0.window ∧ st.w_size = st0.w_size ∧ st.lookahead = st0.lookahead
+  StratKeeps st0 st ∧ st.window = st0.window ∧ st.w_size = st0.w_size ∧ st.lookahead = st0.lookahead ∧
+    st.pending_buf_size = st0.pending_buf_size
 
 theorem SK.trans {a b c : DeflateState} (h1 : SK a b) (h2 : SK b c) : SK a c :=
-  ⟨StratKeeps.trans h1.1 h2.1, h2.2.1.trans h1.2.1, h2.2.2.1.trans h1.2.2.1, h2.2.2.2.trans h1.2.2.2⟩
+  ⟨StratKeeps.trans h1.1 h2.1, h2.2.1.trans h1.2.1, h2.2.2.1.trans h1.2.2.1, h2.2.2.2.1.trans h1.2.2.2.1,
+    h2.2.2.2.2.trans h1.2.2.2.2⟩
 
-theorem SK.refl (a : DeflateState) : SK a a := ⟨StratKeeps.refl _, rfl, rfl, rfl⟩
+theorem SK.refl (a : DeflateState) : SK a a := ⟨StratKeeps.refl _, rfl, rfl, rfl, rfl⟩
 
 /-- The frame of a `deflate_stored` call (see the module comment). -/
 structure SF (h : Heap) (i b : Nat) (H : Heap) : Prop where
@@ -244,7 +246,7 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   obtain rfl : st = st' := Option.some.inj (hst.symm.trans hst2)
   obtain ⟨st0, h0, l0, la0, hw⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans hst1)
-  obtain ⟨K, -, -, hla⟩ := hw st hst
+  obtain ⟨K, -, -, hla, -⟩ := hw st hst
   obtain ⟨hbs, hsn, h8⟩ := F.st st hst
   have hlv : st.level = 0 := K.2.2.2.2.1.trans l0
   have hla' : st.lookahead = 0 := hla.trans la0

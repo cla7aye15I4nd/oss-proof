@@ -21,10 +21,24 @@ open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f)
 open ZlibNg.DeflateStored
 
+/-- Progress of stream `i` from `h` to `H` (the clause of `StratPost` for `need_more` / `finish_started` under
+`Z_FINISH`): from an output with room, some input consumed or some output produced. -/
+def Prog (h H : Heap) (i : Nat) : Prop :=
+  ∀ z z', StreamAt h (some i) z → StreamAt H (some i) z' → z.avail_out ≠ 0 →
+    z'.avail_in < z.avail_in ∨ z'.avail_out < z.avail_out
+
+theorem streamAt_congr {H H' : Heap} {i : Nat} (e : H'.streams i = H.streams i) (z' : ZStream) :
+    StreamAt H' (some i) z' ↔ StreamAt H (some i) z' := by
+  constructor
+  · rintro ⟨i', e', h'⟩; obtain rfl := Option.some.inj e'; exact ⟨_, rfl, by rw [← e]; exact h'⟩
+  · rintro ⟨i', e', h'⟩; obtain rfl := Option.some.inj e'; exact ⟨_, rfl, by rw [e]; exact h'⟩
+
 /-- `s->bi_used = 8; return r;` from `SF` with no pending bytes. -/
 theorem fin_bu {h H : Heap} {i b wo : Nat} (F : SF h i b H)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (flush : Int32) (r : BlockState)
-    (hp0 : r = .block_done ∨ r = .finish_done → ∀ st, H.dstate b = some st → st.pending = 0) :
+    (hp0 : r = .block_done ∨ r = .finish_done → ∀ st, H.dstate b = some st → st.pending = 0)
+    (hB : r = .need_more ∨ r = .block_done → CF H i) (hF : r = .finish_started ∨ r = .finish_done → flush = Z_FINISH)
+    (hP : flush = Z_FINISH → r = .need_more ∨ r = .finish_started → Prog h H i) :
     Sat H (do
       wrD (some b) fun s => { s with bi_used := 8 }
       return r) (fun r' H' => StratPost h (some i) flush r' H') := by
@@ -32,10 +46,40 @@ theorem fin_bu {h H : Heap} {i b wo : Nat} (F : SF h i b H)
   have e0 : SH (setB H ob X) i z b st d = H := by
     rw [setB_self S.hX]; exact ZlibNgF.Proof.DeflateReset.SH_self S.hz S.hsts S.hd
   obtain ⟨hb0, hbs, hss⟩ := S.bs
+  have ee : (SH (setB H ob X) i z b { st with bi_used := 8 } d).streams i = H.streams i := by
+    rw [SH_streams, S.hz]
   rw [← e0]
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-  refine Sat.pure (sf_post (sf_state (st' := { st with bi_used := 8 }) F S rfl hss hb0 hbs S.ins rfl) flush r fun e st2 h2 => ?_)
+  refine Sat.pure (sf_post (sf_state (st' := { st with bi_used := 8 }) F S rfl hss hb0 hbs S.ins rfl) flush r
+    (fun e z' hz' => hB e z' ((streamAt_congr ee z').mp hz')) hF
+    (fun hf e z0 z' hz0 hz' => hP hf e z0 z' hz0 ((streamAt_congr ee z').mp hz')) fun e st2 h2 => ?_)
   rw [SH_dstate] at h2; cases h2; exact hp0 e st S.hst
+
+/-- Progress after the stored block through `pending_buf`: input consumed since the entry, or the output emptied
+(input left), or one more output byte (`pending` holds at least the 4 header bytes). -/
+theorem prog_blk {h H H' : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {len : UInt32} (F : SF h i b H)
+    (hz : H.streams i = some z) (hst : H.dstate b = some st) (hb : BlkIO H H' i b len)
+    (hA : z.avail_in ≠ 0 → z.avail_out.toNat ≤ len.toNat + (st.bi_valid.toInt.toNat + 42) / 8) : Prog h H' i := by
+  rintro z0 z2 ⟨i1, e1, h1⟩ ⟨i2, e2, h2⟩ hne
+  obtain rfl := Option.some.inj e1
+  obtain rfl := Option.some.inj e2
+  obtain ⟨b1, b2, b3, b4⟩ := hb z st z2 hz hst h2
+  obtain ⟨z0', z', ob, oo, k, h0', h', -, -, hk⟩ := F.out
+  obtain rfl := Option.some.inj (h1.symm.trans h0')
+  obtain rfl := Option.some.inj (hz.symm.trans h')
+  obtain ⟨z0'', z'', h0'', h'', hle, -⟩ := F.inp
+  obtain rfl := Option.some.inj (h1.symm.trans h0'')
+  obtain rfl := Option.some.inj (hz.symm.trans h'')
+  have hne' : z0.avail_out.toNat ≠ 0 := fun e => hne (UInt32.toNat_inj.mp (by rw [e]; rfl))
+  by_cases hai : z.avail_in.toNat < z0.avail_in.toNat
+  · left; rw [b1]; exact UInt32.lt_iff_toNat_lt.mpr hai
+  · right; apply UInt32.lt_iff_toNat_lt.mpr
+    by_cases h0 : z.avail_in = 0
+    · by_cases ho : z.avail_out = 0
+      · have : z.avail_out.toNat = 0 := by rw [ho]; rfl
+        omega
+      · have := b4 ho; omega
+    · rw [b3 (hA h0)]; show 0 < _; omega
 
 section parts
 open ZlibNg.DeflateP
@@ -70,16 +114,27 @@ def tail_part (st : StatePtr) (window : BPtr) (w_size : UInt32) (flush : Int32) 
 
 end parts
 
-/-- The stored block through `pending_buf` and the return, from `SF` with no pending bytes. -/
+/-- The stored block through `pending_buf` and the return, from `SF` with no pending bytes, after a copy loop that did
+not set `last`. `hx`: input left only with at least `w_size` bytes left in the window, and the copy loop stopped for
+lack of output room or of input (`TExit`, carried through the window update and the filling). -/
 theorem tail_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
-    (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (w_size : UInt32) (flush last : Int32) :
+    (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (w_size : UInt32) (flush last : Int32)
+    (hl0 : last = 0)
+    (hx : ∀ z st, H.streams i = some z → H.dstate b = some st → st.w_size = w_size ∧
+      (z.avail_in ≠ 0 → (w_size.toNat : Int) ≤ st.strstart.toNat - st.block_start.toInt) ∧
+      (z.avail_out.toNat < (st.bi_valid.toInt.toNat + 42) / 8 + min (st.pending_buf_size.toNat - 5) w_size.toNat ∨
+        (st.strstart.toNat : Int) - st.block_start.toInt + z.avail_in.toNat <
+          min (st.pending_buf_size.toNat - 5) w_size.toNat)) :
     Sat H (tail_part (some b) (.ref (.heap b) wo) w_size flush last) (fun r H' => StratPost h (some i) flush r H') := by
   obtain ⟨z, st, d, ob, oo, X, pbo, S⟩ := F.facts hw0
   have e1 : SH H i z b st d = H := ZlibNgF.Proof.DeflateReset.SH_self S.hz S.hsts S.hd
   obtain ⟨hv0, hv8⟩ := S.bits
   obtain ⟨hb0, hbs, hss⟩ := S.bs
   have hws := S.ws.1
+  have hw32 := S.ws.2.2.2
   obtain ⟨lb1, lb2, lb3⟩ := S.lb
+  obtain ⟨hwz, hx1, hx2⟩ := hx z st S.hz S.hst
+  rw [hwz] at hw32
   obtain ⟨hv, ehv, hvn⟩ := headerBytes_SH (H := H) (i := i) (z := z) (d := d) hv0 hv8
   obtain ⟨left, elf, hlf⟩ := leftOf_SH (H := H) (i := i) (z := z) (d := d) hb0 hbs (by omega)
   rw [e1] at ehv elf
@@ -88,54 +143,102 @@ theorem tail_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.ds
     rw [← e1]; exact rdZ_SH f
   have erd : ∀ {β : Type} (f : DeflateState → β), rdD (some b) f H = .ok (f st, H) := fun f => by
     rw [← e1]; exact rdD_SH f
-  have hend : ∀ (l : Int32) (H' : Heap), SF h i b H' → Sat H' (do
+  have hend : ∀ (l : Int32) (H' : Heap), SF h i b H' → CF H' i → (l ≠ 0 → flush = Z_FINISH) →
+      (flush = Z_FINISH → Prog h H' i) → Sat H' (do
       if l != 0 then
         wrD (some b) fun s => { s with bi_used := 8 }
         return BlockState.finish_started
       return BlockState.need_more) (fun r H' => StratPost h (some i) flush r H') := by
-    intro l H' F'
+    intro l H' F' hcf hlf hpg
     by_cases hl : (l != 0) = true
     · simp only [hl, ↓reduceIte]
-      exact fin_bu F' hw0 flush _ fun e => by rcases e with e | e <;> cases e
+      have hl' : l ≠ 0 := by simpa using hl
+      exact fin_bu F' hw0 flush _ (fun e => by rcases e with e | e <;> cases e) (fun _ => hcf) (fun _ => hlf hl')
+        (fun hf _ => hpg hf)
     · simp only [hl, Bool.false_eq_true, ↓reduceIte]
-      exact Sat.pure (sf_post F' flush _ fun e => by rcases e with e | e <;> cases e)
+      exact Sat.pure (sf_post F' flush _ (fun _ => hcf) (fun e => by rcases e with e | e <;> cases e)
+        (fun hf _ => hpg hf) fun e => by rcases e with e | e <;> cases e)
   unfold tail_part
   refine Sat.bind (Sat.of_eq ehv ?_)
   refine Sat.bind (Sat.of_eq (erd _) ?_)
   refine Sat.bind (Sat.of_eq elf ?_)
   extract_lets jEnd len jC2 jC
-  have hEnd : ∀ l H', SF h i b H' → Sat H' (jEnd l) (fun r H' => StratPost h (some i) flush r H') :=
-    fun l H' F' => by simp only [jEnd]; exact hend l H' F'
+  have hEnd : ∀ l H', SF h i b H' → CF H' i → (l ≠ 0 → flush = Z_FINISH) → (flush = Z_FINISH → Prog h H' i) →
+      Sat H' (jEnd l) (fun r H' => StratPost h (some i) flush r H') :=
+    fun l H' F' a1 a2 a3 => by simp only [jEnd]; exact hend l H' F' a1 a2 a3
   have hpv : (st.pending_buf_size - hv).toNat = st.pending_buf_size.toNat - hv.toNat :=
     UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by omega))
   have hm1 := min32_toNat (st.pending_buf_size - hv) ZlibNg.DeflateP.MAX_STORED
   have hm2 := min32_toNat left (MIN32 (st.pending_buf_size - hv) ZlibNg.DeflateP.MAX_STORED)
+  have hm3 := min32_toNat (MIN32 (st.pending_buf_size - hv) ZlibNg.DeflateP.MAX_STORED) w_size
+  have hMS : ZlibNg.DeflateP.MAX_STORED.toNat = 65535 := rfl
   have hlen : len.toNat ≤ left.toNat ∧ len.toNat + hv.toNat ≤ st.pending_buf_size.toNat := by
     simp only [len]; omega
-  have hC2 : ∀ c2 : Bool, Sat H (jC2 c2) (fun r H' => StratPost h (some i) flush r H') := by
-    intro c2
+  have hlen' : len.toNat = min left.toNat (min (st.pending_buf_size.toNat - hv.toNat) 65535) := by
+    simp only [len]; omega
+  have hA : z.avail_in ≠ 0 → z.avail_out.toNat ≤ len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 := by
+    intro hne
+    have hx1' := hx1 hne
+    rcases hx2 with h2 | h2 <;> omega
+  -- with input left, the window holds at least `w_size` bytes, so a block is written
+  have hW : z.avail_in ≠ 0 → (MIN32 (MIN32 (st.pending_buf_size - hv) ZlibNg.DeflateP.MAX_STORED) w_size).toNat ≤
+      left.toNat := fun hne => by have := hx1 hne; omega
+  have hC2 : ∀ c2 : Bool, (c2 = true → flush = Z_FINISH ∧ z.avail_in = 0) →
+      Sat H (jC2 c2) (fun r H' => StratPost h (some i) flush r H') := by
+    intro c2 hc2
     simp only [jC2]
-    exact blk_ok F (fun st2 h2 => by rw [S.hst] at h2; cases h2; exact hp0 st S.hst) hw0 len _
-      (fun st2 h2 => by rw [S.hst] at h2; cases h2; exact ⟨by omega, by omega⟩) _ _ (fun H' F' => hEnd _ H' F')
-  have hC : ∀ c : Bool, Sat H (jC c) (fun r H' => StratPost h (some i) flush r H') := by
-    intro c
+    refine blk_ok F (fun st2 h2 => by rw [S.hst] at h2; cases h2; exact hp0 st S.hst) hw0 len _
+      (fun st2 h2 => by rw [S.hst] at h2; cases h2; exact ⟨by omega, by omega⟩) _ _ (fun H' F' hb => ?_)
+    refine hEnd _ H' F' ?_ (fun hne => ?_) (fun _ => prog_blk F S.hz S.hst hb hA)
+    · rintro z2 ⟨i2, e2, h2⟩
+      obtain rfl := Option.some.inj e2
+      obtain ⟨b1, -, b3, -⟩ := hb z st z2 S.hz S.hst h2
+      by_cases h0 : z.avail_in = 0
+      · exact .inl (b1.trans h0)
+      · exact .inr (b3 (hA h0))
+    · cases c2
+      · exact absurd rfl hne
+      · exact (hc2 rfl).1
+  have hC : ∀ c : Bool, (c = false → z.avail_in = 0 ∧ flush ≠ Z_FINISH) →
+      Sat H (jC c) (fun r H' => StratPost h (some i) flush r H') := by
+    intro c hc
     simp only [jC]
     cases c
     · simp only [Bool.false_eq_true, ↓reduceIte]
-      exact hEnd last H F
+      obtain ⟨h0, hf⟩ := hc rfl
+      refine hEnd last H F ?_ (fun e => absurd hl0 e) (fun e => absurd e hf)
+      rintro z2 ⟨i2, e2, h2⟩
+      obtain rfl := Option.some.inj e2
+      rw [S.hz] at h2; cases h2; exact .inl h0
     · simp only [↓reduceIte]
       split
-      · refine Sat.bind (Sat.of_eq esm ?_)
+      · rename_i hf
+        refine Sat.bind (Sat.of_eq esm ?_)
         refine Sat.bind (Sat.of_eq (erz _) ?_)
-        exact Sat.bind (Sat.pure (hC2 _))
-      · exact Sat.bind (Sat.pure (hC2 _))
+        refine Sat.bind (Sat.pure (hC2 _ fun e => ?_))
+        simp only [Bool.and_eq_true, beq_iff_eq] at e hf
+        exact ⟨hf, e.1⟩
+      · exact Sat.bind (Sat.pure (hC2 _ fun e => by cases e))
+  have hfin : (Z_FINISH != Z_NO_FLUSH) = true := by decide
   split
-  · exact hC true
-  · split
+  · exact hC true (fun e => by cases e)
+  · rename_i hlt
+    have hlt' : left.toNat < (MIN32 (MIN32 (st.pending_buf_size - hv) ZlibNg.DeflateP.MAX_STORED) w_size).toNat :=
+      UInt32.lt_iff_toNat_lt.mp (UInt32.not_le.mp hlt)
+    have h0 : z.avail_in = 0 := Classical.byContradiction fun hne => by have := hW hne; omega
+    split
     · refine Sat.bind (Sat.of_eq esm ?_)
       refine Sat.bind (Sat.of_eq (erz _) ?_)
-      exact Sat.bind (Sat.pure (hC _))
-    · exact hC false
+      refine Sat.bind (Sat.pure (hC _ fun e => ?_))
+      exfalso
+      rw [h0] at e
+      simp only [beq_self_eq_true, Bool.true_and, decide_eq_false_iff_not] at e
+      have := UInt32.lt_iff_toNat_lt.mp (UInt32.not_le.mp e)
+      omega
+    · rename_i hcond
+      refine hC false (fun _ => ⟨h0, fun hf => hcond ?_⟩)
+      subst hf
+      simp [hfin]
 
 /-- `deflate_stored` keeps the strategy frame. -/
 theorem stored_ok (_T : TreesFacts) : StratOkP (fun st => st.level = 0) deflate_stored := by
@@ -169,34 +272,77 @@ theorem stored_ok (_T : TreesFacts) : StratOkP (fun st => st.level = 0) deflate_
   refine Sat.bind (Sat.of_eq (rdD_app L _) ?_)
   refine Sat.bind (Sat.of_eq esm ?_)
   refine Sat.bind (Sat.of_eq (erz _) ?_)
+  obtain ⟨z0, st0', d0', ob0, oo0, X0, pbo0, S0⟩ := F0.facts hw0
+  obtain rfl : z = z0 := Option.some.inj (hz.symm.trans S0.hz)
+  obtain rfl : st0 = st0' := Option.some.inj (hst0.symm.trans S0.hst)
+  have hw32 := S0.ws.2.2.2
+  obtain ⟨lb1, lb2, lb3⟩ := S0.lb
+  have hmb := min32_toNat (st0.pending_buf_size - 5) st0.w_size
+  have hp5 : (st0.pending_buf_size - 5).toNat = st0.pending_buf_size.toNat - 5 :=
+    UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by simp; omega))
+  rw [hp5] at hmb
   refine Sat.bind (Sat.mono (ZlibNgF.Proof.WinInv.sat_cdoWhileH
-    (fun _ H => SF h i b H ∧ ∀ st, H.dstate b = some st → st.pending = 0) (fun _ H => avOut H i)
-    (fun _ H => SF h i b H ∧ ∀ st, H.dstate b = some st → st.pending = 0) ?_ (s := ((0 : Int32), false))
-    ⟨F0, hp0⟩ ?_) ?_)
-  · rintro ⟨l, br⟩ H ⟨F, hp⟩
-    refine Sat.mono (trip_ok flush _ l F hp hw0) ?_
-    rintro ⟨l1, b1⟩ H1 ⟨F1, hp1, hdec⟩
-    refine Sat.pure ⟨fun hc => ⟨⟨F1, hp1⟩, hdec ?_⟩, fun _ => ⟨F1, hp1⟩⟩
-    cases b1
-    · rfl
-    · simp at hc
+    (fun s H => SF h i b H ∧ (∀ st, H.dstate b = some st → st.pending = 0) ∧ (s.1 ≠ 0 → flush = Z_FINISH))
+    (fun _ H => avOut H i)
+    (fun s H => SF h i b H ∧ (∀ st, H.dstate b = some st → st.pending = 0) ∧ (s.1 ≠ 0 → flush = Z_FINISH) ∧
+      (s.1 = 0 → TExit H i b (MIN32 (st0.pending_buf_size - 5) st0.w_size))) ?_ (s := ((0 : Int32), false))
+    ⟨F0, hp0, fun e => absurd rfl e⟩ ?_) ?_)
+  · rintro ⟨l, br⟩ H ⟨F, hp, hL⟩
+    refine Sat.mono (trip_ok flush _ l F hp hw0 (by omega) hL) ?_
+    rintro ⟨l1, b1⟩ H1 ⟨F1, hp1, hdec, hfl, hex⟩
+    refine Sat.pure ⟨fun hc => ⟨⟨F1, hp1, hfl⟩, hdec ?_⟩, fun hc => ⟨F1, hp1, hfl, fun hl => hex ?_⟩⟩
+    · cases b1
+      · rfl
+      · simp at hc
+    · cases b1
+      · have hl' : l1 = 0 := hl
+        simp [hl'] at hc
+      · rfl
   · have : avOut h i < 2 ^ 32 := by simp only [avOut, hz]; exact UInt32.toNat_lt _
     simp only [fuel]; omega
-  rintro ⟨last, br⟩ H1 ⟨F1, hp1⟩
+  rintro ⟨last, br⟩ H1 ⟨F1, hp1, hfl1, hex1⟩
+  have hfl1 : last ≠ 0 → flush = Z_FINISH := hfl1
+  have hex1 : last = 0 → TExit H1 i b (MIN32 (st0.pending_buf_size - 5) st0.w_size) := hex1
   refine Sat.bind (Sat.mono (uw_ok F1 hp1 hw0 last hz hst0) ?_)
-  rintro _ H2 ⟨F2, hp2, -, -⟩
+  rintro _ H2 ⟨F2, hp2, hai2, hao2, huw2⟩
   by_cases hl : (last != 0) = true
   · simp only [hl, ↓reduceIte]
-    exact fin_bu F2 hw0 flush _ (fun _ => hp2)
+    have hl' : last ≠ 0 := by simpa using hl
+    exact fin_bu F2 hw0 flush _ (fun _ => hp2) (fun e => by rcases e with e | e <;> cases e) (fun _ => hfl1 hl')
+      (fun _ e => by rcases e with e | e <;> cases e)
   simp only [hl, Bool.false_eq_true, ↓reduceIte]
+  have hl0 : last = 0 := by simpa using hl
+  obtain ⟨z1, st1, d1, ob1, oo1, X1, pbo1, S1⟩ := F1.facts hw0
   obtain ⟨z2, st2, d2, ob2, oo2, X2, pbo2, S2⟩ := F2.facts hw0
   have e2 : SH H2 i z2 b st2 d2 = H2 := ZlibNgF.Proof.DeflateReset.SH_self S2.hz S2.hsts S2.hd
   have esm2 : strmOf (some b) H2 = .ok (some i, H2) := by rw [← e2]; exact strmOf_SH S2.strm
   have erz2 : ∀ {β : Type} (f : ZStream → β), rdZ (some i) f H2 = .ok (f z2, H2) := fun f => by
     rw [← e2]; exact rdZ_SH f
   have eld2 : ldDState (some b) H2 = .ok (st2, H2) := by rw [← e2]; exact ldDState_SH
+  have hX1 := hex1 hl0 z1 st1 S1.hz S1.hst
+  rw [hmb] at hX1
+  have hai2' : z2.avail_in = z1.avail_in := by
+    simp only [avIn, S1.hz, S2.hz] at hai2; exact UInt32.toNat_inj.mp hai2
+  have hao2' : z2.avail_out = z1.avail_out := by
+    simp only [avOut, S1.hz, S2.hz] at hao2; exact UInt32.toNat_inj.mp hao2
+  obtain ⟨hbv2, hlf2⟩ := huw2 st1 st2 S1.hst S2.hst
+  obtain ⟨st0a, h0a, -, -, hk2⟩ := F2.keeps
+  obtain rfl : st0 = st0a := Option.some.inj (hst0.symm.trans h0a)
+  have K2 := hk2 st2 S2.hst
   have hfill := fill_ok F2 hp2 hw0 hst0 (tail_part (some b) (.ref (.heap b) wo) st0.w_size flush last)
-    (fun r H' => StratPost h (some i) flush r H') (fun H3 F3 hp3 => tail_ok F3 hp3 hw0 _ _ _)
+    (fun r H' => StratPost h (some i) flush r H') (fun H3 F3 hp3 hX3 => tail_ok F3 hp3 hw0 _ _ _ hl0
+      fun z3 st3 g1 g2 => by
+        obtain ⟨st0b, h0b, -, -, hk3⟩ := F3.keeps
+        obtain rfl : st0 = st0b := Option.some.inj (hst0.symm.trans h0b)
+        have K3 := hk3 st3 g2
+        obtain ⟨f1, f2, f3, f4⟩ := hX3 z2 st2 z3 st3 S2.hz S2.hst g1 g2
+        rw [K2.2.2.1] at f4
+        refine ⟨K3.2.2.1, fun hne => f4 hne, ?_⟩
+        rw [K3.2.2.2.2, f1, hao2', f2, hbv2]
+        rw [hai2'] at f3
+        have hf3 : ((z3.avail_in.toNat : Int)) = (st2.strstart.toNat : Int) - st2.block_start.toInt + z1.avail_in.toNat -
+          ((st3.strstart.toNat : Int) - st3.block_start.toInt) := by omega
+        omega)
   refine Sat.bind (Sat.of_eq esm2 ?_)
   refine Sat.bind (Sat.of_eq (erz2 _) ?_)
   by_cases hc : (flush != Z_NO_FLUSH && flush != ZlibNg.Inflate.Z_FINISH && z2.avail_in == 0) = true
@@ -204,7 +350,12 @@ theorem stored_ok (_T : TreesFacts) : StratOkP (fun st => st.level = 0) deflate_
     refine Sat.bind (Sat.of_eq eld2 ?_)
     by_cases hc2 : (st2.strstart.toInt32 == st2.block_start) = true
     · rw [ite_t hc2]
-      exact Sat.pure (sf_post F2 flush _ fun _ => hp2)
+      have h0 : z2.avail_in = 0 := by simp only [Bool.and_eq_true, beq_iff_eq] at hc; exact hc.2
+      refine Sat.pure (sf_post F2 flush _ (fun _ => ?_) (fun e => by rcases e with e | e <;> cases e)
+        (fun _ e => by rcases e with e | e <;> cases e) fun _ => hp2)
+      rintro z' ⟨i', e', h'⟩
+      obtain rfl := Option.some.inj e'
+      rw [S2.hz] at h'; cases h'; exact .inl h0
     · rw [ite_f hc2]
       exact hfill
   · rw [ite_f hc]
