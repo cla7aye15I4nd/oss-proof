@@ -166,6 +166,16 @@ def GzFrame (w : World) (h : Heap) (w' : World) (h' : Heap) (f : GzPtr) (writes 
   (∀ k a, h.consts k = some a → h'.consts k = some a) ∧
   ∀ b, f ≠ some b → b < h.nextBlk → w'.gzs b = w.gzs b
 
+/-- What `gzopen`, `gzopen64` and `gzdopen` may change: fresh blocks (`DFrame` with no library block, no stream and no
+caller range), fresh `gz_state` objects, fresh `z_stream` entries (the embedded stream of a new file: every stream
+that was live stays as it was), static strings (only added) and the file system; the existing `gz_state` objects
+stay. -/
+def GzOpenFrame (w : World) (h : Heap) (w' : World) (h' : Heap) : Prop :=
+  DFrame h { h' with consts := h.consts, streams := h.streams } [] [] [] [] ∧
+  (∀ i z, h.streams i = some z → h'.streams i = some z) ∧
+  (∀ k a, h.consts k = some a → h'.consts k = some a) ∧
+  ∀ b, b < h.nextBlk → w'.gzs b = w.gzs b
+
 /-- After `gzclose*` of the reachable file `f`, nothing of it is left: its blocks are freed, its `gz_state` and
 embedded `z_stream` are gone, and its descriptor is closed. -/
 def GzReleased (w : World) (h : Heap) (w' : World) (h' : Heap) (f : GzPtr) : Prop :=

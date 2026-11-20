@@ -1,0 +1,519 @@
+{
+  "version": 1,
+  "header": "mozjpeg/jpeglib.h",
+  "source_pin": "08265790774cd0714832c9e675522acbe5581437",
+  "target": "x86_64 Linux LP64 static library, cmake -DBUILD_SHARED_LIBS=FALSE -DWITH_JPEG8=1 -DWITH_TURBOJPEG=FALSE -DPNG_SUPPORTED=FALSE -DWITH_SIMD=FALSE",
+  "apis": [
+    {
+      "function": "jpeg_std_error",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jerror.c.lean",
+      "implementation": "Mozjpeg.Jerror.jpeg_std_error",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_std_error_safety",
+      "other_goals": [
+        "MozjpegF.Spec.Safety.Goal.jpeg_std_error_nonvacuous",
+        "MozjpegF.Spec.Functional.Goal.jpeg_std_error_functional"
+      ]
+    },
+    {
+      "function": "jpeg_CreateCompress",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_CreateDecompress",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_CreateDecompress",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_safety",
+      "other_goals": [
+        "MozjpegF.Spec.Safety.Goal.jpeg_CreateDecompress_destroy_no_leak",
+        "MozjpegF.Spec.Functional.Goal.jpeg_CreateDecompress_establishes_valid"
+      ]
+    },
+    {
+      "function": "jpeg_destroy_compress",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_destroy_decompress",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_destroy_decompress",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_destroy_decompress_safety"
+    },
+    {
+      "function": "jpeg_stdio_dest",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_stdio_src",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_mem_dest",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_mem_src",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdatasrc.c.lean",
+      "implementation": "Mozjpeg.Jdatasrc.jpeg_mem_src",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_mem_src_safety",
+      "other_goals": [
+        "MozjpegF.Spec.Functional.Goal.jpeg_mem_src_functional"
+      ]
+    },
+    {
+      "function": "jpeg_set_defaults",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_set_colorspace",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_default_colorspace",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_set_quality",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_set_linear_quality",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_default_qtables",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_add_quant_table",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_quality_scaling",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_float_quality_scaling",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_enable_lossless",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_simple_progression",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_suppress_tables",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_alloc_quant_table",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_alloc_huff_table",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_start_compress",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_write_scanlines",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg12_write_scanlines",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg16_write_scanlines",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_finish_compress",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_calc_jpeg_dimensions",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_write_raw_data",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg12_write_raw_data",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_write_marker",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_write_m_header",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_write_m_byte",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_write_tables",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_write_icc_profile",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_read_header",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_read_header",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety"
+    },
+    {
+      "function": "jpeg_start_decompress",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Tier 0 decompression start is not done yet: jdapistd.c, full jdmaster.c master setup, entropy/IDCT/upsample/color init are not translated yet."
+    },
+    {
+      "function": "jpeg_read_scanlines",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Tier 0 scanline decompression is not done yet: jdapistd.c, jdmainct.c, jdcoefct.c, jdhuff.c, jidct*.c, and jdcolor.c are not translated yet."
+    },
+    {
+      "function": "jpeg12_read_scanlines",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg16_read_scanlines",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_skip_scanlines",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg12_skip_scanlines",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_crop_scanline",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg12_crop_scanline",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_finish_decompress",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_finish_decompress",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety"
+    },
+    {
+      "function": "jpeg_read_raw_data",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Tier 0 raw downsampled decompression is not done yet: jdapistd.c and coefficient/entropy decode are not translated yet."
+    },
+    {
+      "function": "jpeg12_read_raw_data",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_has_multiple_scans",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_has_multiple_scans",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_has_multiple_scans_safety"
+    },
+    {
+      "function": "jpeg_start_output",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_finish_output",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_input_complete",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_input_complete",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_input_complete_safety"
+    },
+    {
+      "function": "jpeg_new_colormap",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_consume_input",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_consume_input",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety"
+    },
+    {
+      "function": "jpeg_core_output_dimensions",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdmaster.c.lean",
+      "implementation": "Mozjpeg.Jdmaster.jpeg_core_output_dimensions",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_core_output_dimensions_safety",
+      "other_goals": [
+        "MozjpegF.Spec.Functional.Goal.jpeg_core_output_dimensions_shrink_functional"
+      ]
+    },
+    {
+      "function": "jpeg_calc_output_dimensions",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdmaster.c.lean",
+      "implementation": "Mozjpeg.Jdmaster.jpeg_calc_output_dimensions",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_safety",
+      "other_goals": [
+        "MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_shrink_nonvacuous"
+      ]
+    },
+    {
+      "function": "jpeg_save_markers",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdmarker.c.lean",
+      "implementation": "Mozjpeg.Jdmarker.jpeg_save_markers",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_save_markers_safety"
+    },
+    {
+      "function": "jpeg_set_marker_processor",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_read_coefficients",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_write_coefficients",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_copy_critical_parameters",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_abort_compress",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_abort_decompress",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_abort_decompress",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_abort_decompress_safety"
+    },
+    {
+      "function": "jpeg_abort",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jcomapi.c.lean",
+      "implementation": "Mozjpeg.Jcomapi.jpeg_abort",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_abort_safety"
+    },
+    {
+      "function": "jpeg_destroy",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jcomapi.c.lean",
+      "implementation": "Mozjpeg.Jcomapi.jpeg_destroy",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_destroy_safety"
+    },
+    {
+      "function": "jpeg_resync_to_restart",
+      "status": "done",
+      "scope": "lp64-linux",
+      "source": "MozjpegF/Mozjpeg/jdmarker.c.lean",
+      "implementation": "Mozjpeg.Jdmarker.jpeg_resync_to_restart",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_resync_to_restart_safety"
+    },
+    {
+      "function": "jpeg_c_bool_param_supported",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_c_set_bool_param",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_c_get_bool_param",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_c_float_param_supported",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_c_set_float_param",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_c_get_float_param",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_c_int_param_supported",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_c_set_int_param",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_c_get_int_param",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Outside the Tier 0 untrusted-input decompression audit scope: compression / encoder configuration API."
+    },
+    {
+      "function": "jpeg_read_icc_profile",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    },
+    {
+      "function": "jpeg_set_idct_method_selector",
+      "status": "not-done",
+      "scope": "lp64-linux",
+      "reason": "Secondary or non-8-bit decompression / transcoding API not in the initial Tier 0 slice."
+    }
+  ]
+}

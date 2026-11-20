@@ -20,23 +20,23 @@ open ZlibNgF.Spec C ZlibNg.Gz
 
 /-- `gzFile gzopen(const char *path, const char *mode)`: for `NULL` or string `path` and `mode`, does not fault, and
 changes only fresh blocks, fresh `gz_state` objects, the heap's stream table (a fresh embedded stream) and the file
-system. -/
+system (`GzOpenFrame`). -/
 def Goal.gzopen_safety : Prop :=
   ∀ (w : World) (h : Heap) (path mode : BPtr),
     GzWF w h → (path = .null ∨ CStr h path) → (mode = .null ∨ CStr h mode) →
-    ∃ r w' h', GzRun (gzopen path mode) w h r w' h' ∧ GzFrame w h w' h' none [] ∧ GzWF w' h'
+    ∃ r w' h', GzRun (gzopen path mode) w h r w' h' ∧ GzOpenFrame w h w' h' ∧ GzWF w' h'
 
 /-- `gzFile gzopen64(const char *path, const char *mode)`: as `gzopen`. -/
 def Goal.gzopen64_safety : Prop :=
   ∀ (w : World) (h : Heap) (path mode : BPtr),
     GzWF w h → (path = .null ∨ CStr h path) → (mode = .null ∨ CStr h mode) →
-    ∃ r w' h', GzRun (gzopen64 path mode) w h r w' h' ∧ GzFrame w h w' h' none [] ∧ GzWF w' h'
+    ∃ r w' h', GzRun (gzopen64 path mode) w h r w' h' ∧ GzOpenFrame w h w' h' ∧ GzWF w' h'
 
 /-- `gzFile gzdopen(int fd, const char *mode)`: for every `fd` and a `NULL` or string `mode`, as `gzopen`. -/
 def Goal.gzdopen_safety : Prop :=
   ∀ (w : World) (h : Heap) (fd : Int32) (mode : BPtr),
     GzWF w h → (mode = .null ∨ CStr h mode) →
-    ∃ r w' h', GzRun (gzdopen fd mode) w h r w' h' ∧ GzFrame w h w' h' none [] ∧ GzWF w' h'
+    ∃ r w' h', GzRun (gzdopen fd mode) w h r w' h' ∧ GzOpenFrame w h w' h' ∧ GzWF w' h'
 
 /-- Non-vacuity of `GzReachable` for reading: in some well-formed world whose file system holds a file `"f"`,
 `gzopen("f", "rb")` returns a reachable file. -/

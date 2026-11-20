@@ -50,6 +50,7 @@ import ZlibNgF.Proof.«inflate.c.dict»
 import ZlibNgF.Proof.«inflate.c.window»
 import ZlibNgF.Proof.«inflate.c.sync»
 import ZlibNgF.Proof.«inflate.c.copy»
+import ZlibNgF.Proof.«inflate.c.keep»
 import ZlibNgF.Proof.«inflate.c.reach»
 import ZlibNgF.Math.BitReverse
 import ZlibNgF.Math.InftreesCount
@@ -107,6 +108,7 @@ import ZlibNgF.Proof.«inflate.c.decode-modes»
 import ZlibNgF.Proof.«inflate.c.check-modes»
 import ZlibNgF.Proof.«inflate.c.leave»
 import ZlibNgF.Proof.«public-inflate»
+import ZlibNgF.Proof.«inflate.c.extra»
 import ZlibNgF.Proof.«public-inflate-nonvacuous»
 import ZlibNgF.Proof.«public-uncompress»
 import ZlibNgF.Proof.«infback.c.init»
@@ -140,3 +142,12 @@ import ZlibNgF.Proof.«deflate.c.fill_window.facts»
 import ZlibNgF.Proof.«deflate.c.fill_window.io»
 import ZlibNgF.Proof.«deflate_p.h.tally»
 import ZlibNgF.Proof.«deflate_p.h.tally.flush»
+import ZlibNgF.Proof.«gzlib.c.gsat»
+import ZlibNgF.Proof.«gzlib.c.open»
+import ZlibNgF.Proof.«public-gzopen»
+import ZlibNgF.Proof.«public-gzopen-nonvacuous»
+import ZlibNgF.Proof.«gzlib.c.mode»
+import ZlibNgF.Proof.«gzlib.c.seek»
+import ZlibNgF.Proof.«gzread.c.close»
+import ZlibNgF.Proof.«gzread.c.facts»
+import ZlibNgF.Proof.«gzlib.c.handles»

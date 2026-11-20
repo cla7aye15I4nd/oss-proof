@@ -1,6 +1,7 @@
 import ZlibNgF.Proof.«public-inflate»
 import ZlibNgF.Proof.«public-inflate-init»
 import ZlibNgF.Proof.«public-inflate-control»
+import ZlibNgF.Proof.«inflate.c.keep»
 
 /-!
 # The safety of `uncompress2_z`, `uncompress2`, `uncompress_z` and `uncompress` (`ZlibNgF`)
@@ -760,6 +761,7 @@ theorem fin_frame (h : Heap) (W : List (BPtr × Nat)) :
 
 theorem uncompress2_z_safety : Goal.uncompress2_z_safety := by
   intro h dest source destLen sourceLen hcg hfr hob hdst hsrc hdisj
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Uncompr.uncompress2_z _ _ _ _) ?_
   have hbuf : (lbHeap h).bytes h.nextBlk =
       some (Array.ofFn (n := 1) fun i => Junk.of (h.garbage (2 ^ 41 + h.nextBlk) i.val)) := upd_same _ _ _
   rcases sourceLen with _ | sl

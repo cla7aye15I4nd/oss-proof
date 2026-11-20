@@ -4,8 +4,10 @@ Inherits every rule of the repository root [`../../AGENTS.md`](../../AGENTS.md),
 authoritative on proof soundness, allowed axioms and the strict ISO C17 undefined-behaviour policy.
 The runtime starts from `framework/lean/StrictPtr.lean`.
 
-**Status:** candidate. Upstream submodule `mozjpeg/` tracks the latest default branch; not
-registered in `framework/projects.json`; translation and proofs are not done.
+**Status:** registered in [`framework/projects.json`](../../framework/projects.json) (not done);
+pinned upstream `mozjpeg` 5.0.0 (`08265790774cd0714832c9e675522acbe5581437`), built as static
+8-bit x86_64 Linux LP64 `libjpeg.a` with
+`-DBUILD_SHARED_LIBS=FALSE -DWITH_JPEG8=1 -DWITH_TURBOJPEG=FALSE -DPNG_SUPPORTED=FALSE -DWITH_SIMD=FALSE`.
 
 ## Tier 0
 
@@ -18,10 +20,13 @@ whole scope of this project.
 `rtiff_decompress_jpeg_run`. 52 of its 70 codec sources differ from current libjpeg-turbo, so the
 libjpeg-turbo proofs do not cover it.
 
-**Functions:** `jpeg_std_error`, `jpeg_create_decompress`, `jpeg_save_markers`,
-`jpeg_read_header`, `jpeg_calc_output_dimensions`, `jpeg_start_decompress`,
-`jpeg_read_scanlines`, `jpeg_finish_decompress`, `jpeg_destroy_decompress`, with
-`scale_num / scale_denom` of 1/2, 1/4 and 1/8 (Sharp's shrink-on-load) and libvips' source manager.
+**Functions:** `jpeg_std_error`, `jpeg_create_decompress` (`jpeg_CreateDecompress`), `jpeg_mem_src`,
+`jpeg_save_markers`, `jpeg_read_header`, `jpeg_consume_input`, `jpeg_has_multiple_scans`,
+`jpeg_input_complete`, `jpeg_core_output_dimensions`, `jpeg_calc_output_dimensions`,
+`jpeg_resync_to_restart`, `jpeg_start_decompress`, `jpeg_read_scanlines`, `jpeg_read_raw_data`,
+`jpeg_finish_decompress`, `jpeg_abort_decompress`, `jpeg_destroy_decompress`, `jpeg_abort`,
+`jpeg_destroy`, with `scale_num / scale_denom` of `1/2`, `1/4` and `1/8` (Sharp's shrink-on-load)
+and libvips' source manager.
 
 **What the proofs must cover.**
 
@@ -37,4 +42,5 @@ libjpeg-turbo proofs do not cover it.
 ```bash
 lake --dir projects/mozjpeg build --wfail MozjpegF MozjpegF.Results
 python3 framework/check_project.py mozjpeg --skip-build
+python3 framework/run_difftest.py mozjpeg
 ```
