@@ -190,7 +190,7 @@ theorem slf_insH {α : Type} {h H0 : Heap} {i b : Nat} {z : ZStream} {st : Defla
     exact w.widen (Nat.zero_le _) (Nat.le_refl _)
   refine ⟨d', x, rfl, ?_, fun ho' po' hh hpv => ?_⟩
   · exact slf_SH F1 (fun al _ c => DCore.of_heap (by rw [SH_bytes, SH_bytes]) c) rfl rfl rfl rfl
-      (F1.st _ (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _)
+      (F1.st _ (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _) (fun _ => Nat.le_refl _)
   · rw [L'.head] at hh; rw [L'.prev] at hpv
     obtain rfl : ho = ho' := by injection hh with e; injection e
     obtain rfl : po = po' := by injection hpv with e; injection e
@@ -513,7 +513,7 @@ theorem slf_table {h H : Heap} {i b : Nat} (F : SLF h i b H)
 
 /-- `StratPost` from `SLF` and the exit facts, for a strategy entered at a level other than 1, with `LazyOk` after
 from `LazyOk` at entry; the symbols need to be gone after a flush only when the output has room. -/
-theorem slf_postW {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
+theorem slf_postW {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState)
     (hx : ExitIO H i flush bs) (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
     (hL : ∀ st0, h.dstate b = some st0 → LazyOk st0 → ∀ st, H.dstate b = some st →
       LazyOk st ∧ (bs = .block_done → st.match_available = 0))

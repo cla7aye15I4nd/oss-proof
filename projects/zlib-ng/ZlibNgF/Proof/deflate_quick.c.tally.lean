@@ -23,8 +23,9 @@ state's window: `SLF` after, no symbols, `lookahead`, `strstart` and `window` ke
 when the output has room. -/
 theorem slf_flush_only (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M BPtr) (last : Int32) (hl0 : 0 ≤ last)
     (hl1 : last ≤ 1) (F : SLF h i b H) (hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo))
-    (hwm : window H = .ok (.ref (.heap b) wo, H)) :
-    Sat H (FLUSH_BLOCK_ONLY (some b) window last) (fun _ H2 => avIn H2 i = avIn H i ∧ SLF h i b H2 ∧
+    (hwm : window H = .ok (.ref (.heap b) wo, H)) (hsy0 : last = 0 → ∀ st, H.dstate b = some st → st.sym_next ≠ 0) :
+    Sat H (FLUSH_BLOCK_ONLY (some b) window last) (fun _ H2 => avIn H2 i = avIn H i ∧
+      SLFe (lastSlack last) h i b H2 ∧
       (∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
         ∃ st, H.dstate b = some st ∧ st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
           st2.window = st.window) ∧
@@ -55,7 +56,7 @@ theorem slf_flush_only (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M 
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans h4)
   have hdo : dOutputRanges h (some i) = [(z0.next_out, z0.avail_out.toNat)] := by simp [dOutputRanges, h0]
   refine ⟨by simp only [avIn, hz', hz]; rw [hze], ⟨P.inv, P.io, P.set, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_,
-    F.inp.keep hz hz' (by rw [hze]) (by rw [hze]), ?_, ?_, ?_⟩,
+    F.inp.keep hz hz' (by rw [hze]) (by rw [hze]), ?_, ?_, ?_, fb_acc F P hz hst c last fun e0 => hsy0 e0 st hst⟩,
     fun st3 hst3 => ?_, fun z3 st3 hz3 hst3 ha => ?_⟩
   · obtain ⟨⟨-, -, -, -, -, -, ec, ex, -, -⟩, -⟩ := P.frame
     exact ⟨by rw [ec]; exact F.crc.1, by rw [ex]; exact F.crc.2⟩

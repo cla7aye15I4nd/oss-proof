@@ -24,7 +24,7 @@ theorem slf_insert {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {
     SLF h i b (SH H0 i z b { st with insert := v } d) :=
   slf_SH F (fun _ _ c => DCore.of_heap (by rw [SH_bytes, SH_bytes])
     (dcore_set c st.strstart st.lookahead v st.block_start c.look c.bstart hv c.bs_lo)) rfl rfl rfl rfl
-    (F.st st (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _)
+    (F.st st (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _) (fun _ => Nat.le_refl _)
 
 /-- `StratPost` at an exit with no symbols, no lookahead, no pending match or literal. -/
 theorem exit_ok {h H2 : Heap} {i b wo : Nat} {level : Int32} (E : Env h b wo level) (F2 : SLF h i b H2)

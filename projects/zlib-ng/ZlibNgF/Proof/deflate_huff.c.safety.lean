@@ -81,8 +81,9 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (f
       obtain ⟨hwin, hwd⟩ := sli_win ⟨H0, z, st, d, rfl, C⟩ hw0
       obtain ⟨c, ec⟩ := ZlibNgF.Proof.WinBase.index8_SH (H := H0) (i := i) (z := z) (b := b) (st := st) (d := d)
         (off := wo) (ss1.toNat : Int) (by omega) (by simp; omega)
-      refine Sat.bind (Sat.of_eq ec (Sat.bind (Sat.mono (sli_tally_lit ⟨H0, z, st, d, rfl, C⟩ hl1 c) ?_)))
-      rintro r H2 ⟨ha2, W2, I2⟩
+      refine Sat.bind (Sat.of_eq ec (Sat.bind (Sat.mono (sat_both (sli_tally_lit ⟨H0, z, st, d, rfl, C⟩ hl1 c)
+        (sli_tally_lit_nz ⟨H0, z, st, d, rfl, C⟩ c)) ?_)))
+      rintro r H2 ⟨⟨ha2, W2, I2⟩, NZ⟩
       have hm2 : avIn H2 i + (la1 - 1).toNat + 1 < avIn H i + la.toNat + 1 := by
         rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by simpa using hl1)), ha2]; simp; omega
       cases r with
@@ -91,7 +92,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (f
         exact Sat.pure ⟨I2 rfl, hm2⟩
       | true =>
         simp only [↓reduceIte]
-        refine Sat.bind (Sat.mono (sli_flush T 0 (by decide) (by decide) W2 hw0) fun _ H3 h3 =>
+        refine Sat.bind (Sat.mono (sli_flush T 0 (by decide) (by decide) W2 hw0 rfl NZ) fun _ H3 h3 =>
           Sat.bind (Sat.mono h3 ?_))
         rintro r2 H4 ⟨ha4, hnone, hsome⟩
         cases r2 with

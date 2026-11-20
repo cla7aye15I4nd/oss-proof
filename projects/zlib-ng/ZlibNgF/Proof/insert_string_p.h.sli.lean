@@ -46,6 +46,7 @@ theorem slf_bytes {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d
     (F : SLF h i b (SH H0 i z b st d))
     (hw : ∀ ho, st.head = .val (.ref (.heap b) ho) → WrIn d 0 (ho + 131072) d') : SLF h i b (SH H0 i z b st d') :=
   slf_SH F (fun _ _ c => dcore_bytes c hw) rfl rfl rfl rfl (F.st st (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _)
+    (fun _ => Nat.le_refl _)
 
 /-- `SLC` on bytes changed below the end of `head` only. -/
 theorem slc_bytes {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d d' : Array UInt8}
