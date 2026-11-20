@@ -431,4 +431,194 @@ theorem invR_hbuf {w : World} {h H : Heap} {b : Nat} {s : GzState} (hv : GzInvR 
       | some d => obtain ⟨a', e1, -, -⟩ := hsz d h1; simp only [e1] at e; exact e
     · simp only [hne c e'] at e; exact e
 
+/-! ## `gz_load` into `x.have` -/
+
+/-- `*have` of `gz_load`, read (copied from the translation). -/
+def getX (state : GzPtr) (toX : Bool) (hv : UInt32) : G UInt32 := if toX then rdG state (·.«have») else pure hv
+
+/-- `*have = v` of `gz_load` (copied from the translation). -/
+def setX (state : GzPtr) (toX : Bool) (v : UInt32) : G UInt32 := do
+  if toX then
+    wrG state fun s => { s with «have» := v }
+    return 0
+  else return v
+
+/-- The body of the read loop of `gz_load` (copied from the translation). -/
+def loadBodyG (state : GzPtr) (buf : BPtr) (len : UInt32) (toX : Bool) (s : LoadLoop) : G LoadLoop := do
+  let h0 ← getX state toX s.hv
+  let ret ← readG (← rdG state (·.fd)) (← lm (buf.add (Int.ofNat h0.toNat))) (len - (← getX state toX s.hv)).toUInt64
+  if ret ≤ 0 then
+    return { s with ret := ret, ctl := .brk }
+  let hv ← setX state toX ((← getX state toX s.hv) + ret.toUInt64.toUInt32)
+  return { s with ret := ret, hv := hv }
+
+/-- The condition of the read loop of `gz_load` (copied from the translation). -/
+def loadCondG (state : GzPtr) (len : UInt32) (toX : Bool) (s : LoadLoop) : G (Bool × LoadLoop) := do
+  if s.ctl != .go then return (false, s)
+  return ((← getX state toX s.hv) < len, s)
+
+theorem gz_load_eq (state : GzPtr) (buf : BPtr) (len : UInt32) (toX : Bool) : gz_load state buf len toX = (do
+    let hv ← setX state toX 0
+    let lp ← gdoWhile (loadBodyG state buf len toX) (loadCondG state len toX) ⟨0, hv, .go⟩
+    loadTail state lp) := rfl
+
+theorem gzX_upd {w : World} {h H : Heap} {b cb lo hi : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (x : HBuf h H cb lo hi) (hcb : b ≠ cb) (fs' : Fs) (s' : GzState) :
+    ({ w with fs := fs', gzs := upd w.gzs b (some s') } : World).gz H b = some s' := by
+  obtain ⟨d, hd⟩ := gz_live hs
+  unfold World.gz; rw [x.bytes_ne hcb, hd]; simp
+
+/-- The loop of `gz_load` with `toX = true`: it reads into `[p, p + len)` of block `cb`, lowers the read budget, and
+counts at most `len` bytes in `x.have`. -/
+theorem loadLoopX_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) {cb p : Nat}
+    {a : Array UInt8} (ha : h.bytes cb = some a) (len : UInt32) (hp : p + len.toNat ≤ a.size) (hcb : b ≠ cb) :
+    GSat { w with gzs := upd w.gzs b (some { s with «have» := 0 }) } h
+      (gdoWhile (loadBodyG (some b) (.ref (.heap cb) p) len true) (loadCondG (some b) len true) ⟨0, 0, .go⟩)
+      (fun _ W H => ∃ k : UInt32, k.toNat ≤ len.toNat ∧ ∃ fs', FsRd w.fs fs' ∧
+        W = { w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k }) } ∧ HBuf h H cb p (p + len.toNat)) := by
+  refine gsat_gdoWhile (fun (_ : LoadLoop) W H => ∃ k : UInt32, k.toNat ≤ len.toNat ∧ ∃ fs', FsRd w.fs fs' ∧
+        W = { w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k }) } ∧ HBuf h H cb p (p + len.toNat))
+    (fun _ W _ => match W.gzs b with | some s' => len.toNat - s'.«have».toNat | none => 0) _ ?_
+    ⟨0, by simp, w.fs, FsRd.refl _, rfl, HBuf.refl _ _ _ _⟩ (by have := len.toNat_lt; simp [fuel]; omega)
+  intro st W H ⟨k, hle, fs', hfs, hW, x⟩
+  subst hW
+  have hsW := gzX_upd hs x hcb fs' { s with «have» := k }
+  obtain ⟨a1, ha1, hsz⟩ := x.size ha
+  unfold loadBodyG getX setX
+  simp only [ite_true]
+  refine GSat.bind (GSat.of_eq (rdG_app' hsW _) ?_)
+  refine GSat.bind (GSat.of_eq (rdG_app' hsW _) ?_)
+  refine GSat.bind (GSat.lm ⟨_, H, addH ha1 k.toNat (by omega), ?_⟩)
+  refine GSat.bind (GSat.of_eq (rdG_app' hsW _) ?_)
+  have hn : (len - k).toUInt64.toNat = len.toNat - k.toNat := by
+    rw [UInt32.toNat_toUInt64, UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr hle)]
+  have hlen := len.toNat_lt
+  refine GSat.bind (GSat.mono (readG_spec ha1 s.fd (len - k).toUInt64 (by rw [hn]; omega)
+    (by rw [hn]; omega)) fun r W1 H1 q => ?_)
+  obtain ⟨rfl, hr, x1⟩ := q
+  have x2 : HBuf h H1 cb p (p + len.toNat) := x.trans x1 (by omega) (by rw [hn]; omega)
+  have hfs2 : FsRd w.fs (fs'.readCall s.fd (len - k).toUInt64).2.2 := hfs.trans (readCall_rd _ _ _)
+  have hres := readCall_res fs' s.fd (len - k).toUInt64 (by rw [hn]; omega)
+  rw [← hr, hn] at hres
+  apply GSat.ite
+  · intro _
+    refine GSat.pure ?_
+    unfold loadCondG
+    exact GSat.pure ⟨fun e => absurd e (by simp), fun _ => ⟨k, hle, _, hfs2, rfl, x2⟩⟩
+  · intro hr0
+    have h0 : (0 : Int64) ≤ r := by
+      rw [Int64.le_iff_toInt_le] at hr0 ⊢; simp at hr0 ⊢; omega
+    have hpos : 0 < r.toInt := by
+      rw [Int64.le_iff_toInt_le] at hr0; simp at hr0; omega
+    have hle2 : r.toInt ≤ (len.toNat - k.toNat : Nat) := by
+      rcases hres with ⟨e, -⟩ | ⟨-, e, -⟩
+      · rw [e] at hpos; simp at hpos
+      · exact e
+    have hk : r.toUInt64.toUInt32.toNat = r.toInt.toNat := by
+      rw [UInt64.toNat_toUInt32, Int64.toNat_toUInt64_of_le h0, ← Int64.toNat_toInt]; omega
+    have hsum : (k + r.toUInt64.toUInt32).toNat = k.toNat + r.toInt.toNat := by
+      rw [UInt32.toNat_add, hk]; omega
+    have hsW1 := gzX_upd hs x2 hcb (fs'.readCall s.fd (len - k).toUInt64).2.2 { s with «have» := k }
+    refine GSat.bind (GSat.of_eq (rdG_app' hsW1 _) ?_)
+    refine GSat.bind (GSat.bind (GSat.of_eq (wrG_app hsW1 _) (GSat.pure ?_)))
+    refine GSat.pure ?_
+    simp only [InflateInv.upd_upd]
+    have hsW2 := gzX_upd hs x2 hcb (fs'.readCall s.fd (len - k).toUInt64).2.2
+      { s with «have» := k + r.toUInt64.toUInt32 }
+    unfold loadCondG getX
+    simp only [ite_true]
+    apply GSat.ite
+    · intro _
+      exact GSat.pure ⟨fun e => absurd e (by simp), fun _ => ⟨_, by omega, _, hfs2, rfl, x2⟩⟩
+    · intro _
+      refine GSat.bind (GSat.of_eq (rdG_app' hsW2 _) ?_)
+      refine GSat.pure ⟨fun _ => ⟨⟨_, by omega, _, hfs2, rfl, x2⟩, ?_⟩,
+        fun _ => ⟨_, by omega, _, hfs2, rfl, x2⟩⟩
+      simp only [upd_same]
+      omega
+
+/-- Stores into a block of the file and a new state that keeps its owned pointers are a step of a call on it. -/
+theorem gstep_hbuf {w : World} {h H : Heap} {b cb lo hi : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (x : HBuf h H cb lo hi) (hcb : b ≠ cb) (hown : cb ∈ GzOwned w h (some b)) (fs' : Fs) (s' : GzState)
+    (hp : s'.path = s.path) (hm : s'.msg = s.msg) (hb : s'.buffers = s.buffers) (ht : s'.strm = s.strm) :
+    GStep w h { w with fs := fs', gzs := upd w.gzs b (some s') } H b [] := by
+  have hs' := gzX_upd hs x hcb fs' s'
+  obtain ⟨t, rfl, hne, -, -⟩ := x
+  refine gstep_mk hs hs' ht (fun c hc _ => by simp [upd_ne _ _ _ _ hc]) (fun i _ => rfl) rfl
+    (fun c _ hno => ⟨hne c (fun e => hno (e ▸ hown)), rfl, rfl, rfl, rfl⟩) (fun _ _ e => e) rfl rfl rfl
+    (Nat.le_refl _) (fun c hc _ => ?_)
+  simp only [GzOwned, hs', hs, hp, hm, hb, ht] at hc ⊢
+  exact hc
+
+/-- Adding a static string is a step of a call on the file. -/
+theorem gstep_lit {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) (a : Array UInt8) :
+    GStep w h w { h with consts := upd h.consts h.consts.arr.size (some a) } b [] :=
+  gstep_mk hs hs rfl (fun _ _ _ => rfl) (fun _ _ => rfl) rfl (fun _ _ _ => ⟨rfl, rfl, rfl, rfl, rfl⟩)
+    (fun k b e => GzReach.consts_grow h a k b e) rfl rfl rfl (Nat.le_refl _) (fun _ hc _ => hc)
+
+/-- A read handle stays one when a static string is added. -/
+theorem invR_lit {w : World} {h : Heap} {f : GzPtr} (hv : GzInvR w h f) (a : Array UInt8) :
+    GzInvR w { h with consts := upd h.consts h.consts.arr.size (some a) } f :=
+  (keeps_outside (S := fun w h w' h' _ => w' = w ∧ h' = { h with consts := upd h.consts h.consts.arr.size (some a) })
+    fun _ _ _ _ _ _ ⟨e1, e2⟩ => ⟨by rw [e1], by rw [e1]; exact GzOpen.FsLe.refl _, Or.inr ⟨a, e2⟩,
+      fun l => LitOk.ext l (by rw [e1]) (by rw [e2]; exact fun k b e => GzReach.consts_grow _ a k b e)⟩).1
+    _ _ _ _ _ hv ⟨rfl, rfl⟩
+
+theorem have0_self {s : GzState} (h0 : s.«have» = 0) : ({ s with «have» := 0 } : GzState) = s := by
+  cases s; simp only at h0; subst h0; rfl
+
+/-- **`gz_load(state, buf, len, &state->x.have)`** on a read handle with `x.have == 0`, reading into `len` bytes of a
+block of the file other than its state, `path` and stream state: an error (`-1`, `gz_error` with `Z_ERRNO`; the
+handle stays a read handle), or `0` with `x.have` at most `len`, `eof` possibly set, the bytes of `[p, p + len)` of
+that block changed and the read budget lowered. -/
+theorem gz_load_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) {cb p : Nat} {a : Array UInt8} (ha : h.bytes cb = some a)
+    (len : UInt32) (hp : p + len.toNat ≤ a.size) (hcb : b ≠ cb) (hpath : cb ∉ blkOf s.path) (hst : cb ∉ stBlk h s)
+    (hown : cb ∈ GzOwned w h (some b)) :
+    GSat w h (gz_load (some b) (.ref (.heap cb) p) len true) (fun r W H =>
+      (r.1 = -1 ∧ ∃ s', W.gz H b = some s' ∧ ErrOf s Z_ERRNO s' ∧ GzInvR W H (some b) ∧
+        GStep w h W H b [] ∧ FsRd w.fs W.fs) ∨
+      (r.1 = 0 ∧ ∃ k : UInt32, k.toNat ≤ len.toNat ∧ ∃ (fs' : Fs) (e : Int32), FsRd w.fs fs' ∧
+        W = { w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k, eof := e }) } ∧
+        HBuf h H cb p (p + len.toNat))) := by
+  rw [gz_load_eq]
+  unfold setX
+  simp only [ite_true]
+  refine GSat.bind (GSat.bind (GSat.of_eq (wrG_app hs _) (GSat.pure ?_)))
+  refine GSat.bind (GSat.mono (loadLoopX_spec hs ha len hp hcb) fun lp W1 H1 q => ?_)
+  obtain ⟨k, hk, fs', hfs, rfl, x⟩ := q
+  have hs1 := gzX_upd hs x hcb fs' { s with «have» := k }
+  unfold loadTail
+  apply GSat.ite
+  · intro _
+    obtain ⟨pm, am, ez, hcs, hmk⟩ := zstrerror_spec { w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k }) } H1
+    refine GSat.bind (GSat.of_eq ez ?_)
+    have hinv1 : GzInvR { w with fs := fs' } H1 (some b) := invR_hbuf hv hs x hcb hpath hst hfs
+    have hinv2 := invR_lit hinv1 am
+    have ew : ({ ({ w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k }) } : World) with
+        gzs := upd (upd w.gzs b (some { s with «have» := k })) b (some { ({ s with «have» := k } : GzState) with «have» := 0 }) } : World) =
+        { w with fs := fs' } := by
+      have es : ({ ({ s with «have» := k } : GzState) with «have» := 0 } : GzState) = s := have0_self h0
+      rw [InflateInv.upd_upd, es, DeflateReset.upd_self w.gzs b s (gzs_of hs)]
+    rw [← ew] at hinv2
+    refine GSat.bind (GSat.mono (gz_error_inv0 (w := { w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k }) })
+      (s := { s with «have» := k }) (h := { H1 with consts := upd H1.consts H1.consts.arr.size (some am) }) hs1 hinv2 Z_ERRNO (by decide) pm (Or.inr hcs) hmk)
+      fun _ W H q => ?_)
+    obtain ⟨s', hsW, herr, hvW, -, hfsW, hstep⟩ := q
+    refine GSat.pure (Or.inl ⟨rfl, s', hsW, ?_, hvW, ?_, by rw [hfsW]; exact hfs⟩)
+    · have es : ({ ({ s with «have» := k } : GzState) with «have» := 0 } : GzState) = s := have0_self h0
+      rw [es] at herr; exact herr
+    · have g1 := gstep_hbuf hs x hcb hown fs' { s with «have» := k } rfl rfl rfl rfl
+      have g2 := gstep_lit hs1 am
+      exact (g1.trans g2 ⟨s, hs⟩ ⟨_, hs1⟩).trans hstep ⟨s, hs⟩ ⟨_, hs1⟩
+  · intro _
+    apply GSat.ite
+    · intro _
+      refine GSat.bind (GSat.of_eq (wrG_app hs1 _) (GSat.pure ?_))
+      refine Or.inr ⟨rfl, k, hk, fs', 1, hfs, ?_, x⟩
+      simp only [InflateInv.upd_upd]
+    · intro _
+      refine GSat.pure (Or.inr ⟨rfl, k, hk, fs', s.eof, hfs, ?_, x⟩)
+      rfl
+
 end ZlibNgF.Proof.GzMode
