@@ -1,9 +1,9 @@
-/* Open defect, not patched (functional, no memory error). deflate_quick with strategy Z_FIXED (level 1) opens one
- * static block (block_open = 1) and keeps it open until a flush or the end of the stream. block_open is cleared
+/* Patch 0022 (functional, no memory error). deflate_quick with strategy Z_FIXED (level 1) opens one static block
+ * (block_open = 1) and keeps it open until a flush or the end of the stream. Without the patch block_open is cleared
  * only by deflateInit2, not by deflateReset (deflateResetKeep + lm_init), so after deflateReset the next stream's
- * deflate_quick continues the old static block: its symbols follow the fresh zlib header without a block header.
- * inflate rejects the result. Calls: deflateInit2(level 1, Z_FIXED), deflate(Z_NO_FLUSH) of 3000 bytes,
- * deflateReset, deflate(Z_FINISH) of 1000 bytes, inflate of that output. */
+ * deflate_quick continues the old static block: its symbols follow the fresh zlib header without a block header,
+ * and inflate rejects the result. With the patch deflateResetKeep clears block_open. Calls: deflateInit2(level 1,
+ * Z_FIXED), deflate(Z_NO_FLUSH) of 3000 bytes, deflateReset, deflate(Z_FINISH) of 1000 bytes, inflate of that output. */
 #include <stdio.h>
 #include <string.h>
 #include "zlib.h"

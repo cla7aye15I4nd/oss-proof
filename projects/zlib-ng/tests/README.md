@@ -107,6 +107,7 @@ letter of the standard that misbehaves on no flat-memory target.
 | `gzgets-pending-skip` | 0018 | `gzseek` to `INT64_MAX` and `gzdirect` on a file of 3 bytes that is not gzip, the file grows, then `gzgets` and `gztell`: signed overflow of `x.pos + skip` in `gztell64` | public API (the file grows between two calls) |
 | `gzwrite-zero-retry` | 0019 | on a transparent writer whose descriptor is a full non-blocking pipe: `gzseek` to `INT64_MAX`, a failed `gzwrite`, `gztell`: signed overflow of `x.pos + skip` in `gztell64` (run `max`); `gzseek` to 10000, a failed `gzwrite`, the pipe drained, `gzclearerr`, `gzwrite` again: 14099 bytes in the file and `gztell` 14099 instead of 10003 (run `retry`) | public API |
 | `gzprintf-failed-write-drift` | 0021 | on a writer (`"wb0"`, 262144-byte buffer) whose descriptor is a non-blocking pipe with the room set before each call: `gzprintf` rounds whose writes fail, with `gzclearerr` between, move `next_in + avail_in` past the input half of the buffer; the last `gzprintf` writes past the buffer block (AddressSanitizer heap buffer overflow, or a wild write at `gzwrite.c:389`, run `oob`); stopping before it and closing, the gzip stream does not inflate (run `corrupt`). On a host that is not Linux, `write()` on that descriptor is answered as a Linux pipe of 1 MiB answers it | public API on Linux |
+| `deflatereset-fixed-block-open` | 0022 | `deflateReset` while a `Z_FIXED` level-1 static block is open: the next stream continues the block without its header, and `inflate` rejects it with `Z_DATA_ERROR` | public API (wrong result) |
 
 `gzbuffer-alloc-null-offset` (0012) shows its defect only with clang: GCC's UndefinedBehaviorSanitizer does not
 report `NULL` plus an offset, so a GCC build without the patch prints the patched result and shows nothing. The case
@@ -144,9 +145,8 @@ source without a sanitizer report): `adler32-null-len-1`, `crc32-combine-negativ
 `g` and `c` runs), `gzbuffer-aligned-alloc-overflow`.
 
 Open defects (defects of the verified source with no patch yet: undefined behaviour, or a wrong result with no
-memory error; each must still show its report or wrong result, and the run fails once it stops reproducing):
-`deflatereset-fixed-block-open` (`deflateReset` while a `Z_FIXED` level-1 static block is open: the next stream
-continues the block without its header, and `inflate` rejects it with `Z_DATA_ERROR`).
+memory error; each must still show its report or wrong result, and the run fails once it stops reproducing): none at
+present.
 
 Guards (an earlier, defective version of one of our patches, built in place of the current one; the case's
 reproduction must still show its defect there): `infback-window-overlap` with `first-0004.patch`, the first
