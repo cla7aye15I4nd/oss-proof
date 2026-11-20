@@ -629,7 +629,7 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
           exact GSat.pure (fetch_err _ _ (fun _ => idle_mk hs' fun _ _ _ e => absurd (by rw [hshape]; exact hdir0) e) hv1 hs' gD' hf' hp' hk' (fun _ => hsz'))
         · intro e
           have hr0 : r = 0 := hr1.resolve_left (by simpa using e)
-          obtain ⟨z', hz1', hle, hhv, hnx, ht', hdmu, hhow', hfresh, hsame⟩ := hok hr0
+          obtain ⟨z', hz1', hle, hhv, hnx, ht', hdmu, hhow', hfresh, hsame, -, -, -⟩ := hok hr0
           have hst' : s'.strm = s.strm := by rw [hshape]; exact hst
           have hfd' : s'.fd = s.fd := by rw [hshape]; exact hfd
           have hdir : s1.direct = 0 := R.gzip_direct hgz
