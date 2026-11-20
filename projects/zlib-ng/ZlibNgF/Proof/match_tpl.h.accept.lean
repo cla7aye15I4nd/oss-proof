@@ -44,7 +44,8 @@ theorem lmMu_lt {v v' : LMVars} (hc : chainLeft v'.chain_length ≤ chainLeft v.
 /-- The end of the offset search after the head lookup: `pos` is the head entry, `k` the offset it would take, `np`
 and `mo` the candidate and offset of the `prev` walk. -/
 theorem osb_tail {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
-    (V : VI b wo st { v with mbase_end := .ref (.heap b) (wo + v.offset.toNat) }) {ms : UInt32} (hb : BL st B bl0 v.best_len ms) (pos : UInt16) (k np mo : UInt32)
+    (V : VI b wo st { v with mbase_end := .ref (.heap b) (wo + v.offset.toNat) }) {Ch : Nat → Prop} (hall : ∀ n, Ch n)
+    {ms : UInt32} (hb : BLC st B Ch bl0 v.best_len ms) (pos : UInt16) (k np mo : UInt32)
     (hk : k.toNat ≤ 256) (hnp : np.toNat < 65536) (hmo : mo.toNat ≤ 255) (hle : (limitBase st).toNat + mo.toNat ≤ np.toNat) :
     Sat (LH H i z b st d ms)
       (if pos.toUInt32 < np then
@@ -58,7 +59,7 @@ theorem osb_tail {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po h
         let m ← Ptr.add v.mbase_start ↑v.offset.toNat
         pure (LMExit.cont,
           { v with cur_match := np, match_offset := mo, mbase_end := m, limit := e.limit_base + mo }))
-      (fun s H' => LI H i z b st B d wo bl0 s H' ∧
+      (fun s H' => LI H i z b st B Ch d wo bl0 s H' ∧
         (s.1.isCont = true → chainLeft s.2.chain_length = chainLeft v.chain_length ∧ s.2.best_len = v.best_len)) := by
   have Vms : v.mbase_start = .ref (.heap b) wo := V.ms
   have Voff : v.offset.toNat ≤ v.best_len.toNat := V.off
@@ -89,13 +90,13 @@ theorem osb_tail {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po h
         (by omega)) ?_)
       rintro _ _ ⟨rfl, rfl⟩
       refine Sat.pure ⟨⟨ms, rfl, ⟨Vms, rfl, hoff, hbl, by simp only [UInt16.toNat_toUInt32]; omega,
-        by simp only []; omega, ?_, ?_⟩, hb⟩, fun _ => ⟨rfl, rfl⟩⟩
+        by simp only []; omega, ?_, ?_⟩, hb, hall _, Or.inr hall⟩, fun _ => ⟨rfl, rfl⟩⟩
       · simp only [hlbv, UInt32.toNat_add]; exact Nat.mod_eq_of_lt (by omega)
       · simp only [hlbv, UInt32.toNat_add, UInt16.toNat_toUInt32]; rw [Nat.mod_eq_of_lt (by omega)]; omega
   · refine Sat.bind (Sat.mono (sat_add' Vms (LH_get ms) (by omega) _ (wo + v.offset.toNat) (by simp)
       (by omega)) ?_)
     rintro _ _ ⟨rfl, rfl⟩
-    refine Sat.pure ⟨⟨ms, rfl, ⟨Vms, rfl, hoff, hbl, hnp, by simp only []; omega, ?_, ?_⟩, hb⟩,
+    refine Sat.pure ⟨⟨ms, rfl, ⟨Vms, rfl, hoff, hbl, hnp, by simp only []; omega, ?_, ?_⟩, hb, hall _, Or.inr hall⟩,
       fun _ => ⟨rfl, rfl⟩⟩
     · simp only [hlbv, UInt32.toNat_add]; exact Nat.mod_eq_of_lt (by omega)
     · simp only [hlbv, UInt32.toNat_add]; rw [Nat.mod_eq_of_lt (by omega)]; omega
@@ -103,10 +104,11 @@ theorem osb_tail {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po h
 /-- The offset search (`match_tpl.h:222-290`), entered with `best_len = len` already stored and the accepted
 candidate `cm = cur_match - match_offset` in `[limit_base, B)`. -/
 theorem osb_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
-    (V : VI b wo st { v with mbase_end := .ref (.heap b) (wo + v.offset.toNat) }) {ms : UInt32} (hb : BL st B bl0 v.best_len ms) (hs : e.slow = true)
+    (V : VI b wo st { v with mbase_end := .ref (.heap b) (wo + v.offset.toNat) }) {Ch : Nat → Prop} (hall : ∀ n, Ch n)
+    {ms : UInt32} (hb : BLC st B Ch bl0 v.best_len ms) (hs : e.slow = true)
     (hlen : 3 < v.best_len.toNat) (h258 : v.best_len.toNat ≤ 258)
     (hcm : (limitBase st).toNat ≤ (v.cur_match - v.match_offset).toNat) :
-    Sat (LH H i z b st d ms) (LM.offset_search_block e v v.best_len) (fun s H' => LI H i z b st B d wo bl0 s H' ∧
+    Sat (LH H i z b st d ms) (LM.offset_search_block e v v.best_len) (fun s H' => LI H i z b st B Ch d wo bl0 s H' ∧
       (s.1.isCont = true → chainLeft s.2.chain_length = chainLeft v.chain_length ∧ s.2.best_len = v.best_len)) := by
   have Vms : v.mbase_start = .ref (.heap b) wo := V.ms
   have Voff : v.offset.toNat ≤ v.best_len.toNat := V.off
@@ -163,7 +165,7 @@ theorem osb_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho 
       have := roll_lt (update_hash_roll (update_hash_roll 0 x0.toUInt32) x1.toUInt32) x2.toUInt32
       simp only [update_hash_roll] at this ⊢; omega)) ?_)
     rintro pos _ ⟨rfl, -⟩
-    exact osb_tail E N V hb pos _ np mo (by rw [hk2]; omega) hnp hmo hle
+    exact osb_tail E N V hall hb pos _ np mo (by rw [hk2]; omega) hnp hmo hle
   · refine Sat.bind (Sat.mono (sat_add' hS (LH_get ms) (by omega) _ (wo + st.strstart.toNat + v.best_len.toNat)
       (by simp) (by omega)) ?_)
     rintro _ _ ⟨rfl, rfl⟩
@@ -175,15 +177,17 @@ theorem osb_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho 
     rw [hhd]
     refine Sat.bind (Sat.mono (posLoad_v (LH_get ms) _ (by have := knuth_lt val; omega)) ?_)
     rintro pos _ ⟨rfl, -⟩
-    exact osb_tail E N V hb pos _ np mo (by rw [hk4]; omega) hnp hmo hle
+    exact osb_tail E N V hall hb pos _ np mo (by rw [hk4]; omega) hnp hmo hle
 
 /-- The block at `short_match_accept` (`match_tpl.h:201-293`) for an accepted candidate with `len > best_len`,
 `len <= 258` and `cur_match < B`: it writes `match_start` in `[limit_base, B)`, and returns, or goes on with
 `best_len = len` and a smaller measure. -/
 theorem accept_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
-    (hp : PrevBelow d po st B) (V : VI b wo st v) {ms : UInt32} (hb : BL st B bl0 v.best_len ms) {len : UInt32}
+    (hp : PrevBelow d po st B) {Ch : Nat → Prop} (hpc : PrevCh d po st Ch) (hall : e.slow = true → ∀ n, Ch n)
+    (V : VI b wo st v) (hcc : Ch v.cur_match.toNat) (hmoc : v.match_offset = 0 ∨ ∀ n, Ch n) {ms : UInt32}
+    (hb : BLC st B Ch bl0 v.best_len ms) {len : UInt32}
     (hlen : v.best_len < len) (h258 : len.toNat ≤ 258) (hc : v.cur_match.toNat < B) :
-    Sat (LH H i z b st d ms) (LM.short_match_accept e v len) (fun s H' => LI H i z b st B d wo bl0 s H' ∧
+    Sat (LH H i z b st d ms) (LM.short_match_accept e v len) (fun s H' => LI H i z b st B Ch d wo bl0 s H' ∧
       (s.1.isCont = true → lmMu s < lmMu (.cont, v))) := by
   have hst := N.look
   have hbig := N.big
@@ -192,7 +196,11 @@ theorem accept_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po 
   have hlim := V.lim
   have hle := V.le
   have hcm : MSOk st B (v.cur_match - v.match_offset) := ⟨by rw [hsub]; omega, by rw [hsub]; omega⟩
-  have hbl0 : bl0 ≤ v.best_len.toNat := by rcases hb with h | h <;> omega
+  have hbl0 : bl0 ≤ v.best_len.toNat := by rcases hb.1 with h | h <;> omega
+  have hchm : Ch (v.cur_match - v.match_offset).toNat := by
+    rcases hmoc with h | h
+    · rw [h, UInt32.sub_zero]; exact hcc
+    · exact h _
   unfold LM.short_match_accept
   dsimp only
   rw [E.hst]
@@ -201,30 +209,30 @@ theorem accept_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po 
   split
   · rename_i hge
     have := UInt32.le_iff_toNat_le.mp hge
-    exact Sat.pure ⟨⟨_, rfl, Or.inr ⟨Nat.le_refl _, by omega, hcm⟩⟩, fun h => by simp [LMExit.isCont] at h⟩
+    exact Sat.pure ⟨⟨_, rfl, Or.inr ⟨Nat.le_refl _, by omega, hcm⟩, fun _ => hchm⟩, fun h => by simp [LMExit.isCont] at h⟩
   rename_i hlt
   have hlt' : len.toNat < st.lookahead.toNat := by
     have := UInt32.not_le.mp hlt; exact UInt32.lt_iff_toNat_lt.mp this
   split
-  · exact Sat.pure ⟨⟨_, rfl, Or.inr ⟨by omega, h258, hcm⟩⟩, fun h => by simp [LMExit.isCont] at h⟩
+  · exact Sat.pure ⟨⟨_, rfl, Or.inr ⟨by omega, h258, hcm⟩, fun _ => hchm⟩, fun h => by simp [LMExit.isCont] at h⟩
   have hoff := off_le len
   refine Sat.bind (Sat.mono (sat_add' E.scan (LH_get _) (by omega) _
     (wo + st.strstart.toNat + (if len >= 8 then len - 7 else 0 : UInt32).toNat) (by simp) (by omega)) ?_)
   rintro _ _ ⟨rfl, rfl⟩
   refine Sat.bind (Sat.mono (sat_memread8 (LH_get _) (by omega)) ?_)
   rintro se _ rfl
-  have hb2 : BL st B bl0 len (v.cur_match - v.match_offset) := Or.inr ⟨by omega, hlt', h258, hcm⟩
+  have hb2 : BLC st B Ch bl0 len (v.cur_match - v.match_offset) := ⟨Or.inr ⟨by omega, hlt', h258, hcm⟩, fun _ => hchm⟩
   let v2 : LMVars := { v with best_len := len, offset := if len >= 8 then len - 7 else 0, scan_end := se }
   have V2 : VI b wo st { v2 with mbase_end := .ref (.heap b) (wo + v2.offset.toNat) } :=
     ⟨V.ms, rfl, hoff, by show len.toNat ≤ 65536; omega, V.cur, V.mo, hlim, hle⟩
   have tail : Sat (LH H i z b st d (v.cur_match - v.match_offset)) (do
       let m ← v2.mbase_start.add v2.offset.toNat
-      LM.goto_next_chain_outer e { v2 with mbase_end := m }) (fun s H' => LI H i z b st B d wo bl0 s H' ∧
+      LM.goto_next_chain_outer e { v2 with mbase_end := m }) (fun s H' => LI H i z b st B Ch d wo bl0 s H' ∧
         (s.1.isCont = true → lmMu s < lmMu (.cont, v))) := by
     refine Sat.bind (Sat.mono (sat_add' V.ms (LH_get _) (by omega) _ (wo + v2.offset.toNat) (by simp)
       (by simp only [v2]; omega)) ?_)
     rintro _ _ ⟨rfl, rfl⟩
-    refine Sat.mono (goto_outer_ok E N hp V2 hb2) ?_
+    refine Sat.mono (goto_outer_ok E N hp hpc V2 hcc hmoc hb2) ?_
     rintro s _ ⟨hL, hm⟩
     refine ⟨hL, fun hc' => ?_⟩
     obtain ⟨h1, h2⟩ := hm hc'
@@ -240,7 +248,7 @@ theorem accept_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po 
   · rename_i hsl
     split
     · rename_i hcond
-      refine Sat.mono (osb_ok (v := v2) E N V2 hb2 hsl ?_ h258 ?_) ?_
+      refine Sat.mono (osb_ok (v := v2) E N V2 (hall hsl) hb2 hsl ?_ h258 ?_) ?_
       · simp only [Bool.and_eq_true, decide_eq_true_eq] at hcond
         exact UInt32.lt_iff_toNat_lt.mp hcond.1.2
       · show (limitBase st).toNat ≤ (v.cur_match - v.match_offset).toNat; rw [hsub]; omega
@@ -275,9 +283,10 @@ theorem lmMu_lt_chain {v v' : LMVars} (hc : chainLeft v'.chain_length < chainLef
 /-- One trip of the outer loop (`match_tpl.h:139-294`) with `strstart <= B`: `LI` holds after it, and a running loop
 has a smaller measure. -/
 theorem loop_body_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
-    (hp : PrevBelow d po st B) (hBs : st.strstart.toNat ≤ B) (V : VI b wo st v) {ms : UInt32}
-    (hb : BL st B bl0 v.best_len ms) :
-    Sat (LH H i z b st d ms) (LM.loop_body e v) (fun s H' => LI H i z b st B d wo bl0 s H' ∧
+    (hp : PrevBelow d po st B) {Ch : Nat → Prop} (hpc : PrevCh d po st Ch) (hall : e.slow = true → ∀ n, Ch n)
+    (hBs : st.strstart.toNat ≤ B) (V : VI b wo st v) (hcc : Ch v.cur_match.toNat)
+    (hmoc : v.match_offset = 0 ∨ ∀ n, Ch n) {ms : UInt32} (hb : BLC st B Ch bl0 v.best_len ms) :
+    Sat (LH H i z b st d ms) (LM.loop_body e v) (fun s H' => LI H i z b st B Ch d wo bl0 s H' ∧
       (s.1.isCont = true → lmMu s < lmMu (.cont, v))) := by
   have hst := N.look
   have hbig := N.big
@@ -288,37 +297,39 @@ theorem loop_body_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo 
   · exact Sat.pure ⟨⟨ms, rfl, hb⟩, fun h => by simp [LMExit.isCont] at h⟩
   rename_i hlt
   have hlt' : v.cur_match.toNat < st.strstart.toNat := UInt32.lt_iff_toNat_lt.mp (UInt32.not_le.mp hlt)
-  have hcur : CurOk B v v := ⟨by omega, V.le⟩
+  have hcur : CurOk B Ch v v := ⟨by omega, V.le, hcc⟩
   dsimp only
   split
-  refine Sat.bind (Sat.mono (short_filter_ok E N hp V (UInt32.lt_iff_toNat_lt.mp ‹v.best_len < 8›) hcur ms) ?_)
+  refine Sat.bind (Sat.mono (short_filter_ok E N hp hpc V (UInt32.lt_iff_toNat_lt.mp ‹v.best_len < 8›) hcur ms) ?_)
   rotate_left
-  refine Sat.bind (Sat.mono (long_filter_ok E N hp V hcur ms) ?_)
+  refine Sat.bind (Sat.mono (long_filter_ok E N hp hpc V hcur ms) ?_)
   all_goals
     rintro ⟨sel, v'⟩ _ ⟨rfl, hv', htl⟩
     dsimp only at hv' htl ⊢
     have hbest : v'.best_len = v.best_len := by rw [hv']
     have hlim : v'.limit = v.limit := by rw [hv']
     have hmo : v'.match_offset = v.match_offset := by rw [hv']
+    have hmoc' : v'.match_offset = 0 ∨ ∀ n, Ch n := by rw [hmo]; exact hmoc
     cases sel with
     | ret x =>
       simp only [SelTail] at htl
       exact Sat.pure ⟨⟨ms, rfl, by rw [htl]; exact hb.pr⟩, fun h => by simp [LMExit.isCont] at h⟩
     | accept len =>
-      obtain ⟨hl, h8, ⟨hc1, hc2⟩, hcl⟩ := htl
+      obtain ⟨hl, h8, ⟨hc1, hc2, hc3⟩, hcl⟩ := htl
       have V' : VI b wo st v' := by
         have := V.upd v'.chain_length v'.cur_match (by omega) hc2
         rw [← hv'] at this; exact this
-      refine Sat.mono (accept_ok E N hp V' (by rw [hbest]; exact hb) (by rw [hbest]; exact hl) (by omega) hc1) ?_
+      refine Sat.mono (accept_ok E N hp hpc hall V' hc3 hmoc' (by rw [hbest]; exact hb) (by rw [hbest]; exact hl)
+        (by omega) hc1) ?_
       rintro s _ ⟨hL, hm⟩
       exact ⟨hL, fun h => Nat.lt_of_lt_of_le (hm h) (lmMu_le hcl hbest)⟩
     | compare =>
-      obtain ⟨⟨hc1, hc2⟩, hcl⟩ := htl
+      obtain ⟨⟨hc1, hc2, hc3⟩, hcl⟩ := htl
       have V' : VI b wo st v' := by
         have := V.upd v'.chain_length v'.cur_match (by omega) hc2
         rw [← hv'] at this; exact this
       have hsub := sub_mo V'.lim V'.le
-      have hb' : BL st B bl0 v'.best_len ms := by rw [hbest]; exact hb
+      have hb' : BLC st B Ch bl0 v'.best_len ms := by rw [hbest]; exact hb
       refine Sat.bind (Sat.mono (sat_add' E.scan (LH_get ms) (by omega) _ (wo + st.strstart.toNat + 2) (by simp)
         (by omega)) ?_)
       rintro _ _ ⟨rfl, rfl⟩
@@ -333,10 +344,10 @@ theorem loop_body_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo 
       have hc2' : (c + 2).toNat = c.toNat + 2 := by rw [UInt32.toNat_add]; simp; omega
       split
       · rename_i hgt
-        refine Sat.mono (accept_ok E N hp V' hb' hgt (by omega) hc1) ?_
+        refine Sat.mono (accept_ok E N hp hpc hall V' hc3 hmoc' hb' hgt (by omega) hc1) ?_
         rintro s _ ⟨hL, hm⟩
         exact ⟨hL, fun h => Nat.lt_of_lt_of_le (hm h) (lmMu_le hcl hbest)⟩
-      · refine Sat.mono (goto_outer_ok E N hp V' hb') ?_
+      · refine Sat.mono (goto_outer_ok E N hp hpc V' hc3 hmoc' hb') ?_
         rintro ⟨x, s2⟩ _ ⟨hL, hm⟩
         refine ⟨hL, fun h => ?_⟩
         obtain ⟨h1, h2⟩ := hm h
@@ -354,20 +365,22 @@ theorem lmMu_lt_fuel (s : LMExit × LMVars) : lmMu s < fuel := by
 /-- The outer `for (;;)` of `LONGEST_MATCH` (`match_tpl.h:139-294`) with `strstart <= B`: it ends with `break` or
 `return`, keeping `LI`. -/
 theorem main_loop_ok {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
-    (hp : PrevBelow d po st B) (hBs : st.strstart.toNat ≤ B) (V : VI b wo st v) {ms : UInt32}
-    (hb : BL st B bl0 v.best_len ms) :
+    (hp : PrevBelow d po st B) {Ch : Nat → Prop} (hpc : PrevCh d po st Ch) (hall : e.slow = true → ∀ n, Ch n)
+    (hBs : st.strstart.toNat ≤ B) (V : VI b wo st v) (hcc : Ch v.cur_match.toNat)
+    (hmoc : v.match_offset = 0 ∨ ∀ n, Ch n) {ms : UInt32} (hb : BLC st B Ch bl0 v.best_len ms) :
     Sat (LH H i z b st d ms) (cwhile
       (fun ((x, v) : LMExit × LMVars) => pure (x.isCont, (x, v)))
       (fun ((_, v) : LMExit × LMVars) => LM.loop_body e v)
       (LMExit.cont, v))
-      (fun s H' => LI H i z b st B d wo bl0 s H' ∧ s.1.isCont = false) := by
-  refine sat_cwhile (fun s H' => LI H i z b st B d wo bl0 s H') lmMu _ ?_ ⟨ms, rfl, V, hb⟩ (lmMu_lt_fuel _)
+      (fun s H' => LI H i z b st B Ch d wo bl0 s H' ∧ s.1.isCont = false) := by
+  refine sat_cwhile (fun s H' => LI H i z b st B Ch d wo bl0 s H') lmMu _ ?_ ⟨ms, rfl, V, hb, hcc, hmoc⟩
+    (lmMu_lt_fuel _)
   rintro ⟨x, v1⟩ _ hI
   refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨hI, hc⟩⟩
   cases x with
   | cont =>
-    obtain ⟨ms1, rfl, V1, hb1⟩ := hI
-    refine Sat.mono (loop_body_ok E N hp hBs V1 hb1) ?_
+    obtain ⟨ms1, rfl, V1, hb1, hc1, hm1⟩ := hI
+    refine Sat.mono (loop_body_ok E N hp hpc hall hBs V1 hc1 hm1 hb1) ?_
     rintro ⟨x2, v2⟩ _ ⟨hL, hm⟩
     refine ⟨hL, ?_⟩
     cases x2 with
