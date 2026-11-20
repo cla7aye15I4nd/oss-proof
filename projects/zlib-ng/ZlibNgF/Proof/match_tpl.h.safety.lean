@@ -76,7 +76,9 @@ def limitBase (st : DeflateState) : UInt32 :=
 structure LN (d : Array UInt8) (wo po ho : Nat) (st : DeflateState) : Prop where
   w_lo : 512 ≤ st.w_size.toNat
   w_hi : st.w_size.toNat ≤ 32768
-  look : st.strstart.toNat + st.lookahead.toNat ≤ 65536
+  ss_le : st.strstart.toNat ≤ 65536
+  la_le : st.lookahead.toNat ≤ 65536
+  look : st.strstart.toNat + st.lookahead.toNat ≤ 65536 + 512
   big : wo + 131400 ≤ d.size
   pw : po + 2 * st.w_size.toNat ≤ d.size
   hd : ho + 131072 ≤ d.size
