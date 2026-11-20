@@ -1,13 +1,20 @@
-From 0e2b096d6fc5a8d2e7f9f8cfb68c6af34f464912 Mon Sep 17 00:00:00 2001
+From 2eedef1348b81d85f94d25a8656457e478baf9e7 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Thu, 19 Nov 2026 14:31:48 -0800
 Subject: [PATCH] Test the allocation in gz_buffer_alloc() before offsetting it
 
-When the allocation failed, state->buffers + in_size was NULL plus a nonzero
-offset.
+When zng_alloc_aligned() failed, gz_buffer_alloc() computed
+state->buffers + in_size, a nonzero offset applied to a null pointer, before
+it tested the result. Test state->in first and set state->out only after the
+allocation succeeded. The second half of the old test
+(out_size && state->out == NULL) cannot be true once it did.
+
+Add an opt-in test of a failing allocation: set ZLIB_NG_TEST_GZ_ALLOC_LIMIT
+and run with an allocator that refuses a request of 3 GiB.
 ---
- gzlib.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ gzlib.c                        |  8 ++++----
+ test/test_gzfile_api_errors.cc | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 32 insertions(+), 4 deletions(-)
 
 diff --git a/gzlib.c b/gzlib.c
 index 608dabb..f146b51 100644
@@ -34,3 +41,39 @@ index 608dabb..f146b51 100644
  
      state->size = want; // mark state as initialized
      return 0;
+diff --git a/test/test_gzfile_api_errors.cc b/test/test_gzfile_api_errors.cc
+index 899340a..88f8597 100644
+--- a/test/test_gzfile_api_errors.cc
++++ b/test/test_gzfile_api_errors.cc
+@@ -1081,3 +1081,31 @@ TEST(gzfile_api_errors, write_failed_direct_clearerr) {
+     close(fds[0]);
+ }
+ #endif
++
++/* A failed buffer allocation on the first write:
++ * - gzbuffer(file, 1 << 30) is allowed, and the first gzwrite() then asks for
++ *   3 GiB; when that allocation fails, gzwrite() returns 0 with Z_MEM_ERROR
++ *   and gzclose() reports it;
++ * - opt-in: set ZLIB_NG_TEST_GZ_ALLOC_LIMIT and run with an allocator that
++ *   refuses the request (for example AddressSanitizer with
++ *   allocator_may_return_null=1:max_allocation_size_mb=1024). */
++TEST(gzfile_api_errors, write_buffer_alloc_failure) {
++    if (getenv("ZLIB_NG_TEST_GZ_ALLOC_LIMIT") == NULL)
++        GTEST_SKIP() << "set ZLIB_NG_TEST_GZ_ALLOC_LIMIT with an allocator limit below 3 GiB";
++
++    gzFile file = PREFIX(gzopen)("gzapi_err_alloc.gz", "wb");
++    ASSERT_NE(file, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzbuffer)(file, 1U << 30), Z_OK);
++    int written = PREFIX(gzwrite)(file, "abc", 3);
++    if (written == 3) {
++        PREFIX(gzclose)(file);
++        remove("gzapi_err_alloc.gz");
++        GTEST_SKIP() << "the allocation of 3 GiB did not fail";
++    }
++    EXPECT_EQ(written, 0);
++    int errnum = Z_OK;
++    PREFIX(gzerror)(file, &errnum);
++    EXPECT_EQ(errnum, Z_MEM_ERROR);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_MEM_ERROR);
++    remove("gzapi_err_alloc.gz");
++}
