@@ -1,4 +1,4 @@
-<!-- source-sha256: ff3ef4809ea2a6aa5efc36f0b4f82cbfaffa615638d82b0b431fc65d2ef7aed5 -->
+<!-- source-sha256: cbd6ccb402d4274249d8f67235de96bf81886e6c1e71707f718dff52a473c4e6 -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，

@@ -1,4 +1,4 @@
-<!-- source-sha256: aec0a95d477c8c47ec1fc0b936f6302f1b905845c6fa2ab915ed003dc4c118b0 -->
+<!-- source-sha256: 5068d12f83e82ed805eab217395c3102f6f26055e2cd54f6f74afabd5ecd6009 -->
 # 发现：zlib-ng 中发现的问题
 
 本工作在被验证提交的 zlib-ng `develop` 分支中发现了二十三个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`

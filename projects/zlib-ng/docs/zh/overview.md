@@ -1,4 +1,4 @@
-<!-- source-sha256: 868daa7e38bd66709302d8ea733f34528eb4db31e2675ea01c2e39d99094316e -->
+<!-- source-sha256: ff0e940821ac7bc18cb571a47529597263db1cbe015053bb2c6fda25c1e85799 -->
 # zlib-ng
 
 验证对象：zlib-ng `develop` 分支提交 `5f1f4899` 加二十二个补丁，按 zlib 兼容模式（`ZLIB_COMPAT`）构建为 x86_64 Linux LP64 库，使用通用 C
