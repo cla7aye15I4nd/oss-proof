@@ -4,6 +4,7 @@
 # ../patches/*.patch there in name order, and builds the static libz.a in <output-dir> with the verified
 # configuration (the option set below). The checkout itself is never modified.
 #   CFLAGS=<flags>        extra compiler flags (e.g. sanitizers)
+#   CC=<compiler>         the C compiler (CMake's default when unset); recorded in BUILD_DIGEST when set
 #   EXCLUDE=<prefix>      skip the patches whose file name starts with <prefix> (e.g. 0006); used by the
 #                         patch reproductions to build the source before one fix
 #   REPLACE=<prefix>=<file>  apply <file> instead of the patch whose file name starts with <prefix>; used by
@@ -66,6 +67,7 @@ build_digest() {
   done
   echo "cmake ${CMAKE_OPTIONS[*]}"
   echo "cflags ${CFLAGS:-}"
+  [ -z "${CC:-}" ] || echo "cc $CC"
   echo "target OS_CODE 3"
 }
 if [ "${1:-}" = "--patch-digest" ]; then build_digest; exit 0; fi
