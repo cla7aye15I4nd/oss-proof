@@ -147,7 +147,7 @@ theorem shape_hbuf {h H : Heap} {cb lo hi : Nat} {s : GzState} (sh : GzShape h s
     · obtain ⟨d', e1, -⟩ := hlive c d hd; exact Or.inr ⟨c, d', e, e1⟩
   · have R := sh.read hr
     refine ⟨R.how, fun hsz' => ?_, R.nobuf, R.skip_have, R.fresh⟩
-    obtain ⟨c, base, z, hB, hi, hz, hhv, hai, hreg⟩ := R.bufs hsz'
+    obtain ⟨c, base, z, hB, hi, hz, hhv, hai, hreg, hmsg⟩ := R.bufs hsz'
     obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hi
     cases e
     rw [hz] at hz0; cases hz0
@@ -156,7 +156,7 @@ theorem shape_hbuf {h H : Heap} {cb lo hi : Nat} {s : GzState} (sh : GzShape h s
       InflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst0, hal, core⟩
         ⟨s.strm, z, z, sb, rfl, hz, hz, hsb, rfl, hne sb hsbne, rfl, rfl,
           fun k g hr' _ => absurd (hreg _ hr') (by simp), rfl, Nat.le_refl _⟩
-    refine ⟨c, base, z, hbufs c base hB, hcs, hz, hhv, hai, fun hp' hr' => hreg hp' ?_⟩
+    refine ⟨c, base, z, hbufs c base hB, hcs, hz, hhv, hai, fun hp' hr' => hreg hp' ?_, hmsg⟩
     obtain ⟨sb', st', ⟨z', ⟨i', e', hz'⟩, hsb'⟩, hst', hhd⟩ := hr'
     cases e'
     change h.streams s.strm = some z' at hz'
@@ -719,14 +719,14 @@ theorem shape_strm {h : Heap} {b : Nat} {s : GzState} {z z' : ZStream} (sh : GzS
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
     · exact Or.inr (ownBlk_keep hm fun _ _ => rfl)
-  · obtain ⟨c, base, z0, hb, hi, hz0, hhv, -, hreg⟩ := R.bufs hsz
+  · obtain ⟨c, base, z0, hb, hi, hz0, hhv, -, hreg, hmsg⟩ := R.bufs hsz
     rw [hz] at hz0; cases hz0
     obtain ⟨d, hd, hds⟩ := hb.fits
     obtain ⟨i, z1, sb, st, al, e, hz1, hsb, hst1, hal, core⟩ := hi
     cases e
     rw [hz] at hz1; cases hz1
     refine ⟨c, base, z', ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, ?_,
-      by simp, hhv, hin c base hb, fun hp hr' => hreg hp (regHdr_strm hz hzs hr')⟩
+      by simp, hhv, hin c base hb, fun hp hr' => hreg hp (regHdr_strm hz hzs hr'), by rw [ez]; exact hmsg⟩
     exact InflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst1, hal, core⟩
       ⟨s.strm, z, z', sb, rfl, hz, by simp, hsb, ez, rfl, rfl, rfl, fun k g _ hg => ⟨g, hg⟩, rfl, Nat.le_refl _⟩
 

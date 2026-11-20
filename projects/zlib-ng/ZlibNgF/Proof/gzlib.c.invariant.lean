@@ -22,8 +22,9 @@ so that a proof about one function opens only the clauses it needs.
 * positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -2^31` (only `gzungetc` lowers it, by at
   most the `2 * want` bytes of the output buffer), `pos ≥ 0` when writing;
 * reading: `how ∈ {LOOK, COPY, GZIP}`; with buffers, the inflate stream has the inflate invariant (`gz_look` called
-  `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, and `avail_in` bytes
-  from `next_in` inside `in`; without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
+  `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, `avail_in` bytes
+  from `next_in` inside `in`, and the stream's `msg` is `NULL` or one of inflate's string literals (`gz_decomp` passes
+  it to `gz_error`); without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
   (`FreshStrm`); a pending skip and the bytes `gzungetc` pushed back
   after it keep `pos + skip + have ≤ GZ_OFF_MAX`;
 * writing: `x.have` is 0; without buffers `avail_in` is 0; with buffers and not `direct`, the deflate stream has the
@@ -87,7 +88,8 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
     h.streams s.strm = some z ∧
     (s.«have» = 0 ∨ ∃ p, s.next = .val p ∧ Inside c base (inSize s) (inSize s + outSize s) p s.«have».toNat) ∧
     (z.avail_in = 0 ∨ Inside c base 0 (inSize s) z.next_in z.avail_in.toNat) ∧
-    (∀ hp, RegisteredHeader h (some s.strm) hp → hp = none)
+    (∀ hp, RegisteredHeader h (some s.strm) hp → hp = none) ∧
+    (z.msg = .null ∨ ∃ k, z.msg = .ref (.str k) 0 ∧ k < strTable.size)
   /-- no output is buffered before the buffers exist -/
   nobuf : s.size = 0 → s.«have» = 0
   /-- a pending skip and the bytes pushed back by `gzungetc` after it stay below `GZ_OFF_MAX` -/

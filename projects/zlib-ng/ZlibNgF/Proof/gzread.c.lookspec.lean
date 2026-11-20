@@ -29,7 +29,8 @@ theorem invR_setZS {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
     (hs : w.gz h b = some s) (hsz : s.size ≠ 0) {z z' : ZStream} {sb : Nat} {st' : InflateState}
     (hz : h.streams s.strm = some z) (hzs : z.state = some sb) (hz's : z'.state = some sb)
     (hinv : InflateInv.Inv (InflateInv.setZS h s.strm z' sb st') (some s.strm)) (hhd : st'.head = .val none)
-    (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat) :
+    (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat)
+    (hmsg : z'.msg = .null ∨ ∃ k, z'.msg = .ref (.str k) 0 ∧ k < strTable.size) :
     GzInvR w (InflateInv.setZS h s.strm z' sb st') (some b) ∧ GStep w h w (InflateInv.setZS h s.strm z' sb st') b [] := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
@@ -44,7 +45,7 @@ theorem invR_setZS {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
       fun _ => ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz⟩,
       fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
     obtain ⟨c, base, z0, hB, -, hz0, hhv, -, -⟩ := R.bufs hsz
-    refine ⟨c, base, z', ⟨hB.size, hB.buffers, hB.inp, hB.out, hB.fits, hB.hdr⟩, hinv, hzH, hhv, hin c base hB, fun hp hrg => ?_⟩
+    refine ⟨c, base, z', ⟨hB.size, hB.buffers, hB.inp, hB.out, hB.fits, hB.hdr⟩, hinv, hzH, hhv, hin c base hB, fun hp hrg => ?_, hmsg⟩
     obtain ⟨sb', st1, ⟨z1, ⟨i', e', hz1⟩, hsb1⟩, hst1, hhd1⟩ := hrg
     cases e'
     change H.streams s.strm = some z1 at hz1
@@ -202,8 +203,8 @@ theorem invR_look {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w 
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size, ⟨P.1, P.2, P.3, P.4⟩,
       ⟨sh.msg.1, sh.msg.2⟩, fun _ => ⟨hhow, fun hsz => ?_, fun _ => rfl, fun _ => ?_,
         fun hz => (R.fresh hz).of_strm rfl⟩, fun e' => absurd (hr.symm.trans e') read_ne_write, fun hz => sh.dead hz⟩
-    · obtain ⟨c, base, z, hB, hi, hz, -, hai, hreg⟩ := R.bufs hsz
-      refine ⟨c, base, z, ⟨hB.size, hB.buffers, hB.inp, fun e' => ?_, ?_, hB.hdr⟩, hi, hz, Or.inl rfl, hai, hreg⟩
+    · obtain ⟨c, base, z, hB, hi, hz, -, hai, hreg, hmsg⟩ := R.bufs hsz
+      refine ⟨c, base, z, ⟨hB.size, hB.buffers, hB.inp, fun e' => ?_, ?_, hB.hdr⟩, hi, hz, Or.inl rfl, hai, hreg, hmsg⟩
       · rw [hio] at e'; exact hB.out e'
       · rw [hio]; exact hB.fits
     · show s.pos.toInt + s.skip.toInt + ((0 : UInt32).toNat : Int) ≤ GZ_OFF_MAX.toInt
@@ -238,7 +239,7 @@ theorem resetTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
   rw [← run4] at inv2
   obtain ⟨hv1, g1⟩ := invR_setZS hv hs hsz hz L.hb (show (InflateReset.rkZ z1 st.wrap).state = some sb from L.hb) inv2
     rfl (fun c' base' hB' => by
-      have e1 := hB'.buffers; rw [hB.buffers] at e1; cases e1; exact hai)
+      have e1 := hB'.buffers; rw [hB.buffers] at e1; cases e1; exact hai) (Or.inl rfl)
   generalize hH : InflateInv.setZS h s.strm (InflateReset.rkZ z1 st.wrap) sb (InflateReset.rkS sb (InflateReset.rS st)) = H at hv1 g1 er
   have hsH : w.gz H b = some s := by rw [← hH]; exact hs
   refine GSat.bind (GSat.lm ⟨_, H, er, ?_⟩)
