@@ -146,7 +146,7 @@ theorem shape_hbuf {h H : Heap} {cb lo hi : Nat} {s : GzState} (sh : GzShape h s
     · exact Or.inl e
     · obtain ⟨d', e1, -⟩ := hlive c d hd; exact Or.inr ⟨c, d', e, e1⟩
   · have R := sh.read hr
-    refine ⟨R.how, fun hsz' => ?_, R.nobuf, R.skip_have, R.fresh, R.look⟩
+    refine ⟨R.how, fun hsz' => ?_, R.nobuf, R.skip_have, R.fresh, R.look, R.pos_have, R.look_pos, R.gzip_direct⟩
     obtain ⟨c, base, z, hB, hi, hz, hhv, hai, hreg, hmsg⟩ := R.bufs hsz'
     obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hi
     cases e
@@ -714,7 +714,7 @@ theorem shape_strm {h : Heap} {b : Nat} {s : GzState} {z z' : ZStream} (sh : GzS
   refine ⟨?_, by simp only [ownL, hst]⟩
   have R := sh.read hr
   refine ⟨sh.mode, ownStr_keep sh.path fun _ _ => rfl, ⟨z', by simp⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos,
-    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz0, fun e => absurd e hsz0⟩,
+    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz0, fun e => absurd e hsz0, R.pos_have, R.look_pos, R.gzip_direct⟩,
     fun e => absurd (hr.symm.trans e) read_ne_write, fun hz' c hc => sh.dead hz' c (by rw [hst] at hc; exact hc)⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e

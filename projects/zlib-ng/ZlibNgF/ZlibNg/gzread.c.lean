@@ -190,10 +190,20 @@ def gz_decomp (state : GzPtr) : G Int32 := do
     wrG state fun s => { s with how := LOOK }
   return 0
 
-/-- `static int gz_fetch(gz_state *state)` (`gzread.c:222-254`). The `default:` case is `Z_UNREACHABLE()`
-(`__builtin_unreachable()`): reaching it is undefined. -/
+/-- `static int gz_fetch(gz_state *state)` (`gzread.c:227-272`, with patch 0016: the output asked for is at most
+`room`, which is `GZ_OFF_MAX - x.pos` when that is smaller than `UINT_MAX` and `x.pos > 0`, and at `x.pos ==
+GZ_OFF_MAX` the call fails with `Z_DATA_ERROR`). `MIN(a, b)` is `min a b`. The
+`default:` case is `Z_UNREACHABLE()` (`__builtin_unreachable()`): reaching it is undefined. `GZ_OFF_MAX - x.pos` is
+evaluated only for `x.pos > 0`, where it cannot overflow; both sides of the test are converted to `uint64_t`. -/
 def gz_fetch (state : GzPtr) : G Int32 := do
   let strm ← strmOf state
+  let mut room : UInt32 := 0xFFFFFFFF
+  let pos ← rdG state (·.pos)
+  if pos > 0 && room.toUInt64 > (GZ_OFF_MAX - pos).toUInt64 then
+    room := (GZ_OFF_MAX - pos).toUInt64.toUInt32
+    if room == 0 then
+      gz_error state Z_DATA_ERROR (← gzLit "read position does not fit in z_off64_t")
+      return -1
   let lp ← gdoWhile
     (fun (c : Ctl × Int32) => do
       let how ← rdG state (·.how)
@@ -204,7 +214,7 @@ def gz_fetch (state : GzPtr) : G Int32 := do
           return (.ret, 0)
         return c
       else if how == COPY then
-        let (r, _) ← gz_load state (← (← ldGz state).out.get) ((← rdG state (·.size)) <<< 1) true
+        let (r, _) ← gz_load state (← (← ldGz state).out.get) (min ((← rdG state (·.size)) <<< 1) room) true
         if r == -1 then
           return (.ret, -1)
         let o ← (← ldGz state).out.get
@@ -212,7 +222,7 @@ def gz_fetch (state : GzPtr) : G Int32 := do
         return (.ret, 0)
       else if how == GZIP then
         let sz ← rdG state (·.size)
-        lm (wrZ strm fun z => { z with avail_out := sz <<< 1 })
+        lm (wrZ strm fun z => { z with avail_out := min (sz <<< 1) room })
         let o ← (← ldGz state).out.get
         lm (wrZ strm fun z => { z with next_out := o })
         if (← gz_decomp state) == -1 then
@@ -266,9 +276,10 @@ structure ReadLoop where
   got : UInt64
   ctl : Ctl
 
-/-- `static size_t gz_read(gz_state *state, void *buf, size_t len)` (`gzread.c:290-361`, with patch 0016: a call
-delivers at most `GZ_OFF_MAX - x.pos` bytes when `x.pos > 0`, and stops at `x.pos == GZ_OFF_MAX`). `GZ_OFF_MAX - x.pos`
-is evaluated only for `x.pos > 0`, where it cannot overflow. -/
+/-- `static size_t gz_read(gz_state *state, void *buf, size_t len)` (`gzread.c:308-388`, with patch 0016: a call
+delivers at most `GZ_OFF_MAX - x.pos` bytes when `x.pos > 0`, and stops at `x.pos == GZ_OFF_MAX` with `Z_DATA_ERROR`).
+`GZ_OFF_MAX - x.pos` is evaluated only for `x.pos > 0`, where it cannot overflow; both sides of the test are converted
+to `uint64_t`. -/
 def gz_read (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
   if len == 0 then
     return 0
@@ -282,9 +293,10 @@ def gz_read (state : GzPtr) (buf : BPtr) (len : UInt64) : G UInt64 := do
       if n.toUInt64 > s.len then
         n := s.len.toUInt32
       let pos ← rdG state (·.pos)
-      if pos > 0 && Int64.ofNat n.toNat > GZ_OFF_MAX - pos then
+      if pos > 0 && n.toUInt64 > (GZ_OFF_MAX - pos).toUInt64 then
         n := (GZ_OFF_MAX - pos).toUInt64.toUInt32
         if n == 0 then
+          gz_error state Z_DATA_ERROR (← gzLit "read position does not fit in z_off64_t")
           return { s with ctl := .brk }
       if (← rdG state (·.«have»)) != 0 then
         if (← rdG state (·.«have»)) < n then
@@ -362,8 +374,7 @@ def gzfread (buf : BPtr) (size nitems : UInt64) (file : GzPtr) : G UInt64 := do
   else
     return 0
 
-/-- `z_int32_t Z_EXPORT PREFIX(gzgetc)(gzFile file)` (`gzread.c:426-448`, with patch 0016: the output buffer is used
-only while `x.pos != GZ_OFF_MAX`). `unsigned char buf[1]` is a local
+/-- `z_int32_t Z_EXPORT PREFIX(gzgetc)(gzFile file)` (`gzread.c:453-475`). `unsigned char buf[1]` is a local
 array (`localBlock`). -/
 def gzgetc (file : GzPtr) : G Int32 := do
   if file == none then
@@ -372,7 +383,7 @@ def gzgetc (file : GzPtr) : G Int32 := do
   if (← rdG state (·.mode)) != GZ_READ ||
       ((← rdG state (·.err)) != Z_OK && (← rdG state (·.err)) != Z_BUF_ERROR) then
     return -1
-  if (← rdG state (·.«have»)) != 0 && (← rdG state (·.pos)) != GZ_OFF_MAX then
+  if (← rdG state (·.«have»)) != 0 then
     wrG state fun s => { s with «have» := s.«have» - 1 }
     let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + 1))
     wrG state fun s => { s with pos := np }
@@ -456,9 +467,8 @@ structure GetsLoop where
   eol : BPtr
   ctl : Ctl
 
-/-- `char * Z_EXPORT PREFIX(gzgets)(gzFile file, char *buf, z_int32_t len)` (`gzread.c:514-569`, with patch 0016: `n`
-is at most `GZ_OFF_MAX - x.pos` when `x.pos > 0`, and the loop stops when that is 0; with patch 0021: `gz_fetch` is
-called only when no skip is pending). `eol` is written before it is read. -/
+/-- `char * Z_EXPORT PREFIX(gzgets)(gzFile file, char *buf, z_int32_t len)` (`gzread.c:541-595`, with patch 0021:
+`gz_fetch` is called only when no skip is pending). `eol` is written before it is read. -/
 def gzgets (file : GzPtr) (buf : BPtr) (len : Int32) : G BPtr := do
   if file == none || buf == .null || len < 1 then
     return .null
@@ -483,11 +493,6 @@ def gzgets (file : GzPtr) (buf : BPtr) (len : Int32) : G BPtr := do
           wrG state fun st => { st with past := 1 }
           return { s with ctl := .brk }
         let mut n : UInt32 := min (← rdG state (·.«have»)) s.left
-        let pos ← rdG state (·.pos)
-        if pos > 0 && Int64.ofNat n.toNat > GZ_OFF_MAX - pos then
-          n := (GZ_OFF_MAX - pos).toUInt64.toUInt32
-          if n == 0 then
-            return { s with ctl := .brk }
         let eol ← lm (memchrB (← (← ldGz state).next.get) 10 n.toNat)
         if eol != .null then
           let d ← lm (Ptr.diff eol (← (← ldGz state).next.get))

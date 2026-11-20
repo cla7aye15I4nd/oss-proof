@@ -27,7 +27,8 @@ so that a proof about one function opens only the clauses it needs.
   from `next_in` inside `in`, and the stream's `msg` is `NULL` or one of inflate's string literals (`gz_decomp` passes
   it to `gz_error`); without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
   (`FreshStrm`) and `how` is `LOOK`; a pending skip and the bytes `gzungetc` pushed back
-  after it keep `pos + skip + have ≤ GZ_OFF_MAX`;
+  after it keep `pos + skip + have ≤ GZ_OFF_MAX`; `pos + have ≤ GZ_OFF_MAX` (patch 0016), so that the `gzgetc()`
+  macro cannot overflow `pos`; while looking at the start of transparent-capable input, `pos + have ≤ 0`;
 * writing: `x.have` is 0; without buffers `avail_in` is 0; with buffers and not `direct`, the deflate stream has the
   deflate invariant and the between-call facts (`gz_write_init`), no `gz_header` registered, `next_out + avail_out`
   is the end of `out` and `x.next` lies in `out` at or before `next_out`; `avail_in` bytes from `next_in` lie inside
@@ -99,6 +100,15 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   fresh : s.size = 0 → FreshStrm h s
   /-- before the buffers exist the stream type is not known yet (`gz_look` leaves `LOOK` only with buffers) -/
   look : s.size = 0 → s.how = LOOK
+  /-- what the `gzgetc()` macro of `zlib.h` may take from the output buffer stays at or below `GZ_OFF_MAX` (patch 0016:
+  `gz_fetch` produces no output past it) -/
+  pos_have : s.pos.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt
+  /-- before the kind of input is known (looking, transparent reading allowed), no data has been delivered: only
+  bytes pushed back by `gzungetc` are buffered -/
+  look_pos : s.how = LOOK → s.direct ≠ 0 → s.pos.toInt + s.«have».toNat ≤ 0
+  /-- a gzip stream is never transparent (`gz_look` sets `direct = 0` with `how = GZIP`), so a gzip member that ends
+  (`how` back to `LOOK`) does not look like the start of the input -/
+  gzip_direct : s.how = GZIP → s.direct = 0
 
 /-- The write buffers and the embedded stream `z` once the buffers exist (block `c`, `in` at `base`). -/
 structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop where

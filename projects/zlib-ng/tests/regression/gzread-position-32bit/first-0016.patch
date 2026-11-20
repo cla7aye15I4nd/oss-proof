@@ -1,0 +1,49 @@
+--- a/gzread.c
++++ b/gzread.c
+@@ -8,6 +8,11 @@
+ #include "gzguts.h"
+ #include "gzread_mangle.h"
+ 
++/* the largest value of x.pos (also defined in gzguts.h with the gzseek64 fix) */
++#ifndef GZ_OFF_MAX
++#define GZ_OFF_MAX ((z_off64_t)((~(uint64_t)0) >> (65 - sizeof(z_off64_t) * 8)))
++#endif
++
+ /* Local functions */
+ static int gz_read_init(gz_state *state);
+ static int gz_load(gz_state *, unsigned char *, unsigned, unsigned *);
+@@ -307,6 +312,13 @@
+         if (n > len)
+             n = (unsigned)len;
+ 
++        /* stop at the largest position x.pos can hold */
++        if (state->x.pos > 0 && (z_off64_t)n > GZ_OFF_MAX - state->x.pos) {
++            n = (unsigned)(GZ_OFF_MAX - state->x.pos);
++            if (n == 0)
++                break;
++        }
++
+         /* first just try copying data from the output buffer */
+         if (state->x.have) {
+             if (state->x.have < n)
+@@ -437,7 +449,7 @@
+         return -1;
+ 
+     /* try output buffer (no need to check for skip request) */
+-    if (state->x.have) {
++    if (state->x.have && state->x.pos != GZ_OFF_MAX) {
+         state->x.have--;
+         state->x.pos++;
+         return *(state->x.next)++;
+@@ -547,6 +559,11 @@
+ 
+             /* look for end-of-line in current output buffer */
+             n = MIN(state->x.have, left);
++            if (state->x.pos > 0 && (z_off64_t)n > GZ_OFF_MAX - state->x.pos) {
++                n = (unsigned)(GZ_OFF_MAX - state->x.pos);
++                if (n == 0)
++                    break;                  /* largest position */
++            }
+             eol = (unsigned char *)memchr(state->x.next, '\n', n);
+             if (eol != NULL)
+                 n = (unsigned)(eol - state->x.next) + 1;

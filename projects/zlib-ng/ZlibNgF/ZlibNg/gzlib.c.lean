@@ -269,8 +269,8 @@ def gzrewind (file : GzPtr) : G Int32 := do
   gz_reset state
   return 0
 
-/-- `z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence)` (`gzlib.c:388-454` with patch
-0004). The locals `n`, `ret`, `pos` are written before they are read. -/
+/-- `z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence)` (`gzlib.c:388-467` with patch
+0004). The locals `n` and `ret` are written before they are read. -/
 def gzseek64 (file : GzPtr) (offset : Int64) (whence : Int32) : G Int64 := do
   if file == none then
     return -1
@@ -282,49 +282,44 @@ def gzseek64 (file : GzPtr) (offset : Int64) (whence : Int32) : G Int64 := do
   if whence != SEEK_SET && whence != SEEK_CUR then
     return -1
   let mut offset := offset
-  let mut pos : Int64 := 0
   if whence == SEEK_SET then
-    if offset < 0 then
-      return -1
-    pos := offset
-  else
-    let mut cur ← rdG state (·.pos)
-    if (← rdG state (·.past)) == 0 then
-      if cur > 0 then
-        if (← rdG state (·.skip)) > (← lm (chkI64 (GZ_OFF_MAX.toInt - cur.toInt))) then
-          return -1
-      cur ← lm (chkI64 (cur.toInt + (← rdG state (·.skip)).toInt))
-    if cur > 0 then
-      if offset > (← lm (chkI64 (GZ_OFF_MAX.toInt - cur.toInt))) then
-        return -1
-    let bad ← if cur < 0 then
-        (if offset ≤ 0 then pure true else do pure (offset < (← lm (chkI64 (-cur.toInt)))))
-      else do pure (offset < (← lm (chkI64 (-cur.toInt))))
+    let bad : Bool ← if (← rdG state (·.pos)) < 0 then do
+        pure (offset > (← lm (chkI64 (GZ_OFF_MAX.toInt + (← rdG state (·.pos)).toInt))))
+      else do
+        pure (offset < (← lm (chkI64 ((← lm (chkI64 ((← rdG state (·.pos)).toInt - GZ_OFF_MAX.toInt))).toInt - 1))))
     if bad then
       return -1
-    pos ← lm (chkI64 (cur.toInt + offset.toInt))
-    wrG state fun s => { s with skip := 0 }
-  if (← rdG state (·.pos)) < 0 then
-    if pos > (← lm (chkI64 (GZ_OFF_MAX.toInt + (← rdG state (·.pos)).toInt))) then
+    offset ← lm (chkI64 (offset.toInt - (← rdG state (·.pos)).toInt))
+  else
+    if (← rdG state (·.past)) == 0 then
+      if offset > (← lm (chkI64 (GZ_OFF_MAX.toInt - (← rdG state (·.skip)).toInt))) then
+        return -1
+    let add : Int64 ← if (← rdG state (·.past)) != 0 then pure 0 else rdG state (·.skip)
+    offset ← lm (chkI64 (offset.toInt + add.toInt))
+    let bad : Bool ← if (← rdG state (·.pos)) > 0 then do
+        pure (offset > (← lm (chkI64 (GZ_OFF_MAX.toInt - (← rdG state (·.pos)).toInt))))
+      else do
+        pure (offset < (← lm (chkI64 ((← lm (chkI64 (-GZ_OFF_MAX.toInt - 1))).toInt - (← rdG state (·.pos)).toInt))))
+    if bad then
       return -1
-  offset ← lm (chkI64 (pos.toInt - (← rdG state (·.pos)).toInt))
+    wrG state fun s => { s with skip := 0 }
   if (← rdG state (·.mode)) == GZ_READ then
     if (← rdG state (·.how)) == COPY then
-      let inRaw ← if offset ≥ 0 then pure true else do
-        pure (offset ≥ (← lm (chkI64 (Int.ofNat (← rdG state (·.«have»)).toNat - GZ_OFF_MAX.toInt))))
-      if inRaw then
-        let ret ← lseekG (← rdG state (·.fd)) (← lm (chkI64 (offset.toInt - Int.ofNat (← rdG state (·.«have»)).toNat))) SEEK_CUR
-        if ret == -1 then
-          return -1
-        wrG state fun s => { s with «have» := 0 }
-        wrG state fun s => { s with eof := 0 }
-        wrG state fun s => { s with past := 0 }
-        wrG state fun s => { s with skip := 0 }
-        gz_error state Z_OK .null
-        lm (wrZ (← strmOf state) fun z => { z with avail_in := 0 })
-        let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + offset.toInt))
-        wrG state fun s => { s with pos := np }
-        return (← rdG state (·.pos))
+      if (← lm (chkI64 ((← rdG state (·.pos)).toInt + offset.toInt))) ≥ 0 then
+        if !GT_OFF (← rdG state (·.«have»)) then
+          if offset ≥ (← lm (chkI64 ((← lm (chkI64 (Int.ofNat (← rdG state (·.«have»)).toNat - GZ_OFF_MAX.toInt))).toInt - 1))) then
+            let ret ← lseekG (← rdG state (·.fd)) (← lm (chkI64 (offset.toInt - Int.ofNat (← rdG state (·.«have»)).toNat))) SEEK_CUR
+            if ret == -1 then
+              return -1
+            wrG state fun s => { s with «have» := 0 }
+            wrG state fun s => { s with eof := 0 }
+            wrG state fun s => { s with past := 0 }
+            wrG state fun s => { s with skip := 0 }
+            gz_error state Z_OK .null
+            lm (wrZ (← strmOf state) fun z => { z with avail_in := 0 })
+            let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + offset.toInt))
+            wrG state fun s => { s with pos := np }
+            return (← rdG state (·.pos))
   if offset < 0 then
     if (← rdG state (·.mode)) != GZ_READ then
       return -1

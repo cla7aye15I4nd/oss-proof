@@ -83,7 +83,8 @@ letter of the standard that misbehaves on no flat-memory target.
 | Case | Patch | Defect shown without the patch | Evidence |
 | --- | --- | --- | --- |
 | `inflate-copy-pointer-equality` | 0003 | invalid pointer pair in `inflateCopy` | public API (pointer-pair check) |
-| `gzseek-offset-overflow` | 0004 | signed overflow in `gzseek64` | public API; the `x.next + 0` that 0004 also removes is letter of the standard and not shown |
+| `gzseek-offset-overflow` | 0004 | signed overflow in `gzseek64`: `offset + skip` with `SEEK_CUR` (run `cur`), `offset - x.pos` after `gzungetc` at position 0 (`set`), `x.pos + offset` in the test of the raw area (`pos`, on `/dev/zero`, its `lseek` answered as Linux's on other hosts); the `lseek` offset `offset - x.have` (run `lseek` of the repro, not run here: with patch 0016 in the build `x.pos + x.have <= GZ_OFF_MAX` rules it out) | public API; the `x.next + 0` that 0004 also removes is letter of the standard and not shown |
+| `gzseek-refusal-state` | 0004 | none: on calls that do not overflow, the results and the state afterwards are the same with and without the patch (a refused `SEEK_CUR` before the start on a reader and on a writer, `SEEK_SET` to a negative offset after two `gzungetc` at position 0 on a gzip file and on a plain file); the first version of 0004 is kept as a guard | public API (no defect: same results) |
 | `deflatebound-gzip-extra-length` | 0006 | `deflateBound` too small for a gzip extra field with `extra_len > 0xffff` | public API (wrong result) |
 | `inflate-window-copy` | 0007 | invalid pointer pair (window vs output) in `chunkcopy_safe` | public API (pointer-pair check) |
 | `infback-window-overlap` | 0007 | none: upstream is clean here; the case checks that `inflateBack`, whose output is the window, decodes matches into the previous window pass alike with and without the patch | public API (no defect: same results) |
@@ -97,6 +98,7 @@ letter of the standard that misbehaves on no flat-memory target.
 | `gzclose-after-failed-write` | 0014 | heap use after free: `gzclose` writes from the caller's freed buffer after a failed direct `gzwrite` | public API |
 | `gzbuffer-alloc-null-offset` | 0015 | `NULL` plus an offset in `gz_buffer_alloc` when the allocation fails: clang's UBSan only (see below) | public API (clang only) |
 | `gzread-position-overflow` | 0016 | signed overflow of `x.pos` in `gz_read` after `gzseek` to `INT64_MAX` on a descriptor that keeps delivering data | public API |
+| `gzgetc-macro-position` | 0016 | the `gzgetc()` macro of `zlib.h` in the caller: `gzseek` to `INT64_MAX - 2` and `gzread` of 4 bytes, then the macro (run `max`; without the patch `gz_read` itself overflows); `gzseek` to `INT64_MAX - 12`, `gzread` of 1 byte, then the macro 12 times (run `near`): signed overflow of `x.pos` in the caller's code; the first version of 0016 is kept as a guard | public API |
 | `fixed-block-start-overflow` | 0018 | signed overflow of `block_start` in `fill_window` after `2^31` bytes of one `Z_FIXED` level-1 stream (about 20 s) | public API |
 | `deflate-slow-match-start` | 0019 | level 8 `deflate_slow` takes a match at or after `strstart` (levels 5 then 8 after `Z_FULL_FLUSH`): the wrapped distance makes `d_code` read far outside `dist_code` (AddressSanitizer), and without a sanitizer the stream decodes to wrong data | public API |
 | `gzdirect-pending-skip` | 0020 | `gzseek` to `INT64_MAX`, `gzdirect`, `gzgetc`, `gztell` on a file that is not gzip: signed overflow of `x.pos + skip` in `gztell64` | public API |
@@ -127,7 +129,11 @@ file offsets) and writes one byte at position `2^32 - 1` (documented calls only:
 transparent writing, `gzbuffer`, `gzseek`, `gzwrite`, `gztell`, `gzerror`). With every current patch the write
 succeeds; with the first version of patch 0017 (`first-0017.patch` there, which converted the room left to `size_t`)
 it must still be refused with `Z_DATA_ERROR`. The case also runs on the verified LP64 build, where the write succeeds.
-It needs a compiler and C library for `-m32` (on x86_64 Linux, `gcc-multilib`, which the CI job installs); without
+`gzread-position-32bit` builds the source with `-m32 -D_LARGEFILE64_SOURCE=0` (a 32-bit `z_off64_t`, as `zconf.h` gives
+without large-file functions) and reads at `GZ_OFF_MAX - 4` with `gzfread` of `2^31` one-byte items (documented calls;
+the caller points the descriptor at `/dev/null` with `dup2` so that no more data comes): with every current patch 4 bytes
+and `Z_DATA_ERROR` at `GZ_OFF_MAX`; with the first version of 0016 (`first-0016.patch` there, which converted the count
+to `z_off64_t`) `x.pos` must still wrap. It needs a compiler and C library for `-m32` (on x86_64 Linux, `gcc-multilib`, which the CI job installs); without
 one it is skipped with a `SKIPPED` line, and when `CI` is set a missing `-m32` toolchain fails the run.
 
 Plain regression tests (defects of 2.3.3 that the `develop` branch fixes; each must pass on the verified
@@ -142,7 +148,10 @@ continues the block without its header, and `inflate` rejects it with `Z_DATA_ER
 Guards (an earlier, defective version of one of our patches, built in place of the current one; the case's
 reproduction must still show its defect there): `infback-window-overlap` with `first-0007.patch`, the first
 version of patch 0007, whose `memcpy` copies overlapping ranges when the output is the window
-(`memcpy-param-overlap`).
+(`memcpy-param-overlap`); `gzgetc-macro-position` with `first-0016.patch`, the first version of patch 0016, which left
+output buffered past `GZ_OFF_MAX` (the macro overflows in both runs); `gzseek-refusal-state` with `first-0004.patch`, the first version of patch 0004, which
+refused before upstream's own steps and so kept the pending skip of a refused `SEEK_CUR` and refused a negative
+`SEEK_SET` target after `gzungetc` (each run prints a different line).
 
 Open defects in the differential test: `expected-faults.txt` lists the generated inputs on which the verified C
 source has undefined behaviour with no patch yet (see the findings page), so the translation faults there while the

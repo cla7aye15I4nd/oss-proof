@@ -829,7 +829,8 @@ theorem finish_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
         obtain ⟨z, hz⟩ := o'.wf.2.2.2.2.1 b st' hst'
         have hz' : H'.streams i = some z := by rw [hstm, t.p0.strm] at hz; exact hz
         exact ⟨z, hz, Or.inl (o'.snone z hz').2.1, Or.inl (o'.snone z hz').2.2, hav z hz'⟩,
-      fun _ => hhow (by rw [← hmo]; exact hr)⟩,
+      fun _ => hhow (by rw [← hmo]; exact hr),
+      by rw [hpo, hhv]; decide, fun _ _ => by rw [hpo, hhv]; decide, fun e => absurd (e.symm.trans (hhow (by rw [← hmo]; exact hr))) (by decide)⟩,
       fun _ => ⟨fun e => absurd hsz0 e, fun _ => by
           obtain ⟨z, hz⟩ := o'.wf.2.2.2.2.1 b st' hst'
           have hz' : H'.streams i = some z := by rw [hstm, t.p0.strm] at hz; exact hz

@@ -12,38 +12,57 @@
  /* Local functions */
  static int gz_read_init(gz_state *state);
  static int gz_load(gz_state *, unsigned char *, unsigned, unsigned *);
-@@ -307,6 +312,13 @@
+@@ -221,8 +226,21 @@
+    end of the input file has been reached and all data has been processed.  */
+ static int gz_fetch(gz_state *state) {
+     PREFIX3(stream) *strm = &(state->strm);
++    unsigned room = (unsigned)-1;
+     Assert(state->x.have == 0, "Invalid state->x.have");
+ 
++    /* produce no output past the largest position x.pos can hold: the
++       gzgetc() macro of zlib.h takes bytes from the output buffer and adds
++       them to x.pos without a bound (compared in 64 bits: z_off64_t may be
++       as narrow as unsigned) */
++    if (state->x.pos > 0 && (uint64_t)room > (uint64_t)(GZ_OFF_MAX - state->x.pos)) {
++        room = (unsigned)(GZ_OFF_MAX - state->x.pos);
++        if (room == 0) {
++            PREFIX(gz_error)(state, Z_DATA_ERROR, "read position does not fit in z_off64_t");
++            return -1;
++        }
++    }
++
+     do {
+         switch (state->how) {
+         case LOOK:      /* -> LOOK, COPY (only if never GZIP), or GZIP */
+@@ -232,13 +250,13 @@
+                 return 0;
+             break;
+         case COPY:      /* -> COPY */
+-            if (gz_load(state, state->out, state->size << 1, &(state->x.have))
++            if (gz_load(state, state->out, MIN(state->size << 1, room), &(state->x.have))
+                     == -1)
+                 return -1;
+             state->x.next = state->out;
+             return 0;
+         case GZIP:      /* -> GZIP or LOOK (if end of gzip stream) */
+-            strm->avail_out = state->size << 1;
++            strm->avail_out = MIN(state->size << 1, room);
+             strm->next_out = state->out;
+             if (gz_decomp(state) == -1)
+                 return -1;
+@@ -307,6 +325,15 @@
          if (n > len)
              n = (unsigned)len;
  
 +        /* stop at the largest position x.pos can hold */
-+        if (state->x.pos > 0 && (z_off64_t)n > GZ_OFF_MAX - state->x.pos) {
++        if (state->x.pos > 0 && (uint64_t)n > (uint64_t)(GZ_OFF_MAX - state->x.pos)) {
 +            n = (unsigned)(GZ_OFF_MAX - state->x.pos);
-+            if (n == 0)
++            if (n == 0) {
++                PREFIX(gz_error)(state, Z_DATA_ERROR, "read position does not fit in z_off64_t");
 +                break;
++            }
 +        }
 +
          /* first just try copying data from the output buffer */
          if (state->x.have) {
              if (state->x.have < n)
-@@ -437,7 +449,7 @@
-         return -1;
- 
-     /* try output buffer (no need to check for skip request) */
--    if (state->x.have) {
-+    if (state->x.have && state->x.pos != GZ_OFF_MAX) {
-         state->x.have--;
-         state->x.pos++;
-         return *(state->x.next)++;
-@@ -547,6 +559,11 @@
- 
-             /* look for end-of-line in current output buffer */
-             n = MIN(state->x.have, left);
-+            if (state->x.pos > 0 && (z_off64_t)n > GZ_OFF_MAX - state->x.pos) {
-+                n = (unsigned)(GZ_OFF_MAX - state->x.pos);
-+                if (n == 0)
-+                    break;                  /* largest position */
-+            }
-             eol = (unsigned char *)memchr(state->x.next, '\n', n);
-             if (eol != NULL)
-                 n = (unsigned)(eol - state->x.next) + 1;

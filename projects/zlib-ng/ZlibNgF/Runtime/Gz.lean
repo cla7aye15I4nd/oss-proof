@@ -361,7 +361,8 @@ def gzLits : Array String := #[
   "internal error: deflate stream corrupt",
   ": ",
   "",
-  "write position does not fit in z_off64_t"
+  "write position does not fit in z_off64_t",
+  "read position does not fit in z_off64_t"
 ]
 
 /-- A fresh read-only block of `Heap.consts` holding `a`. -/

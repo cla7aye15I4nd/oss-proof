@@ -99,7 +99,8 @@ theorem fail_inv {w : World} {h H : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
   have shH : GzShape H (bfSt s) := by
     refine ⟨sh.mode, ownStr_keep sh.path fun c hc => x.old c (hlt c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inl (Or.inr hc)))),
       ⟨z', hz'⟩, sh.want_lo, sh.want_hi, Or.inl rfl, ⟨sh.pos.1, sh.pos.2, sh.pos.3, sh.pos.4⟩, ⟨?_, sh.msg.mem⟩,
-      fun _ => ⟨hR.how, fun e => absurd rfl e, fun _ => hR.nobuf h0, hR.skip_have, fun _ => ⟨z', hz', hza, hzf, hai⟩, fun _ => hR.look h0⟩,
+      fun _ => ⟨hR.how, fun e => absurd rfl e, fun _ => hR.nobuf h0, hR.skip_have, fun _ => ⟨z', hz', hza, hzf, hai⟩, fun _ => hR.look h0,
+        hR.pos_have, hR.look_pos, hR.gzip_direct⟩,
       fun hw' => absurd (hr.symm.trans hw') read_ne_write, fun _ c hc => ?_⟩
     · rcases sh.msg.msg with e | hm
       · exact Or.inl e
@@ -199,7 +200,7 @@ theorem ok_inv {w : World} {h H : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h
     refine ⟨sh.mode, ownStr_keep sh.path fun c hc => (x.old c (hlt c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inl (Or.inr hc))))).1,
       ⟨z', hz'⟩, sh.want_lo, sh.want_hi, Or.inr rfl, ⟨sh.pos.1, sh.pos.2, sh.pos.3, sh.pos.4⟩, ⟨?_, sh.msg.mem⟩,
       fun _ => ⟨hR.how, fun _ => ⟨c0, o, z', hB, hinv, hz', Or.inl (hR.nobuf h0), Or.inl hai, hreg, Or.inl hmsg⟩,
-        fun e => absurd e hsz, hR.skip_have, fun e => absurd e hsz, fun e => absurd e hsz⟩,
+        fun e => absurd e hsz, hR.skip_have, fun e => absurd e hsz, fun e => absurd e hsz, hR.pos_have, hR.look_pos, hR.gzip_direct⟩,
       fun hw' => absurd (hr.symm.trans hw') read_ne_write, fun e => absurd e hsz⟩
     rcases sh.msg.msg with e | hm
     · exact Or.inl e
