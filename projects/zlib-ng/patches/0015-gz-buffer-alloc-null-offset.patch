@@ -1,0 +1,23 @@
+--- a/gzlib.c
++++ b/gzlib.c
+@@ -86,16 +86,16 @@
+ 
+     state->buffers = (unsigned char *)zng_alloc_aligned((in_size + out_size), 64);
+     state->in = state->buffers;
+-    if (out_size) {
+-        state->out = state->buffers + (in_size); // Outbuffer goes after inbuffer
+-    }
+ 
+     /* Return error if memory allocation failed */
+-    if (state->in == NULL || (out_size && state->out == NULL)) {
++    if (state->in == NULL) {
+         gz_buffer_free(state);
+         PREFIX(gz_error)(state, Z_MEM_ERROR, "out of memory");
+         return -1;
+     }
++    if (out_size) {
++        state->out = state->buffers + (in_size); // Outbuffer goes after inbuffer
++    }
+ 
+     state->size = want; // mark state as initialized
+     return 0;

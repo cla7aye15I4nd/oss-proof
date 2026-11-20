@@ -68,17 +68,24 @@ def StratOk (f : StatePtr → Int32 → M BlockState) : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
     ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s bs h'
 
+/-- A strategy `f` that `deflate` calls only at a level above 0: as `StratOk`, given `0 < level`. -/
+def StratOkL (f : StatePtr → Int32 → M BlockState) : Prop :=
+  ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
+    (∀ b' st, DStateIs h s b' st → 0 < st.level) →
+    ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s bs h'
+
 /-- The strategies, one field each (`deflate` calls `deflate_stored` for level 0, `deflate_huff` for
-`Z_HUFFMAN_ONLY`, `deflate_rle` for `Z_RLE`, else the function of `configuration_table`). -/
+`Z_HUFFMAN_ONLY`, `deflate_rle` for `Z_RLE`, else the function of `configuration_table`; so every strategy but
+`deflate_stored` runs at a level above 0). -/
 structure StrategyFacts : Prop where
   stored : StratOk ZlibNg.DeflateStored.deflate_stored
-  quick : StratOk ZlibNg.DeflateQuick.deflate_quick
-  fast : StratOk ZlibNg.DeflateFast.deflate_fast
-  medium : StratOk ZlibNg.DeflateMedium.deflate_medium
-  medium_fizzle : StratOk ZlibNg.DeflateMedium.deflate_medium_fizzle
-  slow : StratOk ZlibNg.DeflateSlow.deflate_slow
-  huff : StratOk ZlibNg.DeflateHuff.deflate_huff
-  rle : StratOk ZlibNg.DeflateRle.deflate_rle
+  quick : StratOkL ZlibNg.DeflateQuick.deflate_quick
+  fast : StratOkL ZlibNg.DeflateFast.deflate_fast
+  medium : StratOkL ZlibNg.DeflateMedium.deflate_medium
+  medium_fizzle : StratOkL ZlibNg.DeflateMedium.deflate_medium_fizzle
+  slow : StratOkL ZlibNg.DeflateSlow.deflate_slow
+  huff : StratOkL ZlibNg.DeflateHuff.deflate_huff
+  rle : StratOkL ZlibNg.DeflateRle.deflate_rle
 
 /-- Only `data_type` of the stream record of `s` changes (`zng_tr_flush_block` sets it). -/
 def StreamKeep (h h' : Heap) (s : StreamPtr) : Prop :=
@@ -113,7 +120,8 @@ def PbufOnly (h h' : Heap) (b pbo lim : Nat) : Prop :=
 /-- An emitter `m` on stream `s` (block `b`): from the working state with at least `room st` bytes left after the
 pending bytes (in `pending_buf`, and before `sym_buf` while symbols wait there), no fault, the working state after,
 only block `b` (its bytes within `pending_buf`) and the stream's `data_type` changed, the other state fields kept
-(`EmitKeeps`), and at most `grow st` more pending bytes. -/
+(`EmitKeeps`), at most `grow st` more pending bytes, and the exact shape of the heap after: `h` with the stream's
+`data_type`, the state record and the bytes of block `b` replaced (`SH`). -/
 def EmitOk (s : StreamPtr) (b : Nat) (pre : DeflateState → Prop) (room grow : DeflateState → Nat) (m : M Unit) :
     Prop :=
   ∀ (h : Heap) (st : DeflateState), DWork h s → DStateIs h s b st → pre st →
@@ -121,7 +129,8 @@ def EmitOk (s : StreamPtr) (b : Nat) (pre : DeflateState → Prop) (room grow : 
     (st.sym_next ≠ 0 → PendRoom b st (room st) (st.lit_bufsize.toNat + 8)) →
     ∃ h', C.run m h = .ok ((), h') ∧ DWork h' s ∧ DFrame h h' (streamIds s) [b] [] [] ∧ StreamKeep h h' s ∧
       (∀ pbo, st.pending_buf = .val (.ref (.heap b) pbo) → PbufOnly h h' b pbo (4 * st.lit_bufsize.toNat + 9)) ∧
-      ∀ st', DStateIs h' s b st' → EmitKeeps st st' ∧ st'.pending.toNat ≤ st.pending.toNat + grow st
+      (∀ st', DStateIs h' s b st' → EmitKeeps st st' ∧ st'.pending.toNat ≤ st.pending.toNat + grow st) ∧
+      ∀ i z, s = some i → h.streams i = some z → ∃ dt st' d', h' = DeflateInit.SH h i { z with data_type := dt } b st' d'
 
 /-- After a successful run of `m` from the working state of stream `s` (block `b`) with `pre`, no symbol is left in
 `sym_buf` (`zng_tr_flush_block` ends with `init_block`). -/
@@ -144,18 +153,18 @@ def storedRoom (st : DeflateState) (len : UInt32) : Nat := len.toNat + (st.bi_va
 
 /-- The block emitters. `flush_block` is called by `FLUSH_BLOCK_ONLY` with no pending bytes (the previous
 `FLUSH_BLOCK` emptied them, or the strategy returned) and fewer than 8 bits in `bi_buf` (the `flush_pending` of the
-previous `FLUSH_BLOCK` moved the complete bytes), at a level above 0 (level 0 is `deflate_stored`, which does not
-call it; at level 0 its stored path could copy a block longer than `pending_buf`), and the block's bytes in the window (or `NULL` when
+previous `FLUSH_BLOCK` moved the complete bytes), with `last` 0 or 1 (`FLUSH_BLOCK_ONLY`; `zng_tr_emit_tree` computes `(type << 1) + last` in `int`), at a level
+above 0 (level 0 is `deflate_stored`, which does not call it; at level 0 its stored path could copy a block longer than `pending_buf`), and the block's bytes in the window (or `NULL` when
 `block_start` is negative); its result fits `pending_buf` (the `sym_buf` overlay argument of `deflate.c`) and it
 leaves no symbol (`flush_block_clears`).
 `stored_block` writes `storedRoom` bytes; `align` and the `emit_*` of `deflate_quick` (static trees) add at most 16
 bytes (with up to 63 bits waiting in `bi_buf`). -/
 structure TreesFacts : Prop where
-  flush_block : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
+  flush_block : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32), 0 ≤ last → last ≤ 1 →
     EmitOk s b (FlushBlockPre b buf len) (fun _ => 0) (fun st => 4 * st.lit_bufsize.toNat + 9)
       (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last)
-  flush_block_clears : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
-    EmitClears s b (FlushBlockPre b buf len) (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last)
+  flush_block_clears : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32), 0 ≤ last →
+    last ≤ 1 → EmitClears s b (FlushBlockPre b buf len) (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last)
   stored_block : ∀ (s : StreamPtr) (b : Nat) (buf : BPtr) (len : UInt32) (last : Int32),
     EmitOk s b (fun st => WindowBuf b st buf len) (fun st => storedRoom st len) (fun st => storedRoom st len)
       (ZlibNg.Trees.zng_tr_stored_block (some b) buf len last)

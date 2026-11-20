@@ -47,3 +47,8 @@ srcDir = "lean"
 name = "difftest_infback"
 root = "Driver.Infback"
 srcDir = "lean"
+
+[[lean_exe]]
+name = "difftest_gz"
+root = "Driver.Gz"
+srcDir = "lean"

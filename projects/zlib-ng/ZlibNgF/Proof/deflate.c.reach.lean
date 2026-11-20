@@ -5,6 +5,8 @@ import ZlibNgF.Proof.«deflate.c.reset»
 import ZlibNgF.Proof.«deflate.c.prime»
 import ZlibNgF.Proof.«deflate.c.facts»
 import ZlibNgF.Proof.«deflate.c.setdict»
+import ZlibNgF.Proof.«deflate.c.fill_window.facts»
+import ZlibNgF.Proof.«deflate.c.copy»
 
 /-!
 # Reachable deflate streams have the structural invariant (`ZlibNgF`)
@@ -14,8 +16,9 @@ import ZlibNgF.Proof.«deflate.c.setdict»
 (`Proof/public-deflate-init.lean`), the caller step, and the steps `deflatePending`, `deflateUsed`, `deflateTune`,
 `deflateSetHeader`, `deflateBound`, `deflateBound_z`, `deflateReset`, `deflateResetKeep`, `deflateGetDictionary`
 (`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`), `deflateSetDictionary`
-(`Proof/deflate.c.setdict.lean`, given `WindowFacts`). Every other case is a field of `DPending`, the list of
-obligations not proved yet: the window facts, and the preservation by `deflateCopy`, `deflate`, `deflateParams`. The `*_safety_of` theorems
+(`Proof/deflate.c.setdict.lean`, with the window facts `FillFacts.windowFacts`), `deflateCopy` (both the copy
+constructor and the step on the source, `Proof/deflate.c.copy.lean`). Every other case is a field of `DPending`, the
+list of obligations not proved yet: the preservation by `deflate` and `deflateParams`. The `*_safety_of` theorems
 derive registered goals from `DPending`; a goal is registered as proved only once `DPending` is.
 -/
 
@@ -24,14 +27,8 @@ set_option autoImplicit false
 namespace ZlibNgF.Proof.DeflateReach
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv
 
-/-- The obligations still to prove: the window facts, a successful copy establishes the invariant, and each remaining
-public step keeps it. -/
+/-- The obligations still to prove: each remaining public step keeps the invariant. -/
 structure DPending : Prop where
-  /-- `fill_window` and the `insert_batch` functions (`Proof/deflate.c.facts.lean`) -/
-  window : DeflateFacts.WindowFacts
-  /-- `deflateCopy` keeps the source's invariant and, on `Z_OK`, establishes the destination's. -/
-  copy : ∀ (h h' : Heap) (src dst : StreamPtr) (r : Int32), DInv h src → InitReady h dst → dst ≠ src →
-    C.run (ZlibNg.Deflate.deflateCopy dst src) h = .ok (r, h') → DInv h' src ∧ (r = Z_OK → DInv h' dst)
   deflate : ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), DInv h s → CrcGlobals h → DStreamIO h s →
     C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') → DInv h' s
   params : ∀ (h h' : Heap) (s : StreamPtr) (level strategy r : Int32), DInv h s → CrcGlobals h → DStreamIO h s →
@@ -66,7 +63,7 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
     ⟨g, l, n, c, r, e⟩ | ⟨n, r, e⟩ | ⟨n, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hdst, hne, e⟩
   · exact P.deflate h h' s flush r hv hcg hio e
   · exact P.params h h' s level strategy r hv hcg hio e
-  · obtain ⟨_, _, e0, hi, _⟩ := DeflateSetDict.setDict_inv P.window hv hd hnb
+  · obtain ⟨_, _, e0, hi, _⟩ := DeflateSetDict.setDict_inv FillFacts.windowFacts hv hd hnb
     rw [det e e0]; exact hi
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateDict.getDict_inv hasLen hv hd hnb
     rw [det e e0]; exact hi
@@ -87,7 +84,7 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
     rw [det e e0]; exact hi
   · obtain ⟨_, _, _, rfl, _, _, _, H, e0, ⟨_, hi, _⟩⟩ := DeflateReset.resetKeep_inv hv
     rw [det e e0]; exact hi
-  · exact (P.copy h h' s dst r hv hdst hne e).1
+  · exact (DeflateCopy.copy_inv hv hdst hne e).1
 
 /-- **The induction.** Every reachable deflate stream has the structural invariant, given the pending obligations. -/
 theorem dreach_inv (P : DPending) {h : Heap} {s : StreamPtr} (hr : DeflateReachable h s) : DInv h s := by
@@ -95,7 +92,7 @@ theorem dreach_inv (P : DPending) {h : Heap} {s : StreamPtr} (hr : DeflateReacha
   | init h h' s level version size hi hv e => exact DeflateInitPublic.init_inv h h' s level version size hi hv e
   | init2 h h' s level method wb ml st version size hi hv e =>
     exact DeflateInitPublic.init2__inv h h' s level method wb ml st version size hi hv e
-  | copy h h' src dst _ hdst hne e ih => exact (P.copy h h' src dst Z_OK ih hdst hne e).2 rfl
+  | copy h h' src dst _ hdst hne e ih => exact (DeflateCopy.copy_inv ih hdst hne e).2 rfl
   | step h h' s _ hs ih => exact step_inv P ih hs
   | caller h h' s _ hc ih => exact caller_inv ih hc
 
@@ -208,7 +205,13 @@ theorem deflateSetDictionary_safety_of (P : DPending) : Goal.deflateSetDictionar
   intro h s d n hh hd hnb
   rcases handle_cases hh with hn | hr
   · exact ⟨_, _, DeflateSetDict.setDict_noState hn d n, dframe_refl h _ _ _ _⟩
-  · obtain ⟨r, h', e, _, f⟩ := DeflateSetDict.setDict_inv P.window (dreach_inv P hr) hd hnb
+  · obtain ⟨r, h', e, _, f⟩ := DeflateSetDict.setDict_inv FillFacts.windowFacts (dreach_inv P hr) hd hnb
     exact ⟨r, h', e, f⟩
+
+theorem deflateCopy_safety_of (P : DPending) : Goal.deflateCopy_safety := by
+  intro h dst src hfr hh hdst hne
+  rcases handle_cases hh with hn | hr
+  · exact ⟨_, _, DeflateCopy.copy_noState hn dst, dframe_refl h _ _ _ _⟩
+  · exact DeflateCopy.copy_safe (dreach_inv P hr) hfr hdst hne
 
 end ZlibNgF.Proof.DeflateReach

@@ -365,9 +365,38 @@ macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(t
           rw [wsum_eq_zero hcv0] at e1
           have := hst.kraft
           omega
+        have hwr : ∀ i, i < t.used.toNat →
+            ((zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32 = 0 ∨
+              i ≠ (zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32.toNat) →
+            Wr S t (K + 2 ^ (16 - t.len.toNat)) i := by
+          intro i hi hh
+          rcases hS.complete with hT | ⟨hm1, hc01⟩
+          · rw [hKT, hT]; exact wr_all hS hst i hi
+          · have hT : wsum S.c0 15 = 2 ^ 15 := by
+              rw [wsum_one (fun L h1 h2 => hS.above L (by omega) h2), hc01]
+            have hr1 : S.root = 1 := by omega
+            have hh1 : (zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32.toNat
+                = 1 := by rw [hhf, hKT, hT, rev16_pow15]
+            have hi0 : i = 0 := by
+              rcases hst.geo with ⟨-, -, -, h4, -⟩ | ⟨-, h2, -⟩
+              · rw [h4, hr1] at hi
+                rcases hh with hh | hh
+                · rw [hh] at hh1; simp at hh1
+                · omega
+              · omega
+            subst hi0
+            refine Or.inl ⟨Nat.two_pow_pos _, Or.inl ?_⟩
+            rw [rev_of_zero, Nat.zero_mul, hKT, hT]
+            exact Nat.two_pow_pos _
         refine { ret := rfl, csize := by rw [hsize2]; exact hst.csize,
                  frame := fun i hi => by rw [hfr2 i hi]; exact hst.frame i hi,
-                 used_bnd := hst.used_bnd, root_le := hur, geo := ?_, huff := ?_, cov := ?_,
+                 used_bnd := hst.used_bnd, root_le := hur, geo := ?_, huff := ?_, cov := fun hp i hi hh =>
+                   (hcov2 hp).ok i hi (hwr i hi hh), pre := fun hp i hi hh => (hcov2 hp).pre i hi (hwr i hi hh),
+                 rc := fun hd => by
+                   rcases hst.blkP hS with ⟨h0, -⟩ | ⟨-, -, -, h1, h2, h3, -⟩
+                   · exact absurd h0 hd
+                   · exact ⟨h1, h2, h3⟩,
+                 lenmx := hlm,
                  lenb := by
                    show 1 ≤ (t.len - t.drop).toNat ∧ (t.len - t.drop).toNat ≤ 15
                    have := hst.cbf hS
@@ -388,26 +417,6 @@ macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(t
             · refine Or.inr ⟨hm1, h1, ?_, hr1, h3, by rw [h4, hr1]⟩
               rw [hhf, hKT, hT, rev16_pow15]
             · omega
-        · intro hp i hi hh
-          refine (hcov2 hp).ok i hi ?_
-          rcases hS.complete with hT | ⟨hm1, hc01⟩
-          · rw [hKT, hT]; exact wr_all hS hst i hi
-          · have hT : wsum S.c0 15 = 2 ^ 15 := by
-              rw [wsum_one (fun L h1 h2 => hS.above L (by omega) h2), hc01]
-            have hr1 : S.root = 1 := by omega
-            have hh1 : (zng_bitreverse16 (t.rhuff.toUInt32 + (32768 : UInt32) >>> (t.len - 1)).toUInt16).toUInt32.toNat
-                = 1 := by rw [hhf, hKT, hT, rev16_pow15]
-            have hi0 : i = 0 := by
-              rcases hst.geo with ⟨-, -, -, h4, -⟩ | ⟨-, h2, -⟩
-              · rw [h4, hr1] at hi
-                rcases hh with hh | hh
-                · simp only at hh; rw [hh] at hh1; simp at hh1
-                · simp only at hh; omega
-              · omega
-            subst hi0
-            refine Or.inl ⟨Nat.two_pow_pos _, Or.inl ?_⟩
-            rw [rev_of_zero, Nat.zero_mul, hKT, hT]
-            exact Nat.two_pow_pos _
       · rw [ite_eq_right hm]
         have hlm : t.len.toNat ≠ S.mx := fun e => hm (beq_iff_eq.mpr (UInt32.toNat_inj.mp (by rw [e, hmax])))
         have hsl : t.sym.toNat + 1 = nsum S.c0 t.len.toNat := by omega
@@ -447,7 +456,7 @@ macro "tblCont_steps" maxv:term:max rootv:term:max mask:term:max : tactic => `(t
 /-- The part of the body after `here` is made. -/
 theorem tblCont_wp {S : Setup} (hS : S.OK) {t : TL} {C : Array Code} {K : Nat} (hst : St S t C K true)
     {maxv rootv mask : UInt32} (hmax : maxv.toNat = S.mx) (hroot : rootv.toNat = S.root)
-    (hmask : mask.toNat = 2 ^ S.root - 1) (here : Code) (hhere : CovPre S → SubOK S.type t.drop.toNat here) :
+    (hmask : mask.toNat = 2 ^ S.root - 1) (here : Code) (hhere : CovPre S → HereOK S.type t.drop.toNat t.len.toNat here) :
     Wp (tblCont S.type (.ref (.lens S.b) S.lo) (.ref (.work S.b) 0) (.ref (.codes S.b) S.off) maxv rootv mask t
       here) (setCW S.h0 S.b S.s C S.W) (fun t' h' => Trip S t t' h') := by
   unfold tblCont
