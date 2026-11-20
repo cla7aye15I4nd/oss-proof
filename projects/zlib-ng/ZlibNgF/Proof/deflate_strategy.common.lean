@@ -38,6 +38,7 @@ open ZlibNgF.Proof.InflateInv (upd_upd)
 open ZlibNgF.Proof.FlushBlock (dframe_trans dframe_wmono dframe_nil FBPost FBKeeps flush_block_ok)
 open ZlibNgF.Proof.FillIO (FillIO fill_io streamIO_in)
 open ZlibNg.DeflateP
+open ZlibNgF.Proof.DeflatePsi (psiS content span quickB owed content_flush_le)
 
 /-! ## Definitions -/
 
@@ -366,6 +367,41 @@ theorem slf_post {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs 
   exact ⟨L', fun _ => hm⟩
 
 /-! ## `FLUSH_BLOCK` -/
+
+/-- The allowance in the potential after `FLUSH_BLOCK(s, window, last)`: none for a block with symbols (`last == 0`
+is only flushed with symbols), `2^18` for the last block (which may be empty). -/
+def lastSlack (last : Int32) : Nat := if last = 0 then 0 else 2 ^ 18
+
+theorem lastSlack_zero : lastSlack 0 = 0 := rfl
+
+/-- The potential after `FLUSH_BLOCK_ONLY` from a state with no pending bytes: `psiS` drops by the bytes written,
+less `2^18`, and by `2^18` per tallied symbol (`content_flush_le`; the block and its bits take at most
+`4 * lit_bufsize + 9 < 2^18` bytes, `FBPost.owed`). -/
+theorem fb_psi {h h' : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {al : DeflateAllocs}
+    (P : FBPost h h' i b z st) (c : DCore h (some i) z b (dview st) al) :
+    ∀ z' st', h'.streams i = some z' → h'.dstate b = some st' → ∀ f,
+      psiS f st' + (z.avail_out.toNat - z'.avail_out.toNat) + 2 ^ 18 * (st.sym_next.toNat / 3) ≤
+        psiS f st + 2 ^ 18 := by
+  intro z' st' hz' hst' f
+  have ho := P.owed z' st' hz' hst'
+  obtain ⟨z2, st2, L, hz2, hst2, -, -, -, -, -, hsym, st1, hK1, hst2e⟩ := P.out
+  obtain rfl := Option.some.inj (hz'.symm.trans hz2)
+  obtain rfl := Option.some.inj (hst'.symm.trans hst2)
+  have hss := (strstart_toInt32 c).1
+  simp only [dview] at hss
+  obtain ⟨-, -, -, -, hl2, -, -⟩ := c.sizes
+  have hl2' : st.lit_bufsize.toNat ≤ 32768 := hl2
+  have hk : st'.lookahead = st.lookahead ∧ st'.match_available = st.match_available ∧ st'.status = st.status ∧
+      st'.wrap = st.wrap ∧ st'.block_open = st.block_open ∧ st'.block_start = st.strstart.toInt32 ∧
+      st'.strstart = st.strstart := by
+    rw [hst2e, hK1]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  obtain ⟨k1, k2, k3, k4, k5, k6, k7⟩ := hk
+  have hspan : span st' = 0 := by unfold span; rw [k6, k7, hss]; simp
+  have hc := content_flush_le k1 hspan hsym k2 k3 k4
+  have hq : quickB f st' = quickB f st := by unfold quickB; rw [k1, k5]
+  unfold psiS
+  omega
+
 
 /-- `FLUSH_BLOCK(s, window, last)` from `SLF` with no pending bytes: `SLF` after, no symbols, `lookahead`,
 `strstart` and `window` kept, the input kept; no pending bytes when it does not return, and its return value. -/
@@ -828,6 +864,55 @@ theorem sli_tally_dist_le {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i
   have hc : st.pending = 0 ∧ st.sym_next < st.sym_end := C.2 (FS st la ss) (SH_dstate _ _ _ _ _ _)
   exact Sat.mono (slf_tally_dist C.1 hc.1 (UInt32.le_of_lt hc.2) dist len n hlen hd1 hd2 hn1 hn hnl) fun _ _ q =>
     ⟨q.1, q.2.1, q.2.2.1, q.2.2.2.2.1 hc.2, q.2.2.2.2.2 hc.2⟩
+
+/-- Two posts of one run (the runs are deterministic). -/
+theorem sat_both {α : Type} {H : Heap} {m : M α} {P Q : α → Heap → Prop} (a : Sat H m P) (c : Sat H m Q) :
+    Sat H m (fun r H' => P r H' ∧ Q r H') := by
+  obtain ⟨r, H', e, p⟩ := a
+  obtain ⟨r2, H2, e2, q⟩ := c
+  rw [e] at e2
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Except.ok.inj e2)
+  exact ⟨r, H', e, p, q⟩
+
+/-- No overflow of `sym_next + 3` below `sym_end`. -/
+theorem slf_sym3 {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
+    (F : SLF h i b (SH H0 i z b st d)) (hle : st.sym_next ≤ st.sym_end) : st.sym_next + 3 ≠ 0 := by
+  obtain ⟨z1, st1, al, -, -, hst1, -, c⟩ := F.live
+  obtain rfl : st = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst1)
+  obtain ⟨-, -, -, -, hl2, -, hse⟩ := c.sizes
+  simp only [dview] at hse hl2
+  have hle' := UInt32.le_iff_toNat_le.mp hle
+  have hsn3 : (st.sym_next + 3).toNat = st.sym_next.toNat + 3 := by rw [UInt32.toNat_add]; simp; omega
+  intro e0
+  have := congrArg UInt32.toNat e0
+  rw [hsn3] at this; simp at this
+
+open ZlibNgF.Proof.Tally (tally_lit_SH) in
+/-- After a tally in the loop, symbols wait (`zng_tr_tally_lit`). -/
+theorem sli_tally_lit_nz {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss H) (c : UInt8) :
+    Sat H (zng_tr_tally_lit (some b) c) (fun _ H' => ∀ st, H'.dstate b = some st → st.sym_next ≠ 0) := by
+  obtain ⟨H0, z, st, d, rfl, C⟩ := I
+  have hc := C.2 (FS st la ss) (SH_dstate _ _ _ _ _ _)
+  obtain ⟨sbo, hsb, hk, hlt, -⟩ := slf_sym C.1 (UInt32.le_of_lt hc.2)
+  have n3 := slf_sym3 C.1 (UInt32.le_of_lt hc.2)
+  refine Sat.mono (tally_lit_SH c hsb hk hlt) ?_
+  rintro r H' ⟨rfl, -⟩ st2 h2
+  rw [SH_dstate] at h2; cases h2
+  exact n3
+
+open ZlibNgF.Proof.Tally (tally_dist_SH) in
+/-- After a tally in the loop, symbols wait (`zng_tr_tally_dist`). -/
+theorem sli_tally_dist_nz {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss H) (dist len : UInt32)
+    (hlen : len.toNat < 256) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768) :
+    Sat H (zng_tr_tally_dist (some b) dist len) (fun _ H' => ∀ st, H'.dstate b = some st → st.sym_next ≠ 0) := by
+  obtain ⟨H0, z, st, d, rfl, C⟩ := I
+  have hc := C.2 (FS st la ss) (SH_dstate _ _ _ _ _ _)
+  obtain ⟨sbo, hsb, hk, hlt, hdt⟩ := slf_sym C.1 (UInt32.le_of_lt hc.2)
+  have n3 := slf_sym3 C.1 (UInt32.le_of_lt hc.2)
+  refine Sat.mono (tally_dist_SH dist len hlen hd1 hd2 hsb hk hlt hdt) ?_
+  rintro r H' ⟨rfl, -⟩ st2 h2
+  rw [SH_dstate] at h2; cases h2
+  exact n3
 
 /-- `zng_tr_tally_lit(s, c)` in the loop (`strstart` advances by 1). -/
 theorem sli_tally_lit {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss H) (hl : 1 ≤ la.toNat)

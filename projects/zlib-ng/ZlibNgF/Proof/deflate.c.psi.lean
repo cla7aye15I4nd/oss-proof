@@ -273,4 +273,164 @@ theorem psi_read {f : Int32} {st st' : DeflateState} (n : Nat)
     unfold content; rw [e1, e2, e3, e4, e5, e6]; omega
   unfold psi G; rw [hc, e8, e9]; omega
 
+/-! ## The part that the strategies change -/
+
+/-- `psi` without the flush marker: what a strategy call changes (the marker is the dispatch's). -/
+def psiS (f : Int32) (st : DeflateState) : Nat := content st + quickB f st + owed st
+
+theorem psi_psiS (f : Int32) (st : DeflateState) : psi f st = psiS f st + mark f st := rfl
+
+/-- `psiS` reads `lookahead`, `strstart`, `block_start`, `sym_next`, `match_available`, `status`, `wrap`,
+`block_open`, `pending` and `bi_valid`. -/
+theorem psiS_congr {f : Int32} {st st' : DeflateState} (e1 : st'.lookahead = st.lookahead)
+    (e2 : st'.strstart = st.strstart) (e3 : st'.block_start = st.block_start) (e4 : st'.sym_next = st.sym_next)
+    (e5 : st'.match_available = st.match_available) (e6 : st'.status = st.status) (e7 : st'.wrap = st.wrap)
+    (e8 : st'.block_open = st.block_open) (e9 : st'.pending = st.pending) (e10 : st'.bi_valid = st.bi_valid) :
+    psiS f st' = psiS f st := by
+  unfold psiS content quickB owed span; rw [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10]
+
+/-- `quickB` does not grow when the lookahead drops (`block_open` kept). -/
+theorem quickB_drop {f : Int32} {st st' : DeflateState} (e1 : st'.lookahead.toNat ≤ st.lookahead.toNat)
+    (e7 : st'.block_open = st.block_open) : quickB f st' ≤ quickB f st := by
+  unfold quickB
+  rw [e7]
+  by_cases hb : st.block_open ≠ 0
+  · rw [ite_eq_left hb, ite_eq_left hb]; exact Nat.le_refl _
+  · rw [ite_eq_right hb, ite_eq_right hb]
+    by_cases hl : st'.lookahead.toNat ≠ 0
+    · rw [ite_eq_left hl, ite_eq_left (by omega : st.lookahead.toNat ≠ 0)]; exact Nat.le_refl _
+    · rw [ite_eq_right hl]; exact Nat.zero_le _
+
+/-- A tally of `n >= 1` bytes (a literal or a match): `psiS` does not grow. -/
+theorem psiS_tally {f : Int32} {st st' : DeflateState} (n : Nat) (hn : 1 ≤ n)
+    (e1 : st'.lookahead.toNat + n = st.lookahead.toNat)
+    (e2 : (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt + n)
+    (hs0 : st.block_start.toInt ≤ st.strstart.toNat)
+    (e3 : st'.sym_next.toNat = st.sym_next.toNat + 3) (e4 : st'.match_available = st.match_available)
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) (e7 : st'.block_open = st.block_open)
+    (e8 : owed st' = owed st) : psiS f st' ≤ psiS f st := by
+  have hc := content_tally n e1 e2 hs0 e3 e4 e5 e6
+  have hq := quickB_drop (f := f) (by omega : st'.lookahead.toNat ≤ st.lookahead.toNat) e7
+  unfold psiS; rw [e8]
+  have : 6 * n + 2 ^ 18 ≤ 2 ^ 19 * n := by omega
+  omega
+
+/-- The pending literal of `deflate_slow` set: `psiS` does not grow. -/
+theorem psiS_pend_lit {f : Int32} {st st' : DeflateState}
+    (e1 : st'.lookahead.toNat + 1 = st.lookahead.toNat)
+    (e2 : (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt + 1)
+    (hs0 : st.block_start.toInt ≤ st.strstart.toNat)
+    (e3 : st'.sym_next = st.sym_next) (e4 : st.match_available = 0) (e4' : st'.match_available ≠ 0)
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) (e7 : st'.block_open = st.block_open)
+    (e8 : owed st' = owed st) : psiS f st' ≤ psiS f st := by
+  have hc := content_pend_lit e1 e2 hs0 e3 e4 e4' e5 e6
+  have hq := quickB_drop (f := f) (by omega : st'.lookahead.toNat ≤ st.lookahead.toNat) e7
+  unfold psiS; rw [e8]; omega
+
+/-- The pending literal of `deflate_slow` tallied: `psiS` does not grow. -/
+theorem psiS_tally_pend {f : Int32} {st st' : DeflateState}
+    (e1 : st'.lookahead = st.lookahead) (e2 : span st' = span st)
+    (e3 : st'.sym_next.toNat = st.sym_next.toNat + 3) (e4 : st.match_available ≠ 0) (e4' : st'.match_available = 0)
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) (e7 : st'.block_open = st.block_open)
+    (e8 : owed st' = owed st) : psiS f st' ≤ psiS f st := by
+  have hc := content_tally_pend e1 e2 e3 e4 e4' e5 e6
+  have hq := quickB_drop (f := f) (by rw [e1]; exact Nat.le_refl _ : st'.lookahead.toNat ≤ st.lookahead.toNat) e7
+  unfold psiS; rw [e8]; omega
+
+/-- The lookahead grows by `n` input bytes and the window span does not grow (`fill_window`): `psiS` grows by at
+most `G n`. -/
+theorem quickB_read_le {f : Int32} {st st' : DeflateState} (n : Nat)
+    (e1 : st'.lookahead.toNat ≤ st.lookahead.toNat + n) (e7 : st'.block_open = st.block_open) :
+    quickB f st' ≤ quickB f st + 64 * n := by
+  unfold quickB
+  rw [e7]
+  by_cases hb : st.block_open ≠ 0
+  · rw [ite_eq_left hb, ite_eq_left hb]; omega
+  · rw [ite_eq_right hb, ite_eq_right hb]
+    by_cases hl : st'.lookahead.toNat ≠ 0
+    · rw [ite_eq_left hl]
+      by_cases hl0 : st.lookahead.toNat ≠ 0
+      · rw [ite_eq_left hl0]; omega
+      · rw [ite_eq_right hl0]; omega
+    · rw [ite_eq_right hl]; omega
+
+theorem psiS_read {f : Int32} {st st' : DeflateState} (n : Nat)
+    (e1 : st'.lookahead.toNat ≤ st.lookahead.toNat + n) (e2 : span st' ≤ span st)
+    (e3 : st'.sym_next = st.sym_next) (e4 : st'.match_available = st.match_available)
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) (e7 : st'.block_open = st.block_open)
+    (e8 : owed st' = owed st) : psiS f st' ≤ psiS f st + G * n := by
+  have hq := quickB_read_le (f := f) n e1 e7
+  have hc : content st' ≤ content st + 2 ^ 19 * n := by
+    unfold content; rw [e3, e4, e5, e6]; omega
+  unfold psiS G; rw [e8]; omega
+
+/-- A block flush (`block_start = strstart`, no symbols after): `content` drops by the span's and the symbols'
+weights. -/
+theorem content_flush_le {st st' : DeflateState}
+    (e1 : st'.lookahead = st.lookahead) (e2 : span st' = 0)
+    (e3 : st'.sym_next = 0) (e4 : st'.match_available = st.match_available)
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) :
+    content st' + 6 * span st + 2 ^ 18 * (st.sym_next.toNat / 3) = content st := by
+  unfold content
+  rw [e1, e2, e3, e4, e5, e6]
+  simp only [UInt32.toNat_zero, Nat.zero_div, Nat.mul_zero]
+  omega
+
+/-! ## The accounting of a strategy call -/
+
+/-- From the heap `h` to the heap `H` (stream `i`, state block `b`), `psiS` dropped by the bytes produced, less `G`
+per input byte consumed and `e`. -/
+def PsiAcc (e : Nat) (h H : Heap) (i b : Nat) : Prop :=
+  ∀ z0 z st0 st, h.streams i = some z0 → H.streams i = some z → h.dstate b = some st0 → H.dstate b = some st →
+    ∀ f, psiS f st + (z0.avail_out.toNat - z.avail_out.toNat) ≤
+      psiS f st0 + G * (z0.avail_in.toNat - z.avail_in.toNat) + e
+
+theorem PsiAcc.refl (h : Heap) (i b : Nat) : PsiAcc 0 h h i b := by
+  intro z0 z st0 st h0 h1 s0 s1 f
+  rw [h0] at h1; cases h1; rw [s0] at s1; cases s1
+  simp
+
+theorem PsiAcc.mono {e e' : Nat} {h H : Heap} {i b : Nat} (A : PsiAcc e h H i b) (he : e ≤ e') :
+    PsiAcc e' h H i b := fun z0 z st0 st h0 h1 s0 s1 f => Nat.le_trans (A z0 z st0 st h0 h1 s0 s1 f) (by omega)
+
+theorem G_mul_split (a b c : Nat) (h1 : b ≤ a) (h2 : c ≤ b) : G * (a - c) = G * (a - b) + G * (b - c) := by
+  rw [← Nat.mul_add]; congr 1; omega
+
+/-- `PsiAcc` composes with a step from `H` to `H'` that does not grow `avail_in` / `avail_out`. -/
+theorem PsiAcc.step {e e' : Nat} {h H H' : Heap} {i b : Nat} (A : PsiAcc e h H i b)
+    (hmono : ∀ z0 z, h.streams i = some z0 → H.streams i = some z →
+      z.avail_out.toNat ≤ z0.avail_out.toNat ∧ z.avail_in.toNat ≤ z0.avail_in.toNat)
+    (hz : ∃ z, H.streams i = some z) (hs : ∃ st, H.dstate b = some st)
+    (S : ∀ z z' st st', H.streams i = some z → H'.streams i = some z' → H.dstate b = some st →
+      H'.dstate b = some st' → z'.avail_out.toNat ≤ z.avail_out.toNat ∧ z'.avail_in.toNat ≤ z.avail_in.toNat ∧
+      ∀ f, psiS f st' + (z.avail_out.toNat - z'.avail_out.toNat) ≤
+        psiS f st + G * (z.avail_in.toNat - z'.avail_in.toNat) + e') :
+    PsiAcc (e + e') h H' i b := by
+  intro z0 z2 st0 st2 h0 h2 s0 s2 f
+  obtain ⟨z1, h1⟩ := hz
+  obtain ⟨st1, s1⟩ := hs
+  have a := A z0 z1 st0 st1 h0 h1 s0 s1 f
+  obtain ⟨m1, m2⟩ := hmono z0 z1 h0 h1
+  obtain ⟨n1, n2, q⟩ := S z1 z2 st1 st2 h1 h2 s1 s2
+  have q := q f
+  rw [G_mul_split _ _ _ m2 n2]
+  generalize G * (z0.avail_in.toNat - z1.avail_in.toNat) = X at *
+  generalize G * (z1.avail_in.toNat - z2.avail_in.toNat) = Y at *
+  omega
+
+/-- A step that keeps the stream record and does not grow `psiS`. -/
+theorem PsiAcc.state {e e' : Nat} {h H H' : Heap} {i b : Nat} (A : PsiAcc e h H i b)
+    (hz : ∀ z, H.streams i = some z → H'.streams i = some z) (hz' : ∃ z, H.streams i = some z)
+    (hs : ∃ st, H.dstate b = some st)
+    (S : ∀ st st', H.dstate b = some st → H'.dstate b = some st' → ∀ f, psiS f st' + e ≤ psiS f st + e') :
+    PsiAcc e' h H' i b := by
+  intro z0 z2 st0 st2 h0 h2 s0 s2 f
+  obtain ⟨z1, h1⟩ := hz'
+  obtain ⟨st1, s1⟩ := hs
+  have e := Option.some.inj ((hz z1 h1).symm.trans h2)
+  subst e
+  have a := A z0 z1 st0 st1 h0 h1 s0 s1 f
+  have q := S st1 st2 s1 s2 f
+  omega
+
 end ZlibNgF.Proof.DeflatePsi
