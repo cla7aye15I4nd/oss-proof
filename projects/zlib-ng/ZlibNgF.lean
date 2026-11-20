@@ -49,6 +49,7 @@ import ZlibNgF.Math.BitReverse
 import ZlibNgF.Math.InftreesCount
 import ZlibNgF.Math.TreesOverlay
 import ZlibNgF.Math.TreesHdr
+import ZlibNgF.Math.TreesHdrCost
 import ZlibNgF.Math.HuffMerge
 import ZlibNgF.Math.HuffPushCost
 import ZlibNgF.Math.HuffKraft

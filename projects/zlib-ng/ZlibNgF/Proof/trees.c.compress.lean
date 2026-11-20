@@ -5,8 +5,10 @@ import ZlibNgF.Proof.«trees_emit.h.static»
 /-!
 # `compress_block` (`ZlibNgF`)
 
-`compress_block` on `SH` heaps for any pair of trees `ltree` / `dtree` that read as arrays `LT` / `DT` with every
-code length of the 286 literal/length codes and the 30 distance codes at most 15: the symbol loop over
+`compress_block` on `SH` heaps for any pair of trees `ltree` / `dtree` that read as arrays `LT` / `DT` with the code
+lengths that it reads at most 15 (the literal/length code of each tallied symbol and `END_BLOCK`, the distance code of
+each tallied match; the other entries may hold anything, such as the guard `0xffff` that `scan_tree` stores at
+`max_code + 1`): the symbol loop over
 `sym_buf[0 .. sym_next)` with the merged literal look-ahead, each iteration's 8-byte store kept below the unread
 symbols by `room_before` (`Math/TreesOverlay.lean`), and the end-of-block code by `room_end`. The budget is an
 explicit hypothesis `Budget B t0 (blockCosts LT DT d sbo n)`: the bits before the first symbol and the excess of the
@@ -224,23 +226,25 @@ theorem d_code_val (H : Heap) (x : UInt32) (hx : x.toNat < 32768) :
       rw [UInt32.toNat_shiftRight]; simp [Nat.shiftRight_eq_div_pow]
     exact ⟨_, tblGet_ok _ _ (by rw [dc_size, hs]; omega) H, by simp [c', hs]⟩
 
-/-- `zng_assemble_dist` for trees that read as `LT` / `DT` with code lengths at most 15: no fault, `matchCost` bits. -/
+/-- `zng_assemble_dist` for trees that read as `LT` / `DT` with the two code lengths it reads at most 15: no fault,
+`matchCost` bits. -/
 theorem assemble_gen {F : Heap → Prop} {lp dp : CtPtr} {LT DT : Array Ct} (hl : TreeRd F lp LT 286)
-    (hd : TreeRd F dp DT 30) (hl15 : ∀ k, k < 286 → (LT[k]!).dl.toNat ≤ 15)
-    (hd15 : ∀ k, k < 30 → (DT[k]!).dl.toNat ≤ 15) {H : Heap} (hF : F H) (lc dist : UInt32) (hlc : lc.toNat < 256)
-    (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768) :
+    (hd : TreeRd F dp DT 30) {H : Heap} (hF : F H) (lc dist : UInt32) (hlc : lc.toNat < 256)
+    (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768)
+    (hl15 : (LT[(zng_length_code[lc.toNat]!).toNat + 257]!).dl.toNat ≤ 15)
+    (hd15 : (DT[dCodeOf (dist.toNat - 1)]!).dl.toNat ≤ 15) :
     Sat H (ZlibNg.TreesEmit.zng_assemble_dist lp dp lc dist)
       (fun r H' => H' = H ∧ r.2.toNat = matchCost LT DT lc.toNat (dist.toNat - 1)) := by
   unfold ZlibNg.TreesEmit.zng_assemble_dist
   refine Sat.bind (Sat.of_eq (tblGet_ok _ _ (by rw [lc_size]; exact hlc) H) ?_)
   have hcode : (zng_length_code[lc.toNat]!).toNat < 29 := UInt8.lt_iff_toNat_lt.mp (lc_lt ⟨_, hlc⟩)
   unfold matchCost
-  generalize zng_length_code[lc.toNat]! = code at hcode ⊢
+  generalize zng_length_code[lc.toNat]! = code at hcode hl15 ⊢
   have hc : (code.toUInt32 + LITERALS.toUInt32 + 1).toNat = code.toNat + 257 := by
     simp only [UInt32.toNat_add, UInt8.toNat_toUInt32, LITERALS]; simp; omega
   try dsimp only
   rw [hc]
-  have hl1 := hl15 (code.toNat + 257) (by omega)
+  have hl1 := hl15
   have hx1 := lm_ext ⟨_, hcode⟩
   obtain ⟨e1, he1⟩ : ∃ e, LT[code.toNat + 257]! = e := ⟨_, rfl⟩
   obtain ⟨m1, hm1⟩ : ∃ e, lmask_extra[code.toNat]! = e := ⟨_, rfl⟩
@@ -257,7 +261,7 @@ theorem assemble_gen {F : Heap → Prop} {lp dp : CtPtr} {LT DT : Array Ct} (hl 
   rw [← hc2]
   refine Sat.bind (Sat.of_eq hdc ?_)
   have hx2 := (dm_ext ⟨_, hc30⟩).1
-  have hl2 := hd15 _ hc30
+  have hl2 : (DT[c2.toNat]!).dl.toNat ≤ 15 := by rw [hc2]; exact hd15
   obtain ⟨e2, he2⟩ : ∃ e, DT[c2.toNat]! = e := ⟨_, rfl⟩
   obtain ⟨m2, hm2⟩ : ∃ e, dmask_extra[c2.toNat]! = e := ⟨_, rfl⟩
   rw [he2] at hl2; rw [hm2] at hx2
@@ -353,9 +357,15 @@ theorem flush_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) 
 
 end
 
+/-- The code lengths that `compress_block` reads are at most 15: the literal/length code of each of the `n` tallied
+symbols and `END_BLOCK`, the distance code of each tallied match. -/
+def UsedLe15 (LT DT : Array Ct) (d : Array UInt8) (sbo n : Nat) : Prop :=
+  (LT[256]!).dl.toNat ≤ 15 ∧ ∀ j, j < n → (LT[symLCode d sbo j]!).dl.toNat ≤ 15 ∧
+    (symDist d sbo j ≠ 0 → (DT[dCodeOf (symDist d sbo j - 1)]!).dl.toNat ≤ 15)
+
 /-- The setting of `compress_block` on `SH H i z b st d`: `pending_buf` at `pbo`, `n` whole symbols at
-`sbo = pbo + lit_bufsize + 8`, at most `lit_bufsize - 1` of them, the trees `lp` / `dp` read as `LT` / `DT` with code
-lengths at most 15, tallied distances at most 32768, fewer than 64 bits waiting, and the overlay budget. -/
+`sbo = pbo + lit_bufsize + 8`, at most `lit_bufsize - 1` of them, the trees `lp` / `dp` read as `LT` / `DT` with the
+code lengths that `compress_block` reads at most 15 (`UsedLe15`), tallied distances at most 32768, fewer than 64 bits waiting, and the overlay budget. -/
 structure CBCtx (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8)
     (lp dp : CtPtr) (LT DT : Array Ct) (pbo sbo n : Nat) : Prop where
   hpb : st.pending_buf = .val (.ref (.heap b) pbo)
@@ -367,8 +377,7 @@ structure CBCtx (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState)
   hlb : st.lit_bufsize.toNat ≤ 32768
   hl : TreeRd (Fam H i z b st) lp LT 286
   hd : TreeRd (Fam H i z b st) dp DT 30
-  hl15 : ∀ k, k < 286 → (LT[k]!).dl.toNat ≤ 15
-  hd15 : ∀ k, k < 30 → (DT[k]!).dl.toNat ≤ 15
+  hu15 : UsedLe15 LT DT d sbo n
   hdist : ∀ j, j < n → symDist d sbo j ≤ 32768
   v0 : 0 ≤ st.bi_valid.toInt
   v64 : st.bi_valid.toInt < 64
@@ -403,14 +412,14 @@ theorem rd8_digits (d : Array UInt8) (o : Nat) :
   simp only [show o + 4 + 1 = o + 5 by omega, show o + 4 + 2 = o + 6 by omega, show o + 4 + 3 = o + 7 by omega]
   omega
 
-theorem matchCost_le (LT DT : Array Ct) (hl15 : ∀ k, k < 286 → (LT[k]!).dl.toNat ≤ 15)
-    (hd15 : ∀ k, k < 30 → (DT[k]!).dl.toNat ≤ 15) (lc dm : Nat) (hlc : lc < 256) (hdm : dm < 32768) :
+theorem matchCost_le (LT DT : Array Ct) (lc dm : Nat) (hlc : lc < 256) (hdm : dm < 32768)
+    (hl15 : (LT[(zng_length_code[lc]!).toNat + 257]!).dl.toNat ≤ 15) (hd15 : (DT[dCodeOf dm]!).dl.toNat ≤ 15) :
     matchCost LT DT lc dm ≤ 48 := by
   have hc : (zng_length_code[lc]!).toNat < 29 := UInt8.lt_iff_toNat_lt.mp (lc_lt ⟨lc, hlc⟩)
-  have h1 := hl15 _ (show (zng_length_code[lc]!).toNat + 257 < 286 by omega)
+  have h1 := hl15
   have h2 := lm_ext ⟨_, hc⟩
   have h3 := dCodeOf_lt dm hdm
-  have h4 := hd15 _ h3
+  have h4 := hd15
   have h5 := (dm_ext ⟨_, h3⟩).1
   simp only at h2 h5
   unfold matchCost; omega
@@ -491,7 +500,8 @@ theorem cb_body {lp dp : CtPtr} {LT DT : Array Ct} {pbo sbo n : Nat}
     have hz' : symDist d sbo k = 0 := by
       rw [← hdv, beq_iff_eq.mp hz]; rfl
     have hc0 : symCost LT DT d sbo k = (LT[d[sbo + 3 * k + 2]!.toNat]!).dl.toNat := by simp [symCost, hz']
-    have hl1 := C.hl15 _ (show d[sbo + 3 * k + 2]!.toNat < 286 by omega)
+    have hl1 : (LT[d[sbo + 3 * k + 2]!.toNat]!).dl.toNat ≤ 15 := by
+      have := (C.hu15.2 k hk).1; simpa only [symLCode, hz', ↓reduceIte] using this
     obtain ⟨r1, e1, hr1⟩ := merge_ok C.hl hF b _ (show d[sbo + 3 * k + 2]!.toNat < 286 by omega) 0 0 (by decide)
     rw [hlci]
     refine Sat.bind (Sat.of_eq e1 ?_)
@@ -523,7 +533,9 @@ theorem cb_body {lp dp : CtPtr} {LT DT : Array Ct} {pbo sbo n : Nat}
         have hlc2v : (v8 >>> 16 &&& 255).toUInt32.toNat = d[sbo + 3 * k + 3 + 2]!.toNat := by
           rw [shr_ff64 v8 16 (by decide), h8v]; exact g2
         have hlN2 : (d[sbo + 3 * k + 3 + 2]!).toNat < 256 := UInt8.toNat_lt _
-        have hl2 := C.hl15 _ (show d[sbo + 3 * k + 3 + 2]!.toNat < 286 by omega)
+        have hl2 : (LT[d[sbo + 3 * k + 3 + 2]!.toNat]!).dl.toNat ≤ 15 := by
+          have := (C.hu15.2 (k + 1) (by omega)).1
+          simpa only [symLCode, hz2', ↓reduceIte, show sbo + 3 * (k + 1) + 2 = sbo + 3 * k + 3 + 2 by omega] using this
         obtain ⟨r2, e2, hr2⟩ := merge_ok C.hl hF b _ (show d[sbo + 3 * k + 3 + 2]!.toNat < 286 by omega) r1.1 r1.2
           (by omega)
         rw [hlc2v]
@@ -542,7 +554,9 @@ theorem cb_body {lp dp : CtPtr} {LT DT : Array Ct} {pbo sbo n : Nat}
           have hlc3v : (v8 >>> 40 &&& 255).toUInt32.toNat = d[sbo + 3 * k + 3 + 5]!.toNat := by
             rw [shr_ff64 v8 40 (by decide), h8v]; exact g5
           have hlN3 : (d[sbo + 3 * k + 3 + 5]!).toNat < 256 := UInt8.toNat_lt _
-          have hl3 := C.hl15 _ (show d[sbo + 3 * k + 3 + 5]!.toNat < 286 by omega)
+          have hl3 : (LT[d[sbo + 3 * k + 3 + 5]!.toNat]!).dl.toNat ≤ 15 := by
+            have := (C.hu15.2 (k + 2) (by omega)).1
+            simpa only [symLCode, hz3, ↓reduceIte, show sbo + 3 * (k + 2) + 2 = sbo + 3 * k + 3 + 5 by omega] using this
           obtain ⟨r3, e3, hr3⟩ := merge_ok C.hl hF b _ (show d[sbo + 3 * k + 3 + 5]!.toNat < 286 by omega) r2.1
             r2.2 (by omega)
           rw [hlc3v]
@@ -573,9 +587,13 @@ theorem cb_body {lp dp : CtPtr} {LT DT : Array Ct} {pbo sbo n : Nat}
     have hd2 := C.hdist k hk
     have hc0 : symCost LT DT d sbo k = matchCost LT DT d[sbo + 3 * k + 2]!.toNat (symDist d sbo k - 1) := by
       simp [symCost, hz']
-    have hmc := matchCost_le LT DT C.hl15 C.hd15 _ (symDist d sbo k - 1) hlcN (by omega)
+    have hu1 : (LT[(zng_length_code[d[sbo + 3 * k + 2]!.toNat]!).toNat + 257]!).dl.toNat ≤ 15 := by
+      have := (C.hu15.2 k hk).1; simpa only [symLCode, hz', ↓reduceIte] using this
+    have hu2 := (C.hu15.2 k hk).2 hz'
+    have hmc := matchCost_le LT DT _ (symDist d sbo k - 1) hlcN (by omega) hu1 hu2
     rw [toInt32_toUInt32]
-    refine Sat.bind (Sat.mono (assemble_gen C.hl C.hd C.hl15 C.hd15 hF _ _ (by omega) (by omega) (by omega)) ?_)
+    refine Sat.bind (Sat.mono (assemble_gen C.hl C.hd hF _ _ (by omega) (by omega) (by omega) (by rw [hlcv]; exact hu1)
+      (by rw [hdv]; exact hu2)) ?_)
     rintro ⟨mb, ml⟩ _ ⟨rfl, hml⟩
     rw [hlcv, hdv] at hml
     dsimp only at hml
@@ -682,7 +700,7 @@ theorem cb_tail {lp dp : CtPtr} {LT DT : Array Ct} {pbo sbo n : Nat}
   have hsz : d'.size = d.size := w.1
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
   have hF : Fam H i z b st (SH H i z b { st with pending := l.pending } d') := ⟨_, d', rfl, rfl, rfl⟩
-  have hl256 := C.hl15 256 (by decide)
+  have hl256 := C.hu15.1
   have hre := room_end hbud (by rw [blockCosts_length]; omega) l.pending.toNat (by omega)
   unfold ZlibNg.TreesEmit.zng_emit_end_block ZlibNg.TreesEmit.send_code
   refine Sat.bind (Sat.bind (Sat.of_eq (C.hl.fc hF 256 (by decide)) (Sat.bind (Sat.of_eq (C.hl.dl hF 256 (by decide))
@@ -733,6 +751,19 @@ theorem static_l15 : ∀ k, k < 286 → (static_ltree[k]!).dl.toNat ≤ 15 := fu
 theorem static_d15 : ∀ k, k < 30 → (static_dtree[k]!).dl.toNat ≤ 15 := fun k hk => by
   have := UInt16.le_iff_toNat_le.mp (dm_ext ⟨k, hk⟩).2; simp only [show (5 : UInt16).toNat = 5 from rfl] at this; omega
 
+theorem symLCode_lt (d : Array UInt8) (sbo j : Nat) : symLCode d sbo j < 286 := by
+  have := (d[sbo + 3 * j + 2]!).toNat_lt
+  unfold symLCode; split
+  · omega
+  · have : (zng_length_code[d[sbo + 3 * j + 2]!.toNat]!).toNat < 29 := UInt8.lt_iff_toNat_lt.mp (lc_lt ⟨_, this⟩)
+    omega
+
+/-- With the static trees every code length is at most 15. -/
+theorem static_used15 (d : Array UInt8) (sbo n : Nat) (hdist : ∀ j, j < n → symDist d sbo j ≤ 32768) :
+    UsedLe15 static_ltree static_dtree d sbo n :=
+  ⟨static_l15 256 (by decide), fun j hj => ⟨static_l15 _ (symLCode_lt d sbo j),
+    fun h0 => static_d15 _ (dCodeOf_lt _ (by have := hdist j hj; omega))⟩⟩
+
 /-- With the static trees a symbol costs at most 31 bits. -/
 theorem static_symCost (d : Array UInt8) (sbo j : Nat) (hd : symDist d sbo j ≤ 32768) :
     symCost static_ltree static_dtree d sbo j ≤ 31 := by
@@ -767,7 +798,7 @@ theorem compress_static_SH {pbo sbo n : Nat} (hpb : st.pending_buf = .val (.ref 
     Sat (SH H i z b st d) (ZlibNg.Trees.compress_block (some b) (.ref .static_ltree 0) (.ref .static_dtree 0))
       (fun _ H' => CBPost H i z b st d static_ltree static_dtree pbo sbo n H') :=
   compress_SH ⟨hpb, hsb, hsn, hsbo, hend, hn, hlb,
-    fun H' _ k hk => ctGet_sl H' k (by omega), treeRd_sd _, static_l15, static_d15, hdist, v0, v64,
+    fun H' _ k hk => ctGet_sl H' k (by omega), treeRd_sd _, static_used15 d sbo n hdist, hdist, v0, v64,
     static_cb_budget d sbo n _ _ hB hn ht hdist⟩
 
 end
