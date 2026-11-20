@@ -231,7 +231,8 @@ theorem qf_flush {h H : Heap} {i b : Nat} (F : QF h i b H) :
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans h4)
   have hdo : dOutputRanges h (some i) = [(z0.next_out, z0.avail_out.toNat)] := by simp [dOutputRanges, h0]
   have hk : StratKeeps st st' := by rw [hsteq]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩
-  refine ⟨⟨hv, hio, hset, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_, ?_, ?_, fun st3 h3 => ?_⟩,
+  refine ⟨⟨hv, hio, hset, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_,
+    F.inp.keep hz hz' (by rw [hzeq]) (by rw [hzeq]), ?_, ?_, fun st3 h3 => ?_⟩,
     z, st, z', st', hz, hst, hz', hst', hsteq, hbv, by rw [hzeq], fun ha => ?_⟩
   · obtain ⟨⟨-, -, -, -, -, -, ec, ex, -, -⟩, -⟩ := fr
     exact ⟨by rw [ec]; exact F.crc.1, by rw [ex]; exact F.crc.2⟩
@@ -321,7 +322,8 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
       Sat H1 (ZlibNg.Deflate.fill_window (some b)) (fun _ H2 => ∃ H3 z' st' d', H2 = SH H3 i z' b st' d' ∧
         QF h i b H2 ∧ ZlibNgF.Proof.WinInv.FWS (FS st la ss) st' ∧ la.toNat ≤ st'.lookahead.toNat ∧
         z'.avail_in.toNat + st'.lookahead.toNat ≤ z.avail_in.toNat + la.toNat ∧
-        (st'.lookahead ≠ la → z'.avail_in.toNat < z.avail_in.toNat))) := by
+        (st'.lookahead ≠ la → z'.avail_in.toNat < z.avail_in.toNat) ∧
+        (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0))) := by
   refine Sat.of_eq (wrD_SH _) ?_
   obtain ⟨z1, st1, al, hz1, hb, hst1, -, c⟩ := F.live
   obtain rfl : z = z1 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz1)
@@ -338,7 +340,8 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
   obtain ⟨z5, z', st5, st', d', hz5, hst5, rfl, zr, fws⟩ := FI.shape
   obtain rfl : z = z5 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz5)
   obtain rfl : FS st la ss = st5 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst5)
-  obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, hlt, hsum2, -⟩ := FI.post
+  obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, hlt, hsum2, -, -, hend, -⟩ :=
+    FI.post
   obtain rfl : i = i6 := Option.some.inj e6
   obtain rfl : z = z6 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz6)
   obtain rfl : z' = z7 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz7)
@@ -359,7 +362,7 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
       dframe_trans F1.frame (dframe_nil _ FI.frame), ?_,
       F1.inp.trans (ZlibNgF.Proof.FillFacts.inTail_of_zr (SH_streams _ _ _ _ _ _) (SH_streams _ _ _ _ _ _) zr0),
       ?_, ?_, fun st2 h2 => ?_⟩,
-    ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩, ?_, ?_, hlt⟩
+    ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩, ?_, ?_, hlt, hend⟩
   · obtain ⟨z0, z4, ob, oo, k, h0, h4, e0, e4, ek⟩ := F1.out
     obtain rfl : z = z4 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h4)
     exact ⟨z0, _, ob, oo, k, h0, SH_streams _ _ _ _ _ _, e0, by rw [hze]; exact e4, by rw [hze]; exact ek⟩
