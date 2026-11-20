@@ -165,15 +165,15 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
     (by omega) (by omega)) ?_)
   rintro _ _ ⟨d1, rfl, hW1, hI1, g1⟩
   have G1 := cg_ins (cg_start (H0 := H0) (i := i) (z := z) (b := b) (st := st) (d := d) (fun _ => False)) g1
-  refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-  refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-  -- the state after `strstart += cont_len; lookahead -= cont_len`
-  generalize hst2 : (fun s : DeflateState => { s with lookahead := s.lookahead - cl })
-    ((fun s : DeflateState => { s with strstart := s.strstart + cl }) st) = st2
-  have hf : FS st2 st.lookahead st.strstart = FS st st.lookahead st.strstart := by rw [← hst2]
+  obtain ⟨st2, hst2⟩ : ∃ st2 : DeflateState,
+      st2 = { ({ st with strstart := st.strstart + cl } : DeflateState) with lookahead := st.lookahead - cl } :=
+    ⟨_, rfl⟩
+  refine Sat.bind (Sat.of_eq (wrD_eq _ { st with strstart := st.strstart + cl } rfl) ?_)
+  refine Sat.bind (Sat.of_eq (wrD_eq _ st2 (by rw [hst2])) ?_)
+  have hf : FS st2 st.lookahead st.strstart = FS st st.lookahead st.strstart := by rw [hst2]
   have k2 : st2.lookahead = st.lookahead - cl ∧ st2.strstart = st.strstart + cl ∧ CF st st2 ∧
       st2.sym_next = st.sym_next ∧ st2.window = st.window ∧ st2.sym_end = st.sym_end := by
-    rw [← hst2]; exact ⟨rfl, rfl, CF.refl _, rfl, rfl, rfl⟩
+    rw [hst2]; exact ⟨rfl, rfl, CF.refl _, rfl, rfl, rfl⟩
   have G2 := cg_st G1 k2.2.2.1
   have W2 : SLW h i b st.lookahead st.strstart (SH H0 i z b st2 d1) := slw_wr (hW1 _ _ W) hf
   have hla2 : (st.lookahead - cl).toNat = st.lookahead.toNat - cl.toNat :=

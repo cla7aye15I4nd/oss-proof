@@ -170,6 +170,12 @@ theorem cg_tally {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S : Nat → 
   obtain rfl : po = po' := by injection hp with e; injection e
   exact ⟨hl ho L.head, L.ph, by omega⟩
 
+/-- A store into the state of an `SH` heap, its result named. -/
+theorem wrD_eq {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    (f : DeflateState → DeflateState) (st' : DeflateState) (e : f st = st') :
+    wrD (some b) f (SH H i z b st d) = .ok ((), SH H i z b st' d) := by
+  rw [wrD_SH, e]
+
 /-- The input that `fill_window` reads, under `SLF`. -/
 theorem dinput_of {h H : Heap} {i b : Nat} (F : SLF h i b H) : DInput H (some i) := by
   obtain ⟨z, hz, hb⟩ := F.blk
