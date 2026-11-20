@@ -12,7 +12,7 @@ import ZlibNgF.ZlibNg.«compress.c»
 import ZlibNgF.Spec.Safety.Deflate
 import ZlibNgF.Proof.«deflate.c.copy»
 import ZlibNgF.Proof.«deflate.c.params»
-import ZlibNgF.Proof.«deflate.c.body.trail»
+import ZlibNgF.Proof.«deflate.c.body.ok»
 import ZlibNgF.Proof.«deflate.c.reach»
 import ZlibNgF.Proof.«trees_emit.h.emit»
 import ZlibNgF.Proof.«trees_emit.h.static»
@@ -155,6 +155,11 @@ import ZlibNgF.Proof.«deflate_medium_tpl.h.find»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.insert»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.fizzle»
 import ZlibNgF.Proof.«deflate_medium.c.step»
+import ZlibNgF.Proof.«deflate_medium.c.base»
+import ZlibNgF.Proof.«deflate_medium.c.emit»
+import ZlibNgF.Proof.«deflate_medium.c.cont»
+import ZlibNgF.Proof.«deflate_medium.c.trip»
+import ZlibNgF.Proof.«deflate_medium.c.safety»
 import ZlibNgF.Proof.«slide_hash_c.c.safety»
 import ZlibNgF.Proof.«deflate_p.h.readbuf»
 import ZlibNgF.Math.WinMask
@@ -177,6 +182,7 @@ import ZlibNgF.Proof.«gzread.c.close»
 import ZlibNgF.Proof.«gzread.c.facts»
 import ZlibNgF.Proof.«gzread.c.load»
 import ZlibNgF.Proof.«gzread.c.look»
+import ZlibNgF.Proof.«gzread.c.init»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
 import ZlibNgF.Proof.«gzwrite.c.error»

@@ -112,9 +112,9 @@ theorem string_eq (st : StatePtr) (strm : StreamPtr) (str : GzHeader → BPtr) :
 /-! ## The loop -/
 
 /-- The state facts inside the string's copy (status `S`, pending bytes from `beg` on). -/
-def SF (S : Int32) (k : Nat) (beg : UInt32) (st : DeflateState) : Prop :=
+def SF (S : Int32) (k : Nat) (beg : UInt32) (L : Int32) (st : DeflateState) : Prop :=
   st.status = S ∧ st.sym_next = 0 ∧ st.pending_out = st.pending_buf ∧ st.pending ≤ st.pending_buf_size ∧
-    beg ≤ st.pending ∧ st.gzhead = .val (some k) ∧ st.wrap = 2
+    beg ≤ st.pending ∧ st.gzhead = .val (some k) ∧ st.wrap = 2 ∧ st.last_flush = L
 
 /-- The loop measure: the output room of stream `i` and the room left in `pending_buf` of block `b`. Every trip stores
 one byte into `pending_buf`, and a flush that empties a full `pending_buf` takes `pending_buf_size` bytes of output
@@ -132,14 +132,14 @@ def StrSel (S : Int32) (str : GzHeader → BPtr) : Prop :=
   (S = NAME_STATE ∧ str = GzHeader.name) ∨ (S = COMMENT_STATE ∧ str = GzHeader.comment)
 
 /-- The loop's invariant (string `str g` of length `n`). -/
-def SI (h : Heap) (i b k : Nat) (g : GzHeader) (str : GzHeader → BPtr) (S : Int32) (n : Nat)
+def SI (h : Heap) (i b k : Nat) (g : GzHeader) (str : GzHeader → BPtr) (S : Int32) (n : Nat) (L : Int32)
     (s : Bool × UInt32 × UInt8) (H : Heap) : Prop :=
-  s.1 = false ∧ Run h i b H ∧ ∀ st, H.dstate b = some st → SF S k s.2.1 st ∧ CStringLen H (str g) n ∧
+  s.1 = false ∧ Run h i b H ∧ ∀ st, H.dstate b = some st → SF S k s.2.1 L st ∧ CStringLen H (str g) n ∧
     st.gzindex.toNat ≤ n
 
 /-- What the loop leaves. -/
-def SQ (h : Heap) (i b k : Nat) (S : Int32) (s : Bool × UInt32 × UInt8) (H : Heap) : Prop :=
-  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → SegAt h i b (SF S k s.2.1) H)
+def SQ (h : Heap) (i b k : Nat) (S : Int32) (L : Int32) (s : Bool × UInt32 × UInt8) (H : Heap) : Prop :=
+  (s.1 = true → Run h i b H ∧ LastM1 H b) ∧ (s.1 = false → SegAt h i b (SF S k s.2.1 L) H)
 
 /-- The header facts of a state in `NAME_STATE` / `COMMENT_STATE` with `gzindex` within its string. -/
 theorem hdrOk_str {X : Heap} {b : Nat} {st : DeflateState} {k : Nat} {g : GzHeader} {str : GzHeader → BPtr}
@@ -157,7 +157,8 @@ theorem hdrOk_str {X : Heap} {b : Nat} {st : DeflateState} {k : Nat} {g : GzHead
 /-- The store of one byte of the string, and the loop condition after it. -/
 theorem strCont_ok {h H1 : Heap} {i b k : Nat} {g : GzHeader} {str : GzHeader → BPtr} {S : Int32} {n : Nat}
     (hsel : StrSel S str) (hg0 : h.gzheaders k = some g) (hn : str g ≠ .null) (nb : NotInBlock b (str g))
-    {beg : UInt32} {st1 : DeflateState} (R1 : Run h i b H1) (hst1 : H1.dstate b = some st1) (F : SF S k beg st1)
+    {beg : UInt32} {L : Int32} {st1 : DeflateState} (R1 : Run h i b H1) (hst1 : H1.dstate b = some st1)
+    (F : SF S k beg L st1)
     (hlt : st1.pending < st1.pending_buf_size) (hc : CStringLen H1 (str g) n) (hgi : st1.gzindex.toNat ≤ n) :
     Sat H1 (do
         let s ← ldDState (some b)
@@ -167,9 +168,9 @@ theorem strCont_ok {h H1 : Heap} {i b k : Nat} {g : GzHeader} {str : GzHeader �
         put_byte (some b) v
         pure (false, beg, v))
       (fun s1 H2 => Sat H2 (strCond s1) (fun cs H3 =>
-        (cs.1 = true → SI h i b k g str S n cs.2 H3 ∧ oav i b H3 < oav i b H1) ∧
-        (cs.1 = false → SQ h i b k S cs.2 H3))) := by
-  obtain ⟨f1, f2, f3, f4, f5, f6, f7⟩ := F
+        (cs.1 = true → SI h i b k g str S n L cs.2 H3 ∧ oav i b H3 < oav i b H1) ∧
+        (cs.1 = false → SQ h i b k S L cs.2 H3))) := by
+  obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8⟩ := F
   obtain ⟨z, d, pbo, e, SS⟩ := segS_of R1 hst1 f2 f3
   have hg := run_gz R1 hg0
   obtain ⟨r, o, data, hp, hgd, l1, l2, l3⟩ := hc
@@ -214,13 +215,13 @@ theorem strCont_ok {h H1 : Heap} {i b k : Nat} {g : GzHeader} {str : GzHeader �
       (hdrOk_str hsel f6 hg hw2 f1 hn nb c' (by dsimp only; omega))
     refine ⟨⟨rfl, R', fun st' hst' => ?_⟩, ?_⟩
     · rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
-      refine ⟨⟨f1, f2, f3, ?_, ?_, f6, f7⟩, c', by show (st1.gzindex + 1).toNat ≤ n; omega⟩
+      refine ⟨⟨f1, f2, f3, ?_, ?_, f6, f7, f8⟩, c', by show (st1.gzindex + 1).toNat ≤ n; omega⟩
       · exact UInt32.le_iff_toNat_le.mpr (by dsimp only; omega)
       · exact UInt32.le_iff_toNat_le.mpr (by dsimp only; have := UInt32.le_iff_toNat_le.mp f5; omega)
     · simp only [oav, SH_dstate, SH_streams]; rw [hp1]
       exact Nat.add_lt_add_left (Nat.sub_lt_sub_left hlt' (Nat.lt_succ_self _)) _
   · refine ⟨H1, z, st1, d, pbo, z.adler, st1.pending + 1, st1.status, st1.gzindex + 1, d', SS, rfl, w.1,
-      fun j hj => w.2 j (Or.inl (by omega)), by omega, f1, f2, f3, ?_, ?_, f6, f7⟩
+      fun j hj => w.2 j (Or.inl (by omega)), by omega, f1, f2, f3, ?_, ?_, f6, f7, f8⟩
     · exact UInt32.le_iff_toNat_le.mpr (by dsimp only; omega)
     · exact UInt32.le_iff_toNat_le.mpr (by dsimp only; have := UInt32.le_iff_toNat_le.mp f5; omega)
 
@@ -243,10 +244,10 @@ theorem str_of_hdr {H : Heap} {b : Nat} {st : DeflateState} {k : Nat} {g : GzHea
 /-- One trip of the loop and its condition. -/
 theorem strStep_ok {h : Heap} {i b k : Nat} {g : GzHeader} {str : GzHeader → BPtr} {S : Int32} {n : Nat}
     (hsel : StrSel S str) (hg0 : h.gzheaders k = some g) (hn : str g ≠ .null) (nb : NotInBlock b (str g))
-    (s : Bool × UInt32 × UInt8) (H : Heap) (I : SI h i b k g str S n s H) :
+    {L : Int32} (s : Bool × UInt32 × UInt8) (H : Heap) (I : SI h i b k g str S n L s H) :
     Sat H (strBody (some b) (some i) str (some k) s) (fun s1 H1 => Sat H1 (strCond s1) (fun cs H2 =>
-      (cs.1 = true → SI h i b k g str S n cs.2 H2 ∧ oav i b H2 < oav i b H) ∧
-      (cs.1 = false → SQ h i b k S cs.2 H2))) := by
+      (cs.1 = true → SI h i b k g str S n L cs.2 H2 ∧ oav i b H2 < oav i b H) ∧
+      (cs.1 = false → SQ h i b k S L cs.2 H2))) := by
   obtain ⟨rr, beg, v⟩ := s
   obtain ⟨rfl, R1, FI⟩ := I
   obtain ⟨z1, st1, al1, d1, hz1, hb1, hst1, hal1, hd1, e1, c1⟩ := R1.live
@@ -254,7 +255,7 @@ theorem strStep_ok {h : Heap} {i b k : Nat} {g : GzHeader} {str : GzHeader → B
   have hgH : oav i b H = z1.avail_out.toNat + (st1.pending_buf_size.toNat - st1.pending.toNat) := by
     simp [oav, hst1, hz1]
   rw [hgH]
-  obtain ⟨f1, f2, f3, f4, f5, f6, f7⟩ := F
+  obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8⟩ := F
   have hg := run_gz R1 hg0
   obtain ⟨-, -, -, k1, -, k3, -⟩ := c1.sizes
   obtain ⟨d0, wo, po, ho, pbo, hd0, -, -, -, hpb, -, -, -, l4, -⟩ := c1.lay
@@ -300,9 +301,10 @@ theorem strStep_ok {h : Heap} {i b k : Nat} {g : GzHeader} {str : GzHeader → B
           · exact .inr rfl
         exact (cm (str g) n hp nb (cstr_SH hc nb)).1
       have hpbs : st'.pending_buf_size.toNat = 4 * st1.lit_bufsize.toNat := by rw [k2']; exact k3
-      refine Sat.mono (strCont_ok hsel hg0 hn nb q.1 hst' ⟨by rw [k2']; exact f1, by rw [k2']; exact f2,
+      refine Sat.mono (strCont_ok (L := L) hsel hg0 hn nb q.1 hst' ⟨by rw [k2']; exact f1, by rw [k2']; exact f2,
         c'.pout k1', by rw [k1']; exact UInt32.le_iff_toNat_le.mpr (by simp),
-        by rw [k1']; exact UInt32.le_iff_toNat_le.mpr (by simp), by rw [k2']; exact f6, by rw [k2']; exact f7⟩
+        by rw [k1']; exact UInt32.le_iff_toNat_le.mpr (by simp), by rw [k2']; exact f6, by rw [k2']; exact f7,
+        by rw [k2']; exact f8⟩
         (by rw [k1', UInt32.lt_iff_toNat_lt, hpbs]; simp; omega) hc' (by rw [k2']; exact hgi)) ?_
       intro s1 H1 q1
       refine Sat.mono q1 fun cs H2 ⟨x1, x2⟩ => ⟨fun e => ⟨(x1 e).1, ?_⟩, x2⟩
@@ -328,7 +330,7 @@ theorem strStep_ok {h : Heap} {i b k : Nat} {g : GzHeader} {str : GzHeader → B
     dsimp only
     rw [ite_f (by simp)]
     rw [e1]
-    refine Sat.mono (strCont_ok hsel hg0 hn nb R1 hst1 ⟨f1, f2, f3, f4, f5, f6, f7⟩ hlt hc hgi) ?_
+    refine Sat.mono (strCont_ok hsel hg0 hn nb R1 hst1 ⟨f1, f2, f3, f4, f5, f6, f7, f8⟩ hlt hc hgi) ?_
     intro s1 H1 q1
     refine Sat.mono q1 fun cs H2 ⟨x1, x2⟩ => ⟨fun e => ⟨(x1 e).1, ?_⟩, x2⟩
     have := (x1 e).2
@@ -341,7 +343,7 @@ theorem string_ok {h H : Heap} {i b : Nat} {st : DeflateState} {str : GzHeader �
     (h0 : st.sym_next = 0) (hpo : st.pending_out = st.pending_buf) (hple : st.pending ≤ st.pending_buf_size)
     {k : Nat} {g : GzHeader} (hgz : st.gzhead = .val (some k)) (hg : H.gzheaders k = some g) (hn : str g ≠ .null) :
     Sat H (headersString (some b) (some i) str) (fun r H' => (r = true → Run h i b H' ∧ LastM1 H' b) ∧
-      (r = false → SegAt h i b (SF S k 0) H')) := by
+      (r = false → SegAt h i b (SF S k 0 st.last_flush) H')) := by
   obtain ⟨hw, nb, n, hc, hgi⟩ := str_of_hdr hsel (R.side st hst).2.2.1 hs hgz hg hn
   have hg0 : h.gzheaders k = some g := by
     obtain ⟨⟨-, fg, -⟩, -⟩ := R.frame; rw [← fg k (by simp)]; exact hg
@@ -351,12 +353,12 @@ theorem string_ok {h H : Heap} {i b : Nat} {st : DeflateState} {str : GzHeader �
   refine Sat.bind (Sat.of_eq ldDState_SH ?_)
   refine sat_ival hgz ?_
   refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
-  have I0 : SI h i b k g str S n (false, st.pending, 0) (SH H i z b st d) := by
+  have I0 : SI h i b k g str S n st.last_flush (false, st.pending, 0) (SH H i z b st d) := by
     refine ⟨rfl, by rw [e]; exact R, fun st' hst' => ?_⟩
     rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
-    exact ⟨⟨hs, h0, hpo, hple, UInt32.le_refl _, hgz, hw⟩, by rw [e]; exact hc, hgi⟩
-  refine Sat.bind (Sat.mono (WinInv.sat_cdoWhileH (SI h i b k g str S n) (fun _ H => oav i b H)
-    (SQ h i b k S) (fun s H I => strStep_ok hsel hg0 hn nb s H I) I0 (by
+    exact ⟨⟨hs, h0, hpo, hple, UInt32.le_refl _, hgz, hw, rfl⟩, by rw [e]; exact hc, hgi⟩
+  refine Sat.bind (Sat.mono (WinInv.sat_cdoWhileH (SI h i b k g str S n st.last_flush) (fun _ H => oav i b H)
+    (SQ h i b k S st.last_flush) (fun s H I => strStep_ok hsel hg0 hn nb s H I) I0 (by
       have := z.avail_out.toNat_lt
       have := st.pending_buf_size.toNat_lt
       have : st.pending_buf_size.toNat - st.pending.toNat ≤ st.pending_buf_size.toNat := Nat.sub_le _ _
@@ -370,7 +372,7 @@ theorem string_ok {h H : Heap} {i b : Nat} {st : DeflateState} {str : GzHeader �
   | false =>
     rw [ite_f (by simp)]
     obtain ⟨H0, z0, st0, d0, pbo, a, p, s, g', dd, SS, rfl, hsz, hlo, hp, F⟩ := Q2.2 rfl
-    obtain ⟨f1, f2, f3, f4, f5, f6, f7⟩ := F
+    obtain ⟨f1, f2, f3, f4, f5, f6, f7, f8⟩ := F
     have hroom := SS.room
     have hg0' : H0.gzheaders k = some g := run_gz SS.run hg0
     have hct : H0.crcTable = ZlibNg.Crc32Tbl.crc_table := SS.run.crc.1
@@ -380,6 +382,6 @@ theorem string_ok {h H : Heap} {i b : Nat} {st : DeflateState} {str : GzHeader �
       (by show pbo + p.toNat ≤ dd.size; omega) beg f5) ?_)
     rintro _ _ ⟨a', rfl⟩
     exact Sat.pure ⟨nofun, fun _ => ⟨H0, z0, st0, d0, pbo, a', p, s, g', dd, SS, rfl, hsz, hlo, hp,
-      f1, f2, f3, f4, UInt32.le_iff_toNat_le.mpr (by simp), f6, f7⟩⟩
+      f1, f2, f3, f4, UInt32.le_iff_toNat_le.mpr (by simp), f6, f7, f8⟩⟩
 
 end ZlibNgF.Proof.DeflateBody

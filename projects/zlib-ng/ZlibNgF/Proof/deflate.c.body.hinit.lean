@@ -160,7 +160,8 @@ theorem hdr_facts {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateStat
 theorem init_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
     (hs : st.status = INIT_STATE) (hp0 : st.pending = 0) :
     Sat H (headersInit st (some b) (some i))
-      (HRet h i b fun st' => st'.pending = 0 ∧ st'.status = BUSY_STATE ∧ st'.sym_next = 0) := by
+      (HRet h i b fun st' => st'.pending = 0 ∧ st'.status = BUSY_STATE ∧ st'.sym_next = 0 ∧
+        st'.last_flush = st.last_flush) := by
   obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, e, c⟩ := R.live
   obtain rfl := Option.some.inj (hst.symm.trans hst1)
   rw [← e] at R ⊢
@@ -173,14 +174,15 @@ theorem init_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (
         wrD (some b) fun s => { s with status := BUSY_STATE }
         ZlibNg.DeflateP.flush_pending (some i)
         pendingReturn (some b))
-      (HRet h i b fun st' => st'.pending = 0 ∧ st'.status = BUSY_STATE ∧ st'.sym_next = 0) := by
+      (HRet h i b fun st' => st'.pending = 0 ∧ st'.status = BUSY_STATE ∧ st'.sym_next = 0 ∧
+        st'.last_flush = st.last_flush) := by
     intro q dq hq hsz hlo
     refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_)
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
     have R' := seg_run R hpb h0 hpo ADLER32_INITIAL_VALUE q BUSY_STATE st.gzindex hsz hlo (by omega) (by decide)
       (by decide) (by decide) (hdrOk_busy (Or.inl rfl))
     exact Sat.mono (flush_ret R' (SH_dstate _ _ _ _ _ _)) fun r H' q' => q'.mono fun st' ⟨k1, k2⟩ => by
-      rw [k2]; exact ⟨k1, rfl, h0⟩
+      rw [k2]; exact ⟨k1, rfl, h0, rfl⟩
   unfold headersInit
   have swb : Sat (SH H i z b st d) (W_BITS st) (fun _ H' => H' = SH H i z b st d) := by
     unfold W_BITS zng_ctz32; rw [ite_f (by simpa using hw)]; exact Sat.pure rfl
