@@ -7,7 +7,15 @@ import ZlibNgF.Proof.«trees.c.buildspec»
 import ZlibNgF.Math.TreesHdrCost
 
 /-!
-# The trees of a dynamic block (`ZlibNgF`)
+# `zng_tr_flush_block` on `SH` heaps (`ZlibNgF`)
+
+`flush_SH`: from a state between blocks (`FCtx`: the tallied symbols counted by the frequencies, no pending bytes,
+fewer than 8 bits waiting, a level above 0, the block's bytes in the window below `pending_buf` or `NULL`),
+`zng_tr_flush_block` does not fault and ends in `FinPost`: only `data_type` of the stream, the state's emitter fields
+and `pending_buf` changed, no symbols, `opt_len = static_len = 0`, the frequencies of `init_block`, the pending bytes
+and the bits within `pending_buf`. Given `BuildTreeSpec` (the statement of `build_tree`).
+
+The trees of a dynamic block:
 
 What `build_tree(s, &s->l_desc)`, `build_tree(s, &s->d_desc)` and `build_bl_tree(s)` leave in `zng_tr_flush_block`,
 from a state between blocks (`opt_len = static_len = 0`, `bl_tree` frequencies 0, `SymOk`), in terms of the model of
@@ -704,6 +712,376 @@ theorem dyn_then {pbo sbo n : Nat} {r : Int32} (TP : TPost st0 d sbo n r s)
   dsimp only at w3 hle3 hge3
   refine Sat.bind (Sat.of_eq (rdD_SH _) (hk _ ⟨np3, bb3, bv3, d3, rfl, ?_, hbv3, by omega, hge3⟩))
   exact WrIn.cat (WrIn.cat w1 w2 (by omega) (by omega)) w3 (by omega) (by omega)
+
+end
+
+/-! ## The whole of `zng_tr_flush_block` -/
+
+open ZlibNgF.Proof.TreesEmitP ZlibNgF.Proof.TreesFlush ZlibNgF.Proof.TreesInit ZlibNgF.Proof.DeflateBits
+open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f)
+
+/-! ## The block and its tail -/
+
+theorem EmitKeeps.trans' {a b c : DeflateState} (h1 : EmitKeeps a b) (h2 : EmitKeeps b c) : EmitKeeps a c := by
+  unfold EmitKeeps at *
+  conv => lhs; rw [h2]
+  conv => lhs; rw [h1]
+
+/-- The fields of the invariant that a block keeps: the descriptors and the sizes of the scratch and tree arrays. -/
+structure Rel (st0 s : DeflateState) : Prop where
+  keeps : EmitKeeps st0 s
+  lsize : s.dyn_ltree.size = HEAP_SIZE
+  dsize : s.dyn_dtree.size = 2 * 30 + 1
+  bsize : s.bl_tree.size = 2 * 19 + 1
+  pql : s.pq_leaves.size = 287
+  pqs : s.pq_scratch.size = 287
+  blc : s.bl_count.size = 16
+  ldyn : s.l_desc.dyn_tree = st0.l_desc.dyn_tree
+  lstat : s.l_desc.stat_desc = st0.l_desc.stat_desc
+  ddyn : s.d_desc.dyn_tree = st0.d_desc.dyn_tree
+  dstat : s.d_desc.stat_desc = st0.d_desc.stat_desc
+  bldyn : s.bl_desc.dyn_tree = st0.bl_desc.dyn_tree
+  blstat : s.bl_desc.stat_desc = st0.bl_desc.stat_desc
+
+theorem Rel.step {st0 s s' : DeflateState} (R : Rel st0 s) (hk : EmitKeeps s s')
+    (h1 : s'.dyn_ltree.size = HEAP_SIZE) (h2 : s'.dyn_dtree.size = 2 * 30 + 1) (h3 : s'.bl_tree.size = 2 * 19 + 1)
+    (h4 : s'.pq_leaves = s.pq_leaves) (h5 : s'.pq_scratch = s.pq_scratch) (h6 : s'.bl_count = s.bl_count)
+    (h7 : s'.l_desc = s.l_desc) (h8 : s'.d_desc = s.d_desc) (h9 : s'.bl_desc = s.bl_desc) : Rel st0 s' :=
+  ⟨EmitKeeps.trans' R.keeps hk, h1, h2, h3, by rw [h4, R.pql], by rw [h5, R.pqs], by rw [h6, R.blc],
+    by rw [h7, R.ldyn], by rw [h7, R.lstat], by rw [h8, R.ddyn], by rw [h8, R.dstat], by rw [h9, R.bldyn],
+    by rw [h9, R.blstat]⟩
+
+/-- What a block body leaves (any of the three kinds): new pending count, bit buffer and `bi_used`, the bytes
+changed only in `pending_buf`, room for one more 8-byte store, fewer than 64 bits waiting. -/
+def BrPost (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (s : DeflateState) (d : Array UInt8) (pbo : Nat)
+    (H' : Heap) : Prop :=
+  ∃ (np : UInt32) (bu : Int32) (bb : UInt64) (bv : UInt32) (d' : Array UInt8),
+    H' = SH H i z b { s with pending := np, bi_used := bu, bi_buf := bb, bi_valid := bv.toInt32 } d' ∧
+    WrIn d pbo (pbo + 4 * s.lit_bufsize.toNat + 9) d' ∧ bv.toNat < 64 ∧ np.toNat + 8 ≤ 4 * s.lit_bufsize.toNat + 9
+
+/-- What `zng_tr_flush_block` leaves (from state `st0`, bytes `d`, stream `z0`). -/
+def FinPost (H : Heap) (i : Nat) (z0 : ZStream) (b : Nat) (st0 : DeflateState) (d : Array UInt8) (pbo : Nat)
+    (H' : Heap) : Prop :=
+  ∃ (dt : Int32) (st' : DeflateState) (d' : Array UInt8), H' = SH H i { z0 with data_type := dt } b st' d' ∧
+    WrIn d pbo (pbo + 4 * st0.lit_bufsize.toNat + 9) d' ∧ Rel st0 st' ∧ st'.sym_next = 0 ∧ st'.opt_len = 0 ∧
+    st'.static_len = 0 ∧ IbFreq st'.dyn_ltree st'.dyn_dtree st'.bl_tree ∧
+    st'.pending.toNat * 8 + st'.bi_valid.toInt.toNat ≤ 8 * (4 * st0.lit_bufsize.toNat + 9) ∧
+    0 ≤ st'.bi_valid.toInt ∧ st'.bi_valid.toInt < 64
+
+section
+variable {H : Heap} {i : Nat} {b : Nat} {d : Array UInt8}
+
+/-- `init_block` and, for the last block, `zng_tr_emit_align`. -/
+theorem tail_SH {z0 z : ZStream} {st0 s : DeflateState} {pbo : Nat} (hz : z = { z0 with data_type := z.data_type })
+    (R : Rel st0 s) (hpb : s.pending_buf = .val (.ref (.heap b) pbo))
+    (hend : pbo + 4 * s.lit_bufsize.toNat + 64 ≤ d.size) (hB : s.lit_bufsize.toNat ≤ 32768)
+    (hlb : s.lit_bufsize = st0.lit_bufsize) (last : Int32)
+    {H' : Heap} (q : BrPost H i z b s d pbo H') :
+    Sat H' (do
+      init_block (some b)
+      if (last != 0) = true then ZlibNg.TreesEmit.zng_tr_emit_align (some b) else pure ())
+      (fun _ H'' => FinPost H i z0 b st0 d pbo H'') := by
+  obtain ⟨np, bu, bb, bv, d', rfl, w, hbv, hnp⟩ := q
+  have e := toInt32_toInt bv hbv
+  have hsz : d'.size = d.size := w.1
+  refine Sat.bind (Sat.mono (init_block_SH (H := H) (i := i) (z := z) (b := b) (d := d')
+    { s with pending := np, bi_used := bu, bi_buf := bb, bi_valid := bv.toInt32 } R.lsize R.dsize R.bsize) ?_)
+  rintro _ _ ⟨A, B, C, rfl, hI⟩
+  have R1 : Rel st0 (ibS { s with pending := np, bi_used := bu, bi_buf := bb, bi_valid := bv.toInt32 } A B C) :=
+    R.step rfl hI.1 hI.2.1 hI.2.2.1 rfl rfl rfl rfl rfl rfl
+  have ez : ∀ (st' : DeflateState) (d' : Array UInt8),
+      SH H i z b st' d' = SH H i { z0 with data_type := z.data_type } b st' d' := fun _ _ => by rw [← hz]
+  split
+  · refine Sat.mono (windup_SH (st := ibS { s with pending := np, bi_used := bu, bi_buf := bb, bi_valid := bv.toInt32 } A B C)
+      (pbo := pbo) hpb (by show 0 ≤ bv.toInt32.toInt; rw [e]; omega) (by show bv.toInt32.toInt < 64; rw [e]; omega)
+      (by show pbo + np.toNat + 8 ≤ d'.size; omega) (by show np.toNat + 8 < _; omega)) ?_
+    rintro _ _ ⟨np', bu', d'', rfl, w', h1, h2⟩
+    have hK : (((ibS { s with pending := np, bi_used := bu, bi_buf := bb, bi_valid := bv.toInt32 } A B C).bi_valid.toInt
+        + 7).toNat / 8) ≤ 8 := by show (bv.toInt32.toInt + 7).toNat / 8 ≤ 8; rw [e]; omega
+    refine ⟨z.data_type, _, d'', ez _ _, ?_, R1.step rfl hI.1 hI.2.1 hI.2.2.1 rfl rfl rfl rfl rfl rfl, rfl, rfl, rfl, hI,
+      ?_, show 0 ≤ (0 : Int32).toInt by decide, show (0 : Int32).toInt < 64 by decide⟩
+    · rw [← hlb]
+      exact w.trans (w'.widen (by omega) (by simp only [ibS] at h1 h2 ⊢; omega)) (Nat.le_refl _) (Nat.le_refl _)
+    · show np'.toNat * 8 + (0 : Int32).toInt.toNat ≤ _
+      rw [← hlb]; simp only [ibS] at h1 h2; simp only [show (0 : Int32).toInt.toNat = 0 from rfl]; omega
+  · refine Sat.pure ⟨z.data_type, _, d', ez _ _, by rw [← hlb]; exact w, R1, rfl, rfl, rfl, hI, ?_, ?_, ?_⟩
+    · show np.toNat * 8 + bv.toInt32.toInt.toNat ≤ _
+      rw [e, ← hlb]; simp only [Int.toNat_natCast]; omega
+    · show 0 ≤ bv.toInt32.toInt; rw [e]; omega
+    · show bv.toInt32.toInt < 64; rw [e]; omega
+
+end
+/-- The tail of `zng_tr_flush_block` after the block choice inputs (copied; `flush_eq`). -/
+def outerJp (st : StatePtr) (buf : BPtr) (stored_len : UInt32) (last : Int32) (opt_lenb static_lenb : UInt32)
+    (max_blindex : Int32) : M Unit := do
+  let bufNonNull : Bool := match buf with | .null => false | _ => true
+  if stored_len + 4 <= opt_lenb && bufNonNull then
+    zng_tr_stored_block st buf stored_len last
+  else if static_lenb == opt_lenb then
+    ZlibNg.TreesEmit.zng_tr_emit_tree st STATIC_TREES last
+    compress_block st (.ref .static_ltree 0) (.ref .static_dtree 0)
+    let _ ← rdD st (·.static_len)
+  else
+    ZlibNg.TreesEmit.zng_tr_emit_tree st DYN_TREES last
+    let lc ← chkI32 ((← rdD st (·.l_desc.max_code)).toInt + 1)
+    let dc ← chkI32 ((← rdD st (·.d_desc.max_code)).toInt + 1)
+    let bc ← chkI32 (max_blindex.toInt + 1)
+    send_all_trees st lc dc bc
+    compress_block st (← dynLtreeP st) (← dynDtreeP st)
+    let _ ← rdD st (·.opt_len)
+  init_block st
+  if last != 0 then
+    ZlibNg.TreesEmit.zng_tr_emit_align st
+
+/-- The trees and the block choice of `zng_tr_flush_block` (copied; `flush_eq`). -/
+def innerJp (st : StatePtr) (buf : BPtr) (stored_len : UInt32) (last : Int32) : M Unit := do
+  build_tree st .l_desc
+  build_tree st .d_desc
+  let max_blindex ← build_bl_tree st
+  let opt_lenb : UInt32 := ((← rdD st (·.opt_len)) + 3 + 7) >>> 3
+  let static_lenb : UInt32 := ((← rdD st (·.static_len)) + 3 + 7) >>> 3
+  if static_lenb <= opt_lenb || (← rdD st (·.strategy)) == Z_FIXED then
+    outerJp st buf stored_len last static_lenb static_lenb max_blindex
+  else
+    outerJp st buf stored_len last opt_lenb static_lenb max_blindex
+
+theorem flush_eq (st : StatePtr) (buf : BPtr) (stored_len : UInt32) (last : Int32) :
+    zng_tr_flush_block st buf stored_len last = (do
+      if (← rdD st (·.sym_next)) == 0 then
+        wrD st fun s => { s with static_len := 7 }
+        outerJp st buf stored_len last 0 0 0
+      else if (← rdD st (·.level)) > 0 then
+        let strm ← (← rdD st (·.strm)).get
+        if (← rdZ strm (·.data_type)) == Z_UNKNOWN then
+          let dt ← detect_data_type st
+          let strm ← (← rdD st (·.strm)).get
+          wrZ strm fun z => { z with data_type := dt }
+        innerJp st buf stored_len last
+      else
+        outerJp st buf stored_len last (stored_len + 5) (stored_len + 5) 0) := by
+  rfl
+
+section
+variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8} {st : DeflateState}
+
+/-- The static branch of `zng_tr_flush_block` followed by `k` (as `static_branch_SH`). -/
+theorem static_then {pbo sbo n : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
+    (hsb : st.sym_buf = .val (.ref (.heap b) sbo)) (hsn : st.sym_next.toNat = 3 * n)
+    (hsbo : sbo = pbo + st.lit_bufsize.toNat + 8) (hend : pbo + 4 * st.lit_bufsize.toNat + 64 ≤ d.size)
+    (hn : n + 1 ≤ st.lit_bufsize.toNat) (hB : 128 ≤ st.lit_bufsize.toNat) (hlb : st.lit_bufsize.toNat ≤ 32768)
+    (hdist : ∀ j, j < n → symDist d sbo j ≤ 32768) (v0 : 0 ≤ st.bi_valid.toInt) (v8 : st.bi_valid.toInt < 8)
+    (hp0 : st.pending.toNat = 0) (last : Int32) (hl0 : 0 ≤ last.toInt) (hl1 : last.toInt ≤ 1) {β : Type} (k : M β)
+    (Q : β → Heap → Prop) (hk : ∀ H', BlkPost H i z b st d pbo H' → Sat H' k Q) :
+    Sat (SH H i z b st d) (do
+      ZlibNg.TreesEmit.zng_tr_emit_tree (some b) ZlibNg.Trees.STATIC_TREES last
+      ZlibNg.Trees.compress_block (some b) (.ref .static_ltree 0) (.ref .static_dtree 0)
+      let _ ← rdD (some b) (·.static_len)
+      k) Q := by
+  refine Sat.bind (Sat.mono (emit_tree_SH hpb v0 (by omega) (by omega) (by omega) _ last (by decide) (by decide)
+    (by show 2 * (1 : Int32).toInt + last.toInt < _; simp; omega)) ?_)
+  rintro _ _ ⟨np, bb, bv, d1, rfl, w1, hacc1, hbv1, hle1, hge1⟩
+  have e1 := toInt32_toInt bv hbv1
+  have hsz1 : d1.size = d.size := w1.1
+  have hdist1 : ∀ j, j < n → symDist d1 sbo j ≤ 32768 := fun j hj => by
+    have a0 := w1.2 (sbo + 3 * j) (Or.inr (by omega))
+    have a1 := w1.2 (sbo + 3 * j + 1) (Or.inr (by omega))
+    unfold symDist; rw [a0, a1]; exact hdist j hj
+  refine Sat.bind (Sat.mono (compress_static_SH (st := { st with pending := np, bi_buf := bb, bi_valid := bv.toInt32 })
+    (d := d1) (n := n) hpb hsb hsn hsbo (by dsimp only; omega) hn (by dsimp only; omega) hlb hdist1
+    (by dsimp only; omega) (by dsimp only; omega) (by dsimp only; omega)) ?_)
+  rintro _ _ ⟨np2, bb2, bv2, d2, rfl, w2, -, hbv2, hle2, hge2⟩
+  dsimp only at w2 hle2 hge2
+  refine Sat.bind (Sat.of_eq (rdD_SH _) (hk _ ⟨np2, bb2, bv2, d2, rfl, ?_, hbv2, by omega, hge2⟩))
+  exact WrIn.cat w1 w2 (by omega) (by omega)
+
+theorem blk_br {pbo : Nat} {H' : Heap} (hp0 : st.pending.toNat = 0) (q : BlkPost H i z b st d pbo H') :
+    BrPost H i z b st d pbo H' := by
+  obtain ⟨np, bb, bv, d', rfl, w, hbv, -, hge⟩ := q
+  exact ⟨np, st.bi_used, bb, bv, d', rfl, w.widen (by omega) (Nat.le_refl _), hbv, hge⟩
+
+/-- `zng_tr_stored_block` followed by `k`, with room for the block in `pending_buf`. -/
+theorem stored_then {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
+    (hend : pbo + 4 * st.lit_bufsize.toNat + 64 ≤ d.size) (v0 : 0 ≤ st.bi_valid.toInt) (v8 : st.bi_valid.toInt < 8)
+    (hp0 : st.pending.toNat = 0) (buf : BPtr) (len : UInt32) (os : Nat) (hbuf : buf = .ref (.heap b) os)
+    (hos : os + len.toNat ≤ pbo) (hlen : len.toNat + 6 ≤ 4 * st.lit_bufsize.toNat) (hlb : st.lit_bufsize.toNat ≤ 32768)
+    (last : Int32) {β : Type}
+    (k : M β) (Q : β → Heap → Prop) (hk : ∀ H', BrPost H i z b st d pbo H' → Sat H' k Q) :
+    Sat (SH H i z b st d) (do
+      ZlibNg.Trees.zng_tr_stored_block (some b) buf len last
+      k) Q := by
+  refine Sat.bind (Sat.mono (stored_block_X_SH hpb v0 (by omega) buf len (Or.inr ⟨os, hbuf, hos⟩) (by omega)
+    (by omega) last) ?_)
+  rintro _ _ ⟨np2, pend, bu, d', rfl, hpe, hle, hb2, w⟩
+  exact hk _ ⟨pend, bu, 0, 0, d', rfl, w.widen (by omega) (by omega), by decide, by omega⟩
+
+end
+
+section
+variable {H : Heap} {i : Nat} {b : Nat} {d : Array UInt8}
+
+theorem u32_add4 (len : UInt32) (h : len.toNat ≤ 65536) : (len + 4).toNat = len.toNat + 4 := by
+  rw [UInt32.toNat_add]; simp; omega
+
+/-- The block choice and the tail of `zng_tr_flush_block` (`outerJp`): from a state `s` that keeps the fields of the
+invariant of `st0`, with the inputs `opt_lenb` / `static_lenb` / `max_blindex`; the stored block fits when it is
+chosen, and the dynamic block has the trees of `TPost` and the model's choice. -/
+theorem outer_SH {z0 z : ZStream} {st0 s : DeflateState} {pbo sbo n : Nat}
+    (hz : z = { z0 with data_type := z.data_type }) (R : Rel st0 s) (hlb : s.lit_bufsize = st0.lit_bufsize)
+    (hpb : s.pending_buf = .val (.ref (.heap b) pbo)) (hsb : s.sym_buf = .val (.ref (.heap b) sbo))
+    (hsn : s.sym_next.toNat = 3 * n) (hsbo : sbo = pbo + s.lit_bufsize.toNat + 8)
+    (hend : pbo + 4 * s.lit_bufsize.toNat + 64 ≤ d.size) (hn : n + 1 ≤ s.lit_bufsize.toNat)
+    (hpow : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ s.lit_bufsize.toNat = 2 ^ k)
+    (hdist : ∀ j, j < n → symDist d sbo j ≤ 32768) (v0 : 0 ≤ s.bi_valid.toInt) (v8 : s.bi_valid.toInt < 8)
+    (hp0 : s.pending.toNat = 0) (buf : BPtr) (len : UInt32)
+    (hbuf : buf = .null ∨ ((∃ os, buf = .ref (.heap b) os ∧ os + len.toNat ≤ pbo) ∧ len.toNat ≤ 65536))
+    (last : Int32) (hl0 : 0 ≤ last.toInt) (hl1 : last.toInt ≤ 1) (ol sl : UInt32) (mb : Int32)
+    (hroom : len.toNat + 4 ≤ ol.toNat → len.toNat + 6 ≤ 4 * s.lit_bufsize.toNat)
+    (hdyn : ol ≠ sl → TPost st0 d sbo n mb s ∧ Chosen (symsOf d sbo n)) :
+    Sat (SH H i z b s d) (outerJp (some b) buf len last ol sl mb) (fun _ H' => FinPost H i z0 b st0 d pbo H') := by
+  obtain ⟨kp, hk7, hk15, hB⟩ := hpow
+  have hB128 : 128 ≤ s.lit_bufsize.toNat := by
+    rw [hB]; exact Nat.le_trans (by decide) (Nat.pow_le_pow_right (by decide) hk7)
+  have hB32 : s.lit_bufsize.toNat ≤ 32768 := by
+    rw [hB]; exact Nat.le_trans (Nat.pow_le_pow_right (by decide) hk15) (by decide)
+  have tail := fun H' (q : BrPost H i z b s d pbo H') => tail_SH (H := H) hz R hpb hend hB32 hlb last q
+  unfold outerJp
+  try simp only []
+  split
+  · simp only [Bool.and_false, Bool.false_eq_true, ↓reduceIte]
+    split
+    · exact static_then hpb hsb hsn hsbo hend hn hB128 hB32 hdist v0 v8 hp0 last hl0 hl1 _ _
+        fun H' q => tail H' (blk_br hp0 q)
+    · rename_i hne
+      have hne' : ol ≠ sl := fun e => hne (by rw [e]; simp)
+      obtain ⟨TP, hch⟩ := hdyn hne'
+      exact dyn_then TP hpb hsb hsn hsbo hend hn ⟨kp, hk7, hk15, hB⟩ hdist v0 v8 hp0 last hl0 hl1 hch _ _
+        fun H' q => tail H' (blk_br hp0 q)
+  · rename_i hnn
+    rcases hbuf with rfl | ⟨⟨os, rfl, hos⟩, h64⟩
+    · exact absurd rfl hnn
+    by_cases h4 : len + 4 ≤ ol
+    · simp only [h4, decide_true, Bool.and_self, ↓reduceIte]
+      have h4' := UInt32.le_iff_toNat_le.mp h4
+      rw [u32_add4 len h64] at h4'
+      exact stored_then hpb hend v0 v8 hp0 _ len os rfl hos (hroom h4') hB32 last _ _ tail
+    · simp only [h4, decide_false, Bool.false_and, Bool.false_eq_true, ↓reduceIte]
+      split
+      · exact static_then hpb hsb hsn hsbo hend hn hB128 hB32 hdist v0 v8 hp0 last hl0 hl1 _ _
+          fun H' q => tail H' (blk_br hp0 q)
+      · rename_i hne
+        have hne' : ol ≠ sl := fun e => hne (by rw [e]; simp)
+        obtain ⟨TP, hch⟩ := hdyn hne'
+        exact dyn_then TP hpb hsb hsn hsbo hend hn ⟨kp, hk7, hk15, hB⟩ hdist v0 v8 hp0 last hl0 hl1 hch _ _
+          fun H' q => tail H' (blk_br hp0 q)
+end
+
+/-- What `zng_tr_flush_block` needs of its state (from `DWork` and `FlushBlockPre`). -/
+structure FCtx (i b : Nat) (st : DeflateState) (d : Array UInt8) (pbo sbo n : Nat) (buf : BPtr) (len : UInt32) :
+    Prop where
+  T : TCtx b st d sbo n
+  hpb : st.pending_buf = .val (.ref (.heap b) pbo)
+  hsb : st.sym_buf = .val (.ref (.heap b) sbo)
+  hsbo : sbo = pbo + st.lit_bufsize.toNat + 8
+  hend : pbo + 4 * st.lit_bufsize.toNat + 64 ≤ d.size
+  hn : n + 1 ≤ st.lit_bufsize.toNat
+  hpow : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ st.lit_bufsize.toNat = 2 ^ k
+  hp0 : st.pending.toNat = 0
+  v0 : 0 ≤ st.bi_valid.toInt
+  v8 : st.bi_valid.toInt < 8
+  hlev : 0 < st.level
+  hbuf : buf = .null ∨ ((∃ os, buf = .ref (.heap b) os ∧ os + len.toNat ≤ pbo) ∧ len.toNat ≤ 65536)
+  hstrm : st.strm = .val (some i)
+
+theorem lenb (x : UInt32) (h : x.toNat + 10 < 2 ^ 32) : ((x + 3 + 7) >>> 3).toNat = (x.toNat + 10) / 8 := by
+  rw [UInt32.toNat_shiftRight, UInt32.toNat_add, UInt32.toNat_add]
+  simp only [Nat.shiftRight_eq_div_pow, UInt32.reduceToNat, Nat.reducePow, Nat.reduceMod]
+  omega
+
+section
+variable {H : Heap} {i : Nat} {b : Nat} {d : Array UInt8} {st : DeflateState} {pbo sbo n : Nat} {buf : BPtr}
+  {len : UInt32}
+
+theorem FCtx.rel (F : FCtx i b st d pbo sbo n buf len) : Rel st st :=
+  ⟨rfl, F.T.lsize, F.T.dsize, F.T.bsize, F.T.pql, F.T.pqs, F.T.blc, rfl, rfl, rfl, rfl, rfl, rfl⟩
+
+/-- The trees, the block choice and the tail (`innerJp`), on any stream record `z` that differs from `z0` at most in
+`data_type`. -/
+theorem inner_SH (hbt : BuildTreeSpec) (F : FCtx i b st d pbo sbo n buf len) {z0 z : ZStream}
+    (hz : z = { z0 with data_type := z.data_type }) (last : Int32) (hl0 : 0 ≤ last.toInt) (hl1 : last.toInt ≤ 1) :
+    Sat (SH H i z b st d) (innerJp (some b) buf len last) (fun _ H' => FinPost H i z0 b st d pbo H') := by
+  unfold innerJp
+  refine trees_then hbt F.T _ _ ?_
+  intro r s3 TP
+  have R : Rel st s3 := ⟨TP.keeps, TP.lsize, TP.dsize, TP.bsize, TP.pql, TP.pqs, TP.blc, TP.ldyn, TP.lstat, TP.ddyn,
+    TP.dstat, TP.bldyn, TP.blstat⟩
+  have k := TP.keeps
+  have hlb : s3.lit_bufsize = st.lit_bufsize := by rw [k]
+  have hpb : s3.pending_buf = st.pending_buf := by rw [k]
+  have hsb : s3.sym_buf = st.sym_buf := by rw [k]
+  have hn := F.T.hn
+  have hn1 := F.hn
+  have hBC := blockCosts_sum_le (symsOf d sbo n)
+  rw [symsOf_length] at hBC
+  have h256 := litLens_le (symsOf d sbo n) 256
+  have hHb := header_bound (symsOf d sbo n)
+  have hSl := staticLen_le (symsOf d sbo n)
+  rw [symsOf_length] at hSl
+  have hol := lenb s3.opt_len (by rw [TP.opt]; unfold optLen; omega)
+  have hsl := lenb s3.static_len (by rw [TP.stat]; omega)
+  rw [TP.opt] at hol
+  rw [TP.stat] at hsl
+  have hdist : ∀ j, j < n → symDist d sbo j ≤ 32768 := fun j hj => F.T.sym.dist j (by rw [F.T.n3]; exact hj)
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+  try simp only []
+  have common := fun (ol : UInt32) (hol' : ol.toNat ≤ (staticLen (symsOf d sbo n) + 10) / 8)
+      (hdyn : ol ≠ (s3.static_len + 3 + 7) >>> 3 → TPost st d sbo n r s3 ∧ Chosen (symsOf d sbo n)) =>
+    outer_SH (H := H) (i := i) (d := d) (n := n) hz R hlb (by rw [hpb]; exact F.hpb)
+      (by rw [hsb]; exact F.hsb) (by rw [TP.sym_next]; exact F.T.hsn) (by rw [hlb]; exact F.hsbo)
+      (by rw [hlb]; exact F.hend) (by rw [hlb]; exact F.hn) (by rw [hlb]; exact F.hpow) hdist
+      (by rw [TP.bi_valid]; exact F.v0) (by rw [TP.bi_valid]; exact F.v8) (by rw [TP.pending]; exact F.hp0) buf len F.hbuf last
+      hl0 hl1 ol ((s3.static_len + 3 + 7) >>> 3) r (fun h4 => by rw [hlb]; omega) hdyn
+  split
+  · exact common _ (by rw [hsl]; exact Nat.le_refl _) (fun h => absurd rfl h)
+  · rename_i hc
+    simp only [Bool.or_eq_true, decide_eq_true_eq, not_or] at hc
+    have hlt := hc.1
+    rw [UInt32.le_iff_toNat_le, hol, hsl] at hlt
+    exact common _ (by rw [hol]; omega) (fun _ => ⟨TP, by unfold Chosen; omega⟩)
+
+/-- **`zng_tr_flush_block`** on `SH` heaps, from a state between blocks with no pending bytes and fewer than 8 bits
+waiting, at a level above 0, for `last` 0 or 1: no fault, `FinPost`. -/
+theorem flush_SH (hbt : BuildTreeSpec) (F : FCtx i b st d pbo sbo n buf len) {z : ZStream} (last : Int32)
+    (hl0 : 0 ≤ last.toInt) (hl1 : last.toInt ≤ 1) :
+    Sat (SH H i z b st d) (zng_tr_flush_block (some b) buf len last) (fun _ H' => FinPost H i z b st d pbo H') := by
+  rw [flush_eq]
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+  try simp only []
+  split
+  · rename_i h0
+    have hs0 : st.sym_next.toNat = 0 := by rw [beq_iff_eq.mp h0]; rfl
+    have n0 : n = 0 := by have := F.T.hsn; omega
+    subst n0
+    refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+    exact outer_SH (st0 := st) (s := { st with static_len := 7 }) (z := z) rfl ⟨rfl, F.T.lsize, F.T.dsize, F.T.bsize, F.T.pql, F.T.pqs, F.T.blc, rfl, rfl,
+      rfl, rfl, rfl, rfl⟩ rfl F.hpb F.hsb F.T.hsn F.hsbo F.hend F.hn F.hpow (fun j hj => absurd hj (by omega))
+      F.v0 F.v8 F.hp0 buf len F.hbuf last hl0 hl1 0 0 0 (fun h => by simp at h) (fun h => absurd rfl h)
+  · refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+    try simp only []
+    split
+    · refine Sat.bind (Sat.of_eq (rdD_SH _) (Sat.bind (Sat.of_eq (ival_get F.hstrm _) ?_)))
+      refine Sat.bind (Sat.of_eq (rdZ_SH _) ?_)
+      try simp only []
+      split
+      · refine Sat.bind (Sat.mono (TreesInit.detect_SH st (by rw [F.T.lsize]; simp only [HEAP_SIZE, L_CODES]; omega)) ?_)
+        rintro dt _ rfl
+        refine Sat.bind (Sat.of_eq (rdD_SH _) (Sat.bind (Sat.of_eq (ival_get F.hstrm _) ?_)))
+        refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_)
+        exact inner_SH hbt F (z0 := z) rfl last hl0 hl1
+      · exact inner_SH hbt F (z0 := z) rfl last hl0 hl1
+    · rename_i hl
+      exact absurd F.hlev hl
 
 end
 
