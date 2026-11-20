@@ -213,6 +213,7 @@ when no pending output was flushed since the last reset. -/
 theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32) :
     ∃ i z b, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ ∃ r h',
       C.run (deflatePrime s bits value) h = .ok (r, h') ∧ DFrame h h' [] [b] [] [] ∧
+      (∀ st0, h.dstate b = some st0 → ∃ st' d', h' = SH h i z b st' d' ∧ SideEq st0 st') ∧
       (PrimeReady h s → DInv h' s) := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
   obtain ⟨-, -, -, l1, l2, -, -⟩ := c.sizes
@@ -226,7 +227,9 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
     hpb hsb (by omega) h4 l2 v0 v8 bits value
   rw [DeflateReset.SH_self L.hz L.hst hd] at S
   obtain ⟨r, h', e, np, bb, bv, d', rfl, w, h0, h8, hle, hge⟩ := S
-  refine ⟨i, z, b, rfl, L.hz, L.hb, r, _, e, dframe_SH0 L.hz _ _ _, fun hpr => ?_⟩
+  refine ⟨i, z, b, rfl, L.hz, L.hb, r, _, e, dframe_SH0 L.hz _ _ _, fun st0 h0 => ?_, fun hpr => ?_⟩
+  · obtain rfl := Option.some.inj (h0.symm.trans L.dstate)
+    exact ⟨_, _, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩⟩
   obtain ⟨b1, st1, ⟨⟨z1, ⟨i1, hi1, hz1⟩, hb1⟩, hst1⟩, hpo1⟩ := hpr
   obtain rfl := Option.some.inj hi1
   rw [L.hz] at hz1; obtain rfl := Option.some.inj hz1
@@ -290,6 +293,7 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
     ins := c.ins
     wpow := c.wpow
     lmod := c.lmod
+    lpow := c.lpow
     scratch := c.scratch
     blk := c.blk
     fe_mod := c.fe_mod

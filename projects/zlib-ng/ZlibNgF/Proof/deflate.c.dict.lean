@@ -45,7 +45,10 @@ holds after. -/
 theorem getDict_inv {h : Heap} {s : StreamPtr} {d : BPtr} (hasLen : Bool) (hv : DInv h s)
     (hd : NullOrWrite h d 32768) (hnb : ∀ b, StateBlock h s b → NotInBlock b d) :
     ∃ r h', C.run (deflateGetDictionary s d hasLen) h = .ok (r, h') ∧ DInv h' s ∧
-      DFrame h h' [] [] [] [(d, 32768)] := by
+      DFrame h h' [] [] [] [(d, 32768)] ∧
+      (h' = h ∨ ∃ bd off ad a1, d = .ref (.heap bd) off ∧ h.bytes bd = some ad ∧
+        h' = { h with bytes := upd h.bytes bd (some a1) } ∧ a1.size = ad.size ∧
+        ∀ j, (j < off ∨ off + 32768 ≤ j) → a1[j]! = ad[j]!) := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
   obtain ⟨w1, w2, wsz, -, -, -, -⟩ := c.sizes
   obtain ⟨data, wo, po, ho, pbo, hdata, hwin, -, -, -, h1, h2, h3, h4, -, -⟩ := c.lay
@@ -67,7 +70,7 @@ theorem getDict_inv {h : Heap} {s : StreamPtr} {d : BPtr} (hasLen : Bool) (hv : 
     · rename_i hc; simp only [gt_iff_lt, UInt32.lt_iff_toNat_lt, hsum] at hc; omega
   have hfr0 : DFrame h h [] [] [] [(d, 32768)] := ⟨InflateInit.frame_refl h _ _ _ _, fun _ _ _ => ⟨rfl, rfl⟩⟩
   by_cases hc : d = .null ∨ len = 0
-  · refine ⟨(Z_OK, if hasLen then some len else none), h, ?_, hv, hfr0⟩
+  · refine ⟨(Z_OK, if hasLen then some len else none), h, ?_, hv, hfr0, Or.inl rfl⟩
     rcases hc with hc | hc <;>
     simp [C.run, deflateGetDictionary, bind_app, L.check, L.stateOf, ldDState_app L.dstate, hc, ← hlen]
   · have hc' : ¬ d = .null ∧ ¬ len = 0 := by simpa [not_or] using hc
@@ -88,7 +91,10 @@ theorem getDict_inv {h : Heap} {s : StreamPtr} {d : BPtr} (hasLen : Bool) (hv : 
       (by omega) (by omega)
     have hl0 : (len != 0) = true := by simpa using hc'.2
     have hd0 : (Ptr.ref (BRef.heap bd) off != Ptr.null) = true := by simp
-    refine ⟨(Z_OK, if hasLen then some len else none), { h with bytes := upd h.bytes bd (some a1) }, ?_, ?_, ?_⟩
+    have hpt : ∀ j, (j < off ∨ off + 32768 ≤ j) → a1[j]! = ad[j]! := fun j hj =>
+      copyFold_get _ _ _ _ _ _ (fun x hx => by simp only [List.mem_range'] at hx; omega)
+    refine ⟨(Z_OK, if hasLen then some len else none), { h with bytes := upd h.bytes bd (some a1) }, ?_, ?_, ?_,
+      Or.inr ⟨bd, off, ad, a1, rfl, had, rfl, hs1, hpt⟩⟩
     · simp only [C.run, deflateGetDictionary, bind_app, L.check, L.stateOf, ldDState_app L.dstate,
         Bool.false_eq_true, ↓reduceIte, ← hlen, hl0, hd0, Bool.and_self, hwin, Ival.get, pure_app]
       rw [e1]; simp only []
@@ -104,7 +110,6 @@ theorem getDict_inv {h : Heap} {s : StreamPtr} {d : BPtr} (hasLen : Bool) (hv : 
         rw [L.hz] at hz'; obtain rfl := Option.some.inj hz'
         rw [L.hb] at hb''; obtain rfl := Option.some.inj hb''
         exact hne e.symm)
-    · refine ⟨frame_bytes had hs1 (fun j hj => ?_), fun _ _ _ => ⟨rfl, rfl⟩⟩
-      exact copyFold_get _ _ _ _ _ _ (fun x hx => by simp only [List.mem_range'] at hx; omega)
+    · exact ⟨frame_bytes had hs1 hpt, fun _ _ _ => ⟨rfl, rfl⟩⟩
 
 end ZlibNgF.Proof.DeflateDict

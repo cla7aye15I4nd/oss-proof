@@ -19,7 +19,7 @@ that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the 
 `bi_buf`; `strstart + lookahead` within the window; a valid `strategy`; both function pointers of `lm_set_level` set;
 valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
 are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
-`strstart - block_start` bounded; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
+`block_start` bounded below; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
 tree descriptors of `zng_tr_init`; `lit_bufsize` a multiple of 16; the sizes of the scratch arrays of `trees.c`;
 `opt_len`, `static_len` and the `bl_tree` frequencies 0 between blocks.
 -/
@@ -217,8 +217,9 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   `fill_window` adds `w_size`) within the window -/
   fe_mod : (v.fill_end.toNat + 262) % v.w_size.toNat = 0
   fe_hi : v.fill_end.toNat + 262 ≤ v.window_size.toNat
-  /-- `strstart - block_start` stays far from `INT_MAX` -/
-  bs_lo : (v.strstart.toNat : Int) - v.block_start.toInt ≤ 2 ^ 30
+  /-- `block_start` stays far from `INT_MIN` (patch 0018: `fill_window` lowers it only while it stays at or above
+  `-(2^30 + 2^16)`; every other store writes `strstart`, 0, or a value at least 0) -/
+  bs_lo : -(2 ^ 30 + 2 ^ 16) ≤ v.block_start.toInt
   /-- the tree descriptors that `zng_tr_init` sets -/
   descs : v.l_dyn = .val (.ref (.dyn_ltree b) 0) ∧ v.l_stat = .val .static_l_desc ∧
     v.d_dyn = .val (.ref (.dyn_dtree b) 0) ∧ v.d_stat = .val .static_d_desc ∧
@@ -226,6 +227,8 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   /-- `lit_bufsize = 1 << (memLevel + 6)` is a multiple of 16 (`alloc_deflate` of `deflateCopy` aligns the state that
   follows `pending_buf` with it) -/
   lmod : v.lit_bufsize.toNat % 16 = 0
+  /-- `lit_bufsize = 1 << (memLevel + 6)` is a power of two (`memLevel` 1..9) -/
+  lpow : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ v.lit_bufsize.toNat = 2 ^ k
   /-- the scratch arrays of `build_tree` / `gen_bitlen` have their C sizes: `pq_leaves` and `pq_scratch` `L_CODES + 1`
   entries, `bl_count` `MAX_BITS + 1` -/
   scratch : v.pqlsize = 287 ∧ v.pqssize = 287 ∧ v.blcsize = 16
@@ -242,6 +245,23 @@ theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v :
 def DInv (h : Heap) (s : StreamPtr) : Prop :=
   ∃ i z b st al, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
     h.dallocsOf b = some al ∧ DCore h s z b (dview st) al
+
+/-- `st'` agrees with `st` on the fields that the between-call facts (`DeflateSide.SideAt`) read. -/
+structure SideEq (st st' : DeflateState) : Prop where
+  status : st'.status = st.status
+  wrap : st'.wrap = st.wrap
+  gzhead : st'.gzhead = st.gzhead
+  gzindex : st'.gzindex = st.gzindex
+  sym_next : st'.sym_next = st.sym_next
+  sym_end : st'.sym_end = st.sym_end
+  strstart : st'.strstart = st.strstart
+  block_start : st'.block_start = st.block_start
+  level : st'.level = st.level
+  lookahead : st'.lookahead = st.lookahead
+  strategy : st'.strategy = st.strategy
+  last_flush : st'.last_flush = st.last_flush
+
+theorem SideEq.refl (st : DeflateState) : SideEq st st := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-! ## Interface lemmas -/
 

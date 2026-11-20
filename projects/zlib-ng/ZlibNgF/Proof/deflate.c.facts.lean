@@ -50,42 +50,69 @@ def DStateIs (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) : Prop :=
 def DBufsSet (h : Heap) (s : StreamPtr) : Prop :=
   ∃ z, StreamAt h s z ∧ z.next_out ≠ .null ∧ (z.avail_in ≠ 0 → z.next_in ≠ .null)
 
+/-- The facts about the tallied symbols that hold between calls (kept by every public call, carried by the
+reachability induction) and that a strategy needs on entry and gives back on exit: room for one more symbol
+(`sym_next < sym_end`: every strategy flushes a full buffer before it returns); at level 0 (`deflate_stored`, which
+reads `window + block_start` and writes `pending_buf` over `sym_buf`) `block_start` is not negative and there are no
+symbols and no lookahead; at level 1 with `Z_FIXED` (`deflate_quick` with `static_emit`, which never tallies and
+writes `pending_buf` over `sym_buf`) there are no symbols; with `block_start == strstart` there are no symbols (every
+tallied symbol moved `strstart` past `block_start`, `FLUSH_BLOCK` resets both). The range of `block_start` is the
+invariant's (`DCore.bstart`, `DCore.bs_lo`). -/
+def SymsOk (st : DeflateState) : Prop :=
+  st.sym_next < st.sym_end ∧
+    (st.level = 0 → 0 ≤ st.block_start ∧ st.sym_next = 0 ∧ st.lookahead = 0) ∧
+    (st.level = 1 → st.strategy = Z_FIXED → st.sym_next = 0) ∧
+    ((st.strstart.toNat : Int) = st.block_start.toInt → st.sym_next = 0)
+
+/-- The fields that a strategy reads back unchanged: it never writes them. -/
+def StratKeeps (st st' : DeflateState) : Prop :=
+  st'.status = st.status ∧ st'.wrap = st.wrap ∧ st'.gzhead = st.gzhead ∧ st'.gzindex = st.gzindex ∧
+    st'.level = st.level ∧ st'.strategy = st.strategy ∧ st'.last_flush = st.last_flush
+
 /-- The state in which `deflate` calls a strategy: the invariant, the CRC tables, valid and set buffers, a valid
-`flush` (`Z_NO_FLUSH` .. `Z_BLOCK`), no pending bytes (`deflate` flushed them, or returned), and the header written
-(`status` is `BUSY_STATE` or `FINISH_STATE`, so the invariant allows tallied symbols). -/
+`flush` (`Z_NO_FLUSH` .. `Z_BLOCK`), no pending bytes (`deflate` flushed them, or returned), the header written
+(`status` is `BUSY_STATE` or `FINISH_STATE`, so the invariant allows tallied symbols), and `SymsOk`. -/
 def StratPre (h : Heap) (s : StreamPtr) (flush : Int32) : Prop :=
   DInv h s ∧ CrcGlobals h ∧ DStreamIO h s ∧ DBufsSet h s ∧ 0 ≤ flush ∧ flush ≤ 5 ∧
-    ∃ b st, DStateIs h s b st ∧ st.pending = 0 ∧ (st.status = BUSY_STATE ∨ st.status = FINISH_STATE)
+    ∃ b st, DStateIs h s b st ∧ st.pending = 0 ∧ (st.status = BUSY_STATE ∨ st.status = FINISH_STATE) ∧ SymsOk st
 
-/-- What a strategy call leaves: the invariant, valid and set buffers, a change of the stream record, the stream's block
-and the output buffer only, and no pending bytes after `block_done` / `finish_done`. -/
-def StratPost (h : Heap) (s : StreamPtr) (bs : BlockState) (h' : Heap) : Prop :=
+/-- What a strategy call with `flush` leaves: the invariant, valid and set buffers, a change of the stream record, the
+stream's block and the output buffer only, no pending bytes after `block_done` / `finish_done`; `SymsOk` again, the
+fields of `StratKeeps` unchanged, no symbols after a call with a flush that leaves output room (every such return
+goes through `FLUSH_BLOCK`, or the strategy never tallies; `deflate_slow` returns on a full output right after a
+tally), and no symbols and no lookahead after `finish_started` / `finish_done`. -/
+def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' : Heap) : Prop :=
   DInv h' s ∧ DStreamIO h' s ∧ DBufsSet h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] (dOutputRanges h s) ∧
-    (bs = .block_done ∨ bs = .finish_done → ∃ b st, DStateIs h' s b st ∧ st.pending = 0)
+    (bs = .block_done ∨ bs = .finish_done → ∃ b st, DStateIs h' s b st ∧ st.pending = 0) ∧
+    ∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
+      (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt h' s z' → z'.avail_out ≠ 0) → st'.sym_next = 0) ∧
+      (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0)
 
-/-- A strategy `f`: from `StratPre`, no fault and `StratPost`. -/
-def StratOk (f : StatePtr → Int32 → M BlockState) : Prop :=
+/-- A strategy `f` that `deflate` dispatches to on states with `dispatch`: from `StratPre` and `dispatch`, no fault
+and `StratPost`. -/
+def StratOkP (dispatch : DeflateState → Prop) (f : StatePtr → Int32 → M BlockState) : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
-    ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s bs h'
+    (∀ b' st, DStateIs h s b' st → dispatch st) →
+    ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s flush bs h'
 
-/-- A strategy `f` that `deflate` calls only at a level above 0: as `StratOk`, given `0 < level`. -/
-def StratOkL (f : StatePtr → Int32 → M BlockState) : Prop :=
-  ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
-    (∀ b' st, DStateIs h s b' st → 0 < st.level) →
-    ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s bs h'
+/-- The dispatch of `deflate` to the strategy of a level from `configuration_table`: that level, and a strategy
+other than `Z_HUFFMAN_ONLY` and `Z_RLE`. -/
+def TableAt (lo hi : Int32) (st : DeflateState) : Prop :=
+  lo ≤ st.level ∧ st.level ≤ hi ∧ st.strategy ≠ Z_HUFFMAN_ONLY ∧ st.strategy ≠ Z_RLE
 
-/-- The strategies, one field each (`deflate` calls `deflate_stored` for level 0, `deflate_huff` for
-`Z_HUFFMAN_ONLY`, `deflate_rle` for `Z_RLE`, else the function of `configuration_table`; so every strategy but
-`deflate_stored` runs at a level above 0). -/
+/-- The strategies, one field each, with the facts of `deflate`'s dispatch (`level == 0 ? deflate_stored :
+strategy == Z_HUFFMAN_ONLY ? deflate_huff : strategy == Z_RLE ? deflate_rle : configuration_table[level].func`;
+the table: 1 `deflate_quick`, 2 `deflate_fast`, 3-4 `deflate_medium`, 5-6 `deflate_medium_fizzle`, 7-9
+`deflate_slow`). -/
 structure StrategyFacts : Prop where
-  stored : StratOk ZlibNg.DeflateStored.deflate_stored
-  quick : StratOkL ZlibNg.DeflateQuick.deflate_quick
-  fast : StratOkL ZlibNg.DeflateFast.deflate_fast
-  medium : StratOkL ZlibNg.DeflateMedium.deflate_medium
-  medium_fizzle : StratOkL ZlibNg.DeflateMedium.deflate_medium_fizzle
-  slow : StratOkL ZlibNg.DeflateSlow.deflate_slow
-  huff : StratOkL ZlibNg.DeflateHuff.deflate_huff
-  rle : StratOkL ZlibNg.DeflateRle.deflate_rle
+  stored : StratOkP (fun st => st.level = 0) ZlibNg.DeflateStored.deflate_stored
+  quick : StratOkP (TableAt 1 1) ZlibNg.DeflateQuick.deflate_quick
+  fast : StratOkP (TableAt 2 2) ZlibNg.DeflateFast.deflate_fast
+  medium : StratOkP (TableAt 3 4) ZlibNg.DeflateMedium.deflate_medium
+  medium_fizzle : StratOkP (TableAt 5 6) ZlibNg.DeflateMedium.deflate_medium_fizzle
+  slow : StratOkP (TableAt 7 9) ZlibNg.DeflateSlow.deflate_slow
+  huff : StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_HUFFMAN_ONLY) ZlibNg.DeflateHuff.deflate_huff
+  rle : StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_RLE) ZlibNg.DeflateRle.deflate_rle
 
 /-- Only `data_type` of the stream record of `s` changes (`zng_tr_flush_block` sets it). -/
 def StreamKeep (h h' : Heap) (s : StreamPtr) : Prop :=
@@ -120,7 +147,7 @@ def PbufOnly (h h' : Heap) (b pbo lim : Nat) : Prop :=
 /-- An emitter `m` on stream `s` (block `b`): from the working state with at least `room st` bytes left after the
 pending bytes (in `pending_buf`, and before `sym_buf` while symbols wait there), no fault, the working state after,
 only block `b` (its bytes within `pending_buf`) and the stream's `data_type` changed, the other state fields kept
-(`EmitKeeps`), at most `grow st` more pending bytes, and the exact shape of the heap after: `h` with the stream's
+(`EmitKeeps`), at most `grow st` more pending bytes, no more symbols, and the exact shape of the heap after: `h` with the stream's
 `data_type`, the state record and the bytes of block `b` replaced (`SH`). -/
 def EmitOk (s : StreamPtr) (b : Nat) (pre : DeflateState → Prop) (room grow : DeflateState → Nat) (m : M Unit) :
     Prop :=
@@ -129,7 +156,8 @@ def EmitOk (s : StreamPtr) (b : Nat) (pre : DeflateState → Prop) (room grow : 
     (st.sym_next ≠ 0 → PendRoom b st (room st) (st.lit_bufsize.toNat + 8)) →
     ∃ h', C.run m h = .ok ((), h') ∧ DWork h' s ∧ DFrame h h' (streamIds s) [b] [] [] ∧ StreamKeep h h' s ∧
       (∀ pbo, st.pending_buf = .val (.ref (.heap b) pbo) → PbufOnly h h' b pbo (4 * st.lit_bufsize.toNat + 9)) ∧
-      (∀ st', DStateIs h' s b st' → EmitKeeps st st' ∧ st'.pending.toNat ≤ st.pending.toNat + grow st) ∧
+      (∀ st', DStateIs h' s b st' → EmitKeeps st st' ∧ st'.pending.toNat ≤ st.pending.toNat + grow st ∧
+        st'.sym_next ≤ st.sym_next) ∧
       ∀ i z, s = some i → h.streams i = some z → ∃ dt st' d', h' = DeflateInit.SH h i { z with data_type := dt } b st' d'
 
 /-- After a successful run of `m` from the working state of stream `s` (block `b`) with `pre`, no symbol is left in
@@ -194,20 +222,21 @@ def DInput (h : Heap) (s : StreamPtr) : Prop :=
   ∃ z b, StreamAt h s z ∧ z.state = some b ∧ NullOrRead h z.next_in z.avail_in.toNat ∧ NotInBlock b z.next_in ∧
     (z.avail_in ≠ 0 → z.next_in ≠ .null)
 
-/-- The invariant of stream `s`, except that `strstart - block_start` may reach `2^30 + 2^16`: the clauses of `DCore` on
-the state with `block_start` at `strstart`, and `block_start` at or before `strstart`. This is the state inside the
-insertion loop of `deflateSetDictionary`, which raises `strstart` (by at most the dictionary length in all) before it
-sets `block_start = (int)strstart`; `fill_window` needs only `block_start - slide_len` in range. -/
+/-- The invariant of stream `s`, stated as the clauses of `DCore` on the state with `block_start` at `strstart`, and
+`block_start` between `-(2^30 + 2^16)` and `strstart` (the same as `DInv`: `DInvW.of_inv`, `DInvW.inv`). It is the
+state inside the insertion loop of `deflateSetDictionary` and the state that `fill_window` takes and leaves. -/
 def DInvW (h : Heap) (s : StreamPtr) : Prop :=
   ∃ i z b st al, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
     h.dallocsOf b = some al ∧ DCore h s z b (dview { st with block_start := st.strstart.toInt32 }) al ∧
-    st.block_start.toInt ≤ st.strstart.toNat ∧ (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30 + 2 ^ 16
+    st.block_start.toInt ≤ st.strstart.toNat ∧ -(2 ^ 30 + 2 ^ 16) ≤ st.block_start.toInt
 
 /-- What `fill_window` leaves: `DInvW` and a readable input; only the stream record (`next_in`, `avail_in`,
 `total_in`, `adler`) and the stream's block change; `avail_in` does not grow and drops when `lookahead` changes, and
-`lookahead` grows by at most the input taken (the window gains only input bytes); `strstart - block_start` is kept (a
-slide lowers both by `slide_len`); at the end the lookahead is full or the input empty; the state fields that the
-callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function pointers) kept. -/
+`lookahead` grows by at most the input taken (the window gains only input bytes); `strstart - block_start` does not grow and
+becomes 0 only if it was 0 (a slide lowers both by `slide_len`, or, patch 0018, only `strstart` when `block_start`
+would fall below `-(2^30 + 2^16)`, which leaves a gap above `2^30`); at the end the lookahead is full or the input empty; the state fields that the
+callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function pointers, `sym_next`, `gzindex`,
+`last_flush`) kept. -/
 def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
   DInvW h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
   ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
@@ -220,10 +249,12 @@ def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
     z'.avail_in.toNat ≤ z.avail_in.toNat ∧
     (st'.lookahead ≠ st.lookahead → z'.avail_in.toNat < z.avail_in.toNat) ∧
     st'.lookahead.toNat + z'.avail_in.toNat ≤ st.lookahead.toNat + z.avail_in.toNat ∧
-    (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt ∧
+    (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ (st.strstart.toNat : Int) - st.block_start.toInt ∧
+    ((st'.strstart.toNat : Int) = st'.block_start.toInt → (st.strstart.toNat : Int) = st.block_start.toInt) ∧
     (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0) ∧
     st'.wrap = st.wrap ∧ st'.status = st.status ∧ st'.gzhead = st.gzhead ∧ st'.level = st.level ∧
-    st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch
+    st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch ∧
+    st'.sym_next = st.sym_next ∧ st'.gzindex = st.gzindex ∧ st'.last_flush = st.last_flush
 
 /-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
 the translated C code: `fill_window` from `DInvW` (the invariant, or the state inside `deflateSetDictionary`'s
@@ -293,32 +324,17 @@ theorem DInvW.of_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) : DInvW h s := b
   simp only [dview] at e hb1 hb2
   refine ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with
     bstart := by simp only [dview]; rw [e]; exact Int.le_refl _
-    bs_lo := by simp only [dview]; rw [e]; omega }, hb1, by omega⟩
+    bs_lo := by simp only [dview]; rw [e]; omega }, hb1, hb2⟩
 
-/-- `DInvW` with `strstart - block_start` at most `2^30` is the invariant. -/
-theorem DInvW.inv {h : Heap} {s : StreamPtr} (hw : DInvW h s)
-    (hd : ∀ b st, DStateIs h s b st → (st.strstart.toNat : Int) - st.block_start.toInt ≤ 2 ^ 30) : DInv h s := by
+/-- `DInvW` is the invariant. -/
+theorem DInvW.inv {h : Heap} {s : StreamPtr} (hw : DInvW h s) : DInv h s := by
   obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, c, h1, h2⟩ := hw
   exact ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with
     bstart := h1
-    bs_lo := hd b st ⟨i, z, rfl, hz, hb, hst⟩ }⟩
+    bs_lo := h2 }⟩
 
 /-- `fill_window` from an invariant stream leaves the invariant. -/
-theorem FillPost.inv {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (hp : FillPost h h' s) : DInv h' s := by
-  obtain ⟨hw, -, -, i, z, z', b, st, st', rfl, hz, hz', hb, hst, hst', hzz, -, -, -, hd, -⟩ := hp
-  obtain ⟨i0, z0, b0, st0, al, e0, hz0, hb0, hst0, -, c⟩ := hv
-  obtain rfl : i = i0 := Option.some.inj e0
-  obtain rfl : z = z0 := Option.some.inj (hz.symm.trans hz0)
-  obtain rfl : b = b0 := Option.some.inj (hb.symm.trans hb0)
-  obtain rfl : st = st0 := Option.some.inj (hst.symm.trans hst0)
-  have hl := c.bs_lo
-  simp only [dview] at hl
-  refine hw.inv fun b' st2 ⟨i2, z2, e, hz2, hb2, hst2⟩ => ?_
-  obtain rfl : i = i2 := Option.some.inj e
-  obtain rfl : z' = z2 := Option.some.inj (hz'.symm.trans hz2)
-  have hs' : z'.state = z.state := by rw [hzz]
-  obtain rfl : b = b' := Option.some.inj (hb.symm.trans (hs'.symm.trans hb2))
-  obtain rfl : st' = st2 := Option.some.inj (hst'.symm.trans hst2)
-  omega
+theorem FillPost.inv {h h' : Heap} {s : StreamPtr} (_hv : DInv h s) (hp : FillPost h h' s) : DInv h' s :=
+  hp.1.inv
 
 end ZlibNgF.Proof.DeflateFacts

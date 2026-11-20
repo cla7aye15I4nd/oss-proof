@@ -4,7 +4,7 @@ import ZlibNgF.ZlibNg.«deflate_huff.c»
 /-!
 # `deflate_huff` (`ZlibNgF`)
 
-`huff_ok`: the `Z_HUFFMAN_ONLY` strategy keeps the strategy frame (`StratOkG`), given the block emitters
+`huff_ok`: the `Z_HUFFMAN_ONLY` strategy keeps the strategy frame (`StratOkP`), given the block emitters
 (`TreesFacts`). A trip of the loop refills the window when the lookahead is empty (`sli_fill`), tallies one literal
 `window[strstart]` (`sli_tally_lit`), and flushes a full symbol buffer (`sli_flush`); the measure
 `avail_in + lookahead` drops by one per trip. The tail is `strat_tail` (`slc_tail`).
@@ -45,10 +45,11 @@ theorem sli_win {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} {
   exact ⟨hwin, by omega⟩
 
 /-- The loop state's invariant. -/
-def HI (h : Heap) (i b : Nat) (v : UInt32 × UInt32 × HuffExit) (H : Heap) : Prop :=
+def HI (h : Heap) (i b : Nat) (flush : Int32) (v : UInt32 × UInt32 × HuffExit) (H : Heap) : Prop :=
   match v.2.2 with
-  | .ret r => StratPost h (some i) r H ∧ ∀ b' st, DStateIs H (some i) b' st → GapOk st ∧ st.sym_next < st.sym_end
-  | _ => SLI h i b v.1 v.2.1 H
+  | .ret r => StratPost h (some i) flush r H
+  | .brk => SLI h i b v.1 v.2.1 H ∧ v.1 = 0
+  | .cont => SLI h i b v.1 v.2.1 H
 
 /-- The loop measure: `avail_in + lookahead + 1` while the loop goes on. -/
 def HM (i : Nat) (v : UInt32 × UInt32 × HuffExit) (H : Heap) : Nat :=
@@ -58,15 +59,16 @@ def HM (i : Nat) (v : UInt32 × UInt32 × HuffExit) (H : Heap) : Nat :=
 
 /-- One trip of the loop. -/
 theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (flush : Int32)
-    (I : SLI h i b la ss H) (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) :
+    (I : SLI h i b la ss H) (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
+    (hfx : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED) :
     Sat H (huff_trip (some b) (.ref (.heap b) wo) flush la ss) (fun v H2 =>
-      HI h i b v H2 ∧ HM i v H2 < avIn H i + la.toNat + 1) := by
+      HI h i b flush v H2 ∧ HM i v H2 < avIn H i + la.toNat + 1) := by
   unfold huff_trip
   extract_lets jp
   have hjp : ∀ (v : UInt32 × UInt32 × HuffExit) H1,
       (v.2.2.isCont = true → SLI h i b v.1 v.2.1 H1 ∧ 1 ≤ v.1.toNat ∧ avIn H1 i + v.1.toNat ≤ avIn H i + la.toNat) →
-      (v.2.2.isCont = false → HI h i b v H1) →
-      Sat H1 (jp v) (fun v H2 => HI h i b v H2 ∧ HM i v H2 < avIn H i + la.toNat + 1) := by
+      (v.2.2.isCont = false → HI h i b flush v H1) →
+      Sat H1 (jp v) (fun v H2 => HI h i b flush v H2 ∧ HM i v H2 < avIn H i + la.toNat + 1) := by
     rintro ⟨la1, ss1, ex⟩ H1 hc hn
     cases ex with
     | ret r => exact Sat.pure ⟨hn rfl, by simp [HM]⟩
@@ -98,7 +100,10 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (f
           obtain ⟨hv, F4, hs4⟩ := hsome (by simp)
           have hv' : v = .need_more := by simpa using hv
           subst hv'
-          exact Sat.pure ⟨slf_post F4 _ fun st4 h4 => ⟨hs4 st4 h4, fun e => by simp at e⟩, by simp [HM]⟩
+          refine Sat.pure ⟨slf_post F4 _ _ hfx fun st4 h4 => ⟨(hs4 st4 h4).2, ?_, fun _ => (hs4 st4 h4).1, ?_⟩,
+            by simp [HM]⟩
+          · intro e; rcases e with e | e <;> cases e
+          · intro e; rcases e with e | e <;> cases e
   by_cases hl : la == 0
   · simp only [hl, ↓reduceIte]
     have hl0 : la = 0 := by simpa using hl
@@ -109,9 +114,11 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (f
     · simp only [hl2, ↓reduceIte]
       by_cases hf : flush == Z_NO_FLUSH
       · simp only [hf, ↓reduceIte]
-        exact hjp (_, _, .ret .need_more) _ (fun e => by cases e) (fun _ => slc_post (sli_slc I2) _)
+        have hf' : flush = Z_NO_FLUSH := by simpa using hf
+        subst hf'
+        exact hjp (_, _, .ret .need_more) _ (fun e => by cases e) (fun _ => slc_post (sli_slc I2) hfx)
       · simp only [hf, Bool.false_eq_true, ↓reduceIte]
-        exact hjp (_, _, .brk) _ (fun e => by cases e) (fun _ => I2)
+        exact hjp (_, _, .brk) _ (fun e => by cases e) (fun _ => ⟨I2, by simpa using hl2⟩)
     · simp only [hl2, Bool.false_eq_true, ↓reduceIte]
       have : st.lookahead.toNat ≠ 0 := fun e => hl2 (by
         have e' : st.lookahead = 0 := UInt32.toNat_inj.mp (by rw [e]; rfl)
@@ -125,10 +132,15 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (f
     exact hjp (_, _, .cont) _ (fun _ => ⟨I, by simp only []; omega, Nat.le_refl _⟩) (fun e => by cases e)
 
 /-- `deflate_huff` keeps the strategy frame. -/
-theorem huff_ok (T : TreesFacts) : StratOkG deflate_huff := by
+theorem huff_ok (T : TreesFacts) :
+    StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_HUFFMAN_ONLY) deflate_huff := by
   intro h s b flush P hsb hE
   obtain ⟨z, ⟨i, rfl, hz⟩, hb⟩ := hsb
-  obtain ⟨st, hst, I0⟩ := sli_entry P hz hb hE
+  have hE' : ∀ b' st, DStateIs h (some i) b' st → 0 < st.level ∧ st.strategy ≠ Z_FIXED := fun b' st hd => by
+    obtain ⟨h1, h2⟩ := hE b' st hd; exact ⟨h1, by rw [h2]; decide⟩
+  obtain ⟨st, hst, I0⟩ := sli_entry P hz hb hE'
+  have hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED := fun st0 h0 =>
+    (hE' b st0 ⟨i, z, rfl, hz, hb, h0⟩).2
   obtain ⟨i', z', b', st', al, e, L, -, c⟩ := live P.1
   obtain rfl : i = i' := Option.some.inj e
   obtain rfl : z = z' := Option.some.inj (hz.symm.trans L.hz)
@@ -138,8 +150,7 @@ theorem huff_ok (T : TreesFacts) : StratOkG deflate_huff := by
   simp only [dview] at hwin
   have hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo) := fun st0 h0 => by
     rw [hst] at h0; cases h0; exact hwin
-  suffices S : Sat h (deflate_huff (some b) flush) (fun bs h' => StratPost h (some i) bs h' ∧
-      ∀ b' st, DStateIs h' (some i) b' st → GapOk st ∧ st.sym_next < st.sym_end) by
+  suffices S : Sat h (deflate_huff (some b) flush) (fun bs h' => StratPost h (some i) flush bs h') by
     obtain ⟨bs, h', e, q⟩ := S
     exact ⟨bs, h', e, q⟩
   unfold deflate_huff
@@ -147,13 +158,13 @@ theorem huff_ok (T : TreesFacts) : StratOkG deflate_huff := by
   rw [hwin]
   refine Sat.bind (Sat.pure ?_)
   refine Sat.bind (Sat.of_eq (rdD_app L _) (Sat.bind (Sat.of_eq (rdD_app L _) ?_)))
-  refine Sat.bind (Sat.mono (ZlibNgF.Proof.WinInv.sat_cwhileH (HI h i b) (HM i)
-    (fun v H => HI h i b v H ∧ v.2.2.isCont = false) ?_ (s := (st.lookahead, st.strstart, .cont)) I0 ?_) ?_)
+  refine Sat.bind (Sat.mono (ZlibNgF.Proof.WinInv.sat_cwhileH (HI h i b flush) (HM i)
+    (fun v H => HI h i b flush v H ∧ v.2.2.isCont = false) ?_ (s := (st.lookahead, st.strstart, .cont)) I0 ?_) ?_)
   · rintro ⟨la, ss, ex⟩ H hI
     refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨hI, hc⟩⟩
     cases ex with
     | cont =>
-      exact Sat.mono (trip_ok T flush hI hw0) fun v H2 ⟨a, m⟩ => ⟨a, by simp only [HM]; exact m⟩
+      exact Sat.mono (trip_ok T flush hI hw0 hn) fun v H2 ⟨a, m⟩ => ⟨a, by simp only [HM]; exact m⟩
     | brk => cases hc
     | ret r => cases hc
   · have := avIn_lt h i
@@ -164,10 +175,13 @@ theorem huff_ok (T : TreesFacts) : StratOkG deflate_huff := by
   | cont => cases hc
   | ret r => exact Sat.pure hI
   | brk =>
+    obtain ⟨hI, hl0⟩ := hI
     refine Sat.bind (Sat.mono (sli_wb hI) ?_)
-    rintro _ H1 ⟨C1, -, H0, z1, st1, d1, rfl, -, -⟩
+    rintro _ H1 ⟨C1, -, H0, z1, st1, d1, rfl, hla, -⟩
     refine Sat.bind (Sat.mono (slc_insert C1 0 UInt32.zero_le) ?_)
-    rintro _ H2 ⟨C2, -⟩
-    exact slc_tail T flush C2 hw0
+    rintro _ H2 ⟨C2, rfl⟩
+    refine slc_tail T flush C2 hw0 hn fun st2 h2 => ?_
+    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
+    simp only [] at hl0 ⊢; rw [hla, hl0]
 
 end ZlibNgF.Proof.DeflateHuffP
