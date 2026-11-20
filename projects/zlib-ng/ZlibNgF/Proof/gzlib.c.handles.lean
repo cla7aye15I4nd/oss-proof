@@ -110,7 +110,7 @@ theorem greach (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {f : 
   | caller w h w' h' f _ hc ih =>
     rcases ih with ih | ih
     · exact Or.inl (caller_keepsR _ _ _ _ _ ih hc)
-    · exact Or.inr (W.caller _ _ _ _ _ ih hc)
+    · exact Or.inr (caller_keepsW _ _ _ _ _ ih hc)
 
 /-- An accepted file is `NULL`, a read handle or a write handle. -/
 theorem handle (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {f : GzPtr} (hh : GzHandle w h f) :

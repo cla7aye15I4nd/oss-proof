@@ -16,8 +16,8 @@ The mode of an open file never changes, so the reachable files split by mode:
   write handle need only `GzInvW` (live state, mode, positions, message).
 
 `greach (W : GWriteSteps) (R : GReadPending) : GzReachable w h f → GzInvR w h f ∨ GzInvWS w h f`. `GWriteSteps`
-holds what the write side owes: the write-side calls (`gzwrite.c`) and the caller steps keep `GzInvWS` on a write
-handle. `GReadPending` holds the read-side calls on read handles not proved yet.
+holds what the write side owes: the write-side calls (`gzwrite.c`) keep `GzInvWS` on a write handle (the caller
+steps keep it: `caller_keepsW`). `GReadPending` holds the read-side calls on read handles not proved yet.
 -/
 
 set_option autoImplicit false
@@ -221,10 +221,10 @@ def KeepsR (S : World → Heap → World → Heap → GzPtr → Prop) : Prop :=
 def KeepsW (S : World → Heap → World → Heap → GzPtr → Prop) : Prop :=
   ∀ w h w' h' f, GzInvWS w h f → S w h w' h' f → GzInvWS w' h' f
 
-/-- **What the write side owes**: on a write handle, the write-side calls and the caller's steps keep `GzInvWS`. -/
+/-- **What the write side owes**: on a write handle, the write-side calls keep `GzInvWS` (the caller's steps keep it:
+`caller_keepsW`). -/
 structure GWriteSteps : Prop where
   step : KeepsW GzWStep
-  caller : KeepsW GzCallerStep
 
 /-! ## Calls that return at the mode check -/
 
@@ -1057,5 +1057,39 @@ theorem caller_keepsR : KeepsR GzCallerStep := by
   rcases hc with hc | hc
   · exact macro_keepsR hv hc
   · exact keeps_keepsR hv hc
+
+/-! ## Caller steps on a write handle -/
+
+/-- The `gzgetc()` macro needs buffered output, and a write handle has none (`x.have` is 0). -/
+theorem macro_keepsW {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr} (hv : GzInvWS w h f)
+    (hc : GzGetcMacro w h w' h' f) : GzInvWS w' h' f := by
+  obtain ⟨b, s, nx, rfl, hs, hhv, -⟩ := hc
+  obtain ⟨⟨b0, s0, e0, hs0, sh, -⟩, hm, -⟩ := hv
+  cases e0; rw [hs] at hs0; cases hs0
+  exact absurd (sh.write (modeOf hs hm)).have0 hhv
+
+theorem keeps_keepsW {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr} (hv : GzInvWS w h f)
+    (hc : GzKeeps w h w' h' f) : GzInvWS w' h' f := by
+  obtain ⟨hwf, hnb, hba, b, s, rfl, hs, hs', hstr, hobj⟩ := hc
+  obtain ⟨⟨b0, s0, e0, hs0, sh, hn⟩, hm, -⟩ := hv
+  cases e0; rw [hs] at hs0; cases hs0
+  have hk : HK h h' s (ownL h b s) := by
+    refine ⟨hstr, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, hba, hnb,
+      fun _ c hc hc0 _ => by rw [(hobj c (dead_owned hs c hc)).1]; exact hc0,
+      fun c hc => (hobj c (ownL_owned hs c hc)).2.2.2.2.2⟩
+    · exact (hobj c (ownL_owned hs c hc)).1
+    · exact (hobj c (ownL_owned hs c hc)).2.1
+    · exact (hobj c (ownL_owned hs c hc)).2.2.1
+    · exact (hobj c (ownL_owned hs c hc)).2.2.2.1
+    · exact (hobj c (ownL_owned hs c hc)).2.2.2.2.1
+  obtain ⟨sh', e⟩ := shape_keep sh hk
+  exact ⟨⟨b, s, rfl, hs', sh', by rw [e]; exact hn⟩, ⟨b, s, rfl, hs', modeOf hs hm⟩, GzWFw.of hwf⟩
+
+/-- **The caller's steps keep the invariant of a write handle** (the `caller` field of `GWriteSteps`). -/
+theorem caller_keepsW : KeepsW GzCallerStep := by
+  intro w h w' h' f hv hc
+  rcases hc with hc | hc
+  · exact macro_keepsW hv hc
+  · exact keeps_keepsW hv hc
 
 end ZlibNgF.Proof.GzMode
