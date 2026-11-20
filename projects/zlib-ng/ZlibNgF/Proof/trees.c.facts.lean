@@ -1,4 +1,5 @@
 import ZlibNgF.Proof.«trees.c.flushblock»
+import ZlibNgF.Proof.«trees.c.codes»
 
 /-!
 # `TreesFacts` from the statement of `build_tree` (`ZlibNgF`)
@@ -258,6 +259,10 @@ theorem flush_block_clears_ok (hbt : BuildTreeSpec) (s : StreamPtr) (b : Nat) (b
 /-- **`TreesFacts`** from the statement of `build_tree`. -/
 theorem treesFacts_of (hbt : BuildTreeSpec) : TreesFacts :=
   treesFacts_of_flush (flush_block_ok hbt) (flush_block_clears_ok hbt)
+
+/-- **`TreesFacts`**: the block emitters of `trees.c` / `trees_emit.h`, with `build_tree` proved
+(`TreesCodes.buildTreeSpec`). -/
+theorem treesFacts : TreesFacts := treesFacts_of ZlibNgF.Proof.TreesCodes.buildTreeSpec
 
 
 end
