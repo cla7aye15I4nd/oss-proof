@@ -24,7 +24,7 @@ theorem mid_of {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvR W H (
   have P := sh.pos
   refine ⟨hs, ?_, hout_self R, R.pos_have, R.look_pos⟩
   have := invR_seek hv hs 0 s.next s.pos s.skip s.how R.how P.1 P.2 P.3 (Or.inl rfl) (fun _ => rfl) R.look
-    (by have := R.pos_have; simp; omega) (fun h1 h2 => by have := R.look_pos h1 h2; simp; omega) R.gzip_direct
+    (by have := R.pos_have; simp; omega) (fun h1 h2 => by have := R.look_pos h1 h2; simp; omega) R.gzip_direct R.copy_in
   have es : ({ s with «have» := 0, next := s.next, pos := s.pos, skip := s.skip, how := s.how } : GzState) =
       { s with «have» := 0 } := by cases s; rfl
   rwa [es] at this
@@ -47,7 +47,7 @@ theorem shape_hp {h : Heap} {s s' : GzState} (sh : GzShape h s) (hr : s.mode = G
   refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size,
     ⟨P.1, hpk, hp, fun e' => absurd (hr.symm.trans e') read_ne_write⟩, ⟨sh.msg.msg, sh.msg.mem⟩,
     fun _ => ⟨R.how, fun hsz => ?_, fun hsz => ?_, hsk, fun hz => (R.fresh hz).of_strm rfl, R.look, hph, hlk,
-      R.gzip_direct⟩, fun e' => absurd (hr.symm.trans e') read_ne_write, fun hz => sh.dead hz⟩
+      R.gzip_direct, R.copy_in⟩, fun e' => absurd (hr.symm.trans e') read_ne_write, fun hz => sh.dead hz⟩
   · obtain ⟨c, base, z, hb, hi, hz, -, hai, hreg, hmsg⟩ := R.bufs hsz
     refine ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz, ?_, hai, hreg, hmsg⟩
     rcases hout with e' | ⟨-, hq⟩
