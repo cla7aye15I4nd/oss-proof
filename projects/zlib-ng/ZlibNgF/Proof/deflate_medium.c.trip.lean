@@ -49,7 +49,7 @@ theorem nm_le (m : Match) : nm m ≤ 259 := by unfold nm; split <;> omega
 /-- The measure of the outer loop. -/
 def OM (i b : Nat) (v : Ctl × Match × Match) (H : Heap) : Nat :=
   match v.1 with
-  | .cont => 260 * (2 * avIn H i + laOf b H) + nm v.2.2
+  | .cont => 260 * (2 * avIn H i + laOf b H) + nm v.2.2 + 1
   | _ => 0
 
 /-- An insertion that keeps the state and grows the chains below `strstart + lookahead` keeps `MG`. -/
@@ -114,6 +114,23 @@ theorem fiz_nxt {ss la md k : Nat} {m n : Match} (hf : FindOk ss la md m) (hmd :
   · rw [e] at h4; exact absurd h4 (by decide)
   refine ⟨by omega, by omega, e5, Or.inr ⟨by omega, by omega, by omega⟩⟩
 
+open ZlibNgF.Proof.MediumFind in
+/-- The facts of a found match that the emission uses. -/
+theorem findOk_cur {ss la md : Nat} {m : Match} (hf : FindOk ss la md m) (hmd : md ≤ 32768) (hla : 1 ≤ la) :
+    m.strstart.toNat = ss ∧ 1 ≤ m.match_length.toNat ∧ m.match_length.toNat ≤ la ∧
+      m.orgstart.toNat ≤ ss + m.match_length.toNat ∧ m.match_length.toNat ≤ 258 ∧
+      (m.match_length = 1 ∨ (4 ≤ m.match_length.toNat ∧ m.match_start.toNat < ss ∧
+        ss ≤ m.match_start.toNat + 32768)) ∧
+      (m.match_length = 1 ∨ (4 ≤ m.match_length.toNat ∧ m.match_length.toNat ≤ 258 ∧ m.match_start.toNat < ss ∧
+        ss ≤ m.match_start.toNat + 32768)) := by
+  obtain ⟨h1, h2, h3, h4⟩ := hf
+  rcases h4 with e | ⟨h5, h6, h7, h8, h9⟩
+  · have : m.match_length.toNat = 1 := by rw [e]; rfl
+    exact ⟨h1, by omega, by omega, by omega, by omega, Or.inl e, Or.inl e⟩
+  · exact ⟨h1, by omega, h7, by omega, h6, Or.inr ⟨h5, h8, by omega⟩, Or.inr ⟨h5, h6, h8, by omega⟩⟩
+
+theorem u32_eq_of_toNat {x y : UInt32} (h : x.toNat = y.toNat) : x = y := UInt32.toNat_inj.mp h
+
 set_option maxHeartbeats 4000000 in
 /-- One trip of the outer loop. -/
 theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UInt32} (flush : Int32)
@@ -135,7 +152,7 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
         NxtOk (st.strstart.toNat + c.match_length.toNat) n) →
       (c.match_length = STD_MAX_MATCH → n.match_length = 0) →
       (fz = false → n.match_length = 0) →
-      260 * (2 * z.avail_in.toNat + st.lookahead.toNat) ≤ μ0 →
+      260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + 1 ≤ μ0 →
       Sat (SH H0 i z b st d) (jE () c n c.match_length)
         (fun v H2 => OI h i b W flush fz v H2 ∧ OM i b v H2 < μ0) := by
     intro c n H0 z st d G hW hcs hL1 hLa hLk hN h258 hfz hμ1
@@ -247,8 +264,9 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
       (c.match_length = 1 ∨ (4 ≤ c.match_length.toNat ∧
         c.match_start.toNat < st.strstart.toNat ∧ st.strstart.toNat ≤ c.match_start.toNat + 32768)) →
       n.match_length = 0 →
-      260 * (2 * z.avail_in.toNat + st.lookahead.toNat) ≤ μ0 →
-      (262 ≤ st.lookahead.toNat → 260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + (258 - c.match_length.toNat) ≤ μ0) →
+      260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + 1 ≤ μ0 →
+      (262 ≤ st.lookahead.toNat →
+        260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + (258 - c.match_length.toNat) + 1 ≤ μ0) →
       Sat (SH H0 i z b st d) (jC () c n) (fun v H2 => OI h i b W flush fz v H2 ∧ OM i b v H2 < μ0) := by
     intro c n H0 z st d hfz1 G hW hcs hL1 hLa hor hL2 hLk hn0 hμ1 hμ2
     simp -zeta only [jC]
@@ -354,7 +372,7 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
             show NxtOk c'.strstart.toNat n'; rw [hcs2]; exact hN0
           · simp only [OM, nm, laOf_SH, avIn_SH, hp0, ↓reduceIte]
             have := hμ2 (by omega)
-            show 260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + (258 - n'.match_length.toNat) < μ0
+            show 260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + (258 - n'.match_length.toNat) + 1 < μ0
             omega
         · have e0 : c'.match_length ≠ 0 := fun e => h0 (by simp [e])
           obtain ⟨hc1, hN1⟩ := hnz e0
@@ -435,6 +453,120 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
       (by rw [hcs]; omega) (by rw [hcs]; omega)) ?_)
     rintro _ _ ⟨d', rfl, F', g⟩
     exact hA d' (mg_ins G hl F' g fun q hq _ => by rw [hcs] at hq; omega)
+  -- `insert_knuth` at `strstart` (with at least `WANT_MIN_MATCH` bytes) and `find_best_match`
+  have hIF : ∀ (H0 : Heap) (z : ZStream) (st : DeflateState) (d : Array UInt8), MG h i b (SH H0 i z b st d) →
+      st.w_size = W → 4 ≤ st.lookahead.toNat →
+      Sat (SH H0 i z b st d) (ZlibNg.InsertStringP.insert_knuth (some b) (.ref (.heap b) wo) st.strstart)
+        (fun hh H' => ∃ d', H' = SH H0 i z b st d' ∧ MG h i b H' ∧ hh.toNat < 65536) := by
+    intro H0 z st d G hW h4
+    have P := pe_of_mg G (SH_dstate _ _ _ _ _ _)
+    obtain ⟨F, -, -, -, -, -, -⟩ := pe_st P
+    obtain ⟨wo', po, ho, Ly, -, w1, w2, hlook, h65, hwp, hbig, -, -⟩ := slf_lay F
+    have hwin : st.window = .val (.ref (.heap b) wo) := by
+      obtain ⟨st0, h0, hw⟩ := F.win
+      exact (hw _ (SH_dstate _ _ _ _ _ _)).trans (hw0 st0 h0)
+    obtain rfl : wo' = wo := by
+      have := Ly.win; rw [hwin] at this; injection this with e; injection e with _ e2; exact e2.symm
+    refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_insert_knuth F hwin st.strstart (by omega) (by omega))
+      (ZlibNgF.Proof.MediumStep.insert_knuth_res Ly st.strstart (by omega))) ?_
+    rintro hh _ ⟨⟨d', rfl, F', g⟩, hh6⟩
+    exact ⟨d', rfl, mg_ins G hl F' g (fun q hq _ => by rw [hq]; omega), hh6⟩
+  have hFB : ∀ (H0 : Heap) (z : ZStream) (st : DeflateState) (d : Array UInt8) (hh : UInt32),
+      MG h i b (SH H0 i z b st d) → st.w_size = W → hh.toNat < 65536 →
+      Sat (SH H0 i z b st d) (find_best_match (some b) hh md) (fun m H' => ∃ ms, H' =
+        SH H0 i z b { st with match_start := ms } d ∧ MG h i b H' ∧
+        ZlibNgF.Proof.MediumFind.FindOk st.strstart.toNat st.lookahead.toNat (W.toNat - 262) m) := by
+    intro H0 z st d hh G hW hh6
+    have I0 := sli_of_slc G.1 (SH_dstate _ _ _ _ _ _)
+    obtain ⟨-, -, -, -, -, w1, w2, hlook, h65, -, -, -, -⟩ := ZlibNgF.Proof.MediumStep.sli_lay I0
+    have hmd' : md.toInt = (MAX_DIST st).toNat := by
+      rw [maxDist_toNat' _ (by omega), hW]; exact hmd
+    refine Sat.mono (ZlibNgF.Proof.MediumStep.sli_find I0 hh md hh6 hmd' (by omega) (by omega) (by omega)) ?_
+    rintro m _ ⟨ms, rfl, I1, hf⟩
+    refine ⟨ms, rfl, ⟨sli_slc I1, chainAll_SH.mpr ?_⟩, ?_⟩
+    · exact chain_adv (G.2 st d (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _)) rfl rfl rfl rfl rfl (Nat.le_refl _)
+        (by simp only [chainLim]; exact Nat.le_refl _)
+    · rw [maxDist_toNat' _ (by omega), hW] at hf; exact hf
+  have hS : ∀ (n : Match) (H0 : Heap) (z : ZStream) (st : DeflateState) (d : Array UInt8),
+      MG h i b (SH H0 i z b st d) → st.w_size = W → 1 ≤ st.lookahead.toNat →
+      (0 < n.match_length.toNat → 262 ≤ st.lookahead.toNat ∧ NxtOk st.strstart.toNat n) →
+      (fz = false → n.match_length = 0) →
+      260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + 1 ≤ μ0 →
+      (262 ≤ st.lookahead.toNat → 260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + nm n + 1 ≤ μ0) →
+      Sat (SH H0 i z b st d) (jS () n) (fun v H2 => OI h i b W flush fz v H2 ∧ OM i b v H2 < μ0) := by
+    intro n H0 z st d G hW hla1 hN hfz hμ1 hμ2
+    simp -zeta only [jS]
+    have hWn : W.toNat - 262 ≤ 32768 := by omega
+    refine sat_ite (fun hfz1 => ?_) (fun hfz1 => ?_)
+    · refine sat_ite (fun hp => ?_) (fun hp => ?_)
+      · have hp' : 0 < n.match_length.toNat := UInt32.lt_iff_toNat_lt.mp hp
+        obtain ⟨h262, hn1, hn2, hn3, hn4⟩ := hN hp'
+        refine hC n _ H0 z st d hfz1 G hW (u32_eq_of_toNat hn1) hp' (by omega) hn2 hn3 hn4 rfl hμ1 fun h => ?_
+        have := hμ2 h; simp only [nm, hp', ↓reduceIte] at this; omega
+      · have hn0 : n.match_length = 0 := by
+          have := UInt32.not_lt.mp hp; exact u32_eq_of_toNat (by have := UInt32.le_iff_toNat_le.mp this; simp at this ⊢; omega)
+        refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+        extract_lets jH
+        have hJ : ∀ (hh : UInt32) (d' : Array UInt8), MG h i b (SH H0 i z b st d') → hh.toNat < 65536 →
+            Sat (SH H0 i z b st d') (jH () hh) (fun v H2 => OI h i b W flush fz v H2 ∧ OM i b v H2 < μ0) := by
+          intro hh d' G' hh6
+          simp -zeta only [jH]
+          refine Sat.bind (Sat.mono (hFB H0 z st d' hh G' hW hh6) ?_)
+          rintro m _ ⟨ms, rfl, G2, hf⟩
+          obtain ⟨c1, c2, c3, c4, c5, c6, -⟩ := findOk_cur hf hWn hla1
+          refine hC m n H0 z _ d' hfz1 G2 hW (u32_eq_of_toNat c1) c2 c3 c4 c5 c6 hn0 hμ1 fun h => ?_
+          have h' : 262 ≤ st.lookahead.toNat := h
+          have hnm : nm n = 259 := by simp [nm, hn0]
+          have := hμ2 h'
+          show 260 * (2 * z.avail_in.toNat + st.lookahead.toNat) + (258 - m.match_length.toNat) + 1 ≤ μ0
+          omega
+        refine sat_ite (fun h4 => ?_) (fun _ => hJ 0 d G (by decide))
+        refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+        refine Sat.bind (Sat.mono (hIF H0 z st d G hW (UInt32.le_iff_toNat_le.mp h4)) ?_)
+        rintro hh _ ⟨d', rfl, G', hh6⟩
+        exact hJ hh d' G' hh6
+    · have hfz0 : fz = false := by simpa using hfz1
+      have hn0 := hfz hfz0
+      refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+      extract_lets jH
+      have hJ : ∀ (hh : UInt32) (d' : Array UInt8), MG h i b (SH H0 i z b st d') → hh.toNat < 65536 →
+          Sat (SH H0 i z b st d') (jH () hh) (fun v H2 => OI h i b W flush fz v H2 ∧ OM i b v H2 < μ0) := by
+        intro hh d' G' hh6
+        simp -zeta only [jH]
+        refine Sat.bind (Sat.mono (hFB H0 z st d' hh G' hW hh6) ?_)
+        rintro m _ ⟨ms, rfl, G2, hf⟩
+        obtain ⟨c1, c2, c3, c4, c5, -, c7⟩ := findOk_cur hf hWn hla1
+        have hE' : ∀ d'', MG h i b (SH H0 i z b { st with match_start := ms } d'') →
+            Sat (SH H0 i z b { st with match_start := ms } d'') (jE () m n m.match_length)
+              (fun v H2 => OI h i b W flush fz v H2 ∧ OM i b v H2 < μ0) := fun d'' G3 =>
+          hE m n H0 z _ d'' G3 hW (u32_eq_of_toNat c1) c2 c3 c7
+            (fun _ hml => by rw [hn0] at hml; exact absurd hml (by decide)) (fun _ => hn0) (fun _ => hn0) hμ1
+        refine sat_ite (fun h4 => ?_) (fun _ => hE' d' G2)
+        refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+        refine sat_ite (fun hgt => ?_) (fun _ => hE' d' G2)
+        have h4' : 4 ≤ m.match_length.toNat := UInt32.le_iff_toNat_le.mp h4
+        have hgt' : m.match_length.toNat + 4 < st.lookahead.toNat := by
+          have := UInt32.lt_iff_toNat_lt.mp hgt
+          rw [UInt32.toNat_add] at this; simp [WANT_MIN_MATCH] at this; omega
+        have P := pe_of_mg G2 (SH_dstate _ _ _ _ _ _)
+        obtain ⟨F, -, -, -, -, -, -⟩ := pe_st P
+        obtain ⟨wo', po, ho, Ly, -, w1, w2, hlook, h65, hwp, hbig, -, -⟩ := slf_lay F
+        have hwin : st.window = .val (.ref (.heap b) wo) := by
+          obtain ⟨st0, h0, hw⟩ := F.win
+          exact (hw _ (SH_dstate _ _ _ _ _ _)).trans (hw0 st0 h0)
+        obtain rfl : wo' = wo := by
+          have := Ly.win; rw [hwin] at this; injection this with e; injection e with _ e2; exact e2.symm
+        have hlook' : st.strstart.toNat + st.lookahead.toNat ≤ st.window_size.toNat := hlook
+        have h65' : st.window_size.toNat ≤ 65536 := h65
+        refine Sat.bind (Sat.mono (slf_insert_match F hwin m mic hm2 hm3 (by omega) (by rw [c1]; exact c4)
+          (by rw [c1]; omega) (by rw [c1]; show _ ≤ st.window_size.toNat; omega)) ?_)
+        rintro _ _ ⟨d'', rfl, F', g⟩
+        exact hE' d'' (mg_ins G2 hl F' g fun q hq _ => by rw [c1] at hq; show q < st.strstart.toNat + st.lookahead.toNat; omega)
+      refine sat_ite (fun h4 => ?_) (fun _ => hJ 0 d G (by decide))
+      refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+      refine Sat.bind (Sat.mono (hIF H0 z st d G hW (UInt32.le_iff_toNat_le.mp h4)) ?_)
+      rintro hh _ ⟨d', rfl, G', hh6⟩
+      exact hJ hh d' G' hh6
   sorry
 
 end ZlibNgF.Proof.MediumLoop
