@@ -90,9 +90,25 @@ print the expected result.
 | `deflate-slow-match-start` | 0019 | level 8 `deflate_slow` takes a match at or after `strstart` (levels 5 then 8 after `Z_FULL_FLUSH`): the wrapped distance makes `d_code` read far outside `dist_code` (AddressSanitizer), and without a sanitizer the stream decodes to wrong data |
 | `gzdirect-pending-skip` | 0020 | `gzseek` to `INT64_MAX`, `gzdirect`, `gzgetc`, `gztell` on a file that is not gzip: signed overflow of `x.pos + skip` in `gztell64` |
 | `gzgets-pending-skip` | 0021 | `gzseek` to `INT64_MAX` and `gzdirect` on a file of 3 bytes that is not gzip, the file grows, then `gzgets` and `gztell`: signed overflow of `x.pos + skip` in `gztell64` |
+| `gzwrite-zero-retry` | 0022 | on a transparent writer whose descriptor is a full non-blocking pipe: `gzseek` to `INT64_MAX`, a failed `gzwrite`, `gztell`: signed overflow of `x.pos + skip` in `gztell64` (run `max`); `gzseek` to 10000, a failed `gzwrite`, the pipe drained, `gzclearerr`, `gzwrite` again: 14099 bytes in the file and `gztell` 14099 instead of 10003 (run `retry`) |
 
-Patch 0017 (the writers' position) has no case here: its defect needs about `2^32` calls of `gzwrite` (minutes to
-hours). It was shown once on the real C (findings page); the `gz` differential test covers the refusal it adds.
+Every case above uses documented calls only (**public API**); none sets the library's internal state itself
+(**white-box**). Their failures and devices come from ordinary descriptors, or, for `gzread-position-overflow` on a
+host that is not Linux, from an `lseek` that answers as Linux's `/dev/zero` does.
+
+Patch 0017 (the writers' position) has no case here: its defect needs `2^31 + 1` failing `gzfwrite` calls of
+`2^32 - 1` bytes, each followed by `gzclearerr` (about 7 minutes with UndefinedBehaviorSanitizer alone, more under
+AddressSanitizer). It was shown through documented calls only (public API) on the real C (findings page); the `gz`
+differential test covers the refusal it adds (`gzfwrite` lengths above `GZ_OFF_MAX`, refused before the buffer is
+read).
+
+32-bit guards: `gzwrite-position-32bit` builds the source with `-m32 -D_FILE_OFFSET_BITS=64` (32-bit `size_t`, 64-bit
+file offsets) and writes one byte at position `2^32 - 1` (documented calls only: `gzdopen` of `/dev/null` for
+transparent writing, `gzbuffer`, `gzseek`, `gzwrite`, `gztell`, `gzerror`). With every current patch the write
+succeeds; with the first version of patch 0017 (`first-0017.patch` there, which converted the room left to `size_t`)
+it must still be refused with `Z_DATA_ERROR`. The case also runs on the verified LP64 build, where the write succeeds.
+It needs a compiler and C library for `-m32` (on x86_64 Linux, `gcc-multilib`, which the CI job installs); without
+one it is skipped with a `SKIPPED` line, and when `CI` is set a missing `-m32` toolchain fails the run.
 
 Plain regression tests (defects of 2.3.3 that the `develop` branch fixes; each must pass on the verified
 source without a sanitizer report): `adler32-null-len-1`, `crc32-combine-negative-len-hang` (the
