@@ -26,12 +26,12 @@ open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 
 /-- Two `SH` heaps over one stream and block are equal only with the same record, state and bytes. -/
 theorem SH_inj {H0 H1 : Heap} {i b : Nat} {z z1 : ZStream} {st st1 : DeflateState} {d d1 : Array UInt8}
-    (e : SH H0 i z b st d = SH H1 i z1 b st1 d1) : z1 = z ∧ st1 = st ∧ d1 = d := by
+    (e : SH H0 i z b st d = SH H1 i z1 b st1 d1) : z = z1 ∧ st = st1 ∧ d = d1 := by
   have e1 := congrArg (fun H => H.dstate b) e
   have e2 := congrArg (fun H => H.bytes b) e
   have e3 := congrArg (fun H => H.streams i) e
   simp only [SH_dstate, SH_bytes, SH_streams] at e1 e2 e3
-  exact ⟨(Option.some.inj e3).symm, (Option.some.inj e1).symm, (Option.some.inj e2).symm⟩
+  exact ⟨Option.some.inj e3, Option.some.inj e1, Option.some.inj e2⟩
 
 /-- A change of the state and bytes of an `SH` heap equal to another `SH` heap. -/
 theorem SH_re {H0 H1 : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateState} {d d' : Array UInt8}
