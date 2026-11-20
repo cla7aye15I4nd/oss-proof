@@ -1224,4 +1224,36 @@ theorem tail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} {z0 : ZStream} 
       exact fin s1.how (Or.inr rfl) (fun e => by rw [hhow1] at e; exact absurd e (by decide))
         (fun _ e => hse' (by simp [e]))
 
+open ZlibNg.Inflate in
+/-- **`gz_decomp`** on a read handle with `x.have == 0` and `how == GZIP` whose stream has `avail_out` (not 0) bytes of
+room at `next_out`, inside the `out` buffer of the file (`gz_fetch`) or outside every block of the file (`gz_read`, the
+caller's buffer): it returns `-1` or `0`, writes only that range, only reads the file system, and leaves a read handle
+once `x.have` is cleared; on `0`, `x.have` is the number of bytes written at `x.next`, the start of the range, and
+`how` is `LOOK` after the end of the gzip member, else `GZIP` with output or with `eof` and no input. It terminates:
+every trip of its loop but the last lowers the read measure (`dmu`), which never grows (`DecompPost`). -/
+theorem gz_decomp_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : Nat} {s : GzState}
+    (hv : GzInvR w h (some b)) (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hhow : s.how = GZIP)
+    {z0 : ZStream} (hz0 : h.streams s.strm = some z0) (hout : z0.avail_out ≠ 0) {bo oo : Nat}
+    (hno : z0.next_out = .ref (.heap bo) oo) (ht : OutTgt w h b s bo oo z0.avail_out.toNat) :
+    GSat w h (gz_decomp (some b)) (DecompPost w h b s z0 bo oo) := by
+  have hw0 : ∃ s0, w.gz h b = some s0 := ⟨s, hs⟩
+  rw [gz_decomp_eq]
+  refine GSat.bind (GSat.of_eq (strmOf_app hs) ?_)
+  refine GSat.bind (GSat.lm ⟨_, h, rdZ_app hz0 _, ?_⟩)
+  have hI : DInv w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s) ⟨Z_OK, .go⟩ w h := by
+    refine ⟨rfl, by decide, s, z0, ⟨hv, GStep.refl _ _ _ _, FsRd.refl _, hs, rfl, hz0, Nat.le_refl _, ?_, ht⟩, hout,
+      Nat.le_refl _, fun _ => Or.inr ⟨rfl, rfl⟩⟩
+    rw [hno]; simp
+  have hfuel : dmu s w h < fuel := by
+    rw [dmu_of hz0]
+    have := rdLeft_lt hv.2.2 s.fd
+    have := z0.avail_in.toNat_lt
+    have := z0.avail_out.toNat_lt
+    simp [fuel]; omega
+  refine GSat.bind (GSat.mono (gsat_gdoWhile (DInv w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s))
+    (fun _ W H => dmu s W H) (DExit w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s))
+    (fun st W H hI' => body_spec G M (fun p => p.2) (fun p z1 hz1 => by rw [hz0] at hz1; cases hz1; exact p.1) hw0 hsz
+      h0 hI') hI hfuel) fun lp W H q => ?_)
+  exact tail_spec hhow h0 hw0 hout q
+
 end ZlibNgF.Proof.GzDecomp
