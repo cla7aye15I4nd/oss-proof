@@ -221,3 +221,4 @@ import ZlibNgF.Proof.«deflate_quick.c.safety»
 import ZlibNgF.Proof.«deflate_quick.c.frame»
 import ZlibNgF.Proof.«deflate_quick.c.static»
 import ZlibNgF.Proof.«public-deflate»
+import ZlibNgF.Proof.«public-compress»
