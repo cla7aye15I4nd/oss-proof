@@ -272,7 +272,7 @@ theorem GStep.of_have0 {w W : World} {h H : Heap} {b : Nat} {s : GzState} {wr : 
   · rw [hg b' hb' hlt]
     have : b' ≠ b := fun e => hb' (by rw [e])
     simp [upd_ne _ _ _ _ this]
-  · rw [hs] at e1; cases e1; exact ht _ s2 hs0 e2
+  · rw [hs] at e1; cases e1; exact ht { s with «have» := 0 } s2 hs0 e2
 
 theorem gz_error_inv0 {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
     (hv : GzInvR { w with gzs := upd w.gzs b (some { s with «have» := 0 }) } h (some b))
