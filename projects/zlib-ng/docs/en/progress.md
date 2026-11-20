@@ -21,5 +21,6 @@ Overall library status: **not done**.
 | `inflateBack`, `inflateBackEnd`: safety | Public C API | done |
 | `compress`, `compress2`, `compress_z`, `compress2_z` safety | Public C API | not done |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` safety | Public C API | done |
-| `gz*` file functions safety | Public C API | not done |
+| `gzopen`, `gzopen64`, `gzdopen`: safety | Public C API | done |
+| Other `gz*` file functions: safety | Public C API | not done |
 | `deflate` / `inflate` round trip | Functional | not done |
