@@ -7,11 +7,10 @@ import ZlibNgF.ZlibNg.«deflate_fast.c»
 `fast_ok`: the fast strategy (level 2, any strategy but `Z_HUFFMAN_ONLY` and `Z_RLE`, `Z_FIXED` included) keeps the
 strategy frame and the hash chains (`StratOkC (TableAt 2 2) deflate_fast`), given the block emitters (`TreesFacts`).
 The outer loop runs `trip_ok` with the measure `avail_in + lookahead`; after the loop, `s->insert` is set and the
-common tail flushes the last block (`ftail_ok`, with the chains kept by `FLUSH_BLOCK`).
+tail flushes the last block (`flushC`: `FLUSH_BLOCK` keeps the chains).
 -/
 
 set_option autoImplicit false
-set_option pp.oneline true
 
 namespace ZlibNgF.Proof.FastP
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInit
@@ -36,60 +35,6 @@ theorem flushC (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (hl0 
     (ZlibNgF.Proof.StrategyChain.slf_flush_chain T last hl0 hl1 F hp)) ?_
   rintro r H2 ⟨q, hck⟩
   exact ⟨q, fun st2 d2 h2 hd2 => hck st d st2 d2 hst hd h2 hd2 (Ck st d hst hd)⟩
-
-/-- The common tail (`s->insert` set before it) from `SLC` with an empty lookahead, at level 2: `StratPost` and the
-hash chains. -/
-theorem ftail_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C : SLC h i b H) (Ck : CK b H)
-    (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2)
-    (hla : ∀ st, H.dstate b = some st → st.lookahead = 0) :
-    Sat H (strat_tail (some b) (.ref (.heap b) wo) flush) (fun r H' => StratPost h (some i) flush r H' ∧ CK b H') := by
-  have hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo) := by
-    intro st hst
-    obtain ⟨st0, h0, hw⟩ := C.1.win
-    exact ⟨(C.2 st hst).1, (hw st hst).trans (hw0 st0 h0)⟩
-  have fl : ∀ (last : Int32) (bs : BlockState), 0 ≤ last → last ≤ 1 →
-      (bs = .block_done ∨ bs = .finish_done) → Sat H (do
-        if let some r ← FLUSH_BLOCK (some b) (.ref (.heap b) wo) last then return r
-        return bs) (fun r H' => StratPost h (some i) flush r H' ∧ CK b H') := by
-    intro last bs hl0 hl1 hbs
-    refine Sat.bind (Sat.mono (flushC T last hl0 hl1 C.1 hp Ck) ?_)
-    rintro r H2 ⟨⟨-, F2, hs2, hn2, hsm⟩, Ck2⟩
-    have hx : ∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧ st2.lookahead = 0 :=
-      fun st2 h2 => by
-        obtain ⟨e1, e2, st, hst, e3, -⟩ := hs2 st2 h2
-        exact ⟨e1, e2, by rw [e3]; exact hla st hst⟩
-    cases r with
-    | none =>
-      exact Sat.pure ⟨slf_post_l F2 _ _ hn fun st2 h2 =>
-        ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1, fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩,
-          fun _ => (hx st2 h2).1⟩, Ck2⟩
-    | some v =>
-      obtain ⟨rfl⟩ := Option.some.inj (hsm (by simp))
-      refine Sat.pure ⟨slf_post_l F2 _ _ hn fun st2 h2 => ⟨(hx st2 h2).2.1, fun e => ?_, fun _ => (hx st2 h2).1,
-        fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩, fun _ => (hx st2 h2).1⟩, Ck2⟩
-      split at e <;> rcases e with e | e <;> cases e
-  unfold strat_tail
-  by_cases hf : flush == Z_FINISH
-  · simp only [hf, ↓reduceIte]
-    exact fl 1 .finish_done (by decide) (by decide) (.inr rfl)
-  · simp only [hf, Bool.false_eq_true, ↓reduceIte]
-    obtain ⟨z, st, -, hz, hb, hst, -, -⟩ := C.1.live
-    obtain ⟨i', z', b', st', al, e, L, -, -⟩ := live C.1.inv
-    obtain rfl : i = i' := Option.some.inj e
-    obtain rfl : z = z' := Option.some.inj (hz.symm.trans L.hz)
-    obtain rfl : b = b' := Option.some.inj (hb.symm.trans L.hb)
-    obtain rfl : st = st' := Option.some.inj (hst.symm.trans L.dstate)
-    refine Sat.bind (Sat.of_eq (rdD_app L _) ?_)
-    by_cases hs : (st.sym_next != 0) = true
-    · simp only [hs, ↓reduceIte]
-      exact fl 0 .block_done (by decide) (by decide) (.inl rfl)
-    · simp only [hs, Bool.false_eq_true, ↓reduceIte]
-      have h0 : st.sym_next = 0 := by simpa using hs
-      refine Sat.pure ⟨slf_post_l C.1 _ _ hn fun st2 h2 => ?_, Ck⟩
-      obtain rfl := Option.some.inj (hst.symm.trans h2)
-      exact ⟨(C.2 st hst).2, fun _ => (C.2 st hst).1, fun _ => h0, fun e => (by rcases e with e | e <;> cases e),
-        fun _ => h0⟩
 
 /-- **`deflate_fast` keeps the strategy frame and the hash chains.** -/
 theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by

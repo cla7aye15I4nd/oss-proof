@@ -38,19 +38,6 @@ theorem CF.trans {a b c : DeflateState} (h1 : CF a b) (h2 : CF b c) : CF a c :=
   ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.1.trans h1.2.2.1, h2.2.2.2.1.trans h1.2.2.2.1,
     h2.2.2.2.2.trans h1.2.2.2.2⟩
 
-/-- The growth of the chains since the trip-start state `st0` and bytes `d0`, by the positions `S`. -/
-def CG (b : Nat) (st0 : DeflateState) (d0 : Array UInt8) (S : Nat → Prop) (H : Heap) : Prop :=
-  ∃ st d, H.dstate b = some st ∧ H.bytes b = some d ∧ GrowSt b st0 d0 d S ∧ CF st0 st
-
-theorem cg_start {b : Nat} {H0 : Heap} {i : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
-    (S : Nat → Prop) : CG b st d S (SH H0 i z b st d) :=
-  ⟨st, d, SH_dstate _ _ _ _ _ _, SH_bytes _ _ _ _ _ _, GrowSt.refl _ _ _ _, CF.refl _⟩
-
-theorem cg_mono {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S T : Nat → Prop} {H : Heap}
-    (G : CG b st0 d0 S H) (hST : ∀ q, S q → T q) : CG b st0 d0 T H := by
-  obtain ⟨st, d, h1, h2, g, c⟩ := G
-  exact ⟨st, d, h1, h2, fun ho po hh hp => (g ho po hh hp).mono hST, c⟩
-
 /-- An insertion (bytes only, growth `S'`) after growth `S`. -/
 theorem cg_ins {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S S' : Nat → Prop} {H0 : Heap} {i : Nat}
     {z : ZStream} {st : DeflateState} {d d' : Array UInt8} (G : CG b st0 d0 S (SH H0 i z b st d))

@@ -151,14 +151,6 @@ theorem sli_wr {h H0 : Heap} {i b : Nat} {z : ZStream} {st st' : DeflateState} {
   obtain ⟨rfl, rfl, rfl⟩ := SH_inj e
   exact ⟨H1, z, st', d, SH_re e, by rw [hf]; exact C⟩
 
-/-- `SLW` with the state's own `lookahead` / `strstart`: `SLF` with no pending bytes. -/
-theorem slw_self {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
-    (W : SLW h i b st.lookahead st.strstart (SH H0 i z b st d)) : SLF h i b (SH H0 i z b st d) ∧ st.pending = 0 := by
-  obtain ⟨H1, z1, st1, d1, e, F, hp⟩ := W
-  obtain ⟨rfl, rfl, rfl⟩ := SH_inj e
-  rw [FS_self, ← e] at F
-  exact ⟨F, hp⟩
-
 /-- A store at or after the end of `head` grows the chains by nothing. -/
 theorem grow_wrin {d d' : Array UInt8} {ho po w lo hi : Nat} (S : Nat → Prop) (W : WrIn d lo hi d')
     (hl : ho + 131072 ≤ lo) (hph : po + 2 * w ≤ ho) (hw : 0 < w) : Grow d d' ho po w S := by

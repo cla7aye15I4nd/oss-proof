@@ -14,7 +14,6 @@ grown from the start of the trip and checked once `strstart` has moved past the 
 -/
 
 set_option autoImplicit false
-set_option pp.oneline true
 
 namespace ZlibNgF.Proof.FastTrip
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInit
