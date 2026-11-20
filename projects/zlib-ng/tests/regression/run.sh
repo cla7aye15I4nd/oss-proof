@@ -57,10 +57,12 @@ plain=(
   "gzbuffer-aligned-alloc-overflow||gzwrite 1"
 )
 
-# Open defects: undefined behaviour of the verified source with no patch yet. Each must still show its
-# report on the verified source; a case that stops reproducing (upstream fixed it) fails the run.
-# case | arguments | extended regular expression the report must match
+# Open defects: defects of the verified source with no patch yet (undefined behaviour, or a wrong result with no
+# memory error). Each must still show its report or wrong result on the verified source; a case that stops
+# reproducing (upstream fixed it) fails the run.
+# case | arguments | extended regular expression the report (or the program's output) must match
 open_cases=(
+  "deflatereset-fixed-block-open||^deflate 0 0 1 [0-9]+ inflate -3 0$"
 )
 
 # Guards: an earlier, defective version of one of our patches, kept in the case's directory. The source built
