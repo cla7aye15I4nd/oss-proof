@@ -35,9 +35,9 @@ theorem flush_ret_psi {h H : Heap} {i b : Nat} {f : Int32} {P e : Nat} (R : Run 
     obtain ⟨z', st'', -, hst'', hse, -⟩ := k z0 st hz0 h0
     obtain rfl := Option.some.inj (hst''.symm.trans h1)
     rw [hse]
-  obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, e, c⟩ := R1.live
+  obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, eH, c⟩ := R1.live
   unfold pendingReturn
-  rw [← e] at B1 ⊢
+  rw [← eH] at B1 ⊢
   refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
   by_cases hp : (st.pending != 0) = true
   · rw [ite_t hp]
@@ -49,11 +49,11 @@ theorem flush_ret_psi {h H : Heap} {i b : Nat} {f : Int32} {P e : Nat} (R : Run 
       obtain rfl := Option.some.inj h2
       rw [psiS_lf]; omega
     · rw [aIn_congr (by rw [SH_streams, SH_streams] : (SH H1 i z b { st with last_flush := -1 } d).streams i =
-        (SH H1 i z b st d).streams i), e, hai]
+        (SH H1 i z b st d).streams i), eH, hai]
     · rw [SH_dstate] at h2; obtain rfl := Option.some.inj h2
-      exact hs1 s0 st h0 (by rw [← e, SH_dstate])
+      exact hs1 s0 st h0 (by rw [← eH, SH_dstate])
   · rw [ite_f hp]
-    refine Sat.pure ⟨B1, by rw [e, hai], fun s0 s2 h0 h2 => hs1 s0 s2 h0 (by rw [← e]; exact h2)⟩
+    refine Sat.pure ⟨B1, by rw [eH, hai], fun s0 s2 h0 h2 => hs1 s0 s2 h0 (by rw [← eH]; exact h2)⟩
 
 /-- The header bytes: `q <= 10` bytes pending from none, `BUSY_STATE` from `INIT_STATE` / `GZIP_STATE`: 6 more in the
 budget. -/
@@ -65,18 +65,21 @@ theorem bud_hdr {f : Int32} {P e : Nat} {h H0 : Heap} {i b : Nat} {z z' : ZStrea
   refine B.step ⟨st, SH_dstate _ _ _ _ _ _⟩ (by rw [aIn_of (SH_streams _ _ _ _ _ _), aIn_of (SH_streams _ _ _ _ _ _), hz1])
     (by rw [aOut_of (SH_streams _ _ _ _ _ _), aOut_of (SH_streams _ _ _ _ _ _), hz2]) fun s1 s2 h1 h2 => ?_
   rw [SH_dstate] at h1 h2
-  obtain rfl := Option.some.inj h1
-  obtain rfl := Option.some.inj h2
-  have hb := psiS_busy f s1 hs
-  have c1 : psiS f { s1 with pending := q, status := BUSY_STATE, gzindex := g } =
-      psiS f { s1 with status := BUSY_STATE } + q.toNat := by
-    unfold psiS owed; dsimp only; rw [hp]; simp only [UInt32.toNat_zero]
-    have : content { s1 with pending := q, status := BUSY_STATE, gzindex := g } = content { s1 with status := BUSY_STATE } :=
-      rfl
-    rw [this]
-    have : quickB f { s1 with pending := q, status := BUSY_STATE, gzindex := g } =
-        quickB f { s1 with status := BUSY_STATE } := rfl
-    rw [this]; omega
+  have e1 := Option.some.inj h1
+  have e2 := Option.some.inj h2
+  subst e1; subst e2
+  have hb := psiS_busy f st hs
+  have c1 : psiS f { st with pending := q, status := BUSY_STATE, gzindex := g } =
+      psiS f { st with status := BUSY_STATE } + q.toNat := by
+    have x1 : content { st with pending := q, status := BUSY_STATE, gzindex := g } =
+        content { st with status := BUSY_STATE } := rfl
+    have x2 : quickB f { st with pending := q, status := BUSY_STATE, gzindex := g } =
+        quickB f { st with status := BUSY_STATE } := rfl
+    have x3 : owed { st with pending := q, status := BUSY_STATE, gzindex := g } =
+        q.toNat + (st.bi_valid.toInt.toNat + 7) / 8 := rfl
+    have x4 : owed { st with status := BUSY_STATE } = st.pending.toNat + (st.bi_valid.toInt.toNat + 7) / 8 := rfl
+    have x5 : st.pending.toNat = 0 := by rw [hp]; rfl
+    unfold psiS; rw [x1, x2, x3]; omega
   omega
 
 /-- The `INIT_STATE` part with the budget. -/
@@ -84,9 +87,9 @@ theorem init_psi {h H : Heap} {i b : Nat} {st : DeflateState} {f : Int32} {P e :
     (hst : H.dstate b = some st) (hs : st.status = INIT_STATE) (hp0 : st.pending = 0) (B : Bud f P e 0 h i b H) :
     Sat H (headersInit st (some b) (some i)) (fun _ H' => Bud f P e 0 h i b H' ∧ aIn H' i = aIn H i ∧
       ∀ st', H'.dstate b = some st' → st'.status = BUSY_STATE) := by
-  obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, e, c⟩ := R.live
+  obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, eH, c⟩ := R.live
   obtain rfl := Option.some.inj (hst.symm.trans hst1)
-  rw [← e] at R B ⊢
+  rw [← eH] at R B ⊢
   obtain ⟨pbo, hpb, hpd, h0, hpo, l1, l2, l3⟩ := hdr_facts c hd hp0 (by rw [hs]; decide) (by rw [hs]; decide)
   have hw : st.w_size ≠ 0 := c.w_size
   have tail : ∀ (q : UInt32) (dq : Array UInt8), q.toNat ≤ 6 → dq.size = d.size → (∀ j, j < pbo → dq[j]! = d[j]!) →
@@ -102,7 +105,7 @@ theorem init_psi {h H : Heap} {i b : Nat} {st : DeflateState} {f : Int32} {P e :
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
     have R' := seg_run R hpb h0 hpo ADLER32_INITIAL_VALUE q BUSY_STATE st.gzindex hsz hlo (by omega) (by decide)
       (by decide) (by decide) (hdrOk_busy (Or.inl rfl))
-    have B' := bud_hdr (z' := { z with adler := ADLER32_INITIAL_VALUE }) (d := dq) st.gzindex B (.inl hs) hp0
+    have B' := bud_hdr (z' := { z with adler := ADLER32_INITIAL_VALUE }) (d := dq) (q := q) st.gzindex B (.inl hs) hp0
       (by omega) rfl rfl
     refine Sat.mono (flush_ret_psi R' (B'.mono (by omega))) fun _ H' ⟨q1, q2, q3⟩ => ⟨q1, ?_, fun st' h' => ?_⟩
     · rw [q2, aIn_of (SH_streams _ _ _ _ _ _), aIn_of (SH_streams _ _ _ _ _ _)]
@@ -134,9 +137,9 @@ theorem gzip_psi {h H : Heap} {i b : Nat} {st : DeflateState} {f : Int32} {P e :
     (B : Bud f P e 0 h i b H) :
     Sat H (headersGzip (some b) (some i)) (fun _ H' => Bud f P e 0 h i b H' ∧ aIn H' i = aIn H i ∧
       ∀ st', H'.dstate b = some st' → st'.status = BUSY_STATE) := by
-  obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, e, c⟩ := R.live
+  obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, eH, c⟩ := R.live
   obtain rfl := Option.some.inj (hst.symm.trans hst1)
-  rw [← e] at R B ⊢
+  rw [← eH] at R B ⊢
   obtain ⟨pbo, hpb, hpd, h0, hpo, l1, -, l3⟩ := hdr_facts c hd hp0 (by rw [hs]; decide) (by rw [hs]; decide)
   have e0 : ({ st with pending := 0 } : DeflateState) = st := by rw [← hp0]
   rw [gzip_eq]

@@ -181,6 +181,16 @@ theorem psiS_wrap (f : Int32) (st : DeflateState) (hw : 0 < st.wrap.toInt) (w : 
   have e2 : owed { st with wrap := w } = owed st := rfl
   rw [e1, e2]; omega
 
+/-- `q` bytes pending from none: `q` more. -/
+theorem psiS_pend (f : Int32) (st : DeflateState) (q : UInt32) (hp : st.pending = 0) :
+    psiS f { st with pending := q } = psiS f st + q.toNat := by
+  have x1 : content { st with pending := q } = content st := rfl
+  have x2 : quickB f { st with pending := q } = quickB f st := rfl
+  have x3 : owed { st with pending := q } = q.toNat + (st.bi_valid.toInt.toNat + 7) / 8 := rfl
+  have x4 : owed st = st.pending.toNat + (st.bi_valid.toInt.toNat + 7) / 8 := rfl
+  have x5 : st.pending.toNat = 0 := by rw [hp]; rfl
+  unfold psiS; rw [x1, x2, x3]; omega
+
 /-- A change of the bytes owed only (`flush_pending`, the trailer bytes): `psiS` moves with `owed`. -/
 theorem psiS_owed (f : Int32) {st st' : DeflateState}
     (e : st' = { st with
