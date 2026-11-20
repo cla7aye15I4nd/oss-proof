@@ -282,7 +282,7 @@ theorem gzclose_r_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz
       · exact (closeH_bytes h s cp b s.strm x).2.1 (Or.inr h1)
       · exact (closeH_bytes h s cp b s.strm x).2.1 (Or.inl h1)
       · exact (closeH_bytes h s cp b s.strm x).2.2.2 sh.msg h1
-      · exact (closeH_bytes h s cp b s.strm x).2.2.1 (sh.dead hsz x h1)
+      · exact (closeH_bytes h s cp b s.strm x).2.2.1 (sh.dead hsz x h1).1
   · have R := sh.read hr
     obtain ⟨c, base, z0, hb, hi, hz0, -, -, -⟩ := R.bufs hsz
     rw [hz] at hz0; cases hz0
@@ -318,7 +318,7 @@ theorem gzclose_r_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz
       refine ⟨?_, sh.msg.mem⟩
       rcases sh.msg.msg with e | hm
       · exact Or.inl e
-      · refine Or.inr (ownStr_keep hm fun x hx => hH2b x (fun e => hsbm (e ▸ hx)) (fun e => hcm (e ▸ hx)))
+      · refine Or.inr (ownBlk_keep hm fun x hx => hH2b x (fun e => hsbm (e ▸ hx)) (fun e => hcm (e ▸ hx)))
     have hdp2 : H2.bytes cp = some dp := by rw [hH2b cp (Ne.symm hsbcp) (Ne.symm hccp)]; exact hdp'
     have hz2 : H2.streams (bfSt s).strm = some { z with state := none } := by simp [H2, H1, freeH, bfSt]
     obtain ⟨r, e⟩ := closeTail_ok hs2 hm2 hmb hcp hdp2 hcpb hcpm hz2

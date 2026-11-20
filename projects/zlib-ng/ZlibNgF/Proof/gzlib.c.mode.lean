@@ -74,8 +74,13 @@ structure HK (h h' : Heap) (s : GzState) (L : List Nat) : Prop where
   dal : ∀ c ∈ L, h'.dallocs c = h.dallocs c
   base : h'.baseAddr = h.baseAddr
   next : h.nextBlk ≤ h'.nextBlk
-  dead : s.size = 0 → ∀ c ∈ blkOf s.buffers ++ stBlk h s, h.bytes c = none → h'.bytes c = none
+  dead : s.size = 0 → ∀ c ∈ blkOf s.buffers ++ stBlk h s, h.bytes c = none → c < h.nextBlk → h'.bytes c = none
   saved : ∀ c ∈ L, h'.savedPtrs c = h.savedPtrs c
+
+theorem ownBlk_keep {h h' : Heap} {p : Ival BPtr} (hp : OwnedBlk h p) (hb : ∀ c ∈ blkOf p, h'.bytes c = h.bytes c) :
+    OwnedBlk h' p := by
+  obtain ⟨c, d, rfl, hd⟩ := hp
+  exact ⟨c, d, rfl, by rw [hb c (by simp [blkOf])]; exact hd⟩
 
 theorem ownStr_keep {h h' : Heap} {p : Ival BPtr} (hp : OwnedStr h p) (hb : ∀ c ∈ blkOf p, h'.bytes c = h.bytes c) :
     OwnedStr h' p := by
@@ -104,7 +109,7 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
     ⟨?_, sh.msg.mem⟩, fun hr => ?_, fun hw => ?_, fun hz c hc => ?_⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
-    · exact Or.inr (ownStr_keep hm fun c hc => hk.bytes c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inr hc)))
+    · exact Or.inr (ownBlk_keep hm fun c hc => hk.bytes c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inr hc)))
   · have R := sh.read hr
     refine ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have⟩
     obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg⟩ := R.bufs hsz
@@ -145,7 +150,8 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
       ⟨s.strm, z, z, sb, st, rfl, hz, by rw [hk.strm]; exact hz, hsb, hst0, rfl, hk.bytes sb hsbL, hk.dst sb hsbL,
         hk.dal sb hsbL, fun k g hk' _ => absurd hk' (hnh sb st k hsb hst0),
         hk.base, hk.next⟩
-  · rw [hst] at hc; exact hk.dead hz c hc (sh.dead hz c hc)
+  · rw [hst] at hc
+    exact ⟨hk.dead hz c hc (sh.dead hz c hc).1 (sh.dead hz c hc).2, Nat.lt_of_lt_of_le (sh.dead hz c hc).2 hk.next⟩
 
 /-! ## Steps of each kind -/
 
@@ -335,14 +341,13 @@ def errSt (s : GzState) (e : Int32) : GzState :=
 theorem gz_error_null {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) (hm : GzMsg h s)
     (hbc : ∀ c o, s.msg = .val (.ref (.heap c) o) → c ≠ b) (e : Int32) : GzRun (gz_error (some b) e .null) w h () { w with gzs := upd w.gzs b (some (errSt s e)) } (freeMsg h s) := by
   obtain ⟨db, hdb⟩ := gz_live hs
-  rcases hm.msg with hn | ⟨c, n, hc, r, off, d, e1, e2, -⟩
+  rcases hm.msg with hn | ⟨c, d, hc, e2⟩
   · by_cases he : e ≠ ZlibNg.Inflate.Z_OK ∧ e ≠ ZlibNg.Inflate.Z_BUF_ERROR
     · simp [GzRun, C.run, StateT.run, gz_error, ldGz_app hs, wrG_app hs, hn, freeMsg, errSt, he,
         Ival.get, liftM, monadLift, MonadLift.monadLift, wrG_upd hdb, ldGz_upd hdb, rdG_upd hdb]
     · simp [GzRun, C.run, StateT.run, gz_error, ldGz_app hs, wrG_app hs, hn, freeMsg, errSt, he,
         Ival.get, liftM, monadLift, MonadLift.monadLift, wrG_upd hdb, ldGz_upd hdb, rdG_upd hdb]
-  · cases e1
-    have hd : h.bytes c = some d := e2
+  · have hd : h.bytes c = some d := e2
     by_cases hme : s.err = ZlibNg.Inflate.Z_MEM_ERROR
     · exact absurd (hm.mem hme) (by rw [hc]; simp)
     have hcb := hbc c 0 hc
@@ -520,7 +525,7 @@ theorem clear_keep {h : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hn : (
   have hk : HK h (freeMsg h s) { s with eof := e1, past := e2, err := ZlibNg.Inflate.Z_OK, msg := .val .null }
       (ownL h b { s with eof := e1, past := e2, err := ZlibNg.Inflate.Z_OK, msg := .val .null }) := by
     refine ⟨by rw [freeMsg_streams], fun c hc => freeMsg_bytes h s c (hnot c hc), ?_, ?_, ?_, ?_, ?_, ?_,
-      fun _ c _ hc0 => freeMsg_none h s c hc0, fun c hc => freeMsg_saved h s c (hnot c hc)⟩ <;>
+      fun _ c _ hc0 _ => freeMsg_none h s c hc0, fun c hc => freeMsg_saved h s c (hnot c hc)⟩ <;>
       (try intro c _) <;> (unfold freeMsg; split <;> (try split) <;> first | rfl | exact Nat.le_refl _)
   obtain ⟨sh2, e2'⟩ := shape_keep sh1 hk
   refine ⟨sh2, ?_⟩
@@ -733,9 +738,9 @@ theorem keeps_outside {S : World → Heap → World → Heap → GzPtr → Prop}
     have hk : HK h h' s (ownL h b s) := by
       rcases hh with e | ⟨a, e⟩ <;> rw [e]
       · exact ⟨rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, Nat.le_refl _,
-          fun _ _ _ e => e, fun _ _ => rfl⟩
+          fun _ _ _ e _ => e, fun _ _ => rfl⟩
       · exact ⟨rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, Nat.le_refl _,
-          fun _ _ _ e => e, fun _ _ => rfl⟩
+          fun _ _ _ e _ => e, fun _ _ => rfl⟩
     obtain ⟨sh', e⟩ := shape_keep sh hk
     have hgb : ∀ s', w'.gzs b = some s' → s'.strm = s.strm := by
       intro s' e'
@@ -969,7 +974,7 @@ theorem keeps_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
   cases e0; rw [hs] at hs0; cases hs0
   have hk : HK h h' s (ownL h b s) := by
     refine ⟨hstr, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_, hba, hnb,
-      fun _ c hc hc0 => by rw [(hobj c (dead_owned hs c hc)).1]; exact hc0,
+      fun _ c hc hc0 _ => by rw [(hobj c (dead_owned hs c hc)).1]; exact hc0,
       fun c hc => (hobj c (ownL_owned hs c hc)).2.2.2.2.2⟩
     · exact (hobj c (ownL_owned hs c hc)).1
     · exact (hobj c (ownL_owned hs c hc)).2.1

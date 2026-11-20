@@ -12,7 +12,7 @@ grouped in small structures (`GzPos`, `GzBufs`, `GzRead`, `GzWrite`, `GzMsg`) be
 so that a proof about one function opens only the clauses it needs.
 
 * the mode is `GZ_READ` or `GZ_WRITE` (`gz_open` turns `GZ_APPEND` into `GZ_WRITE`);
-* `path` is an owned heap string (`malloc` in `gz_open`), `msg` is `NULL` or an owned heap string, and `NULL` when
+* `path` is an owned heap string (`malloc` in `gz_open`), `msg` is `NULL` or an owned heap block, and `NULL` when
   `err` is `Z_MEM_ERROR` (`gz_error` does not allocate for that error and does not free on it);
 * the embedded `z_stream` is an entry of `Heap.streams`;
 * `want` is in `[8, 2^30]` (`gzbuffer`, `GZBUFSIZE`); `size` is 0 (no buffers yet) or `want`, and then the buffers
@@ -39,6 +39,10 @@ open C ZlibNgF.Spec ZlibNg.Gz
 /-- An owned heap string: offset 0 of a live heap block that holds a C string. -/
 def OwnedStr (h : Heap) (p : Ival BPtr) : Prop :=
   ∃ c n, p = .val (.ref (.heap c) 0) ∧ CStringLen h (.ref (.heap c) 0) n
+
+/-- An owned heap block: offset 0 of a live heap block. -/
+def OwnedBlk (h : Heap) (p : Ival BPtr) : Prop :=
+  ∃ c d, p = .val (.ref (.heap c) 0) ∧ h.bytes c = some d
 
 /-- The sizes of the two buffers of `gz_buffer_alloc` for the mode and `direct` of `s`. -/
 def inSize (s : GzState) : Nat := if s.mode = GZ_WRITE then 2 * s.want.toNat else s.want.toNat
@@ -88,7 +92,7 @@ structure GzWrite (h : Heap) (s : GzState) : Prop where
 
 /-- The error message. -/
 structure GzMsg (h : Heap) (s : GzState) : Prop where
-  msg : s.msg = .val .null ∨ OwnedStr h s.msg
+  msg : s.msg = .val .null ∨ OwnedBlk h s.msg
   mem : s.err = ZlibNg.Inflate.Z_MEM_ERROR → s.msg = .val .null
 
 /-- The block of the inflate or deflate state of the embedded stream of `s`, if any. -/
@@ -111,7 +115,7 @@ structure GzShape (h : Heap) (s : GzState) : Prop where
   read : s.mode = GZ_READ → GzRead h s
   write : s.mode = GZ_WRITE → GzWrite h s
   /-- without buffers, no buffer block and no stream state is live (none made yet, or freed) -/
-  dead : s.size = 0 → ∀ c ∈ blkOf s.buffers ++ stBlk h s, h.bytes c = none
+  dead : s.size = 0 → ∀ c ∈ blkOf s.buffers ++ stBlk h s, h.bytes c = none ∧ c < h.nextBlk
 
 /-- The blocks the file `b` owns and frees: its state, `path`, `msg` and, once the buffers exist, the buffers and the
 block of the stream's state. -/

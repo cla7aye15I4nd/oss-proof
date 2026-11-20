@@ -36,7 +36,7 @@ theorem shape_avail0 {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzSh
     fun e => absurd (hr.symm.trans e) read_ne_write, fun hz c hc => sh.dead hz c (by rw [hst] at hc; exact hc)⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
-    · exact Or.inr (ownStr_keep hm fun _ _ => rfl)
+    · exact Or.inr (ownBlk_keep hm fun _ _ => rfl)
   · obtain ⟨c, base, z0, hb, hi, hz0, hhv, -, hreg⟩ := R.bufs hsz
     rw [hz] at hz0; cases hz0
     obtain ⟨d, hd, hds⟩ := hb.fits

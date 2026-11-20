@@ -147,10 +147,11 @@ theorem post_drop {w : World} {h HS : Heap} {r : GzPtr} {W : World} {H : Heap} (
       sh.strm, sh.want_lo, sh.want_hi, sh.size, sh.pos, ⟨Or.inl hmsg, fun _ => hmsg⟩,
       fun hr => ⟨(sh.read hr).how, fun e => absurd e hsz0, (sh.read hr).nobuf, (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd e hsz0⟩,
       fun hz c2 hc2 => ?_⟩
+    refine ⟨?_, (sh.dead hz c2 hc2).2⟩
     show (upd H.bytes h.nextBlk none) c2 = none
     by_cases e : c2 = h.nextBlk
     · rw [e]; simp
-    · rw [upd_ne _ _ _ _ e]; exact sh.dead hz c2 hc2
+    · rw [upd_ne _ _ _ _ e]; exact (sh.dead hz c2 hc2).1
 
 theorem gzdopen_spec {w : World} {h : Heap} (hwf : GzWF w h) (fd : Int32) (mode : BPtr)
     (hm : mode = .null ∨ CStr h mode) : GSat w h (gzdopen fd mode) (OpenPost w h) := by
