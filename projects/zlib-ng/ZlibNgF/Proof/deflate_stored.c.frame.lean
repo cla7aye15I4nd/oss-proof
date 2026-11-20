@@ -25,6 +25,7 @@ open ZlibNgF.Proof.InflateInv (upd_upd)
 open ZlibNgF.Proof.FlushBlock (dframe_trans dframe_wmono dframe_nil)
 open ZlibNgF.Proof.FillIO (streamIO_in)
 open ZlibNgF.Proof.WinInv (InTail InTail.trans)
+open ZlibNgF.Proof.DeflatePsi (psiS PsiAcc PsiAcc.refl PsiAcc.mono G G_mul_split content quickB owed span)
 
 /-- The fields that `deflate_stored` reads back from its entry state: those of `StratKeeps`, `window` and `w_size`
 (read once into locals), `lookahead` (never written at level 0), and `pending_buf_size`. -/
@@ -38,8 +39,9 @@ theorem SK.trans {a b c : DeflateState} (h1 : SK a b) (h2 : SK b c) : SK a c :=
 
 theorem SK.refl (a : DeflateState) : SK a a := ⟨StratKeeps.refl _, rfl, rfl, rfl, rfl⟩
 
-/-- The frame of a `deflate_stored` call (see the module comment). -/
-structure SF (h : Heap) (i b : Nat) (H : Heap) : Prop where
+/-- The frame of a `deflate_stored` call (see the module comment), with the potential spent within `e`
+(`DeflatePsi.PsiAcc`). -/
+structure SF (e : Nat) (h : Heap) (i b : Nat) (H : Heap) : Prop where
   inv : DInv H (some i)
   io : DStreamIO H (some i)
   set : DBufsSet H (some i)
@@ -51,6 +53,95 @@ structure SF (h : Heap) (i b : Nat) (H : Heap) : Prop where
   inp : ∃ z0 z, h.streams i = some z0 ∧ H.streams i = some z ∧ z.avail_in.toNat ≤ z0.avail_in.toNat ∧ InTail z0 z
   keeps : ∃ st0, h.dstate b = some st0 ∧ st0.level = 0 ∧ st0.lookahead = 0 ∧ ∀ st, H.dstate b = some st → SK st0 st
   st : ∀ st, H.dstate b = some st → 0 ≤ st.block_start ∧ st.sym_next = 0 ∧ st.bi_valid < 8
+  psi : PsiAcc e h H i b
+
+theorem SF.mono {e e' : Nat} {h H : Heap} {i b : Nat} (F : SF e h i b H) (he : e ≤ e') : SF e' h i b H :=
+  { F with psi := F.psi.mono he }
+
+/-- `PsiAcc` over one step from `H` to `H'` (stream record `z` to `z'`, state `st` to `st'`) whose `psiS` change, with
+the allowance `e` before, is paid within `e'` after. -/
+theorem psiAcc_next {e e' : Nat} {h H H' : Heap} {i b : Nat} {z z' : ZStream} {st st' : DeflateState}
+    (A : PsiAcc e h H i b)
+    (hmono : ∀ z0, h.streams i = some z0 → z.avail_out.toNat ≤ z0.avail_out.toNat ∧
+      z.avail_in.toNat ≤ z0.avail_in.toNat)
+    (hz : H.streams i = some z) (hst : H.dstate b = some st) (hz' : H'.streams i = some z')
+    (hst' : H'.dstate b = some st') (ho : z'.avail_out.toNat ≤ z.avail_out.toNat)
+    (hi : z'.avail_in.toNat ≤ z.avail_in.toNat)
+    (S : ∀ f, psiS f st' + (z.avail_out.toNat - z'.avail_out.toNat) + e ≤
+      psiS f st + G * (z.avail_in.toNat - z'.avail_in.toNat) + e') : PsiAcc e' h H' i b := by
+  intro z0 z2 st0 st2 h0 h2 s0 s2 f
+  rw [hz'] at h2; obtain rfl := Option.some.inj h2
+  rw [hst'] at s2; obtain rfl := Option.some.inj s2
+  have a := A z0 z st0 st h0 hz s0 hst f
+  obtain ⟨m1, m2⟩ := hmono z0 h0
+  have q := S f
+  rw [G_mul_split _ _ _ m2 hi]
+  generalize G * (z0.avail_in.toNat - z.avail_in.toNat) = X at *
+  generalize G * (z.avail_in.toNat - z'.avail_in.toNat) = Y at *
+  omega
+
+/-- `psiS` of a state that differs from `st` only in fields other than `lookahead`, `sym_next`, `match_available`,
+`status`, `wrap` and `block_open`: it changes with the window span (weight 6) and `owed` only. -/
+theorem psiS_parts {f : Int32} {st st' : DeflateState} (e1 : st'.lookahead = st.lookahead)
+    (e4 : st'.sym_next = st.sym_next) (e5 : st'.match_available = st.match_available) (e6 : st'.status = st.status)
+    (e7 : st'.wrap = st.wrap) (e8 : st'.block_open = st.block_open) :
+    psiS f st' + 6 * span st + owed st = psiS f st + 6 * span st' + owed st' := by
+  unfold psiS content quickB
+  rw [e1, e4, e5, e6, e7, e8]
+  omega
+
+/-- `psiS_parts` as the premise of `sf_next`. -/
+theorem psiS_pay {f : Int32} {st st' : DeflateState} {L a e e' : Nat} (e1 : st'.lookahead = st.lookahead)
+    (e4 : st'.sym_next = st.sym_next) (e5 : st'.match_available = st.match_available) (e6 : st'.status = st.status)
+    (e7 : st'.wrap = st.wrap) (e8 : st'.block_open = st.block_open)
+    (hq : 6 * span st' + owed st' + L + e ≤ 6 * span st + owed st + a + e') :
+    psiS f st' + L + e ≤ psiS f st + a + e' := by
+  have := psiS_parts (f := f) e1 e4 e5 e6 e7 e8
+  omega
+
+/-- The window span of a state with `block_start <= strstart`. -/
+theorem span_eq {st : DeflateState} (h : st.block_start.toInt ≤ st.strstart.toNat) :
+    (span st : Int) = st.strstart.toNat - st.block_start.toInt := by
+  unfold span; omega
+
+theorem G_pay (n : Nat) : 6 * n ≤ G * n := Nat.mul_le_mul_right n (by decide)
+
+theorem sat_and {α : Type} {H : Heap} {m : M α} {P Q : α → Heap → Prop} (a : Sat H m P) (c : Sat H m Q) :
+    Sat H m (fun r H' => P r H' ∧ Q r H') := by
+  obtain ⟨r, H', e, p⟩ := a
+  obtain ⟨r2, H2, e2, q⟩ := c
+  rw [e] at e2
+  injection e2 with e3
+  injection e3 with e4 e5
+  subst e4 e5
+  exact ⟨r, H', e, p, q⟩
+
+/-- `flush_pending` on an `SH` heap (`DeflateFlush.flush_SH`), with `owed` lowered by the bytes copied
+(`TreesOwed.flush_owed_SH`). -/
+theorem flushO_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    {ob oo : Nat} {ad : Array UInt8} {pbo poo lb : Nat}
+    (hzb : z.state = some b) (hob : ob ≠ b) (had : H.bytes ob = some ad)
+    (hno : z.next_out = .ref (.heap ob) oo) (hoo : oo + z.avail_out.toNat ≤ ad.size)
+    (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (hpo : st.pending_out = .val (.ref (.heap b) poo))
+    (hle : pbo ≤ poo) (hroom : poo - pbo + st.pending.toNat + st.bi_valid.toInt.toNat / 8 ≤ 4 * lb + 9)
+    (hd : pbo + 4 * lb + 64 ≤ d.size) (hlb : lb ≤ 32768)
+    (h0 : 0 ≤ st.bi_valid.toInt) (h64 : st.bi_valid.toInt < 64)
+    (hpout : st.pending = 0 → st.pending_out = st.pending_buf) :
+    Sat (SH H i z b st d) (ZlibNg.DeflateP.flush_pending (some i))
+      (fun _ H' => FP H i z b st d ob oo ad pbo poo H' ∧ ∀ z' st', H'.streams i = some z' → H'.dstate b = some st' →
+        owed st' + (z.avail_out.toNat - z'.avail_out.toNat) = owed st) := by
+  refine Sat.mono (sat_and (flush_SH hzb hob had hno hoo hpb hpo hle hroom hd hlb h0 h64 hpout)
+    (ZlibNgF.Proof.TreesOwed.flush_owed_SH hzb hob had hno hoo hpb hpo hle hroom hd hlb h0 h64)) ?_
+  rintro _ H' ⟨q, len, z2, st2, d1, X, rfl, ho, ha⟩
+  refine ⟨q, fun z' st' h1 h2 => ?_⟩
+  have e1 : (OH H i z2 b st2 d1 ob X).streams i = some z2 := by simp [OH]
+  rw [e1] at h1; obtain rfl := Option.some.inj h1
+  rw [OH_dstate hob] at h2; obtain rfl := Option.some.inj h2
+  omega
+
+/-- `owed` with no pending bytes and fewer than 8 bits: 0 or 1. -/
+theorem owed_p0 {st : DeflateState} (hp : st.pending = 0) : owed st = (st.bi_valid.toInt.toNat + 7) / 8 := by
+  unfold owed; rw [hp]; simp
 
 /-- The clauses of `DCore` over a heap whose block `b` holds other bytes of the same size, for a stream record with
 the same allocator, with no symbols. -/
@@ -83,10 +174,11 @@ theorem bytes_SH_setB {H : Heap} {i : Nat} {z : ZStream} {b ob : Nat} {st : Defl
   · subst e; simp
   · simp only [e, ↓reduceIte]; exact upd_ne _ _ _ _ e
 
-/-- `SF` after one change (see the module comment). -/
-theorem sf_next {h H : Heap} {i b ob oo L : Nat} {z z' : ZStream} {st st' : DeflateState}
+/-- `SF` after one change (see the module comment); `hψ`: the change of `psiS` with the allowance `e` before is paid
+within `e'` after. -/
+theorem sf_next {e e' : Nat} {h H : Heap} {i b ob oo L : Nat} {z z' : ZStream} {st st' : DeflateState}
     {d' X X' : Array UInt8}
-    (F : SF h i b H) (hz : H.streams i = some z) (hst : H.dstate b = some st)
+    (F : SF e h i b H) (hz : H.streams i = some z) (hst : H.dstate b = some st)
     (hno : z.next_out = .ref (.heap ob) oo) (hX : H.bytes ob = some X)
     (hXs : X'.size = X.size) (hXo : ∀ j, (j < oo ∨ oo + L ≤ j) → X'[j]! = X[j]!)
     (hL : L ≤ z.avail_out.toNat)
@@ -102,8 +194,9 @@ theorem sf_next {h H : Heap} {i b ob oo L : Nat} {z z' : ZStream} {st st' : Defl
     (hno' : z'.next_out = .ref (.heap ob) (oo + L)) (hav : z'.avail_out.toNat = z.avail_out.toNat - L)
     (hc : ∀ al, H.dallocsOf b = some al → DCore H (some i) z b (dview st) al →
       DCore (SH (setB H ob X') i z' b st' d') (some i) z' b (dview st') al)
-    (hk : SK st st') (hS : 0 ≤ st'.block_start ∧ st'.sym_next = 0 ∧ st'.bi_valid < 8) :
-    SF h i b (SH (setB H ob X') i z' b st' d') := by
+    (hk : SK st st') (hS : 0 ≤ st'.block_start ∧ st'.sym_next = 0 ∧ st'.bi_valid < 8)
+    (hψ : ∀ f, psiS f st' + L + e ≤ psiS f st + G * (z.avail_in.toNat - z'.avail_in.toNat) + e') :
+    SF e' h i b (SH (setB H ob X') i z' b st' d') := by
   obtain ⟨z1, hz1, hb⟩ := F.blk
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain ⟨i', z2, b2, st2, al, e2, hz2, hb2, hst2, hal, c⟩ := F.inv
@@ -158,7 +251,7 @@ theorem sf_next {h H : Heap} {i b ob oo L : Nat} {z z' : ZStream} {st st' : Defl
   refine ⟨⟨i, z', b, st', al, rfl, SH_streams _ _ _ _ _ _, by rw [hzs]; exact hb, SH_dstate _ _ _ _ _ _, hal',
       hc al hal c⟩,
     streamIO_in F.io hz hb hst hno hL O (SH_streams _ _ _ _ _ _) hzs hai ht hrd hno' hav (SH_dstate _ _ _ _ _ _)
-      hk.1.2.2.1, ?_, F.crc, ⟨z', SH_streams _ _ _ _ _ _, hzs.trans hb⟩, F.blk0, ?_, ?_, ?_, ?_, fun st2 h2 => ?_⟩
+      hk.1.2.2.1, ?_, F.crc, ⟨z', SH_streams _ _ _ _ _ _, hzs.trans hb⟩, F.blk0, ?_, ?_, ?_, ?_, fun st2 h2 => ?_, ?_⟩
   · obtain ⟨z5, ⟨i5, e5, hz5⟩, hnn, hni⟩ := F.set
     obtain rfl : i = i5 := Option.some.inj e5
     obtain rfl : z = z5 := Option.some.inj (hz.symm.trans hz5)
@@ -187,12 +280,22 @@ theorem sf_next {h H : Heap} {i b ob oo L : Nat} {z z' : ZStream} {st st' : Defl
     exact SK.trans (hw st hst) hk
   · obtain rfl : st' = st2 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
     exact hS
+  · refine psiAcc_next F.psi (fun z5 h5 => ?_) hz hst (SH_streams _ _ _ _ _ _) (SH_dstate _ _ _ _ _ _)
+      (by omega) hai fun f => ?_
+    · obtain rfl := Option.some.inj (h5.symm.trans h0)
+      obtain ⟨z6, z7, h6, h7, l7, -⟩ := F.inp
+      obtain rfl := Option.some.inj (h6.symm.trans h0)
+      obtain rfl := Option.some.inj (h7.symm.trans hz)
+      exact ⟨by omega, l7⟩
+    · have := hψ f
+      rw [show z.avail_out.toNat - z'.avail_out.toNat = L by omega]
+      exact this
 
 /-- The entry of `deflate_stored`: `SF` of the entry heap, with no pending bytes. -/
 theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : StratPre h (some i) flush)
     (hz : h.streams i = some z) (hb : z.state = some b)
     (hE : ∀ b' st, DStateIs h (some i) b' st → st.level = 0) :
-    ∃ st, h.dstate b = some st ∧ st.pending = 0 ∧ SF h i b h := by
+    ∃ st, h.dstate b = some st ∧ st.pending = 0 ∧ SF 0 h i b h := by
   obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, -, hs1, -⟩ := P
   obtain rfl : i = i1 := Option.some.inj e1
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
@@ -202,7 +305,8 @@ theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
   obtain ⟨hbs, hsn, hla⟩ := hl0 hlv
   refine ⟨st1, hst1, hp0, ⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     ⟨z, z, hz, hz, Nat.le_refl _, Or.inl ⟨rfl, rfl⟩⟩,
-    ⟨st1, hst1, hlv, hla, fun st h1 => by rw [hst1] at h1; cases h1; exact SK.refl _⟩, fun st h1 => ?_⟩⟩
+    ⟨st1, hst1, hlv, hla, fun st h1 => by rw [hst1] at h1; cases h1; exact SK.refl _⟩, fun st h1 => ?_,
+    PsiAcc.refl h i b⟩⟩
   · have hio0 := hio
     obtain ⟨z2, b2, hp, ⟨i2, e2, hz2⟩, hb2, -, -, -, hout, hnb, -⟩ := hio0
     obtain rfl : i = i2 := Option.some.inj e2
@@ -215,15 +319,25 @@ theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
   · rw [hst1] at h1; cases h1
     exact ⟨hbs, hsn, Int32.not_le.mp fun e8 => absurd (h8c e8).1 (by rw [hlv]; decide)⟩
 
-/-- `StratPost` from `SF`, with no pending bytes after `block_done` / `finish_done`. -/
-theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : BlockState)
+/-- `StratPost` from `SF` with an allowance within `finSlack bs`, with no pending bytes after `block_done` /
+`finish_done`. -/
+theorem sf_post {e : Nat} {h H : Heap} {i b : Nat} (F : SF e h i b H) (flush : Int32) (bs : BlockState)
     (hB : bs = .need_more ∨ bs = .block_done → CF H i)
     (hF : bs = .finish_started ∨ bs = .finish_done → flush = Z_FINISH)
     (hP : flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → ∀ z z', StreamAt h (some i) z →
       StreamAt H (some i) z' → z.avail_out ≠ 0 → z'.avail_in < z.avail_in ∨ z'.avail_out < z.avail_out)
     (hp : bs = .block_done ∨ bs = .finish_done → ∀ st, H.dstate b = some st → st.pending = 0)
-    (hψ : PsiPost h (some i) bs H) :
+    (he : e ≤ finSlack bs := by slack_tac) :
     StratPost h (some i) flush bs H := by
+  have hψ : PsiPost h (some i) bs H := by
+    intro i' b' e' hsb
+    obtain rfl := Option.some.inj e'
+    obtain ⟨z0, hz0, hb0⟩ := F.blk0
+    obtain ⟨z1, ⟨i1, e1, hz1⟩, hb1⟩ := hsb
+    obtain rfl := Option.some.inj e1
+    obtain rfl : z0 = z1 := Option.some.inj (hz0.symm.trans hz1)
+    obtain rfl : b = b' := Option.some.inj (hb0.symm.trans hb1)
+    exact F.psi.mono he
   obtain ⟨z, hz, hb⟩ := F.blk
   obtain ⟨i', z', b', st, al, e, hz', hb', hst, -, c⟩ := F.inv
   obtain rfl : i = i' := Option.some.inj e
@@ -295,7 +409,7 @@ structure SFX (H : Heap) (i b wo : Nat) (z : ZStream) (st : DeflateState) (d : A
   inset : z.avail_in ≠ 0 → z.next_in ≠ .null
   core : ∃ al, H.dallocsOf b = some al ∧ DCore H (some i) z b (dview st) al
 
-theorem SF.facts {h H : Heap} {i b wo : Nat} (F : SF h i b H)
+theorem SF.facts {e : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) :
     ∃ z st d ob oo X pbo, SFX H i b wo z st d ob oo X pbo := by
   obtain ⟨z, hz, hb⟩ := F.blk
