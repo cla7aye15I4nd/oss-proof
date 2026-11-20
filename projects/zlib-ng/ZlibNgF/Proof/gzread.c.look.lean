@@ -183,13 +183,13 @@ theorem gz_buffer_alloc_ok {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : 
       fun i => Junk.of (h.garbage h.nalloc i.val)) := by rw [← hH]; simp [alH]
   have hsA : w.gz H b = some s := by
     unfold World.gz at hs ⊢; rw [hdA]; rw [hd] at hs; exact hs
-  have hadd : Ptr.add (.ref (.heap h.nextBlk) o : BPtr) (Int.ofNat s.want.toNat) H =
+  have hadd : Ptr.add (.ref (.heap h.nextBlk) o : BPtr) (s.want.toNat : Int) H =
       .ok (.ref (.heap h.nextBlk) (o + s.want.toNat), H) := by
     have hg : Space.get H (BRef.heap h.nextBlk) = some (Array.ofFn (n := 8 + 3 * s.want.toNat + 64)
         fun i => Junk.of (h.garbage h.nalloc i.val)) := hcA
-    have := Inftrees.add_ok (r := BRef.heap h.nextBlk) (off := o) (k := Int.ofNat s.want.toNat) (h := H) hg
+    have := Inftrees.add_ok (r := BRef.heap h.nextBlk) (off := o) (k := (s.want.toNat : Int)) (h := H) hg
       (by rw [Array.size_ofFn]; omega) (by omega) (by rw [Array.size_ofFn]; omega)
-    rw [this]; congr 3; simp
+    rw [this]; congr 3; omega
   have hm2 : ¬ (s.want * 2 = 0) := by
     intro e; have := congrArg UInt32.toNat e; rw [UInt32.toNat_mul] at this; simp at this; omega
   simp [gz_buffer_alloc, rdG_app' hs, hr, GZ_READ, GZ_WRITE, hal, wrG_app hsA, ldGz_upd hdA, wrG_upd hdA,
