@@ -409,7 +409,7 @@ theorem LI.afterUW {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
       rfl ws wh wn hws W with }⟩,
     Frame.trans li.frame (Frame.mono (G3_frame ..) (fun _ m => m) (fun _ m => m) (fun _ m => nomatch m)
       (fun _ m => nomatch m)), ?_, by simp [G3], li.hb, G3_istate .., li.head, ?_, li.inAt, li.outAt, li.bits, li.inn,
-      li.outO, li.retB, li.sacc, li.msgK⟩
+      li.outO, li.retB, li.sacc, li.msgK, li.fr.mono rfl id⟩
   · simp only [Heap.iallocsOf, G3, upd_same]
     simpa [Heap.iallocsOf, hd] using hal
   · refine li.sz.trans ⟨fun c hc d0 hd0 => ⟨d0, ?_, rfl⟩, rfl⟩
@@ -464,11 +464,14 @@ exact accounting of the input and output positions (`IoAcc`, after `RESTORE()`).
 def LeaveRes (E : Env) (v : Int32) (H : Heap) : Prop :=
   (v = Z_OK ∨ v = Z_STREAM_END ∨ v = Z_DATA_ERROR ∨ v = Z_BUF_ERROR) ∧ IoAcc E H
 
+/-- What a return of `Z_STREAM_END` gives: a fresh call consumed input. -/
+def EndIn (E : Env) (H : Heap) : Prop := Fresh E → ∃ z, H.streams E.i = some z ∧ z.avail_in < E.A0
+
 theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (hw : Why E l) :
     SatX H l (infLeave E.c) (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → Prog E H') ∧
       (v = Z_BUF_ERROR → E.flush ≠ Z_FINISH → E.flush ≠ Z_BLOCK → E.flush ≠ Z_TREES → BufOut E H') ∧
-      LeaveRes E v H') ∧ Fin E H') := by
+      LeaveRes E v H' ∧ (v = Z_STREAM_END → EndIn E H')) ∧ Fin E H') := by
   unfold infLeave
   refine SatX.bind (SatX.mono li.restoreX ?_)
   rintro r l1 H2 ⟨hr, hl1, li2⟩
@@ -483,22 +486,23 @@ theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S :
   extract_lets jpr jpb jp
   have hjpr : ∀ (u : Unit) (l' : IL) (H' : Heap), Fin E H' → (l'.ret = Z_OK → Prog E H') →
       (l'.ret = Z_BUF_ERROR → E.flush ≠ Z_FINISH → E.flush ≠ Z_BLOCK → E.flush ≠ Z_TREES → BufOut E H') →
-      LeaveRes E l'.ret H' → SatX H' l' (jpr u)
+      LeaveRes E l'.ret H' → (l'.ret = Z_STREAM_END → EndIn E H') → SatX H' l' (jpr u)
       (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → Prog E H') ∧
         (v = Z_BUF_ERROR → E.flush ≠ Z_FINISH → E.flush ≠ Z_BLOCK → E.flush ≠ Z_TREES → BufOut E H') ∧
-        LeaveRes E v H') ∧ Fin E H') := by
-    intro u l' H' hf hp hb hres
+        LeaveRes E v H' ∧ (v = Z_STREAM_END → EndIn E H')) ∧ Fin E H') := by
+    intro u l' H' hf hp hb hres hend
     simp only [jpr]
-    exact SatX.bind (SatX.get (SatX.pure ⟨⟨_, rfl, hp, hb, hres⟩, hf⟩))
+    exact SatX.bind (SatX.get (SatX.pure ⟨⟨_, rfl, hp, hb, hres, hend⟩, hf⟩))
   have hjpb : ∀ (u : Unit) (l' : IL) (H' : Heap), Fin E H' →
       (E.flush ≠ Z_FINISH → E.flush ≠ Z_BLOCK → E.flush ≠ Z_TREES → BufOut E H') → IoAcc E H' → SatX H' l' (jpb u)
       (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → Prog E H') ∧
         (v = Z_BUF_ERROR → E.flush ≠ Z_FINISH → E.flush ≠ Z_BLOCK → E.flush ≠ Z_TREES → BufOut E H') ∧
-        LeaveRes E v H') ∧ Fin E H') := by
+        LeaveRes E v H' ∧ (v = Z_STREAM_END → EndIn E H')) ∧ Fin E H') := by
     intro u l' H' hf hb hacc
     simp only [jpb]
     exact SatX.bind (SatX.modify (hjpr () _ _ hf (fun e => absurd e (by show ¬ (Z_BUF_ERROR = Z_OK); decide))
-      (fun _ => hb) ⟨Or.inr (Or.inr (Or.inr rfl)), hacc⟩))
+      (fun _ => hb) ⟨Or.inr (Or.inr (Or.inr rfl)), hacc⟩
+      (fun e => absurd e (by show ¬ (Z_BUF_ERROR = Z_STREAM_END); decide))))
   obtain ⟨hlo, ob, hob1, hob2, hput⟩ := li2.outAt
   have hlo' : l.left.toNat ≤ l.out.toNat := hlo
   have hsubo : (l.out - l.left).toNat = l.out.toNat - l.left.toNat := UInt32.toNat_sub_of_le _ _ hlo
@@ -506,7 +510,7 @@ theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S :
       z'.next_in = l.next → z'.avail_in = l.have_ → z'.next_out = l.put → z'.avail_out = l.left →
       SatX H' l (jp u) (fun r _ H' => (∃ v, r = .ok v ∧ (v = Z_OK → Prog E H') ∧
         (v = Z_BUF_ERROR → E.flush ≠ Z_FINISH → E.flush ≠ Z_BLOCK → E.flush ≠ Z_TREES → BufOut E H') ∧
-        LeaveRes E v H') ∧ Fin E H') := by
+        LeaveRes E v H' ∧ (v = Z_STREAM_END → EndIn E H')) ∧ Fin E H') := by
     intro u H' z' S' li' hn ha hpo hao
     simp only [jp]
     refine SatX.bind (SatX.lift_eq li'.ldStream ?_)
@@ -582,6 +586,10 @@ theorem leave_ok (E : Env) (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S :
       refine hjpr () _ _ ⟨li7.inv, li7.frame, _, _, li7.hz, li7.hb, li7.hs, li7.head⟩ (fun hr => prog_of li7 hn ha hpo hao ?_)
         (fun hr => absurd hr (RetOK.ne_buf li.retB))
         ⟨Or.imp_right (Or.imp_right Or.inl) li.retB, li7.ioAcc⟩
+        (fun hr hf => ⟨_, li7.hz, by
+          show z'.avail_in < E.A0
+          rw [ha]
+          exact UInt32.lt_of_le_of_ne li.inAt.1 (fun e => (li.fr hf e).2.2.2 hr)⟩)
       refine Classical.byContradiction fun hb => ?_
       simp only [not_or, ne_eq, Decidable.not_not] at hb
       exact hc (by simp [hb.1, hb.2]; exact hr)

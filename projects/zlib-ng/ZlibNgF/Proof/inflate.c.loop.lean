@@ -123,6 +123,117 @@ theorem SAcc.of_locals {E : Env} {l : IL} {z : ZStream} (hi : InAt E.inp E.A0 l.
 def MsgK (E : Env) (z : ZStream) : Prop :=
   ∀ z0, E.H0.streams E.i = some z0 → z.msg = z0.msg ∨ ∃ k, z.msg = .ref (.str k) 0 ∧ k < strTable.size
 
+/-- The call starts from a just reset state: mode `HEAD` (or `TYPEDO`), no bits held, not the last block. -/
+def Fresh (E : Env) : Prop :=
+  ∀ S0, E.H0.istate E.b = some S0 → (S0.mode = HEAD ∨ S0.mode = TYPEDO) ∧ S0.bits = 0 ∧ S0.last = 0
+
+/-- What a trip holds while it has read nothing of the input of a fresh call: no bits held, not the last block, the
+mode `HEAD`, `TYPEDO` or `BAD`, and `ret` not `Z_STREAM_END`. -/
+def FrS (l : IL) (S : InflateState) : Prop :=
+  l.bits = 0 ∧ S.last = 0 ∧ (S.mode = HEAD ∨ S.mode = TYPEDO ∨ S.mode = BAD) ∧ l.ret ≠ Z_STREAM_END
+
+/-- A fresh call that has consumed no input holds `FrS`. -/
+def Fr (E : Env) (l : IL) (S : InflateState) : Prop := Fresh E → l.have_ = E.A0 → FrS l S
+
+theorem Fr.mono {E : Env} {l l' : IL} {S S' : InflateState} (h : Fr E l S) (hh : l'.have_ = l.have_)
+    (k : FrS l S → FrS l' S') : Fr E l' S' :=
+  fun hf ha => k (h hf (hh ▸ ha))
+
+theorem Fr.ofLt {E : Env} {l : IL} {S : InflateState} (h : l.have_ < E.A0) : Fr E l S :=
+  fun _ ha => absurd ha (UInt32.ne_of_lt h)
+
+theorem Fr.ofFreshLt {E : Env} {l : IL} {S : InflateState} (h : Fresh E → l.have_ < E.A0) : Fr E l S :=
+  fun hf ha => absurd ha (UInt32.ne_of_lt (h hf))
+
+/-- A fresh call in a state without `FrS` has consumed input. -/
+theorem Fr.lt {E : Env} {l : IL} {S : InflateState} (h : Fr E l S) (hle : l.have_ ≤ E.A0) (hn : ¬ FrS l S)
+    (hf : Fresh E) : l.have_ < E.A0 :=
+  UInt32.lt_of_le_of_ne hle (fun e => hn (h hf e))
+
+theorem FrS.no_mode {l : IL} {S : InflateState} {P : Prop} (h : S.mode ≠ HEAD ∧ S.mode ≠ TYPEDO ∧ S.mode ≠ BAD) :
+    FrS l S → P := fun ⟨_, _, hm, _⟩ => by
+  rcases hm with e | e | e
+  · exact absurd e h.1
+  · exact absurd e h.2.1
+  · exact absurd e h.2.2
+
+theorem FrS.no_bits {l : IL} {S : InflateState} {P : Prop} (h : 0 < l.bits.toNat) : FrS l S → P :=
+  fun ⟨hb, _⟩ => absurd h (by rw [hb]; decide)
+
+/-- A step that only lowers the bits (`DROPBITS`, `INITBITS`, `BYTEBITS`), keeps `last`, keeps the mode or goes to
+`TYPEDO` or `BAD`, and keeps `ret` or sets another code than `Z_STREAM_END`, keeps `FrS`. -/
+theorem FrS.keep {l l' : IL} {S S' : InflateState} (hb : l'.bits.toNat ≤ l.bits.toNat) (hl : S'.last = S.last)
+    (hm : S'.mode = S.mode ∨ S'.mode = TYPEDO ∨ S'.mode = BAD) (hr : l'.ret = l.ret ∨ l'.ret ≠ Z_STREAM_END) :
+    FrS l S → FrS l' S' := fun ⟨a, b, c, d⟩ => by
+  refine ⟨UInt8.toNat_inj.mp ?_, hl ▸ b, ?_, ?_⟩
+  · have : l.bits.toNat = 0 := by rw [a]; rfl
+    show l'.bits.toNat = 0
+    omega
+  · rcases hm with e | e | e
+    · rw [e]; exact c
+    · exact Or.inr (Or.inl e)
+    · exact Or.inr (Or.inr e)
+  · rcases hr with e | e
+    · rw [e]; exact d
+    · exact e
+
+theorem FrS.dec {l l' : IL} {S : InflateState} (h : l'.bits.toNat ≤ l.bits.toNat) (hr : l'.ret = l.ret) :
+    FrS l S → FrS l' S := FrS.keep h rfl (Or.inl rfl) (Or.inl hr)
+
+syntax "fr_bits" : tactic
+macro_rules
+  | `(tactic| fr_bits) => `(tactic| first
+      | exact Nat.le_refl _
+      | exact Nat.zero_le _
+      | omega
+      | (simp only []; omega))
+syntax "fr_mode" : tactic
+macro_rules
+  | `(tactic| fr_mode) => `(tactic| first
+      | exact Or.inl rfl
+      | exact Or.inr (Or.inl rfl)
+      | exact Or.inr (Or.inr rfl))
+syntax "fr_ret" : tactic
+macro_rules
+  | `(tactic| fr_ret) => `(tactic| first
+      | exact Or.inl rfl
+      | (apply Or.inr; decide)
+      | (apply Or.inr; simp only []; decide)
+      | (apply Or.inr; simp only [*]; decide))
+syntax "fr_no" : tactic
+macro_rules
+  | `(tactic| fr_no) => `(tactic| first
+      | decide
+      | (simp only []; decide)
+      | (simp only [*]; decide))
+/-- Discharges `FrS l S → FrS l' S'` at a step of a trip: the step keeps the fields of `FrS` (`FrS.keep`), or starts
+from a state without `FrS` (a mode other than `HEAD`, `TYPEDO`, `BAD`, or bits held). -/
+syntax "fr_tac" : tactic
+macro_rules
+  | `(tactic| fr_tac) => `(tactic| first
+      | exact id
+      | (refine FrS.keep ?_ rfl ?_ ?_
+         · fr_bits
+         · fr_mode
+         · fr_ret)
+      | (refine FrS.no_bits ?_
+         first
+         | omega
+         | (simp only []; omega))
+      | (refine FrS.no_mode ?_; fr_no))
+
+/-- Discharges `Fr E l S → Fr E l' S'` at a step that keeps `have`, by `fr_tac`. -/
+syntax "frt" : tactic
+macro_rules
+  | `(tactic| frt) => `(tactic| first
+      | exact id
+      | (intro h
+         refine Fr.mono h ?_ ?_
+         · first
+           | rfl
+           | simp only []
+         · fr_tac))
+
 /-- The loop invariant: heap `H` with stream record `z` and state `S`, locals `l`. -/
 structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Prop where
   inv : Inv H (some E.i)
@@ -148,6 +259,9 @@ structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Pr
   sacc : SAcc E z
   /-- `msg` is the one at entry or a string literal (only `SET_BAD` stores it) -/
   msgK : MsgK E z
+  /-- a fresh call that has consumed no input has not left `HEAD` / `TYPEDO` (or `BAD`), holds no bits, is not in the
+  last block, and has not set `ret` to `Z_STREAM_END` -/
+  fr : Fr E l S
 
 /-- The loop invariant for some stream record and state. -/
 def LIx (E : Env) (l : IL) (H : Heap) : Prop := ∃ z S, LI E l H z S

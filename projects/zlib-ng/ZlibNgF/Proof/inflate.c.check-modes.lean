@@ -30,8 +30,8 @@ theorem run_LENGTH (E : Env) (eo : EnvOK E) : ModeRun E inflate_LENGTH (·.mode 
   dsimp (config := { zeta := false }) only
   extract_lets jp
   have hjp : ∀ (u : PUnit) (l' : IL) (H' : Heap) (z' : ZStream) (S' : InflateState), LI E l' H' z' S' →
-      SatX H' l' (jp u) (Post E m) := by
-    intro u l' H' z' S' li'
+      S'.mode = LENGTH → SatX H' l' (jp u) (Post E m) := by
+    intro u l' H' z' S' li' hS'
     simp only [jp]
     refine SatX.bind (SatX.lift (Sat.mono (li'.setQuiet DONE (by decide) (by decide) (Or.inr (by decide))) ?_))
     intro _ H1 li1
@@ -48,8 +48,8 @@ theorem run_LENGTH (E : Env) (eo : EnvOK E) : ModeRun E inflate_LENGTH (·.mode 
     split
     · exact bad_ok li1 (by rw [hleft]; omega) "incorrect length check" (strIdx 14 (by decide) (by decide) (by decide))
     · refine SatX.bind (initbits_ok ?_)
-      exact hjp _ _ _ _ _ (li1.setBits (l' := { l1 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl (show (0 : UInt8) ≤ 39 by decide))
-  · exact hjp _ _ _ _ _ li
+      exact hjp _ _ _ _ _ (li1.setBits (l' := { l1 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl (show (0 : UInt8) ≤ 39 by decide)) hm
+  · exact hjp _ _ _ _ _ li hm
 
 /-- `out = left`: the output position is the start of the room left. -/
 theorem LI.resetOut {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (l' : IL)
@@ -58,7 +58,8 @@ theorem LI.resetOut {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
     (h8 : l'.ret = l.ret := by rfl) : LI E l' H z S := by
   obtain ⟨p, hp, hp1, hp2⟩ := li.outPos
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt, ?_,
-    by rw [h6]; exact li.bits, by rw [h7]; exact li.inn, Or.inr hr, by rw [h8]; exact li.retB, li.sacc, li.msgK⟩
+    by rw [h6]; exact li.bits, by rw [h7]; exact li.inn, Or.inr hr, by rw [h8]; exact li.retB, li.sacc, li.msgK,
+    li.fr.mono h2 fun ⟨a, b, c, d⟩ => ⟨h6 ▸ a, b, c, h8 ▸ d⟩⟩
   refine ⟨by rw [h4]; exact UInt32.le_refl _, p, hp1, by rw [h4, h5]; exact hp2, ?_⟩
   rw [h3, hp, h4, UInt32.sub_self]; rfl
 
@@ -100,17 +101,18 @@ theorem run_CHECK (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENGTH (·.mo
   dsimp (config := { zeta := false }) only
   extract_lets jp jp2
   have hjp : ∀ (u : PUnit) (l' : IL) (H' : Heap) (z' : ZStream) (S' : InflateState), LI E l' H' z' S' →
-      32 * (8 * l'.have_.toNat + l'.bits.toNat + l'.left.toNat) + 1 ≤ m →
+      S'.mode = CHECK → 32 * (8 * l'.have_.toNat + l'.bits.toNat + l'.left.toNat) + 1 ≤ m →
       SatX H' l' (jp u) (Post E m) := by
-    intro u l' H' z' S' li' hμ1
+    intro u l' H' z' S' li' hS' hμ1
     simp only [jp]
     refine SatX.bind (SatX.lift (Sat.mono (li'.setQuiet LENGTH (by decide) (by decide) (Or.inr (by decide))) ?_))
     intro _ H1 li1
     exact hX _ _ _ _ li1 rfl m (by unfold μ; dsimp only; rw [rank_LENGTH]; exact hμ1)
   have hjp2 : ∀ (u : PUnit) (l1 : IL) (H' : Heap) (z' : ZStream) (S' : InflateState), LI E l1 H' z' S' →
-      rank S'.mode ≤ 2 → 32 * (8 * l1.have_.toNat + l1.bits.toNat + l1.left.toNat) + 2 ≤ m →
+      S'.mode = CHECK → 32 * (8 * l1.have_.toNat + l1.bits.toNat + l1.left.toNat) + 2 ≤ m →
       SatX H' { l1 with out := l1.out - l1.left } (jp2 u) (Post E m) := by
-    intro u l1 H' z' S' li' hr' hμ1
+    intro u l1 H' z' S' li' hS' hμ1
+    have hr' : rank S'.mode ≤ 2 := by rw [hS']; decide
     simp only [jp2]
     refine SatX.bind (SatX.modify ?_)
     have li2 := li'.resetOut { l1 with out := l1.left } rfl rfl rfl rfl rfl rfl hr'
@@ -123,7 +125,7 @@ theorem run_CHECK (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENGTH (·.mo
           "incorrect data check" (strIdx 12 (by decide) (by decide) (by decide))
       | refine SatX.bind (initbits_ok ?_)
         exact hjp ⟨⟩ _ _ _ _ (li2.setBits (l' := { { l1 with out := l1.left } with hold := 0, bits := 0 }) rfl rfl rfl
-        rfl rfl (show (0 : UInt8) ≤ 39 by decide)) (by show 32 * (8 * l1.have_.toNat + (0 : UInt8).toNat + l1.left.toNat) + 1 ≤ m; rw [show (0 : UInt8).toNat = 0 from rfl]; omega)
+        rfl rfl (show (0 : UInt8) ≤ 39 by decide)) hS' (by show 32 * (8 * l1.have_.toNat + (0 : UInt8).toNat + l1.left.toNat) + 1 ≤ m; rw [show (0 : UInt8).toNat = 0 from rfl]; omega)
   clear_value jp jp2
   split
   · refine needbits_then eo li 32 (by decide) ?_
@@ -155,10 +157,10 @@ theorem run_CHECK (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENGTH (·.mo
           rw [hput]; exact InflateWindow.add_neg (r := .heap E.bo) hdo (by omega) (by omega)) ?_)
         refine SatX.bind (SatX.lift (Sat.mono (li3.chksum eo hdo _ (by omega)) ?_))
         rintro u H4 ⟨v, li4⟩
-        exact hjp2 u _ _ _ _ li4 (by show rank S.mode ≤ 2; rw [hm]; decide) hμ1
-      · exact hjp2 _ _ _ _ _ li3 (by show rank S.mode ≤ 2; rw [hm]; decide) hμ1
-    · exact hjp2 _ _ _ _ _ li3 (by show rank S.mode ≤ 2; rw [hm]; decide) hμ1
-  · exact hjp _ _ _ _ _ li (by omega)
+        exact hjp2 u _ _ _ _ li4 hm hμ1
+      · exact hjp2 _ _ _ _ _ li3 hm hμ1
+    · exact hjp2 _ _ _ _ _ li3 hm hμ1
+  · exact hjp _ _ _ _ _ li hm (by omega)
 
 /-! ## One trip of the loop -/
 
@@ -220,7 +222,7 @@ theorem tripOK (E : Env) (eo : EnvOK E) : TripOK E := by
   have rLIT := run_LIT E eo
   have rLENGTH := run_LENGTH E eo
   have rCHECK := run_CHECK E eo rLENGTH
-  have rDONE : ModeRun E inflate_DONE (·.mode = DONE) := (run_DONE E).of_true
+  have rDONE : ModeRun E inflate_DONE (·.mode = DONE) := run_DONE E
   have rBAD : ModeRun E inflate_BAD (·.mode = BAD) := (run_BAD E).of_true
   refine trip_of_modes (fun M l H z S li hm m hμ => ?_)
   obtain ⟨al, -, c⟩ := li.core
