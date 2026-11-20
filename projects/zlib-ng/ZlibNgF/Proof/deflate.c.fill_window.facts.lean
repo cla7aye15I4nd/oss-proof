@@ -135,14 +135,19 @@ theorem insertBatchOf_ne {l : Int32} (h : l ≠ 1) :
     · rename_i h1; exact absurd (by simpa using h1) h
     · exact fun e => by cases e
 
-/-- A tail of the input (`ZR`) of stream `i` is `DeflateFacts.InTail`. -/
-theorem inTail_of_zr {h H : Heap} {i : Nat} {z z' : ZStream} (hz : h.streams i = some z)
-    (hz' : H.streams i = some z') (zr : ZR z z') : DeflateFacts.InTail h H i := by
-  obtain ⟨hle, -, ht⟩ := zr
+/-- A tail of the input (`WinInv.InTail`, `avail_in` not grown) of stream `i` is `DeflateFacts.InTail`. -/
+theorem inTail_of_win {h H : Heap} {i : Nat} {z z' : ZStream} (hz : h.streams i = some z)
+    (hz' : H.streams i = some z') (hle : z'.avail_in.toNat ≤ z.avail_in.toNat) (ht : InTail z z') :
+    DeflateFacts.InTail h H i := by
   rcases ht with ⟨e1, e2⟩ | ⟨r, os, e1, e2⟩
   · exact DeflateFacts.InTail.refl hz hz' e1 e2
   · refine ⟨z, z', z.avail_in.toNat - z'.avail_in.toNat, hz, hz', by omega, ?_⟩
     rw [e1]; exact e2
+
+/-- A tail of the input (`ZR`) of stream `i` is `DeflateFacts.InTail`. -/
+theorem inTail_of_zr {h H : Heap} {i : Nat} {z z' : ZStream} (hz : h.streams i = some z)
+    (hz' : H.streams i = some z') (zr : ZR z z') : DeflateFacts.InTail h H i :=
+  inTail_of_win hz hz' zr.1 zr.2.2
 
 /-- `fill_window` on an invariant stream: `FillPost`, and the heap after is an `SH` heap whose stream record has
 only the input fields changed, the input a tail of the input before (`ZR`), and the state changed in
