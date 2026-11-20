@@ -187,7 +187,7 @@ theorem quick_tally_ok (T : TreesFacts) :
         refine slf_post F3 _ _ hn fun st3 h3 => ?_
         obtain ⟨e1, e2, e3, e4, e5⟩ := hs3 st3 h3
         unfold ExitOk
-        refine ⟨e3, fun hd => ?_, fun _ => e5, fun _ => ⟨e5, by rw [e1]; exact hla.trans hl0⟩⟩
+        refine ⟨e3, fun hd => ?_, fun _ => e5, fun _ => ⟨e5, by rw [e1]; exact hla.trans hl0⟩, fun _ => e5⟩
         rcases hbs with ⟨rfl, hr⟩ | ⟨rfl, hr⟩
         · rcases hb12 with ⟨rfl, -⟩ | ⟨rfl, -⟩ <;> rcases hd with e | e <;> cases e
         · exact e4 hr

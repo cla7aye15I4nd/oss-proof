@@ -242,7 +242,8 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   obtain ⟨-, -, -, hl1, -, -, hse⟩ := c.sizes
   simp only [dview] at hl1 hse
   refine ⟨⟨?_, fun _ => ⟨hbs, hsn, hla'⟩, fun e => absurd (hlv.symm.trans e) (by decide),
-    fun _ => hsn, fun e8 => absurd h8 (Int32.not_lt.mpr e8)⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩⟩
+    fun _ => hsn, fun e8 => absurd h8 (Int32.not_lt.mpr e8)⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩,
+    fun _ => hsn⟩
   rw [hsn]; apply UInt32.lt_iff_toNat_lt.mpr; simp; omega
 
 /-- What `SF` gives about the current heap `H`: the stream record `z` (output at `ob + oo` with `X` the output block),

@@ -235,11 +235,12 @@ theorem SLF.live {h H : Heap} {i b : Nat} (F : SLF h i b H) :
 
 /-- The exit facts of a strategy call with `flush` that returns `bs`, on the state after: room for one more symbol,
 no pending bytes after `block_done` / `finish_done`, no symbols after a call with a flush, no symbols and no
-lookahead after `finish_started` / `finish_done`. -/
+lookahead after `finish_started` / `finish_done`, no symbols after `block_done`. -/
 def ExitOk (flush : Int32) (bs : BlockState) (st : DeflateState) : Prop :=
   st.sym_next < st.sym_end ∧ (bs = .block_done ∨ bs = .finish_done → st.pending = 0) ∧
     (flush ≠ Z_NO_FLUSH → st.sym_next = 0) ∧
-    (bs = .finish_started ∨ bs = .finish_done → st.sym_next = 0 ∧ st.lookahead = 0)
+    (bs = .finish_started ∨ bs = .finish_done → st.sym_next = 0 ∧ st.lookahead = 0) ∧
+    (bs = .block_done → st.sym_next = 0)
 
 /-- `StratPost` from `SLF` and the exit facts, for a strategy entered with a strategy other than `Z_FIXED`. -/
 theorem slf_post {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
@@ -260,9 +261,9 @@ theorem slf_post {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs 
     obtain ⟨st0, h0, hk⟩ := F.keeps
     obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans hst1)
     have K := hk st hst
-    obtain ⟨x1, x2, x3, x4⟩ := hs st hst
+    obtain ⟨x1, x2, x3, x4, x5⟩ := hs st hst
     refine ⟨⟨x1, fun e0 => ?_, fun _ e2 => ?_, hg2.1, fun e8 => absurd hg2.2 (Int32.not_lt.mpr e8)⟩, K,
-      fun hf _ => x3 hf, x4⟩
+      fun hf _ => x3 hf, x4, x5⟩
     · rw [e0] at hlv; exact absurd hlv (by decide)
     · exact absurd (K.2.2.2.2.2.1.symm.trans e2) (hn st0 h0)
 
@@ -675,11 +676,12 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
     cases r with
     | none =>
       exact Sat.pure (slf_post F2 _ _ hn fun st2 h2 =>
-        ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1, fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩⟩)
+        ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1, fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩,
+          fun _ => (hx st2 h2).1⟩)
     | some v =>
       obtain ⟨rfl⟩ := Option.some.inj (hsm (by simp))
       refine Sat.pure (slf_post F2 _ _ hn fun st2 h2 => ⟨(hx st2 h2).2.1, fun e => ?_, fun _ => (hx st2 h2).1,
-        fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩⟩)
+        fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩, fun _ => (hx st2 h2).1⟩)
       split at e <;> rcases e with e | e <;> cases e
   unfold strat_tail
   by_cases hf : flush == Z_FINISH
@@ -700,7 +702,8 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
       have h0 : st.sym_next = 0 := by simpa using hs
       refine Sat.pure (slf_post C.1 _ _ hn fun st2 h2 => ?_)
       obtain rfl := Option.some.inj (hst.symm.trans h2)
-      exact ⟨(C.2 st hst).2, fun _ => (C.2 st hst).1, fun _ => h0, fun e => by rcases e with e | e <;> cases e⟩
+      exact ⟨(C.2 st hst).2, fun _ => (C.2 st hst).1, fun _ => h0, fun e => (by rcases e with e | e <;> cases e),
+        fun _ => h0⟩
 
 /-- `SLI` of a heap whose state already holds the locals is `SLC`. -/
 theorem sli_slc {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8}
@@ -717,9 +720,10 @@ theorem sli_slc {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
 /-- `StratPost` from `SLC` for `need_more` after a call without a flush. -/
 theorem slc_post {h H : Heap} {i b : Nat} (C : SLC h i b H) (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED) :
     StratPost h (some i) Z_NO_FLUSH .need_more H := by
-  refine slf_post C.1 _ _ hn fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_⟩
+  refine slf_post C.1 _ _ hn fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
   · intro e; rcases e with e | e <;> cases e
   · intro e; exact absurd rfl e
   · intro e; rcases e with e | e <;> cases e
+  · intro e; cases e
 
 end ZlibNgF.Proof.Strategy

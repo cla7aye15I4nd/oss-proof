@@ -20,7 +20,9 @@ steps `deflatePending`, `deflateUsed`, `deflateTune`, `deflateSetHeader`, `defla
 `deflateReset`, `deflateResetKeep` (on a stream with nothing unfinished), `deflateGetDictionary`
 (`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`), `deflateSetDictionary`
 (`Proof/deflate.c.setdict.lean`, with the window facts `FillFacts.windowFacts`), and `deflateCopy` on the source.
-Every other case is a field of `DPending`, the list of obligations not proved yet: `deflate` and `deflateParams`.
+Every other case is a field of `DPending`, the list of obligations not proved yet: `deflate` and `deflateParams`, and
+the hash chains (`ChainOk`, the last part of `DSide`) after `deflateInit_`, `deflateInit2_`, `deflateReset`,
+`deflateResetKeep`, `deflateCopy` (destination) and `deflateSetDictionary`.
 The `*_safety_of` theorems derive registered goals from `DPending`; a goal is registered as proved only once
 `DPending` is.
 -/
@@ -31,6 +33,10 @@ namespace ZlibNgF.Proof.DeflateReach
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv
 
 open ZlibNgF.Proof.DeflateSide (DSide)
+open ZlibNgF.Proof.DeflateFacts (ChainOk DStateIs)
+
+/-- The hash chains of stream `s` in `h` (`ChainOk` of its state, the part of `DSide` about `head` / `prev`). -/
+def DChain (h : Heap) (s : StreamPtr) : Prop := ∀ b st d, DStateIs h s b st → h.bytes b = some d → ChainOk b d st
 
 /-- The obligations still to prove: each remaining public step keeps the invariant and the between-call facts
 (`DSide`). -/
@@ -39,6 +45,23 @@ structure DPending : Prop where
     DStreamIO h s → C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') → DInv h' s ∧ DSide h' s
   params : ∀ (h h' : Heap) (s : StreamPtr) (level strategy r : Int32), DInv h s → DSide h s → CrcGlobals h →
     DStreamIO h s → C.run (ZlibNg.Deflate.deflateParams s level strategy) h = .ok (r, h') → DInv h' s ∧ DSide h' s
+  /-- `deflateInit_` leaves hash chains (`lm_init` clears `head` unless `HASHLESS`, `strstart = 0`). -/
+  init_chain : ∀ (h h' : Heap) (s : StreamPtr) (level : Int32) (version : BPtr) (size : Int32),
+    DInitReady h s → VersionOk h version →
+    C.run (ZlibNg.Deflate.deflateInit_ s level version size) h = .ok (Z_OK, h') → DChain h' s
+  init2_chain : ∀ (h h' : Heap) (s : StreamPtr) (level method windowBits memLevel strategy : Int32) (version : BPtr)
+    (size : Int32), DInitReady h s → VersionOk h version →
+    C.run (ZlibNg.Deflate.deflateInit2_ s level method windowBits memLevel strategy version size) h =
+      .ok (Z_OK, h') → DChain h' s
+  reset_chain : ∀ (h h' : Heap) (s : StreamPtr) (r : Int32), DInv h s →
+    C.run (ZlibNg.Deflate.deflateReset s) h = .ok (r, h') → DChain h' s
+  resetKeep_chain : ∀ (h h' : Heap) (s : StreamPtr) (r : Int32), DInv h s → DSide h s → ResetKeepReady h s →
+    C.run (ZlibNg.Deflate.deflateResetKeep s) h = .ok (r, h') → DChain h' s
+  copy_chain : ∀ (h h' : Heap) (src dst : StreamPtr), DInv h src → DSide h src → DFreshBlocks h → InitReady h dst →
+    dst ≠ src → C.run (ZlibNg.Deflate.deflateCopy dst src) h = .ok (Z_OK, h') → DChain h' dst
+  setDict_chain : ∀ (h h' : Heap) (s : StreamPtr) (d : BPtr) (n : UInt32) (r : Int32), DInv h s → DSide h s →
+    DictReady h s → NullOrRead h d n.toNat → (∀ b, StateBlock h s b → NotInBlock b d) →
+    C.run (ZlibNg.Deflate.deflateSetDictionary s d n) h = .ok (r, h') → DChain h' s
 
 /-- Two runs of one computation on one heap agree. -/
 theorem det {α : Type} {m : M α} {h h' h'' : Heap} {r r' : α} (e : C.run m h = .ok (r, h'))
@@ -71,7 +94,8 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
   · exact P.params h h' s level strategy r hv hsd hcg hio e
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateSetDict.setDict_inv FillFacts.windowFacts hv hd hnb
     rw [det e e0]
-    exact ⟨hi, by rw [← det e e0]; exact DeflateSide.setDict_side hv hsd hdr hd hnb e⟩
+    have hs' := DeflateSide.setDict_side hv hsd hdr hd hnb e (P.setDict_chain h h' s d n r hv hsd hdr hd hnb e)
+    exact ⟨hi, by rw [← det e e0]; exact hs'⟩
   · obtain ⟨_, _, e0, hi, _⟩ := DeflateDict.getDict_inv hasLen hv hd hnb
     rw [det e e0]
     exact ⟨hi, by rw [← det e e0]; exact DeflateSide.getDict_side hv hsd hd hnb hdis e⟩
@@ -92,11 +116,13 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
     exact ⟨hi, by rw [← det e e0, det e e1]; exact hs1⟩
   · rw [DeflateBound.RO.deflateBound s n h r h' e]; exact ⟨hv, hsd⟩
   · rw [DeflateBound.RO.deflateBound_z s n h r h' e]; exact ⟨hv, hsd⟩
-  · obtain ⟨_, _, _, rfl, _, _, _, H, e0, ⟨_, hi, _, hq⟩⟩ := DeflateReset.reset_inv hv
-    rw [det e e0]; exact ⟨hi, DeflateSide.side_fresh hi hq⟩
-  · obtain ⟨_, _, _, rfl, _, _, _, H, e0, ⟨_, hi, _, _⟩⟩ := DeflateReset.resetKeep_inv hv
-    rw [det e e0]
-    exact ⟨hi, by rw [← det e e0]; exact DeflateSide.resetKeep_side hv hrk e⟩
+  · have hc := P.reset_chain h h' s r hv e
+    obtain ⟨_, _, _, rfl, _, _, _, H, e0, ⟨_, hi, _, hq⟩⟩ := DeflateReset.reset_inv hv
+    rw [det e e0] at hc ⊢; exact ⟨hi, DeflateSide.side_fresh hi hq hc⟩
+  · have hs' := DeflateSide.resetKeep_side hv hrk e (P.resetKeep_chain h h' s r hv hsd hrk e)
+    obtain ⟨_, _, _, rfl, _, _, _, H, e0, ⟨_, hi, _, _⟩⟩ := DeflateReset.resetKeep_inv hv
+    rw [det e e0] at hs' ⊢
+    exact ⟨hi, hs'⟩
   · exact ⟨(DeflateCopy.copy_inv hv hdst hne e).1, DeflateSide.copy_src_side hv hsd hfr hdst hne e⟩
 
 /-- **The induction.** Every reachable deflate stream has the structural invariant and `DSide`, given the pending
@@ -105,15 +131,15 @@ theorem dreach (P : DPending) {h : Heap} {s : StreamPtr} (hr : DeflateReachable 
   induction hr with
   | init h h' s level version size hi hv e =>
     obtain ⟨a, b⟩ := DeflateInitPublic.init_inv h h' s level version size hi hv e
-    exact ⟨a, DeflateSide.side_fresh a b⟩
+    exact ⟨a, DeflateSide.side_fresh a b (P.init_chain h h' s level version size hi hv e)⟩
   | init2 h h' s level method wb ml st version size hi hv e =>
     obtain ⟨a, b⟩ := DeflateInitPublic.init2__inv h h' s level method wb ml st version size hi hv e
-    exact ⟨a, DeflateSide.side_fresh a b⟩
+    exact ⟨a, DeflateSide.side_fresh a b (P.init2_chain h h' s level method wb ml st version size hi hv e)⟩
   | copy h h' src dst _ hfr hdst hne e ih =>
     obtain ⟨hv', hc⟩ := (DeflateCopy.copy_inv ih.1 hdst hne e).2 rfl
     obtain ⟨r0, h0, e0, f⟩ := DeflateCopy.copy_safe ih.1 hfr hdst hne
     rw [← det e e0] at f
-    exact ⟨hv', DeflateSide.copy_side ih.2 hfr hc f⟩
+    exact ⟨hv', DeflateSide.copy_side ih.2 hfr hc f (P.copy_chain h h' src dst ih.1 ih.2 hfr hdst hne e)⟩
   | step h h' s _ hs ih => exact step_inv P ih.1 ih.2 hs
   | caller h h' s _ hc ih => exact ⟨caller_inv ih.1 hc, DeflateSide.caller_side ih.2 hc⟩
 
