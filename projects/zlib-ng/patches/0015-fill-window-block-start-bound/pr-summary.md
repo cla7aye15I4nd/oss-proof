@@ -34,6 +34,7 @@ Add an opt-in regression test `deflate_quick.fixed_block_across_large_input` in 
 ## Testing
 
 - Under default test runs (without `ZLIB_NG_TEST_LARGE_FIXED_BLOCK`), the test skips via `GTEST_SKIP()`.
-- With `ZLIB_NG_TEST_LARGE_FIXED_BLOCK=1`:
-  - Before fix: aborts under UBSan in `fill_window()` (`signed integer overflow`).
-  - After fix: passes on both Clang `ZLIB_COMPAT=ON` (`WITH_OPTIM=OFF`) and `ZLIB_COMPAT=OFF` (`WITH_OPTIM=ON`) ASan + UBSan builds.
+- With `ZLIB_NG_TEST_LARGE_FIXED_BLOCK=1`, with `tests/patch-gtest.sh` (clang, `ZLIB_COMPAT=ON`, `WITH_OPTIM=OFF`, AddressSanitizer + UndefinedBehaviorSanitizer):
+  - Without the fix: aborts under UndefinedBehaviorSanitizer in `fill_window()` (`signed integer overflow: -2147483648 - 32768`).
+  - With the fix: passes.
+- Reproduction in the project's regression suite: `fixed-block-start-overflow`.
