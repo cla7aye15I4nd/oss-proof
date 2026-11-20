@@ -116,6 +116,8 @@ structure FillIO (h h' : Heap) (i b : Nat) : Prop where
   crc : CrcGlobals h'
   post : FillPost h h' (some i)
   frame : DFrame h h' [i] [b] [] []
+  shape : ∃ z z' st st' d', h.streams i = some z ∧ h.dstate b = some st ∧ h' = DeflateInit.SH h i z' b st' d' ∧
+    ZR z z' ∧ FWS st st'
 
 /-- `fill_window` on an invariant stream with valid and set buffers, the CRC tables, and `lookahead < 262`. -/
 theorem fill_io {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} (hv : DInv h (some i))
@@ -134,10 +136,11 @@ theorem fill_io {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
   obtain ⟨ob, oo, ad, hno, had, hoo⟩ := hout.resolve_left hnn
   have hob : ob ≠ b := fun e => hnb oo (by rw [hno, e])
   have hdin : DInput h (some i) := ⟨z, b, ⟨i, rfl, hz⟩, hb, hin0, (hdj _ (.inl rfl)).2, hni⟩
-  obtain ⟨h', e, P, i4, z4, z', st', d', e4, hz4, rfl, zr⟩ :=
+  obtain ⟨h', e, P, i4, z4, z', st', d', e4, hz4, rfl, zr, fws⟩ :=
     fill_window_ok2 h (some i) b st (DInvW.of_inv hv) ⟨i, z, rfl, hz, hb, hst⟩ hdin (fun _ => hcrc) hla
   obtain rfl : i = i4 := Option.some.inj e4
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans hz4)
+  have zr1 := zr
   have hinv := FillPost.inv hv P
   have P0 := P
   obtain ⟨-, ⟨z5, b5, ⟨i5, e5, hz5⟩, hb5, hrd, -, -⟩, -, -⟩ := P0
@@ -148,7 +151,7 @@ theorem fill_io {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
   have O : OutOnly h (SH h i z' b st' d') b ob oo 0 :=
     ⟨rfl, rfl, fun c hc data hd => ⟨data, by simp only [SH]; rw [upd_ne _ _ _ _ hc]; exact hd, rfl, fun _ _ => rfl⟩⟩
   have hgz : st'.gzhead = st.gzhead := by
-    obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, -, -, -, -, -, -, hg, -⟩ := P
+    obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, -, -, -, -, -, -, -, hg, -⟩ := P
     obtain rfl : i = i6 := Option.some.inj e6
     obtain rfl : z = z6 := Option.some.inj (hz.symm.trans hz6)
     obtain rfl : b = b6 := Option.some.inj (hb.symm.trans hb6)
@@ -159,7 +162,7 @@ theorem fill_io {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
   have hav : z'.avail_out.toNat = z.avail_out.toNat - 0 := by rw [ez]; rfl
   refine ⟨_, e, hinv, streamIO_in hio hz hb hst hno (Nat.zero_le _) O (SH_streams _ _ _ _ _ _) hzs hle ht hrd hno'
     hav (SH_dstate _ _ _ _ _ _) hgz, ⟨z', ⟨i, rfl, SH_streams _ _ _ _ _ _⟩, by rw [hno']; simp, fun ha => ?_⟩,
-    hcrc, P, ZlibNgF.Proof.DeflateReset.dframe_SH _ _ _ _ _ _⟩
+    hcrc, P, ZlibNgF.Proof.DeflateReset.dframe_SH _ _ _ _ _ _, ⟨z, z', st, st', d', hz, hst, rfl, zr1, fws⟩⟩
   rcases ht with ⟨e1, e2⟩ | ⟨r, os, -, e2⟩
   · rw [e1]; exact hni (by rw [← e2]; exact ha)
   · rw [e2]; exact fun e => by cases e

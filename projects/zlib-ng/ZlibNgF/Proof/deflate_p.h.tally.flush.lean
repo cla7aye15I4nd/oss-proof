@@ -12,9 +12,9 @@ first `L` output bytes only, `L` bytes written to `next_out`, no symbols (`sym_n
 and no pending bytes when output room is left. The `int` length `strstart - block_start` is in range by the
 invariant's `bstart` / `bs_lo`; the block's bytes lie in the window below `strstart`.
 
-`zng_tr_flush_block` is used through `TreesFacts.flush_block` and `FlushExtra`: its result has no symbols
-(`init_block`), and the heap after it differs from the heap before only in the stream record and the stream's block
-(an `SH` heap). Both are facts of the translated `trees.c` that `TreesFacts` does not state yet.
+`zng_tr_flush_block` is used through `TreesFacts.flush_block` (the heap after it is an `SH` heap: only the stream's
+`data_type`, the state record and the stream's block change) and `TreesFacts.flush_block_clears` (no symbol left,
+`init_block`).
 -/
 
 set_option autoImplicit false
@@ -63,17 +63,6 @@ theorem dframe_one {h h' : Heap} {S B G : List Nat} {p : BPtr} {n m : Nat} (f : 
 
 /-! ## `zng_tr_flush_block` -/
 
-/-- What `zng_tr_flush_block` leaves beyond `TreesFacts`, under its precondition: only the stream record
-(`data_type`) and the stream's block changed (the heap after is `SH h i { z with data_type } b st' d'`).
-`TreesFacts.flush_block`'s frame (`DFrame`) says this only for the blocks numbered below `nextBlk`, so it does not
-carry a caller buffer of a block above `nextBlk` (`DStreamIO` after the call). -/
-def FlushExtra : Prop :=
-  ∀ (i b : Nat) (z : ZStream) (buf : BPtr) (len : UInt32) (last : Int32) (h h' : Heap) (st : DeflateState),
-    DWork h (some i) → h.streams i = some z → z.state = some b → h.dstate b = some st →
-    FlushBlockPre b buf len st →
-    C.run (ZlibNg.Trees.zng_tr_flush_block (some b) buf len last) h = .ok ((), h') →
-    ∃ dt st' d', h' = SH h i { z with data_type := dt } b st' d'
-
 /-- The state after `FLUSH_BLOCK_ONLY` from `st`: the state `st1` after `zng_tr_flush_block` (`EmitKeeps`), with
 `block_start = strstart` and the fields of `flush_pending`. -/
 def FBKeeps (st st' : DeflateState) : Prop :=
@@ -102,7 +91,7 @@ structure FBPost (h h' : Heap) (i b : Nat) (z : ZStream) (st : DeflateState) : P
 
 /-- `FLUSH_BLOCK_ONLY(s, window, last)` from an invariant stream with no pending bytes at a level above 0; `window`
 evaluates to the window (offset `wo` of the block) without changing the heap. -/
-theorem flush_block_only_ok (T : TreesFacts) (X : FlushExtra) {h : Heap} {i : Nat} {z : ZStream} {b : Nat}
+theorem flush_block_only_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} {b : Nat}
     {st : DeflateState} {wo : Nat} (window : M BPtr) (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1)
     (hv : DInv h (some i))
     (hio : DStreamIO h (some i)) (hset : DBufsSet h (some i)) (hz : h.streams i = some z)
@@ -129,7 +118,8 @@ theorem flush_block_only_ok (T : TreesFacts) (X : FlushExtra) {h : Heap} {i : Na
   have hsm := c.strm
   simp only [dview] at hlook hbs hbl hsm
   have hss := (strstart_toInt32 c).1
-  simp only [dview] at hss
+  have hss2 := (strstart_toInt32 c).2
+  simp only [dview] at hss hss2
   have hv0 : -2147483648 ≤ st.strstart.toInt32.toInt - st.block_start.toInt := by omega
   have hv1 : st.strstart.toInt32.toInt - st.block_start.toInt < 2147483648 := by omega
   have e1 := ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ hv0 hv1
@@ -176,11 +166,11 @@ theorem flush_block_only_ok (T : TreesFacts) (X : FlushExtra) {h : Heap} {i : Na
     refine Sat.bind (Sat.pure ?_)
     rw [hS]
     have hpre : FlushBlockPre b buf len32.toUInt32 st := ⟨hp0, hlv, c.bits.2, hbuf⟩
-    obtain ⟨h1', ef, W1, F1, K1, -, E1, -⟩ := T.flush_block (some i) b buf len32.toUInt32 last hl0 hl1 h st hw0
+    obtain ⟨h1', ef, W1, F1, K1, -, E1, X1⟩ := T.flush_block (some i) b buf len32.toUInt32 last hl0 hl1 h st hw0
       ⟨i, z, rfl, hz, hb, hst⟩ hpre (pendRoom_of_core c) (fun hn => c.psym hn)
     have hclr := T.flush_block_clears (some i) b buf len32.toUInt32 last hl0 hl1 h h1' st hw0 ⟨i, z, rfl, hz, hb, hst⟩
       hpre ef
-    obtain ⟨dt, st1, d1', rfl⟩ := X i b z buf len32.toUInt32 last h _ st hw0 hz hb hst hpre ef
+    obtain ⟨dt, st1, d1', rfl⟩ := X1 i z rfl hz
     have hzero : st1.sym_next = 0 := hclr st1 ⟨i, _, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _⟩
     have hK1 := (E1 st1 ⟨i, _, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _⟩).1
     refine Sat.bind ⟨(), _, ef, ?_⟩
@@ -244,7 +234,7 @@ theorem flush_block_only_ok (T : TreesFacts) (X : FlushExtra) {h : Heap} {i : Na
       rw [hss1]
 
 /-- `FLUSH_BLOCK(s, window, last)`: `FLUSH_BLOCK_ONLY`, then the early return when no output room is left. -/
-theorem flush_block_ok (T : TreesFacts) (X : FlushExtra) {h : Heap} {i : Nat} {z : ZStream} {b : Nat}
+theorem flush_block_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} {b : Nat}
     {st : DeflateState} {wo : Nat} (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1) (hv : DInv h (some i))
     (hio : DStreamIO h (some i)) (hset : DBufsSet h (some i)) (hz : h.streams i = some z)
     (hb : z.state = some b) (hst : h.dstate b = some st) (hp0 : st.pending = 0) (hlv : 0 < st.level)
@@ -252,7 +242,7 @@ theorem flush_block_ok (T : TreesFacts) (X : FlushExtra) {h : Heap} {i : Nat} {z
     ∃ r h', C.run (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) h = .ok (r, h') ∧ FBPost h h' i b z st ∧
       ∃ z' st', h'.streams i = some z' ∧ h'.dstate b = some st' ∧
         (r = none ∧ st'.pending = 0 ∨ z'.avail_out = 0 ∧ r = some (if last != 0 then .finish_started else .need_more)) := by
-  obtain ⟨h', e, P⟩ := flush_block_only_ok T X (pure (.ref (.heap b) wo)) last hl0 hl1 hv hio hset hz hb hst hp0 hlv hwin rfl
+  obtain ⟨h', e, P⟩ := flush_block_only_ok T (pure (.ref (.heap b) wo)) last hl0 hl1 hv hio hset hz hb hst hp0 hlv hwin rfl
   obtain ⟨z', st', L, hz', hst', -, -, hze, -, hpz, -⟩ := P.out
   obtain ⟨i2, z2, b2, st2, al2, e2, L2, -, c2⟩ := live P.inv
   obtain rfl : i = i2 := Option.some.inj e2

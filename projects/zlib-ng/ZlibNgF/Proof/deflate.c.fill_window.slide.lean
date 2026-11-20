@@ -83,7 +83,8 @@ theorem fe_loop {st : DeflateState} (hW : 1 ≤ st.w_size.toNat) (hw2 : st.w_siz
 def SFin (st st' : DeflateState) : Prop :=
   FWS st st' ∧ st'.lookahead = st.lookahead ∧ st'.strstart.toNat < st'.fill_end.toNat ∧ WCore st' ∧
     st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat ∧
-    (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt
+    (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ (st.strstart.toNat : Int) - st.block_start.toInt ∧
+      ((st'.strstart.toNat : Int) = st'.block_start.toInt → (st.strstart.toNat : Int) = st.block_start.toInt)
 
 theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
     (L : HLay b d.size st wo po ho) (hws : st.window_size = W_BUF_SIZE st.w_size)
@@ -158,57 +159,123 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
       refine Sat.bind (Sat.of_eq ldDState_SH ?_)
       simp only []
       rw [e_bs, hb31, ZlibNgF.Proof.DeflatePrime.chk_ok _ hBS0 hBS1]
+      -- patch 0018: the bound `(int)slide_len - (1 << 30) - (1 << 16)` and its test
+      rw [ZlibNgF.Proof.DeflatePrime.chk_ok (sl.toNat - 1073741824) (by omega) (by omega)]
       refine Sat.bind (Sat.pure ?_)
-      refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-      refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-      refine Sat.bind (Sat.of_eq ldDState_SH ?_)
-      dsimp (config := { zeta := false }) only
-      rename_i jp2
-      have hjp2 : ∀ (s0 : DeflateState) (d1 : Array UInt8), WrIn d 0 (ho + 131072) d1 → SFin st s0 →
-          Sat (SH H i z b s0 d1) (jp2 ())
-            (fun _ H' => ∃ st' d', H' = SH H i z b st' d' ∧ WrIn d 0 (ho + 131072) d' ∧ SFin st st') := by
-        intro s0 d1 hd1 F
-        have L0 := FWS.hlay F.1 L
-        rw [← hd1.1] at L0
-        have hw0 : s0.w_size = st.w_size := by obtain ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ := F.1; rfl
-        simp only [jp2]
-        refine Sat.bind (Sat.of_eq ldDState_SH ?_)
-        split
-        · refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-          have L0' := FWS.hlay (⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ : FWS s0 { s0 with slide_len := sl }) L0
-          have F' : SFin st { s0 with slide_len := sl } :=
-            ⟨F.1.trans ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, F.2.1, F.2.2.1,
-              ⟨F.2.2.2.1.wpow, F.2.2.2.1.fe_mod, F.2.2.2.1.fe_hi, F.2.2.2.1.ins, F.2.2.2.1.bs_hi, F.2.2.2.1.bs_lo⟩,
-              F.2.2.2.2.1, F.2.2.2.2.2⟩
-          split
-          · exact Sat.mono (slide_hash_head_c_SH L0') (fun _ _ ⟨d', e, hs⟩ => ⟨_, d', e, wr_tr hd1 hs, F'⟩)
-          · exact Sat.mono (slide_hash_c_SH L0' (by rw [hw0]; exact hw2)) (fun _ _ ⟨d', e, hs⟩ =>
-              ⟨_, d', e, wr_tr hd1 hs, F'⟩)
-        · exact Sat.pure ⟨s0, d1, rfl, hd1, F⟩
-      clear_value jp2
-      have hss' : (st1.strstart - sl).toNat = st.strstart.toNat - sl.toNat := by
-        rw [sub_toNat _ _ (by rw [e_ss]; omega), e_ss]
-      have hfe' : (st1.fill_end - sl).toNat = fe.toNat - sl.toNat := by
-        rw [sub_toNat _ _ (by rw [e_fe]; omega), e_fe]
-      have hbs' : (Int32.ofInt BS).toInt = BS := ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ hBS0 hBS1
-      have hws1 := e_ws
-      have hw1 := e_w
-      split
-      · rename_i hgi
+      rw [ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ (by omega) (by omega),
+        ZlibNgF.Proof.DeflatePrime.chk_ok (sl.toNat - 1073741824 - 65536) (by omega) (by omega)]
+      refine Sat.bind (Sat.pure ?_)
+      by_cases hlim : st.block_start.toInt ≥ (Int32.ofInt (sl.toNat - 1073741824 - 65536)).toInt
+      · have hlimN : st.block_start.toInt ≥ (sl.toNat : Int) - 1073741824 - 65536 := by
+          rw [ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ (by omega) (by omega)] at hlim; exact hlim
+        simp only [hlim, ↓reduceIte]
+        refine Sat.bind (Sat.pure ?_)
+        rename_i jpX
         refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-        refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
-        · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
-        all_goals simp only [hss', hfe', hbs', hws1, hw1, e_la]
-        all_goals (try simp only [BS])
-        all_goals omega
-      · rename_i hgi
-        have hgi' : st.insert.toNat ≤ st.strstart.toNat - sl.toNat := by
-          rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, hss', e_in] at hgi; omega
-        refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
-        · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
-        all_goals simp only [hss', hfe', hbs', hws1, hw1, e_la, e_in]
-        all_goals (try simp only [BS])
-        all_goals omega
+        simp only [jpX]
+        refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+        refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+        dsimp (config := { zeta := false }) only
+        rename_i jp2
+        have hjp2 : ∀ (s0 : DeflateState) (d1 : Array UInt8), WrIn d 0 (ho + 131072) d1 → SFin st s0 →
+            Sat (SH H i z b s0 d1) (jp2 ())
+              (fun _ H' => ∃ st' d', H' = SH H i z b st' d' ∧ WrIn d 0 (ho + 131072) d' ∧ SFin st st') := by
+          intro s0 d1 hd1 F
+          have L0 := FWS.hlay F.1 L
+          rw [← hd1.1] at L0
+          have hw0 : s0.w_size = st.w_size := by obtain ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ := F.1; rfl
+          simp only [jp2]
+          refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+          split
+          · refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+            have L0' := FWS.hlay (⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ : FWS s0 { s0 with slide_len := sl }) L0
+            have F' : SFin st { s0 with slide_len := sl } :=
+              ⟨F.1.trans ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, F.2.1, F.2.2.1,
+                ⟨F.2.2.2.1.wpow, F.2.2.2.1.fe_mod, F.2.2.2.1.fe_hi, F.2.2.2.1.ins, F.2.2.2.1.bs_hi, F.2.2.2.1.bs_lo⟩,
+                F.2.2.2.2.1, F.2.2.2.2.2⟩
+            split
+            · exact Sat.mono (slide_hash_head_c_SH L0') (fun _ _ ⟨d', e, hs⟩ => ⟨_, d', e, wr_tr hd1 hs, F'⟩)
+            · exact Sat.mono (slide_hash_c_SH L0' (by rw [hw0]; exact hw2)) (fun _ _ ⟨d', e, hs⟩ =>
+                ⟨_, d', e, wr_tr hd1 hs, F'⟩)
+          · exact Sat.pure ⟨s0, d1, rfl, hd1, F⟩
+        clear_value jp2
+        have hss' : (st1.strstart - sl).toNat = st.strstart.toNat - sl.toNat := by
+          rw [sub_toNat _ _ (by rw [e_ss]; omega), e_ss]
+        have hfe' : (st1.fill_end - sl).toNat = fe.toNat - sl.toNat := by
+          rw [sub_toNat _ _ (by rw [e_fe]; omega), e_fe]
+        have hbs' : (Int32.ofInt BS).toInt = BS := ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ hBS0 hBS1
+        have hws1 := e_ws
+        have hw1 := e_w
+        split
+        · rename_i hgi
+          refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+          · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
+          all_goals simp only [hss', hfe', hbs', hws1, hw1, e_la]
+          all_goals (try simp only [BS])
+          all_goals omega
+        · rename_i hgi
+          have hgi' : st.insert.toNat ≤ st.strstart.toNat - sl.toNat := by
+            rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, hss', e_in] at hgi; omega
+          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+          · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
+          all_goals simp only [hss', hfe', hbs', hws1, hw1, e_la, e_in]
+          all_goals (try simp only [BS])
+          all_goals omega
+      · have hlimN : st.block_start.toInt < (sl.toNat : Int) - 1073741824 - 65536 := by
+          rw [ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ (by omega) (by omega)] at hlim; omega
+        simp only [hlim, ↓reduceIte]
+        rename_i jpX
+        simp only [jpX]
+        refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+        refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+        dsimp (config := { zeta := false }) only
+        rename_i jp2
+        have hjp2 : ∀ (s0 : DeflateState) (d1 : Array UInt8), WrIn d 0 (ho + 131072) d1 → SFin st s0 →
+            Sat (SH H i z b s0 d1) (jp2 ())
+              (fun _ H' => ∃ st' d', H' = SH H i z b st' d' ∧ WrIn d 0 (ho + 131072) d' ∧ SFin st st') := by
+          intro s0 d1 hd1 F
+          have L0 := FWS.hlay F.1 L
+          rw [← hd1.1] at L0
+          have hw0 : s0.w_size = st.w_size := by obtain ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ := F.1; rfl
+          simp only [jp2]
+          refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+          split
+          · refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+            have L0' := FWS.hlay (⟨_, _, _, _, _, _, _, _, _, _, rfl⟩ : FWS s0 { s0 with slide_len := sl }) L0
+            have F' : SFin st { s0 with slide_len := sl } :=
+              ⟨F.1.trans ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, F.2.1, F.2.2.1,
+                ⟨F.2.2.2.1.wpow, F.2.2.2.1.fe_mod, F.2.2.2.1.fe_hi, F.2.2.2.1.ins, F.2.2.2.1.bs_hi, F.2.2.2.1.bs_lo⟩,
+                F.2.2.2.2.1, F.2.2.2.2.2⟩
+            split
+            · exact Sat.mono (slide_hash_head_c_SH L0') (fun _ _ ⟨d', e, hs⟩ => ⟨_, d', e, wr_tr hd1 hs, F'⟩)
+            · exact Sat.mono (slide_hash_c_SH L0' (by rw [hw0]; exact hw2)) (fun _ _ ⟨d', e, hs⟩ =>
+                ⟨_, d', e, wr_tr hd1 hs, F'⟩)
+          · exact Sat.pure ⟨s0, d1, rfl, hd1, F⟩
+        clear_value jp2
+        have hss' : (st1.strstart - sl).toNat = st.strstart.toNat - sl.toNat := by
+          rw [sub_toNat _ _ (by rw [e_ss]; omega), e_ss]
+        have hfe' : (st1.fill_end - sl).toNat = fe.toNat - sl.toNat := by
+          rw [sub_toNat _ _ (by rw [e_fe]; omega), e_fe]
+        have hbs' : (Int32.ofInt BS).toInt = BS := ZlibNgF.Proof.DeflatePrime.ofInt_toInt _ hBS0 hBS1
+        have hws1 := e_ws
+        have hw1 := e_w
+        split
+        · rename_i hgi
+          refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+          · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
+          all_goals simp only [hss', hfe', hws1, hw1, e_la]
+          all_goals (try simp only [BS])
+          all_goals omega
+        · rename_i hgi
+          have hgi' : st.insert.toNat ≤ st.strstart.toNat - sl.toNat := by
+            rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, hss', e_in] at hgi; omega
+          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+          · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
+          all_goals simp only [hss', hfe', hws1, hw1, e_la, e_in]
+          all_goals (try simp only [BS])
+          all_goals omega
     clear_value jp1
     split
     · refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
@@ -220,10 +287,10 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
       rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, sub_toNat _ _ (by rw [hML, e_ws]; omega), e_fe, e_ws, hML] at hle
       omega
     refine Sat.pure ⟨st1, d, rfl, WrIn.refl _ _ _, ⟨by rw [hst1]; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, e_la, ?_, ?_, ?_,
-      by rw [e_ss, e_bs]⟩⟩
+      by rw [e_ss, e_bs]; exact ⟨Int.le_refl _, id⟩⟩⟩
     · rw [e_ss, e_fe]; exact hsf
     · refine ⟨⟨k, hk1, hk2, by rw [e_w]; exact hwk⟩, by rw [e_fe, e_w]; exact hm, by rw [e_fe, e_ws]; exact hle',
-        by rw [e_in, e_ss]; exact C.ins, by rw [e_bs, e_ss]; exact C.bs_hi, by rw [e_bs, e_ss]; exact C.bs_lo⟩
+        by rw [e_in, e_ss]; exact C.ins, by rw [e_bs, e_ss]; exact C.bs_hi, by rw [e_bs]; exact C.bs_lo⟩
     · rw [e_ss, e_la, e_ws]; exact hlook
 
 end
