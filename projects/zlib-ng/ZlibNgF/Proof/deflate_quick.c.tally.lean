@@ -55,7 +55,7 @@ theorem slf_flush_only (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M 
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans h4)
   have hdo : dOutputRanges h (some i) = [(z0.next_out, z0.avail_out.toNat)] := by simp [dOutputRanges, h0]
   refine ⟨by simp only [avIn, hz', hz]; rw [hze], ⟨P.inv, P.io, P.set, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_,
-    ?_, ?_, ?_⟩,
+    F.inp.keep hz hz' (by rw [hze]) (by rw [hze]), ?_, ?_, ?_⟩,
     fun st3 hst3 => ?_, fun z3 st3 hz3 hst3 ha => ?_⟩
   · obtain ⟨⟨-, -, -, -, -, -, ec, ex, -, -⟩, -⟩ := P.frame
     exact ⟨by rw [ec]; exact F.crc.1, by rw [ex]; exact F.crc.2⟩

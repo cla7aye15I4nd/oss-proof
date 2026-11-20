@@ -447,6 +447,125 @@ theorem windup_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
       exact Sat.mono (wd8_SH hpb (by omega) (by omega) (by omega) (by omega))
         fun _ _ q => (WDPost.step (k := 0) rfl (WrIn.refl _ _ _) rfl q).mono_K (by omega)
 
+/-! ## `bi_windup`, exactly -/
+
+/-- What `bi_windup` (or a tail of it) leaves, exactly: `K` more pending bytes, the bit buffer empty. -/
+def WDPostE (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8) (pbo K : Nat)
+    (H' : Heap) : Prop :=
+  ∃ np bu d', H' = SH H i z b { st with pending := np, bi_used := bu, bi_buf := 0, bi_valid := 0 } d' ∧
+    WrIn d (pbo + st.pending.toNat) (pbo + np.toNat) d' ∧ np.toNat = st.pending.toNat + K
+
+theorem WDPostE.wd {pbo K : Nat} {H' : Heap} (q : WDPostE H i z b st d pbo K H') : WDPost H i z b st d pbo K H' := by
+  obtain ⟨np, bu, d', e, w, h⟩ := q
+  exact ⟨np, bu, d', e, w, by omega, by omega⟩
+
+theorem WDPostE.cast {pbo K K' : Nat} {H' : Heap} (q : WDPostE H i z b st d pbo K H') (e : K = K') :
+    WDPostE H i z b st d pbo K' H' := e ▸ q
+
+theorem WDPostE.step {pbo k K : Nat} {st1 : DeflateState} {d1 : Array UInt8} {H' : Heap}
+    (hs : st1 = { st with pending := st1.pending, bi_buf := st1.bi_buf, bi_valid := st1.bi_valid })
+    (w : WrIn d (pbo + st.pending.toNat) (pbo + st.pending.toNat + k) d1)
+    (hp : st1.pending.toNat = st.pending.toNat + k) (q : WDPostE H i z b st1 d1 pbo K H') :
+    WDPostE H i z b st d pbo (k + K) H' := by
+  obtain ⟨np, bu, d', rfl, w', h1⟩ := q
+  refine ⟨np, bu, d', by rw [hs], ?_, by omega⟩
+  rw [hp] at w'
+  exact (w.widen (Nat.le_refl _) (by omega : pbo + st.pending.toNat + k ≤ pbo + np.toNat)).trans
+    (w'.widen (by omega) (Nat.le_refl _)) (Nat.le_refl _) (Nat.le_refl _)
+
+theorem wdTail_E_SH {pbo : Nat} (h0 : -8 < st.bi_valid.toInt) :
+    Sat (SH H i z b st d) (wdTail (some b)) (fun _ H' => WDPostE H i z b st d pbo 0 H') := by
+  unfold wdTail
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  have := st.bi_valid.toInt_lt
+  rw [DeflatePrime.chk_ok _ (by omega) (by omega), pure_bind_M]
+  exact Sat.of_eq (wrD_SH _) ⟨st.pending, _, d, rfl, WrIn.refl _ _ _, by omega⟩
+
+theorem wd0_E_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : -8 < st.bi_valid.toInt)
+    (h8 : st.bi_valid.toInt ≤ 8) (hroom : pbo + st.pending.toNat + 1 ≤ d.size) (hp : st.pending.toNat + 1 < 2 ^ 32) :
+    Sat (SH H i z b st d) (wd0 (some b))
+      (fun _ H' => WDPostE H i z b st d pbo ((st.bi_valid.toInt + 7).toNat / 8) H') := by
+  unfold wd0
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  by_cases c : st.bi_valid > 0
+  · rw [ite_t c]
+    refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+    refine Sat.bind (Sat.mono (put_byte_SH hpb _ hroom) ?_)
+    rintro _ _ ⟨d1, rfl, w1⟩
+    have hp1 : (st.pending + 1).toNat = st.pending.toNat + 1 := add_toNat _ 1 (by decide) (by omega)
+    exact Sat.mono (wdTail_E_SH (pbo := pbo) (by exact h0)) fun _ _ q =>
+      (WDPostE.step rfl w1 hp1 q).cast (by have := Int32.lt_iff_toInt_lt.mp c; simp at this; omega)
+  · rw [ite_f c]
+    have c' : ¬ (0 : Int32).toInt < st.bi_valid.toInt := fun h => c (Int32.lt_iff_toInt_lt.mpr h)
+    have e0 : (0 : Int32).toInt = 0 := rfl
+    exact Sat.mono (wdTail_E_SH (pbo := pbo) h0) fun _ _ q =>
+      (WDPostE.step (k := 0) rfl (WrIn.refl _ _ _) rfl q).cast (by omega)
+
+theorem wd8_E_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : -8 < st.bi_valid.toInt)
+    (h24 : st.bi_valid.toInt ≤ 24) (hroom : pbo + st.pending.toNat + 3 ≤ d.size) (hp : st.pending.toNat + 3 < 2 ^ 32) :
+    Sat (SH H i z b st d) (wd8 (some b))
+      (fun _ H' => WDPostE H i z b st d pbo ((st.bi_valid.toInt + 7).toNat / 8) H') := by
+  unfold wd8
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  by_cases c : st.bi_valid > 8
+  · rw [ite_t c]
+    have c' := Int32.lt_iff_toInt_lt.mp c
+    have e8 : (8 : Int32).toInt = 8 := rfl
+    refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+    refine Sat.bind (Sat.mono (put_short_SH hpb _ (by omega)) ?_)
+    rintro _ _ ⟨d1, rfl, w1⟩
+    refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
+    refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
+    have hp2 : (st.pending + 2).toNat = st.pending.toNat + 2 := add_toNat _ 2 (by decide) (by omega)
+    have hv : (st.bi_valid - 16).toInt = st.bi_valid.toInt - 16 := subI _ 16 (by omega) (by omega)
+    exact Sat.mono (wd0_E_SH (pbo := pbo) (by exact hpb) (by dsimp only; omega) (by dsimp only; omega)
+      (by dsimp only; rw [hp2, w1.1]; omega) (by dsimp only; rw [hp2]; omega))
+      fun _ _ q => (WDPostE.step (k := 2) rfl w1 hp2 q).cast (by dsimp only; rw [hv]; omega)
+  · rw [ite_f c]
+    have c' : ¬ (8 : Int32).toInt < st.bi_valid.toInt := fun h => c (Int32.lt_iff_toInt_lt.mpr h)
+    have e8 : (8 : Int32).toInt = 8 := rfl
+    exact Sat.mono (wd0_E_SH hpb h0 (by omega) (by omega) (by omega))
+      fun _ _ q => (WDPostE.step (k := 0) rfl (WrIn.refl _ _ _) rfl q).cast (by omega)
+
+/-- `bi_windup` with at most 63 bits: exactly `(bi_valid + 7) / 8` bytes. -/
+theorem windup_X_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
+    (h64 : st.bi_valid.toInt < 64) (hroom : pbo + st.pending.toNat + 8 ≤ d.size) (hp : st.pending.toNat + 8 < 2 ^ 32) :
+    Sat (SH H i z b st d) (ZlibNg.TreesEmit.bi_windup (some b))
+      (fun _ H' => WDPostE H i z b st d pbo ((st.bi_valid.toInt + 7).toNat / 8) H') := by
+  unfold ZlibNg.TreesEmit.bi_windup
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+  by_cases c : st.bi_valid > 56
+  · rw [ite_t c]
+    refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+    refine Sat.bind (Sat.mono (put_uint64_SH hpb _ hroom) ?_)
+    rintro _ _ ⟨d1, rfl, w1⟩
+    have hp8 : (st.pending + 8).toNat = st.pending.toNat + 8 := add_toNat _ 8 (by decide) (by omega)
+    exact Sat.mono (wdTail_E_SH (pbo := pbo) (by dsimp only; omega)) fun _ _ q =>
+      (WDPostE.step (k := 8) rfl w1 hp8 q).cast (by have := Int32.lt_iff_toInt_lt.mp c; simp at this; omega)
+  · rw [ite_f c]
+    have c' : ¬ (56 : Int32).toInt < st.bi_valid.toInt := fun h => c (Int32.lt_iff_toInt_lt.mpr h)
+    have e56 : (56 : Int32).toInt = 56 := rfl
+    refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+    by_cases c2 : st.bi_valid > 24
+    · rw [ite_t c2]
+      have c2' := Int32.lt_iff_toInt_lt.mp c2
+      have e24 : (24 : Int32).toInt = 24 := rfl
+      refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
+      refine Sat.bind (Sat.mono (put_uint32_SH hpb _ (by omega)) ?_)
+      rintro _ _ ⟨d1, rfl, w1⟩
+      refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
+      refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
+      have hp4 : (st.pending + 4).toNat = st.pending.toNat + 4 := add_toNat _ 4 (by decide) (by omega)
+      have hv : (st.bi_valid - 32).toInt = st.bi_valid.toInt - 32 := subI _ 32 (by omega) (by omega)
+      exact Sat.mono (wd8_E_SH (pbo := pbo) (by exact hpb) (by dsimp only; omega) (by dsimp only; omega)
+        (by dsimp only; rw [hp4, w1.1]; omega) (by dsimp only; rw [hp4]; omega))
+        fun _ _ q => (WDPostE.step (k := 4) rfl w1 hp4 q).cast (by dsimp only; rw [hv]; omega)
+    · rw [ite_f c2]
+      have c2' : ¬ (24 : Int32).toInt < st.bi_valid.toInt := fun h => c2 (Int32.lt_iff_toInt_lt.mpr h)
+      have e24 : (24 : Int32).toInt = 24 := rfl
+      exact Sat.mono (wd8_E_SH hpb (by omega) (by omega) (by omega) (by omega))
+        fun _ _ q => (WDPostE.step (k := 0) rfl (WrIn.refl _ _ _) rfl q).cast (by omega)
+
 /-! ## Emitters that end with `s->bi_buf = bi_buf; s->bi_valid = bi_valid;` -/
 
 /-- What such an emitter leaves: `n` more bits counted, at most `K` more pending bytes, fewer than 64 bits. -/

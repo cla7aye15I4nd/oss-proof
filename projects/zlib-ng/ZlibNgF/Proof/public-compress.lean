@@ -1,6 +1,7 @@
 import ZlibNgF.Proof.«public-deflate»
 import ZlibNgF.Proof.«deflate.c.gz»
 import ZlibNgF.Proof.«public-uncompress»
+import ZlibNgF.Proof.«deflate.c.gz.io»
 
 /-!
 # The safety of `compress2_z`, `compress2`, `compress_z` and `compress` (`ZlibNgF`)
@@ -819,5 +820,20 @@ theorem compress_safety_of_progress (N : DeflateProgress) : Goal.compress_safety
 
 theorem compress_z_safety_of_progress (N : DeflateProgress) : Goal.compress_z_safety :=
   compress_z_safety_of DeflatePublic.strategyFacts dInitFresh N
+
+/-- `DeflateProgress` holds (`DeflateGz.deflate_progress`). -/
+theorem deflateProgress : DeflateProgress := DeflateGz.deflate_progress
+
+/-- **`compress2_z` is safe.** -/
+theorem compress2_z_safety : Goal.compress2_z_safety := compress2_z_safety_of_progress deflateProgress
+
+/-- **`compress2` is safe.** -/
+theorem compress2_safety : Goal.compress2_safety := compress2_safety_of_progress deflateProgress
+
+/-- **`compress` is safe.** -/
+theorem compress_safety : Goal.compress_safety := compress_safety_of_progress deflateProgress
+
+/-- **`compress_z` is safe.** -/
+theorem compress_z_safety : Goal.compress_z_safety := compress_z_safety_of_progress deflateProgress
 
 end ZlibNgF.Proof.Compress

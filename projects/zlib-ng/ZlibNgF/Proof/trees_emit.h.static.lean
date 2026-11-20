@@ -98,13 +98,24 @@ def StoredPost (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) 
     np2.toNat * 8 ≤ st.pending.toNat * 8 + st.bi_valid.toInt.toNat + 10 ∧
     WrIn d (pbo + st.pending.toNat) (pbo + pend.toNat) d'
 
-theorem stored_block_X_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
+/-- `StoredPost` with the header bytes exact: `np2 = pending + (bi_valid + 10) / 8` (3 header bits, then the bit buffer
+written out to the byte boundary). -/
+def StoredPostE (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8) (pbo : Nat)
+    (len : UInt32) (H' : Heap) : Prop :=
+  ∃ (np2 pend : UInt32) (bu : Int32) (d' : Array UInt8),
+    H' = SH H i z b { st with pending := pend, bi_used := bu, bi_buf := 0, bi_valid := 0 } d' ∧
+    pend.toNat = np2.toNat + 4 + len.toNat ∧ st.pending.toNat ≤ np2.toNat ∧
+    np2.toNat * 8 ≤ st.pending.toNat * 8 + st.bi_valid.toInt.toNat + 10 ∧
+    WrIn d (pbo + st.pending.toNat) (pbo + pend.toNat) d' ∧
+    np2.toNat = st.pending.toNat + (st.bi_valid.toInt.toNat + 10) / 8
+
+theorem stored_block_XE_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
     (h64 : st.bi_valid.toInt < 64) (buf : BPtr) (len : UInt32)
     (hbuf : (buf = .null ∧ len = 0) ∨ ∃ os, buf = .ref (.heap b) os ∧ os + len.toNat ≤ pbo)
     (hroom : pbo + st.pending.toNat + len.toNat + 16 ≤ d.size) (hp : st.pending.toNat + len.toNat + 64 < 2 ^ 32)
     (last : Int32) :
     Sat (SH H i z b st d) (ZlibNg.Trees.zng_tr_stored_block (some b) buf len last)
-      (fun _ H' => StoredPost H i z b st d pbo len H') := by
+      (fun _ H' => StoredPostE H i z b st d pbo len H') := by
   have hsr : storedRoom st len = len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 := rfl
   unfold ZlibNg.Trees.zng_tr_stored_block
   have hl := last.toInt_lt
@@ -113,14 +124,16 @@ theorem stored_block_X_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap 
   rintro _ _ ⟨np, bb, bv, d1, rfl, w1, hacc1, hbv1, hle1, hge1⟩
   have e1 := toInt32_toInt bv hbv1
   unfold ZlibNg.TreesEmit.zng_tr_emit_align
-  refine Sat.bind (Sat.mono (windup_SH (pbo := pbo) (by exact hpb) (by dsimp only; omega) (by dsimp only; omega)
+  refine Sat.bind (Sat.mono (windup_X_SH (pbo := pbo) (by exact hpb) (by dsimp only; omega) (by dsimp only; omega)
     (by dsimp only; rw [w1.1]; omega) (by dsimp only; omega)) ?_)
-  rintro _ _ ⟨np2, bu, d2, rfl, w2, hle2, hge2⟩
-  dsimp only at w2 hle2 hge2
+  rintro _ _ ⟨np2, bu, d2, rfl, w2, hge2⟩
+  dsimp only at w2 hge2
   rw [e1] at hge2
-  have hb2 : np2.toNat * 8 ≤ st.pending.toNat * 8 + st.bi_valid.toInt.toNat + 10 := by
-    have e7 : ((bv.toNat : Int) + 7).toNat = bv.toNat + 7 := by omega
-    rw [e7] at hge2; omega
+  have e7 : ((bv.toNat : Int) + 7).toNat = bv.toNat + 7 := by omega
+  rw [e7] at hge2
+  have hle2 : np.toNat ≤ np2.toNat := by omega
+  have hb2 : np2.toNat * 8 ≤ st.pending.toNat * 8 + st.bi_valid.toInt.toNat + 10 := by omega
+  have hx2 : np2.toNat = st.pending.toNat + (st.bi_valid.toInt.toNat + 10) / 8 := by omega
   refine Sat.bind (Sat.mono (put_short_SH (pbo := pbo) (by exact hpb) _ (by dsimp only; rw [w2.1, w1.1]; omega)) ?_)
   rintro _ _ ⟨d3, rfl, w3⟩
   have hp3 : (np2 + 2).toNat = np2.toNat + 2 := add_toNat _ 2 (by decide) (by omega)
@@ -140,7 +153,7 @@ theorem stored_block_X_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap 
   · subst hz
     have hc : ¬ ((0 : UInt32) != 0) = true := by decide
     rw [ite_f hc]
-    exact Sat.pure ⟨np2, _, bu, d4, rfl, by rw [hp4]; rfl, Nat.le_trans hle1 hle2, hb2, by rw [hp4]; exact w14⟩
+    exact Sat.pure ⟨np2, _, bu, d4, rfl, by rw [hp4]; rfl, Nat.le_trans hle1 hle2, hb2, by rw [hp4]; exact w14, hx2⟩
   · have hc : (len != 0) = true := by simpa using hz
     simp only [hc, ↓reduceIte]
     have hl0 : len.toNat ≠ 0 := fun e => hz (UInt32.toNat_inj.mp (by rw [e]; rfl))
@@ -160,7 +173,17 @@ theorem stored_block_X_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap 
     have wc := copy_wrin d4 (pbo + (np2 + 2 + 2).toNat) os len.toNat
     have w15 : WrIn d (pbo + st.pending.toNat) (pbo + (np2.toNat + 4 + len.toNat)) _ :=
       WrIn.cat w14 (wc.widen (by omega) (by omega)) (by omega) (by omega)
-    exact ⟨np2, _, bu, _, rfl, hp5, Nat.le_trans hle1 hle2, hb2, by rw [hp5]; exact w15⟩
+    exact ⟨np2, _, bu, _, rfl, hp5, Nat.le_trans hle1 hle2, hb2, by rw [hp5]; exact w15, hx2⟩
+
+theorem stored_block_X_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
+    (h64 : st.bi_valid.toInt < 64) (buf : BPtr) (len : UInt32)
+    (hbuf : (buf = .null ∧ len = 0) ∨ ∃ os, buf = .ref (.heap b) os ∧ os + len.toNat ≤ pbo)
+    (hroom : pbo + st.pending.toNat + len.toNat + 16 ≤ d.size) (hp : st.pending.toNat + len.toNat + 64 < 2 ^ 32)
+    (last : Int32) :
+    Sat (SH H i z b st d) (ZlibNg.Trees.zng_tr_stored_block (some b) buf len last)
+      (fun _ H' => StoredPost H i z b st d pbo len H') :=
+  Sat.mono (stored_block_XE_SH hpb h0 h64 buf len hbuf hroom hp last) fun _ _ ⟨np2, pend, bu, d', e, h1, h2, h3, h4, _⟩ =>
+    ⟨np2, pend, bu, d', e, h1, h2, h3, h4⟩
 
 theorem stored_block_SH {pbo : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo)) (h0 : 0 ≤ st.bi_valid.toInt)
     (h64 : st.bi_valid.toInt < 64) (buf : BPtr) (len : UInt32)

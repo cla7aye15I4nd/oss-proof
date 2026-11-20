@@ -27,14 +27,16 @@ open ZlibNgF.Proof.FillIO (streamIO_in)
 open ZlibNgF.Proof.WinInv (InTail InTail.trans)
 
 /-- The fields that `deflate_stored` reads back from its entry state: those of `StratKeeps`, `window` and `w_size`
-(read once into locals), and `lookahead` (never written at level 0). -/
+(read once into locals), `lookahead` (never written at level 0), and `pending_buf_size`. -/
 def SK (st0 st : DeflateState) : Prop :=
-  StratKeeps st0 st ∧ st.window = st0.window ∧ st.w_size = st0.w_size ∧ st.lookahead = st0.lookahead
+  StratKeeps st0 st ∧ st.window = st0.window ∧ st.w_size = st0.w_size ∧ st.lookahead = st0.lookahead ∧
+    st.pending_buf_size = st0.pending_buf_size
 
 theorem SK.trans {a b c : DeflateState} (h1 : SK a b) (h2 : SK b c) : SK a c :=
-  ⟨StratKeeps.trans h1.1 h2.1, h2.2.1.trans h1.2.1, h2.2.2.1.trans h1.2.2.1, h2.2.2.2.trans h1.2.2.2⟩
+  ⟨StratKeeps.trans h1.1 h2.1, h2.2.1.trans h1.2.1, h2.2.2.1.trans h1.2.2.1, h2.2.2.2.1.trans h1.2.2.2.1,
+    h2.2.2.2.2.trans h1.2.2.2.2⟩
 
-theorem SK.refl (a : DeflateState) : SK a a := ⟨StratKeeps.refl _, rfl, rfl, rfl⟩
+theorem SK.refl (a : DeflateState) : SK a a := ⟨StratKeeps.refl _, rfl, rfl, rfl, rfl⟩
 
 /-- The frame of a `deflate_stored` call (see the module comment). -/
 structure SF (h : Heap) (i b : Nat) (H : Heap) : Prop where
@@ -215,6 +217,10 @@ theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
 
 /-- `StratPost` from `SF`, with no pending bytes after `block_done` / `finish_done`. -/
 theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : BlockState)
+    (hB : bs = .need_more ∨ bs = .block_done → CF H i)
+    (hF : bs = .finish_started ∨ bs = .finish_done → flush = Z_FINISH)
+    (hP : flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → ∀ z z', StreamAt h (some i) z →
+      StreamAt H (some i) z' → z.avail_out ≠ 0 → z'.avail_in < z.avail_in ∨ z'.avail_out < z.avail_out)
     (hp : bs = .block_done ∨ bs = .finish_done → ∀ st, H.dstate b = some st → st.pending = 0) :
     StratPost h (some i) flush bs H := by
   obtain ⟨z, hz, hb⟩ := F.blk
@@ -225,7 +231,10 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, by rw [hsi]; exact F.frame, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
-    stateBlock_keep F.blk0 F.blk,
+    stateBlock_keep F.blk0 F.blk, fun _ e => by
+      obtain rfl := Option.some.inj e
+      obtain ⟨z1, z2, h1, h2, hle, ht⟩ := F.inp
+      exact ZlibNgF.Proof.FillFacts.inTail_of_win h1 h2 hle ht, hB, hF, hP,
     fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, hp e st hst⟩,
     ?_⟩
   rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i2, z2, e2, hz2, hb2, hst2⟩
@@ -237,7 +246,7 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   obtain rfl : st = st' := Option.some.inj (hst.symm.trans hst2)
   obtain ⟨st0, h0, l0, la0, hw⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans hst1)
-  obtain ⟨K, -, -, hla⟩ := hw st hst
+  obtain ⟨K, -, -, hla, -⟩ := hw st hst
   obtain ⟨hbs, hsn, h8⟩ := F.st st hst
   have hlv : st.level = 0 := K.2.2.2.2.1.trans l0
   have hla' : st.lookahead = 0 := hla.trans la0

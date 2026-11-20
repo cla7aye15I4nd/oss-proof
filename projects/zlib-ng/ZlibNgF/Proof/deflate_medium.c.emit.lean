@@ -43,8 +43,9 @@ theorem slf_lv {h H : Heap} {i b : Nat} (F : SLF h i b H) (hl : MedLv h b) {st :
 /-- `StratPost` from `SLF` and the exit facts at the levels of `deflate_medium*` (any strategy, `Z_FIXED`
 included: the level is not 1, and `LazyOk` is kept by `StratKeeps` outside the levels of `deflate_slow`). -/
 theorem slf_postM {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState) (hl : MedLv h b)
+    (hx : ExitIO H i flush bs)
     (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
-  refine slf_postL F flush bs (fun st0 h0 e1 => absurd (e1 ▸ (hl st0 h0).1 : (3 : Int32) ≤ 1) (by decide))
+  refine slf_postL F flush bs hx (fun st0 h0 e1 => absurd (e1 ▸ (hl st0 h0).1 : (3 : Int32) ≤ 1) (by decide))
     (fun st0 h0 L st hst => ?_) hs
   obtain ⟨st1, h1, hk⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
@@ -227,7 +228,7 @@ theorem pf_flush (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} {bf
   refine Sat.mono (slf_flush_mg T 0 (by decide) (by decide) F (fun st' h' => ?_) (chainAll_SH.mpr Ch)) ?_
   · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h')
     exact ⟨hp, (hw _ (SH_dstate _ _ _ _ _ _)).trans (hw0 st0 h0)⟩
-  rintro r H2 ⟨a1, F2, Ch2, KW, hs, hnone, hsome⟩
+  rintro r H2 ⟨a1, F2, Ch2, KW, hs, hnone, hsome, hcf⟩
   refine ⟨fun hr => ?_, fun r' hr => ?_⟩
   · obtain ⟨z2, st2, d2, e2, hst2⟩ := slf_sh F2
     obtain ⟨hs0, hs1, st1, h1, hl1, hs2, -⟩ := hs st2 hst2
@@ -243,7 +244,7 @@ theorem pf_flush (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} {bf
     rw [hr] at e
     have e' : r' = .need_more := by simpa using e
     subst e'
-    refine ⟨rfl, slf_postM F2 flush _ hl fun st2 h2 => ?_, Ch2⟩
+    refine ⟨rfl, slf_postM F2 flush _ hl (exitIO_nm (hcf (by rw [hr]; simp))) fun st2 h2 => ?_, Ch2⟩
     obtain ⟨hs0, hs1, -⟩ := hs st2 h2
     refine ⟨hs1, fun e => ?_, fun _ => hs0, fun e => ?_, fun e => ?_⟩
     · rcases e with e | e <;> cases e

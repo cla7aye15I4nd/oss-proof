@@ -193,6 +193,7 @@ import ZlibNgF.Proof.«trees.c.owed»
 import ZlibNgF.Proof.«deflate.c.gz»
 import ZlibNgF.Proof.«deflate.c.keep»
 import ZlibNgF.Proof.«deflate.c.gz.keep»
+import ZlibNgF.Proof.«deflate.c.gz.io»
 import ZlibNgF.Proof.«gzwrite.c.error»
 import ZlibNgF.Proof.«gzwrite.c.init»
 import ZlibNgF.Proof.«gzwrite.c.comp»

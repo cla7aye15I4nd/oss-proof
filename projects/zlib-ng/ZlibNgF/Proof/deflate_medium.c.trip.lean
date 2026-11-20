@@ -38,7 +38,7 @@ def OI (h : Heap) (i b : Nat) (W : UInt32) (flush : Int32) (fz : Bool) (v : Ctl 
     Prop :=
   match v.1 with
   | .cont => MG h i b H ∧ WS b W H ∧ NI b v.2.2 H ∧ (fz = false → v.2.2.match_length = 0)
-  | .brk => MG h i b H ∧ ∀ st, H.dstate b = some st → st.lookahead = 0
+  | .brk => MG h i b H ∧ (∀ st, H.dstate b = some st → st.lookahead = 0) ∧ avIn H i = 0
   | .ret r => StratPost h (some i) flush r H ∧ ChainAll b H
 
 /-- The part of the measure from the carried match. -/
@@ -115,9 +115,9 @@ theorem fiz_nxt {ss la md k : Nat} {m n : Match} (hf : FindOk ss la md m) (hmd :
   refine ⟨by omega, by omega, e5, Or.inr ⟨by omega, by omega, by omega⟩⟩
 
 /-- `StratPost` for `need_more` after a call without a flush, at the levels of `deflate_medium*`. -/
-theorem slc_postM {h H : Heap} {i b : Nat} (C : SLC h i b H) (hl : MedLv h b) :
+theorem slc_postM {h H : Heap} {i b : Nat} (C : SLC h i b H) (hl : MedLv h b) (hc : CF H i) :
     StratPost h (some i) Z_NO_FLUSH .need_more H := by
-  refine slf_postM C.1 _ _ hl fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
+  refine slf_postM C.1 _ _ hl (exitIO_nmNF hc) fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
   · intro e; rcases e with e | e <;> cases e
   · intro e; exact absurd rfl e
   · intro e; rcases e with e | e <;> cases e
@@ -585,16 +585,19 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
   refine sat_ite (fun hlt => ?_) (fun hlt => ?_)
   · have hlt' : st.lookahead.toNat < 262 := UInt32.lt_iff_toNat_lt.mp hlt
     refine Sat.bind (Sat.mono (mg_fill G (SH_dstate _ _ _ _ _ _) hlt') ?_)
-    rintro _ _ ⟨H1, z1, st1, d1, rfl, G1, hsum, hne, hws1, -⟩
+    rintro _ _ ⟨H1, z1, st1, d1, rfl, G1, hsum, hne, hws1, hfull⟩
     rw [avIn_SH, avIn_SH] at hsum hne
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
     refine sat_ite (fun hnm => ?_) (fun hnm => ?_)
     · simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hnm
-      obtain ⟨-, rfl⟩ := hnm
-      exact Sat.pure ⟨⟨slc_postM G1.1 hl, G1.2⟩, by simp only [OM]; omega⟩
+      obtain ⟨hlt1, rfl⟩ := hnm
+      have hlt1' : st1.lookahead.toNat < 262 := by
+        have := UInt32.lt_iff_toNat_lt.mp hlt1; simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using this
+      exact Sat.pure ⟨⟨slc_postM G1.1 hl (cf_fill hfull hlt1'), G1.2⟩, by simp only [OM]; omega⟩
     · refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       refine sat_ite (fun h0 => ?_) (fun h0 => ?_)
-      · refine Sat.pure ⟨⟨G1, fun st2 h2 => ?_⟩, by simp only [OM]; omega⟩
+      · refine Sat.pure ⟨⟨G1, fun st2 h2 => ?_,
+          avIn_fill hfull (by rw [show st1.lookahead = 0 by simpa using h0]; decide)⟩, by simp only [OM]; omega⟩
         obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
         simpa using h0
       · have h1 : 1 ≤ st1.lookahead.toNat := by

@@ -544,14 +544,14 @@ theorem qsb_s {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : A
     (hB : bitsOf st + 41 ≤ 32 * st.lit_bufsize.toNat + 32) (la : UInt32) (last : Int32)
     (hl : last = 0 ∨ last = 1) :
     Sat (SH H0 i z b st d) (quick_start_block (some b) st.strstart la last 1) (fun r H' =>
-      (r = true → st.block_open = 1 ∧ QF h i b H' ∧ ∀ st', H'.dstate b = some st' → st'.bi_valid < 8 ∧
-        st'.lookahead = st.lookahead ∧ st'.strstart = st.strstart) ∧
+      (r = true → st.block_open = 1 ∧ QF h i b H' ∧ (∀ st', H'.dstate b = some st' → st'.bi_valid < 8 ∧
+        st'.lookahead = st.lookahead ∧ st'.strstart = st.strstart) ∧ O0 H' i) ∧
       (r = false → QSB h i b z st la last H')) := by
   unfold quick_start_block
   simp only [show ((1 : Int32) == 0) = false from rfl, Bool.false_eq_true, ↓reduceIte]
   have tail : ∀ {m : M Bool}, Sat (SH H0 i z b st d) m (fun r H' => r = false ∧ QSB h i b z st la last H') →
-      Sat (SH H0 i z b st d) m (fun r H' => (r = true → st.block_open = 1 ∧ QF h i b H' ∧ ∀ st', H'.dstate b = some st' →
-        st'.bi_valid < 8 ∧ st'.lookahead = st.lookahead ∧ st'.strstart = st.strstart) ∧
+      Sat (SH H0 i z b st d) m (fun r H' => (r = true → st.block_open = 1 ∧ QF h i b H' ∧ (∀ st', H'.dstate b = some st' →
+        st'.bi_valid < 8 ∧ st'.lookahead = st.lookahead ∧ st'.strstart = st.strstart) ∧ O0 H' i) ∧
         (r = false → QSB h i b z st la last H')) := fun q =>
     Sat.mono q fun r H' x => ⟨fun e => absurd (x.1.symm.trans e) (by decide), fun _ => x.2⟩
   rcases hl with rfl | rfl
@@ -570,9 +570,10 @@ theorem qsb_s {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : A
       cases r with
       | true =>
         simp only [↓reduceIte]
-        refine Sat.pure ⟨fun _ => ⟨trivial, F1, fun st' h' => ?_⟩, fun e => by cases e⟩
-        obtain rfl := Option.some.inj (hst1.symm.trans h')
-        exact ⟨hbv1, hla1, hss1⟩
+        refine Sat.pure ⟨fun _ => ⟨trivial, F1, fun st' h' => ?_, o0_of fun z' h'' => ?_⟩, fun e => by cases e⟩
+        · obtain rfl := Option.some.inj (hst1.symm.trans h')
+          exact ⟨hbv1, hla1, hss1⟩
+        · obtain rfl := Option.some.inj (hz1.symm.trans h''); exact ht rfl
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte]
         obtain ⟨hp1, hpo1⟩ := hf rfl
@@ -617,7 +618,7 @@ def QB (h : Heap) (i b : Nat) (last la ss : UInt32) (H : Heap) : Prop :=
   ∃ H0 z st d, H = SH H0 i z b st d ∧ QF h i b H ∧ st.strstart.toNat ≤ ss.toNat ∧
     ss.toNat = st.strstart.toNat + st.lookahead.toNat ∧ la = 0 ∧ st.pending_out = st.pending_buf ∧
     (st.block_open = 0 → st.pending = 0 ∧ st.bi_valid < 8 ∧ last = 0) ∧
-    bitsOf st + 41 ≤ 32 * st.lit_bufsize.toNat + 32
+    bitsOf st + 41 ≤ 32 * st.lit_bufsize.toNat + 32 ∧ z.avail_in = 0
 
 /-- The invariant of the main loop with `static_emit` over `(strstart, lookahead, exit)`. -/
 def QIs (h : Heap) (i b : Nat) (flush : Int32) (last : UInt32) (v : UInt32 × UInt32 × QuickExit) (H : Heap) :
@@ -654,7 +655,7 @@ theorem qfp_s {h H : Heap} {i b : Nat} {flush : Int32} {last la ss : UInt32} (I 
       (r = false → QT h i b flush last la ss H1 ∧ avIn H1 i = avIn H i) ∧
       (r = true → ∃ H0 z st d, H1 = SH H0 i z b st d ∧ QF h i b H1 ∧ st.strstart.toNat ≤ ss.toNat ∧
         ss.toNat + la.toNat = st.strstart.toNat + st.lookahead.toNat ∧ st.bi_valid < 8 ∧
-        (st.block_open = 0 → last = 0))) := by
+        (st.block_open = 0 → last = 0) ∧ O0 H1 i)) := by
   obtain ⟨H0, z, st, d, rfl, F, hss, hsum, hpo, hbo, h8⟩ := I
   obtain ⟨-, -, -, -, -, -, -, -, -, l1, l2, pbs, -, -, -, -, b0, b64, -, -, hroom, -⟩ := qf_nums F
   unfold quick_flush_pending
@@ -675,8 +676,9 @@ theorem qfp_s {h H : Heap} {i b : Nat} {flush : Int32} {last la ss : UInt32} (I 
     have hla4 : st4.lookahead = st.lookahead := by rw [hste]
     have hbo4 : st4.block_open = st.block_open := by rw [hste]
     have hlb4 : st4.lit_bufsize = st.lit_bufsize := by rw [hste]
-    refine Sat.pure ⟨fun hr => ?_, fun _ => ⟨H4, z4, st4, d4, e4.symm, F4, by rw [hss4]; exact hss,
-      by rw [hss4, hla4]; exact hsum, hbv4, fun e0 => (hbo (hbo4 ▸ e0)).2.2.2⟩⟩
+    refine Sat.pure ⟨fun hr => ?_, fun hr => ⟨H4, z4, st4, d4, e4.symm, F4, by rw [hss4]; exact hss,
+      by rw [hss4, hla4]; exact hsum, hbv4, fun e0 => (hbo (hbo4 ▸ e0)).2.2.2,
+      o0_of fun z' h'' => by obtain rfl := Option.some.inj (hz4.symm.trans h''); simpa using hr⟩⟩
     have ha : z4.avail_out ≠ 0 := fun e => by simp [e] at hr
     obtain ⟨hp4, hpo4⟩ := hout ha
     have h84 := Int32.lt_iff_toInt_lt.mp hbv4
@@ -755,9 +757,11 @@ theorem trip_s {h H : Heap} {i b wo : Nat} {flush : Int32} {last la ss : UInt32}
   cases r with
   | true =>
     simp only [↓reduceIte]
-    obtain ⟨H0, z, st, d, rfl, F, hss, hsum, hbv, hbo⟩ := ht rfl
+    obtain ⟨H0, z, st, d, rfl, F, hss, hsum, hbv, hbo, ho⟩ := ht rfl
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
     have F1 := qf_wb F hss hsum
+    have ho1 : O0 (SH H0 i z b (FS st la ss) d) i := o0_of fun z' h'' => by
+      rw [SH_streams] at h''; cases h''; exact ho z ⟨i, rfl, SH_streams _ _ _ _ _ _⟩
     have fin : ∀ c : Bool, (c = true → last ≠ 0 ∧ st.block_open = 0) →
         Sat (SH H0 i z b (FS st la ss) d)
           (pure (ss, la, QuickExit.ret (if c = true then BlockState.finish_started else BlockState.need_more)))
@@ -766,7 +770,8 @@ theorem trip_s {h H : Heap} {i b wo : Nat} {flush : Int32} {last la ss : UInt32}
       cases c with
       | true => exact absurd (hbo (hc rfl).2) (hc rfl).1
       | false =>
-        refine Sat.pure ⟨qf_post F1 flush .need_more hE fun st' h' => ?_, by simp [ZlibNgF.Proof.QuickP.QM]⟩
+        refine Sat.pure ⟨qf_post F1 flush .need_more (exitIO_nm ho1) hE fun st' h' => ?_,
+          by simp [ZlibNgF.Proof.QuickP.QM]⟩
         obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h')
         exact ⟨(fun e => by rcases e with e | e <;> cases e), (fun e => by rcases e with e | e <;> cases e),
           fun e8 => absurd e8 (Int32.not_le.mpr hbv)⟩
@@ -797,7 +802,7 @@ theorem trip_s {h H : Heap} {i b wo : Nat} {flush : Int32} {last la ss : UInt32}
         simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using UInt32.lt_iff_toNat_lt.mp hl
       obtain ⟨H0, z, st, d, rfl, F, hss, hsum, hpo, hbo, h8, hB⟩ := T
       refine Sat.bind (Sat.mono (qf_fill F hss hsum hl') fun _ H1 h1 => Sat.bind (Sat.mono h1 ?_))
-      rintro _ H2 ⟨H3, z', st', d', rfl, F2, fws, hmono, hsum2, hne⟩
+      rintro _ H2 ⟨H3, z', st', d', rfl, F2, fws, hmono, hsum2, hne, hend⟩
       refine Sat.bind (Sat.of_eq (rdD_SH _) (Sat.bind (Sat.of_eq (rdD_SH _) ?_)))
       obtain ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩ := fws
       have e1 : st'.pending = st.pending ∧ st'.bi_valid = st.bi_valid ∧ st'.pending_out = st.pending_out ∧
@@ -811,7 +816,11 @@ theorem trip_s {h H : Heap} {i b wo : Nat} {flush : Int32} {last la ss : UInt32}
       by_cases hx : (decide (st'.lookahead < MIN_LOOKAHEAD) && flush == Z_NO_FLUSH) = true
       · simp only [hx, ↓reduceIte]
         have hfn : flush = Z_NO_FLUSH := by simp at hx; exact hx.2
-        refine Sat.pure ⟨qf_post F2 flush .need_more hE fun st2 h2 => ?_, by simp [ZlibNgF.Proof.QuickP.QM]⟩
+        have hx2 : st'.lookahead.toNat < 262 := by
+          simp at hx; have hx' : st'.lookahead < 262 := by simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using hx.1
+          exact UInt32.lt_iff_toNat_lt.mp hx'
+        refine Sat.pure ⟨qf_post F2 flush .need_more (by rw [hfn]; exact exitIO_nmNF (cf_fill hend hx2)) hE
+          fun st2 h2 => ?_, by simp [ZlibNgF.Proof.QuickP.QM]⟩
         obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
         refine ⟨(fun e => by rcases e with e | e <;> cases e), (fun e => by rcases e with e | e <;> cases e),
           fun e8 => ?_⟩
@@ -829,8 +838,9 @@ theorem trip_s {h H : Heap} {i b wo : Nat} {flush : Int32} {last la ss : UInt32}
       by_cases hz : (st'.lookahead == 0) = true
       · simp only [hz, ↓reduceIte]
         have hz' : st'.lookahead = 0 := by simpa using hz
+        have hai0 : z'.avail_in = 0 := hend.resolve_left (by rw [hz']; decide)
         refine Sat.pure ⟨⟨H3, z', st', d', rfl, F2, Nat.le_refl _, by rw [hz']; simp, hz', hpo2,
-          fun e0 => ?_, hB2⟩, by simp [ZlibNgF.Proof.QuickP.QM]⟩
+          fun e0 => ?_, hB2, hai0⟩, by simp [ZlibNgF.Proof.QuickP.QM]⟩
         obtain ⟨-, a2, a3, a4⟩ := hbo (ebo ▸ e0)
         exact ⟨ep.trans a2, by rw [ebv]; exact a3, a4⟩
       simp only [Bool.not_eq_true] at hz; simp only [hz, Bool.false_eq_true, ↓reduceIte]
@@ -917,15 +927,19 @@ theorem quick_static_ok :
     split
     · rename_i hf; intro _ e; rw [e] at hf; exact absurd hf (by decide)
     · intro e; exact absurd rfl e
-  generalize (if (flush == Z_FINISH) = true then (1 : UInt32) else 0) = last at hlast hlf ⊢
+  have hlF : (if (flush == Z_FINISH) = true then (1 : UInt32) else 0) = 1 → flush = Z_FINISH := by
+    split
+    · rename_i hf; intro _; simpa using hf
+    · intro e; exact absurd e (by decide)
+  generalize (if (flush == Z_FINISH) = true then (1 : UInt32) else 0) = last at hlast hlf hlF ⊢
   have hl32 : last.toInt32 = 0 ∨ last.toInt32 = 1 := by rcases hlast with rfl | rfl <;> decide
   refine Sat.bind (Sat.mono (qsb_s F hpo hB st.lookahead last.toInt32 hl32) ?_)
   rintro r H1 ⟨q1, q2⟩
   cases r with
   | true =>
     simp only [↓reduceIte]
-    obtain ⟨-, F1, hb1⟩ := q1 rfl
-    refine Sat.pure (qf_post F1 flush .need_more hE0 fun st' h' => ?_)
+    obtain ⟨-, F1, hb1, ho1⟩ := q1 rfl
+    refine Sat.pure (qf_post F1 flush .need_more (exitIO_nm ho1) hE0 fun st' h' => ?_)
     exact ⟨(fun e => by rcases e with e | e <;> cases e), (fun e => by rcases e with e | e <;> cases e),
       fun e8 => absurd e8 (Int32.not_le.mpr (hb1 st' h').1)⟩
   | false =>
@@ -967,7 +981,7 @@ theorem quick_static_ok :
     | cont => cases hc
     | ret r => exact Sat.pure hI
     | brk =>
-      obtain ⟨H0, z1, st1, d1, rfl, F1, hss1, hsum1, hla0, hpo1, hbo1, hB1⟩ := hI
+      obtain ⟨H0, z1, st1, d1, rfl, F1, hss1, hsum1, hla0, hpo1, hbo1, hB1, hai0⟩ := hI
       dsimp only at hss1 hsum1 hla0
       subst hla0
       simp only []
@@ -982,26 +996,58 @@ theorem quick_static_ok :
       have F3 := qf_ins F2 _ hv
       have fin : ∀ (lst : Int32) (b1 b2 : BlockState),
           (lst = 0 ∧ b1 = .need_more ∧ b2 = .block_done) ∨ (lst = 1 ∧ b1 = .finish_started ∧ b2 = .finish_done) →
+          (lst = 1 → flush = Z_FINISH) →
           Sat (SH H0 i z1 b { FS st1 0 ss with insert := if ss < STD_MIN_MATCH - 1 then ss else STD_MIN_MATCH - 1 } d1)
             (do
               if ← quick_end_block (some b) ss lst 1 then return b1
               return b2) (fun r H' => StratPost h (some i) flush r H') := by
-        intro lst b1 b2 hc
+        intro lst b1 b2 hc hlF1
         have hl : lst = 0 ∨ lst = 1 := by rcases hc with ⟨e, -⟩ | ⟨e, -⟩ <;> simp [e]
+        have hF2 : b2 = .finish_started ∨ b2 = .finish_done → flush = Z_FINISH := fun e => by
+          rcases hc with ⟨-, -, rfl⟩ | ⟨e1, -, -⟩
+          · rcases e with e | e <;> cases e
+          · exact hlF1 e1
+        have hF1 : b1 = .finish_started ∨ b1 = .finish_done → flush = Z_FINISH := fun e => by
+          rcases hc with ⟨-, rfl, -⟩ | ⟨e1, -, -⟩
+          · rcases e with e | e <;> cases e
+          · exact hlF1 e1
+        have hn2 : ¬ (b2 = .need_more ∨ b2 = .finish_started) := fun e => by
+          rcases hc with ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ <;> rcases e with e | e <;> cases e
         refine Sat.bind (Sat.mono (qeb_s F3 hpo1 hB1 lst hl) ?_)
         rintro r H' ⟨q0, q1⟩
         by_cases hb : st1.block_open = 0
         · obtain ⟨rfl, rfl⟩ := q0 hb
           obtain ⟨a1, a2, -⟩ := hbo1 hb
           simp only [Bool.false_eq_true, ↓reduceIte]
-          refine Sat.pure (qf_post F3 flush b2 hE0 fun st' h' => ?_)
+          refine Sat.pure (qf_post F3 flush b2 ⟨fun _ => ?_, hF2, fun _ e => absurd e hn2⟩ hE0 fun st' h' => ?_)
+          · rintro z' ⟨i', e', h'⟩
+            obtain rfl := Option.some.inj e'
+            rw [SH_streams] at h'; cases h'; exact .inl hai0
           obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h')
           exact ⟨fun _ => a1, fun _ => rfl, fun e8 => absurd e8 (Int32.not_le.mpr a2)⟩
-        · obtain ⟨F4, z4, st4, hz4, hst4, hbv, -, hla4, -, -, -, hf, -⟩ := q1 hb
+        · obtain ⟨F4, z4, st4, hz4, hst4, hbv, -, hla4, -, -, hai4, hf, ht⟩ := q1 hb
           have hx : ∀ bs, (bs = b1 → r = true) → (bs = b2 → r = false) → (bs = b1 ∨ bs = b2) →
               StratPost h (some i) flush bs H' := by
             intro bs hb1 hb2 hbs
-            refine qf_post F4 flush bs hE0 fun st' h' => ?_
+            have hO : bs = .need_more ∨ bs = .finish_started → O0 H' i := fun e => by
+              rcases hbs with rfl | rfl
+              · exact o0_of fun z' h'' => by
+                  obtain rfl := Option.some.inj (hz4.symm.trans h''); exact ht (hb1 rfl)
+              · exact absurd e hn2
+            have hX : ExitIO H' i flush bs := by
+              refine ⟨fun e => ?_, fun e => ?_, fun _ e => hO e⟩
+              · rcases hbs with rfl | rfl
+                · rcases e with e | e
+                  · exact cf_of_o0 (hO (.inl e))
+                  · rcases hc with ⟨-, rfl, -⟩ | ⟨-, rfl, -⟩ <;> cases e
+                · rintro z' ⟨i', e', h''⟩
+                  obtain rfl := Option.some.inj e'
+                  obtain rfl := Option.some.inj (hz4.symm.trans h'')
+                  exact .inl (hai4.trans hai0)
+              · rcases hbs with rfl | rfl
+                · exact hF1 e
+                · exact hF2 e
+            refine qf_post F4 flush bs hX hE0 fun st' h' => ?_
             obtain rfl := Option.some.inj (hst4.symm.trans h')
             refine ⟨fun e => ?_, fun _ => hla4, fun e8 => absurd e8 (Int32.not_le.mpr hbv)⟩
             rcases hbs with rfl | rfl
@@ -1018,9 +1064,13 @@ theorem quick_static_ok :
               rcases hc with ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ <;> cases e) (fun _ => rfl) (.inr rfl))
       by_cases hl : (last != 0) = true
       · simp only [hl, ↓reduceIte]
-        exact fin 1 .finish_started .finish_done (.inr ⟨rfl, rfl, rfl⟩)
+        have hl1 : last = 1 := by
+          rcases hlast with rfl | rfl
+          · exact absurd hl (by decide)
+          · rfl
+        exact fin 1 .finish_started .finish_done (.inr ⟨rfl, rfl, rfl⟩) fun _ => hlF hl1
       · simp only [hl, Bool.false_eq_true, ↓reduceIte]
-        exact fin 0 .need_more .block_done (.inl ⟨rfl, rfl, rfl⟩)
+        exact fin 0 .need_more .block_done (.inl ⟨rfl, rfl, rfl⟩) fun e => absurd e (by decide)
 
 /-- The state record of a stream is unique. -/
 theorem dstateIs_unique {h : Heap} {s : StreamPtr} {b b' : Nat} {st st' : DeflateState} (h1 : DStateIs h s b st)

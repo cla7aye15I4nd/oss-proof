@@ -48,7 +48,7 @@ theorem sli_win {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} {
 def HI (h : Heap) (i b : Nat) (flush : Int32) (v : UInt32 × UInt32 × HuffExit) (H : Heap) : Prop :=
   match v.2.2 with
   | .ret r => StratPost h (some i) flush r H
-  | .brk => SLI h i b v.1 v.2.1 H ∧ v.1 = 0
+  | .brk => SLI h i b v.1 v.2.1 H ∧ v.1 = 0 ∧ avIn H i = 0
   | .cont => SLI h i b v.1 v.2.1 H
 
 /-- The loop measure: `avail_in + lookahead + 1` while the loop goes on. -/
@@ -97,10 +97,10 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (f
         cases r2 with
         | none => exact Sat.pure ⟨hnone rfl, by simp only [HM]; rw [ha4]; exact hm2⟩
         | some v =>
-          obtain ⟨hv, F4, hs4⟩ := hsome (by simp)
+          obtain ⟨hv, F4, hcf4, hs4⟩ := hsome (by simp)
           have hv' : v = .need_more := by simpa using hv
           subst hv'
-          refine Sat.pure ⟨slf_post F4 _ _ hfx fun st4 h4 => ⟨(hs4 st4 h4).2, ?_, fun _ => (hs4 st4 h4).1, ?_,
+          refine Sat.pure ⟨slf_post F4 _ _ hfx (exitIO_nm hcf4) fun st4 h4 => ⟨(hs4 st4 h4).2, ?_, fun _ => (hs4 st4 h4).1, ?_,
             ?_⟩, by simp [HM]⟩
           · intro e; rcases e with e | e <;> cases e
           · intro e; rcases e with e | e <;> cases e
@@ -109,17 +109,23 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (f
   · simp only [hl, ↓reduceIte]
     have hl0 : la = 0 := by simpa using hl
     refine Sat.bind (Sat.mono (sli_fill I (by rw [hl0]; decide)) fun _ H1 h1 => Sat.bind (Sat.mono h1 ?_))
-    rintro _ H2 ⟨H0, z, st, d, rfl, I2, hm1, -, -⟩
+    rintro _ H2 ⟨H0, z, st, d, rfl, I2, hm1, -, hfull⟩
     refine Sat.bind (Sat.of_eq (rdD_SH _) (Sat.bind (Sat.of_eq (rdD_SH _) ?_)))
     by_cases hl2 : st.lookahead == 0
     · simp only [hl2, ↓reduceIte]
+      have h0in : z.avail_in.toNat = 0 := by
+        have e0 : st.lookahead = 0 := by simpa using hl2
+        rcases hfull with x | x
+        · rw [e0] at x; exact absurd x (by decide)
+        · rw [x]; rfl
       by_cases hf : flush == Z_NO_FLUSH
       · simp only [hf, ↓reduceIte]
         have hf' : flush = Z_NO_FLUSH := by simpa using hf
         subst hf'
-        exact hjp (_, _, .ret .need_more) _ (fun e => by cases e) (fun _ => slc_post (sli_slc I2) hfx)
+        exact hjp (_, _, .ret .need_more) _ (fun e => by cases e) (fun _ => slc_post (sli_slc I2) hfx
+          (cf_of_avIn (by rw [avIn_SH]; exact h0in)))
       · simp only [hf, Bool.false_eq_true, ↓reduceIte]
-        exact hjp (_, _, .brk) _ (fun e => by cases e) (fun _ => ⟨I2, by simpa using hl2⟩)
+        exact hjp (_, _, .brk) _ (fun e => by cases e) (fun _ => ⟨I2, by simpa using hl2, by rw [avIn_SH]; exact h0in⟩)
     · simp only [hl2, Bool.false_eq_true, ↓reduceIte]
       have : st.lookahead.toNat ≠ 0 := fun e => hl2 (by
         have e' : st.lookahead = 0 := UInt32.toNat_inj.mp (by rw [e]; rfl)
@@ -176,12 +182,12 @@ theorem huff_ok (T : TreesFacts) :
   | cont => cases hc
   | ret r => exact Sat.pure hI
   | brk =>
-    obtain ⟨hI, hl0⟩ := hI
+    obtain ⟨hI, hl0, hin⟩ := hI
     refine Sat.bind (Sat.mono (sli_wb hI) ?_)
-    rintro _ H1 ⟨C1, -, H0, z1, st1, d1, rfl, hla, -⟩
+    rintro _ H1 ⟨C1, hav1, H0, z1, st1, d1, rfl, hla, -⟩
     refine Sat.bind (Sat.mono (slc_insert C1 0 UInt32.zero_le) ?_)
     rintro _ H2 ⟨C2, rfl⟩
-    refine slc_tail T flush C2 hw0 hn fun st2 h2 => ?_
+    refine slc_tail T flush C2 hw0 hn (fun st2 h2 => ?_) (by rw [avIn_SH, ← avIn_SH H0 i z1 b st1 d1, hav1]; exact hin)
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
     simp only [] at hl0 ⊢; rw [hla, hl0]
 

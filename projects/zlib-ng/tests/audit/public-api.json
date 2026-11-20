@@ -244,15 +244,19 @@
     },
     {
       "function": "compress",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.compress_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/compress.c.lean",
+      "implementation": "ZlibNg.Compress.compress",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.compress_safety"
     },
     {
       "function": "compress2",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.compress2_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/compress.c.lean",
+      "implementation": "ZlibNg.Compress.compress2",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.compress2_safety"
     },
     {
       "function": "compressBound",
@@ -711,15 +715,19 @@
     },
     {
       "function": "compress_z",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.compress_z_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/compress.c.lean",
+      "implementation": "ZlibNg.Compress.compress_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.compress_z_safety"
     },
     {
       "function": "compress2_z",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated and differentially tested; Goal.compress2_z_safety is stated, not proved."
+      "source": "ZlibNgF/ZlibNg/compress.c.lean",
+      "implementation": "ZlibNg.Compress.compress2_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.compress2_z_safety"
     },
     {
       "function": "deflateBound_z",

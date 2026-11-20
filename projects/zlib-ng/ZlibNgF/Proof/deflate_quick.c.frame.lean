@@ -47,6 +47,7 @@ structure QF (h : Heap) (i b : Nat) (H : Heap) : Prop where
   blk0 : ∃ z, h.streams i = some z ∧ z.state = some b
   frame : DFrame h H [i] [b] [] (dOutputRanges h (some i))
   out : OutTail h H i
+  inp : InTail h H i
   win : ∃ st0, h.dstate b = some st0 ∧ ∀ st, H.dstate b = some st → st.window = st0.window
   keeps : ∃ st0, h.dstate b = some st0 ∧ ∀ st, H.dstate b = some st → StratKeeps st0 st
   sym : ∀ st, H.dstate b = some st → st.sym_next = 0
@@ -104,7 +105,8 @@ theorem qf_SH {h H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateS
       (SH_streams _ _ _ _ _ _) rfl (Nat.le_refl _) (Or.inl ⟨rfl, rfl⟩) hrd (by rw [hno]; rfl) (by simp)
       (SH_dstate _ _ _ _ _ _) hgz,
     ⟨z, ⟨i, rfl, SH_streams _ _ _ _ _ _⟩, hnn, hni⟩, F.crc, ⟨z, SH_streams _ _ _ _ _ _, hb⟩, F.blk0,
-    dframe_trans F.frame (dframe_nil _ fr), ?_, ?_, ?_, fun st2 hst2 => ?_⟩
+    dframe_trans F.frame (dframe_nil _ fr), ?_, F.inp.keep (SH_streams _ _ _ _ _ _) (SH_streams _ _ _ _ _ _) rfl rfl,
+    ?_, ?_, fun st2 hst2 => ?_⟩
   · obtain ⟨z0, z4, ob4, oo4, k, h0, h4, e0, e4, ek⟩ := F.out
     obtain rfl : z = z4 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h4)
     exact ⟨z0, z, ob4, oo4, k, h0, SH_streams _ _ _ _ _ _, e0, e4, ek⟩
@@ -131,7 +133,7 @@ theorem qf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
   obtain ⟨hlv, hfx⟩ := hE b st1 ⟨i, z, rfl, hz, hb, hst1⟩
   have hs0 : st1.sym_next = 0 := hs1.2.2.1 hlv hfx
   refine ⟨st1, hst1, hp0, hs1, hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
-    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
+    InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩
   · have hio0 := hio
     obtain ⟨z2, b2, hp, ⟨i2, e2, hz2⟩, hb2, -, -, -, hout, hnb, -⟩ := hio0
@@ -229,7 +231,8 @@ theorem qf_flush {h H : Heap} {i b : Nat} (F : QF h i b H) :
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans h4)
   have hdo : dOutputRanges h (some i) = [(z0.next_out, z0.avail_out.toNat)] := by simp [dOutputRanges, h0]
   have hk : StratKeeps st st' := by rw [hsteq]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩
-  refine ⟨⟨hv, hio, hset, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_, ?_, ?_, fun st3 h3 => ?_⟩,
+  refine ⟨⟨hv, hio, hset, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_,
+    F.inp.keep hz hz' (by rw [hzeq]) (by rw [hzeq]), ?_, ?_, fun st3 h3 => ?_⟩,
     z, st, z', st', hz, hst, hz', hst', hsteq, hbv, by rw [hzeq], fun ha => ?_⟩
   · obtain ⟨⟨-, -, -, -, -, -, ec, ex, -, -⟩, -⟩ := fr
     exact ⟨by rw [ec]; exact F.crc.1, by rw [ex]; exact F.crc.2⟩
@@ -319,7 +322,8 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
       Sat H1 (ZlibNg.Deflate.fill_window (some b)) (fun _ H2 => ∃ H3 z' st' d', H2 = SH H3 i z' b st' d' ∧
         QF h i b H2 ∧ ZlibNgF.Proof.WinInv.FWS (FS st la ss) st' ∧ la.toNat ≤ st'.lookahead.toNat ∧
         z'.avail_in.toNat + st'.lookahead.toNat ≤ z.avail_in.toNat + la.toNat ∧
-        (st'.lookahead ≠ la → z'.avail_in.toNat < z.avail_in.toNat))) := by
+        (st'.lookahead ≠ la → z'.avail_in.toNat < z.avail_in.toNat) ∧
+        (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0))) := by
   refine Sat.of_eq (wrD_SH _) ?_
   obtain ⟨z1, st1, al, hz1, hb, hst1, -, c⟩ := F.live
   obtain rfl : z = z1 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz1)
@@ -336,7 +340,8 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
   obtain ⟨z5, z', st5, st', d', hz5, hst5, rfl, zr, fws⟩ := FI.shape
   obtain rfl : z = z5 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz5)
   obtain rfl : FS st la ss = st5 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst5)
-  obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, hlt, hsum2, -⟩ := FI.post
+  obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, hlt, hsum2, -, -, hend, -⟩ :=
+    FI.post
   obtain rfl : i = i6 := Option.some.inj e6
   obtain rfl : z = z6 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz6)
   obtain rfl : z' = z7 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz7)
@@ -348,13 +353,16 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
   obtain rfl : z' = z8 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz8)
   obtain rfl : st' = st8 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst8)
   have hzs := ZlibNgF.Proof.FillWindow.ZR.state zr
+  have zr0 := zr
   obtain ⟨hle, ⟨ni, ai, ti, ad, hze⟩, -⟩ := zr
   obtain ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩ := fws
   have hK : StratKeeps (FS st la ss) st' := fill_keeps FI (SH_streams _ _ _ _ _ _) hb (SH_dstate _ _ _ _ _ _)
     (SH_dstate _ _ _ _ _ _)
   refine ⟨_, _, _, d', rfl, ⟨FI.inv, FI.io, FI.set, FI.crc, ⟨_, SH_streams _ _ _ _ _ _, hzs.trans hb⟩, F1.blk0,
-      dframe_trans F1.frame (dframe_nil _ FI.frame), ?_, ?_, ?_, fun st2 h2 => ?_⟩,
-    ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩, ?_, ?_, hlt⟩
+      dframe_trans F1.frame (dframe_nil _ FI.frame), ?_,
+      F1.inp.trans (ZlibNgF.Proof.FillFacts.inTail_of_zr (SH_streams _ _ _ _ _ _) (SH_streams _ _ _ _ _ _) zr0),
+      ?_, ?_, fun st2 h2 => ?_⟩,
+    ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩, ?_, ?_, hlt, hend⟩
   · obtain ⟨z0, z4, ob, oo, k, h0, h4, e0, e4, ek⟩ := F1.out
     obtain rfl : z = z4 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h4)
     exact ⟨z0, _, ob, oo, k, h0, SH_streams _ _ _ _ _ _, e0, by rw [hze]; exact e4, by rw [hze]; exact ek⟩
@@ -383,13 +391,14 @@ def QExit (bs : BlockState) (st : DeflateState) : Prop :=
 
 /-- `StratPost` from `QF` and the exit facts, for a call entered at level 1 with `Z_FIXED`. -/
 theorem qf_post {h H : Heap} {i b : Nat} (F : QF h i b H) (flush : Int32) (bs : BlockState)
-    (hE : ∀ st0, h.dstate b = some st0 → st0.level = 1 ∧ st0.strategy = Z_FIXED)
+    (hx : ExitIO H i flush bs) (hE : ∀ st0, h.dstate b = some st0 → st0.level = 1 ∧ st0.strategy = Z_FIXED)
     (hs : ∀ st, H.dstate b = some st → QExit bs st) : StratPost h (some i) flush bs H := by
   obtain ⟨z, st, al, hz, hb, hst, -, c⟩ := F.live
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun i' e => by obtain rfl := Option.some.inj e; exact F.out,
-    stateBlock_keep F.blk0 F.blk,
+    stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
+    fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0),
     fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).1 e)⟩, ?_⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
