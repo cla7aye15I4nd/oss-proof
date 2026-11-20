@@ -1,42 +1,32 @@
-# PR 0014: Discard stale caller input after a failed direct `gzwrite`
+# Discard stale caller input after a failed direct gzwrite
 
-- **Proposed PR Title**: `Discard stale caller input after a failed direct gzwrite`
-- **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
-- **Upstream PR**: https://github.com/zlib-ng/zlib-ng/pull/2527 (open; needs updated force-push)
-- **Commits**: 1 (`upstream.patch`)
-- **Files**: `gzwrite.c`, `test/test_gzfile_api_errors.cc`
+## Problem
 
-## Problem & Root Cause
+On the direct write path of `gz_write()` (`len >= state->size`), `state->strm.next_in` points directly into the caller's `buf`. When `gz_comp(state, Z_NO_FLUSH)` fails (for example on `EBADF` or `EAGAIN`), `gz_write()` returns `0` while leaving `state->strm.next_in` pointing into `buf` with `avail_in > 0`:
 
-In `gz_write()`, the direct path (`len >= state->size`) points `state->strm.next_in` directly at the caller's `buf` and sets `state->strm.avail_in = n`. When `gz_comp(state, Z_NO_FLUSH)` returns `-1` (e.g. write failure on a read-only fd or full pipe), `gz_write()` returns `0` while leaving `state->strm.next_in` pointing at `buf` with `avail_in > 0`:
+1. Freeing `buf` and calling `gzclose()` causes `gz_comp(state, Z_FINISH)` to read the freed caller buffer (heap-use-after-free).
+2. Calling `gzclearerr()` followed by a small buffered write computes `have = (unsigned)((state->strm.next_in + state->strm.avail_in) - state->in)` across distinct objects (ISO C17 §6.5.6p9), causing invalid pointer subtraction and heap-buffer-overflow.
+3. In `gz_write_init()`, `strm->next_in = NULL` was only initialized inside `if (!state->direct)`.
 
-1. If the caller frees `buf` and calls `gzclose()`, `gz_comp(state, Z_FINISH)` dereferences the freed caller buffer (heap-use-after-free).
-2. If the caller clears the error via `gzclearerr()` and issues a small buffered write (`gzwrite` / `gzputc`), `gz_write()` computes `have = (unsigned)((state->strm.next_in + state->strm.avail_in) - state->in)` across distinct objects (ISO C17 §6.5.6p9), causing cross-object pointer subtraction and heap-buffer-overflow.
-3. Also move `strm->next_in = NULL;` initialization in `gz_write_init()` before `if (!state->direct)` so direct-mode streams do not leave `next_in` indeterminate (adapted from `madler/zlib@6be4bcda`).
+## Commits & Fix
 
-## Fix Summary
+1. **Mark Adler** (adapted from `madler/zlib@df84af25`, `CVE-2026-85091`): in `gz_write()`, compute consumed bytes (`n -= state->strm.avail_in`) after `gz_comp(state, Z_NO_FLUSH)`, and on `ret == -1` reset `state->strm.avail_in = 0` and `state->strm.next_in = state->in` before returning `0`.
+2. **Mark Adler** (adapted from `madler/zlib@6be4bcda`): initialize `strm->next_in = NULL` unconditionally in `gz_write_init()` and restore `state->strm.next_in = state->in` after the direct write loop finishes.
+3. **Zheng Yu**: add `gzfile_api_errors.write_failed_direct_close` and `gzfile_api_errors.write_failed_direct_clearerr` in `test/test_gzfile_api_errors.cc`.
 
-Adapting `madler/zlib@df84af25` and `madler/zlib@6be4bcda`:
+## Related Upstream References
 
-- Initialize `strm->next_in = NULL;` unconditionally in `gz_write_init()`.
-- On the direct write path of `gz_write()`, update `n -= state->strm.avail_in; state->x.pos += n; len -= n;` after `gz_comp(state, Z_NO_FLUSH)`. If `ret == -1`, reset `state->strm.avail_in = 0; state->strm.next_in = state->in;` before returning `0`. After the loop completes, restore `state->strm.next_in = state->in;`.
-- Add both `gzfile_api_errors.write_failed_direct_close` (free caller buffer before `gzclose()`) and `gzfile_api_errors.write_failed_direct_clearerr` (`gzclearerr()` + follow-up small write) in `test/test_gzfile_api_errors.cc`.
+- Updates open PR: https://github.com/zlib-ng/zlib-ng/pull/2527
+- Note: https://github.com/zlib-ng/zlib-ng/pull/2517 also appends to `test/test_gzfile_api_errors.cc`.
 
-## Review Feedback Addressed (`nmoinvaz` on `#2527`)
+## Review Feedback Addressed
 
-- **Proper commit message & `madler/zlib` attribution (`nmoinvaz` #1, #4)**: Added detailed commit message citing `madler/zlib@df84af25` and `madler/zlib@6be4bcda`.
-- **GoogleTest conversion & remove standalone reproducer files (`nmoinvaz` #2)**: Squashed into a single clean commit with both GoogleTest tests directly in `test/test_gzfile_api_errors.cc` and no standalone C reproducer files.
-- **No wordy top-of-file comments (`nmoinvaz` #3)**: Omitted all verbose file header comments.
+- Cherry-picked/adapted `madler/zlib@df84af25` and `madler/zlib@6be4bcda` as clean commits with original author attribution and proper commit messages, followed by a separate GoogleTest commit.
+- Replaced standalone C reproducer files with GoogleTest cases in `test/test_gzfile_api_errors.cc` and removed verbose file header comments.
 
-## Overlaps & Dependencies
+## Testing
 
-- **Internal (`gzwrite.c`)**: disjoint from `0017` and `0022`.
-- **Internal (`test/test_gzfile_api_errors.cc`)**: `0015` also appends to `test/test_gzfile_api_errors.cc`.
-- **External (`#2517`)**: https://github.com/zlib-ng/zlib-ng/pull/2517 also appends to `test/test_gzfile_api_errors.cc`.
-
-## Verification
-
-- `build-compat-san` (`detect_invalid_pointer_pairs=2`):
-  - Before fix (`5f1f4899`): `write_failed_direct_close` crashes with ASan `heap-use-after-free`; `write_failed_direct_clearerr` fails with ASan `invalid-pointer-pair` / UBSan overflow.
-  - After fix: both pass (`[  PASSED  ] 2 tests.`).
-- `build-native-san` (`WITH_OPTIM=ON`): both pass (`[  PASSED  ] 2 tests.`).
+- Clang (`ZLIB_COMPAT=ON`, `WITH_OPTIM=OFF`, ASan + UBSan + C pointer-pair, `ASAN_OPTIONS=detect_invalid_pointer_pairs=2`):
+  - Before fix: `write_failed_direct_close` aborts with ASan `heap-use-after-free`; `write_failed_direct_clearerr` aborts with ASan `invalid-pointer-pair` / UBSan overflow.
+  - After fix: both tests pass.
+- Clang (`ZLIB_COMPAT=OFF`, `WITH_OPTIM=ON`, ASan + UBSan): both tests pass.

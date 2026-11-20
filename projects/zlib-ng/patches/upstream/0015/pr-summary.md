@@ -1,36 +1,28 @@
-# PR 0015: Check gzip buffer allocation before computing `state->out`
+# Check gzip buffer allocation before computing state->out
 
-- **Proposed PR Title**: `Check gzip buffer allocation before computing state->out`
-- **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
-- **Upstream PR**: Ready to submit
-- **Commits**: 1 (`upstream.patch`)
-- **Files**: `gzlib.c`, `test/test_gzfile_api_errors.cc`
+## Problem
 
-## Problem & Root Cause
-
-In `gz_buffer_alloc()` (`gzlib.c`), after allocating `state->buffers` and assigning `state->in = state->buffers`, the code computes:
+In `gz_buffer_alloc()` (`gzlib.c`), after allocating `state->buffers` and setting `state->in = state->buffers`, the code computes:
 
 ```c
 state->out = state->buffers + in_size;
 ```
 
-*before* checking whether `state->buffers == NULL`. When allocation fails and `in_size > 0`, evaluating `NULL + in_size` is undefined behavior in ISO C17 §6.5.6p8 (reported directly by Clang UBSan as applying nonzero offset to null pointer). Furthermore, `(out_size && state->out == NULL)` in the old error check only ever evaluated to false when allocation succeeded.
+before checking whether `state->buffers == NULL`. When allocation fails and `in_size > 0`, evaluating `NULL + in_size` is undefined behavior in ISO C17 §6.5.6p8 (reported by Clang UBSan as applying a nonzero offset to a null pointer).
 
-## Fix Summary
+## Fix
 
-Check `if (state->in == NULL)` immediately after allocation (freeing nothing and returning `Z_MEM_ERROR`), and only then assign `state->out = state->buffers + in_size;` when `out_size != 0`.
+Check `if (state->in == NULL)` immediately after allocation and return `Z_MEM_ERROR` before computing `state->out = state->buffers + in_size`.
 
-Add an opt-in regression test `gzfile_api_errors.gzip_buffer_allocation_failure` in `test/test_gzfile_api_errors.cc` gated by `ZLIB_NG_TEST_GZ_ALLOC_LIMIT` (sets `gzbuffer(file, 1 << 29)` so ASan `allocator_may_return_null=1:max_allocation_size_mb=1024` exercises OOM cleanly).
+Add an opt-in regression test `gzfile_api_errors.gzip_buffer_allocation_failure` in `test/test_gzfile_api_errors.cc` gated by `ZLIB_NG_TEST_GZ_ALLOC_LIMIT` (requests `gzbuffer(file, 1 << 29)` so ASan `allocator_may_return_null=1:max_allocation_size_mb=1024` triggers allocation failure reliably).
 
-## Overlaps & Dependencies
+## Related Upstream References
 
-- **Internal (`gzlib.c`)**: disjoint from `0004` (`gzseek64`).
-- **Internal (`test/test_gzfile_api_errors.cc`)**: shares file EOF with `0014` (`#2527`).
-- **External (`#2517`)**: https://github.com/zlib-ng/zlib-ng/pull/2517 also appends to `test/test_gzfile_api_errors.cc`.
+- Note: https://github.com/zlib-ng/zlib-ng/pull/2517 also appends to `test/test_gzfile_api_errors.cc`.
 
-## Verification
+## Testing
 
-- Under normal CI (without `ZLIB_NG_TEST_GZ_ALLOC_LIMIT`), the new test cleanly skips (`GTEST_SKIP()`).
-- With `ZLIB_NG_TEST_GZ_ALLOC_LIMIT=1` and `ASAN_OPTIONS=allocator_may_return_null=1:max_allocation_size_mb=1024:detect_leaks=0:detect_invalid_pointer_pairs=2`:
-  - Before fix (`5f1f4899`): fails on `build-compat-san` with UBSan (`applying zero/non-zero offset ... to null pointer`).
-  - After fix: passes on both `build-compat-san` and `build-native-san` (`[  PASSED  ] 1 test.`), returning `Z_MEM_ERROR` cleanly on `gzwrite()` and `gzclose()`.
+- Under default test runs (without `ZLIB_NG_TEST_GZ_ALLOC_LIMIT`), the test cleanly skips via `GTEST_SKIP()`.
+- With `ZLIB_NG_TEST_GZ_ALLOC_LIMIT=1` and `ASAN_OPTIONS=allocator_may_return_null=1:max_allocation_size_mb=1024`:
+  - Before fix: Clang ASan + UBSan (`ZLIB_COMPAT=ON`) aborts with UBSan (`applying non-zero offset ... to null pointer`).
+  - After fix: passes on both `ZLIB_COMPAT=ON` and `ZLIB_COMPAT=OFF`, returning `Z_MEM_ERROR` from `gzwrite()` and `gzclose()`.

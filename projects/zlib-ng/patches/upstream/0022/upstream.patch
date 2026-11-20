@@ -1,24 +1,22 @@
-From 4587c109b1d8d3cd4ade591ba28a5d30ebb2c916 Mon Sep 17 00:00:00 2001
-From: Zheng Yu <dataisland@outlook.com>
-Date: Fri, 20 Nov 2026 00:30:00 -0800
-Subject: [PATCH] Account only consumed zero fill in gz_zero() on write errors
+From 3cc8f74a9bda391815f9ade0236e21909e511ad5 Mon Sep 17 00:00:00 2001
+From: M0nd0R <150439604+M0nd0R@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 16:35:10 +0000
+Subject: [PATCH 1/2] Discard unconsumed zero fill in gz_zero() on a write
+ error.
 
-gz_zero() added the full chunk length n to state->x.pos before gz_comp()
-and only subtracted n from state->skip afterward. When gz_comp() failed
-(for instance on EBADF or EAGAIN), state->x.pos + state->skip immediately
-exceeded the seeked offset, overflowing gztell() after a seek to GZ_OFF_MAX
-and duplicating the unconsumed zeros on retry after gzclearerr().
+If gz_comp() stalled on a write before consuming the current zero-fill chunk,
+that chunk remained in the input buffer while state->x.pos had already been
+advanced and state->skip had not been reduced. Advance state->x.pos and
+reduce state->skip only by the bytes actually consumed (n - strm->avail_in),
+and discard unconsumed zero fill on failure so retries regenerate it cleanly.
 
-Adapting madler/zlib@51c7cd2c, advance state->x.pos and reduce state->skip by
-the bytes actually consumed (n - strm->avail_in), and discard unconsumed
-zero-fill bytes on failure.
+Adapted from madler/zlib@51c7cd2c for zlib-ng's gz_zero().
 ---
- gzwrite.c         |   9 +++-
- test/test_gzio.cc | 111 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 118 insertions(+), 2 deletions(-)
+ gzwrite.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/gzwrite.c b/gzwrite.c
-index 14593da..9db58c0 100644
+index 14593da3..9db58c0b 100644
 --- a/gzwrite.c
 +++ b/gzwrite.c
 @@ -149,10 +149,15 @@ static int gz_zero(gz_state *state) {
@@ -39,8 +37,20 @@ index 14593da..9db58c0 100644
      } while (state->skip);
      return 0;
  }
+
+From 8e2a39fb2e78946f5259c31ef0d01897e5bffa2d Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH 2/2] Add regression tests for gz_zero() write errors
+
+Cover preserving gztell() at GZ_OFF_MAX on failed zero-fill writes and
+retrying a write after EAGAIN on a non-blocking pipe without duplicating zeros.
+---
+ test/test_gzio.cc | 111 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 111 insertions(+)
+
 diff --git a/test/test_gzio.cc b/test/test_gzio.cc
-index b6c4d16..75e8154 100644
+index b6c4d163..75e81541 100644
 --- a/test/test_gzio.cc
 +++ b/test/test_gzio.cc
 @@ -10,6 +10,13 @@

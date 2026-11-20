@@ -1,14 +1,8 @@
-# PR 0011: Harden gzip extra copying when shared header state changes
+# Harden gzip extra copying when shared header state changes
 
-- **Proposed PR Title**: `Harden gzip extra copying when shared header state changes`
-- **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
-- **Upstream PR**: https://github.com/zlib-ng/zlib-ng/pull/2528 (open; needs updated force-push)
-- **Commits**: 1 (`upstream.patch`)
-- **Files**: `inflate.c`, `test/test_inflate_copy.cc`
+## Problem
 
-## Problem & Root Cause
-
-In `inflate()` (`EXTRA` state), copying the gzip `FEXTRA` payload assumes `state->head->extra_len` still equals the length saved by the stream's own `EXLEN` state:
+In `inflate()` (`EXTRA` state), copying the gzip `FEXTRA` payload computes:
 
 ```c
 len = state->head->extra_len - state->length;
@@ -19,30 +13,30 @@ if (len < state->head->extra_max) {
 }
 ```
 
-When two streams share one `gz_header` (via `inflateCopy()` after the fixed 10-byte gzip header) and the second stream parses a smaller `XLEN`, `state->head->extra_len < state->length` causes unsigned `uint32_t` underflow in `len = extra_len - length` and wraparound in `len + copy`. Overflow itself requires `extra_max` near `2^32 - 65535`, so this is defense-in-depth hardening.
+If two streams share one `gz_header` via `inflateCopy()` after the fixed 10-byte gzip header and the second stream parses a smaller `XLEN`, `state->head->extra_len < state->length` causes `uint32_t` underflow in `len` and wraparound in `len + copy`. Reaching an actual out-of-bounds write requires an impractical `extra_max` above about `2^32 - 65535`, so this is defense-in-depth hardening.
 
-## Fix Summary
+## Fix
 
-Guard the `EXTRA` copy in `inflate.c`:
+In `inflate.c` (`EXTRA` state):
 
-- Require `state->length <= state->head->extra_len` before computing `len`.
+- Require `state->length <= state->head->extra_len` before subtracting.
 - Compare `copy > state->head->extra_max - len` instead of `len + copy > state->head->extra_max`.
 
-Add `inflate.shared_gzip_header_extra_bounds` in `test/test_inflate_copy.cc` using `inflateCopy()` after the 10-byte gzip header and `extra_max = UINT32_MAX` on a 16-byte stack buffer (no bytes are written once lengths disagree).
+Add `inflate.shared_gzip_header_extra_bounds` in `test/test_inflate_copy.cc` using `inflateCopy()` after the fixed 10-byte gzip header with `uint8_t extra[16]` and `header.extra_max = UINT32_MAX` (once lengths disagree, no bytes are written to `extra`).
 
-## Review Feedback Addressed (`nmoinvaz` & CodeRabbit on `#2528`)
+## Related Upstream References
 
-- **Replace opt-in 4 GiB test (`nmoinvaz` inline #1 & #2)**: Adopted `nmoinvaz`'s exact pattern using `uint8_t extra[16]` + `header.extra_max = UINT32_MAX` and valid `inflateCopy()` after the fixed 10-byte header (`first_xlen = 100`, `second_xlen = 10`), removing `<cstdlib>`/`<memory>` and avoiding any 4 GiB test allocation.
-- **Remove invalid `inflateGetHeader` usage & standalone reproducer files (`nmoinvaz` #3 & CodeRabbit)**: Replaced standalone C reproducers with GoogleTest and omitted out-of-contract `inflateGetHeader()` usage after `inflate()` has started (calling only after `inflateInit2()`, as documented in `zlib.h.in` / `zlib-ng.h.in`).
-- **Single clean commit & concise comments (`nmoinvaz` #1–3, #4)**: Squashed into 1 commit with an explicit message noting hardening scope (`extra_max` above ~`2^32 - 65535`) and replaced multi-line comments with a single-line comment.
+- Updates open PR: https://github.com/zlib-ng/zlib-ng/pull/2528
+- Note: https://github.com/zlib-ng/zlib-ng/pull/2404 also modifies `test/test_inflate_copy.cc`.
 
-## Overlaps & Dependencies
+## Review Feedback Addressed
 
-- **Internal (`test/test_inflate_copy.cc`)**: `0003` (`#2524`) also appends to `test/test_inflate_copy.cc`.
-- **External (`#2404`)**: https://github.com/zlib-ng/zlib-ng/pull/2404 touches `inflateCopy()` / `test/test_inflate_copy.cc`.
+- Squashed into a single commit with a clear commit message stating this is hardening only and noting the `extra_max > ~2^32 - 65535` condition.
+- Replaced the opt-in 4 GiB test with an always-on `inflateCopy()` test using `uint8_t extra[16]` and `header.extra_max = UINT32_MAX` (matching inline review feedback).
+- Removed standalone C reproducer files, verbose comments, and any out-of-contract `inflateGetHeader()` usage after `inflate()` has started.
 
-## Verification
+## Testing
 
-- `build-compat-san` & `build-native-san`:
-  - Before fix (`5f1f4899`): `inflate.shared_gzip_header_extra_bounds` crashes under ASan with buffer overflow (and a standalone 4 GiB `extra_max = 0xfffffff0U` reproducer similarly crashes with ASan `heap-buffer-overflow`).
-  - After fix: `inflate.shared_gzip_header_extra_bounds` passes on both builds (`[  PASSED  ] 1 test.`).
+- Clang (`ZLIB_COMPAT=ON`, `WITH_OPTIM=OFF`, ASan + UBSan) and Clang (`ZLIB_COMPAT=OFF`, `WITH_OPTIM=ON`, ASan + UBSan):
+  - Before fix: `inflate.shared_gzip_header_extra_bounds` crashes under AddressSanitizer.
+  - After fix: passes in both builds (and verified separately with a 4 GiB `extra_max = 0xfffffff0U` allocation under ASan).

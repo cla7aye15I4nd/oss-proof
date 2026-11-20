@@ -1,14 +1,8 @@
-# PR 0022: Account only consumed zero fill in `gz_zero()` on write errors
+# Account only consumed zero fill in gz_zero() on write errors
 
-- **Proposed PR Title**: `Account only consumed zero fill in gz_zero() on write errors`
-- **Target Base**: `zlib-ng/zlib-ng` `develop` (`5f1f4899`)
-- **Upstream PR**: Ready to submit (aligns with local proof patch `0022-gzwrite-zero-skip-on-failure.patch`)
-- **Commits**: 1 (`upstream.patch`)
-- **Files**: `gzwrite.c`, `test/test_gzio.cc`
+## Problem
 
-## Problem & Root Cause
-
-In `gz_zero()` (`gzwrite.c`), each zero-fill chunk added the full chunk size `n` to `state->x.pos` *before* calling `gz_comp(state, Z_NO_FLUSH)` and subtracted `n` from `state->skip` *after*:
+In `gz_zero()` (`gzwrite.c`), each zero-fill chunk added the full batch size `n` to `state->x.pos` before calling `gz_comp(state, Z_NO_FLUSH)` and subtracted `n` from `state->skip` only after `gz_comp()` succeeded:
 
 ```c
 strm->avail_in = n;
@@ -19,38 +13,17 @@ if (gz_comp(state, Z_NO_FLUSH) == -1)
 state->skip -= n;
 ```
 
-When `gz_comp()` failed (for example on `EBADF` from an `O_RDONLY` descriptor or `EAGAIN` on a full non-blocking pipe):
-1. The failed chunk remained counted in **both** `state->x.pos` and `state->skip`, so `gztell()` (`x.pos + skip`) exceeded the seek target and triggered signed 64-bit overflow after a seek to `GZ_OFF_MAX`.
-2. Calling `gzclearerr()` and retrying a write emitted the failed zero chunk twice (producing duplicate zero bytes in the stream and inflating `gztell()`).
+When `gz_comp()` failed (for example on `EBADF` or `EAGAIN` on a non-blocking pipe):
+1. The failed chunk remained counted in both `state->x.pos` and `state->skip`, so `gztell()` (`x.pos + skip`) exceeded the seeked offset and triggered signed 64-bit overflow after a seek to `GZ_OFF_MAX` (ISO C17 §6.5p5).
+2. Calling `gzclearerr()` and retrying a write emitted the unconsumed zero-fill chunk twice, corrupting stream length and `gztell()`.
 
-## Fix Summary
+## Commits & Fix
 
-Adapted from `madler/zlib@51c7cd2c`:
+1. **M0nd0R** (adapted from `madler/zlib@51c7cd2c`): compute consumed bytes (`n -= strm->avail_in`) after `gz_comp(state, Z_NO_FLUSH)`, update both `state->x.pos` and `state->skip` by `n`, and on `ret == -1` discard unconsumed zero-fill bytes (`strm->avail_in = 0; strm->next_in = state->in;`) before returning `-1`.
+2. **Zheng Yu**: add `gzip.write_pending_seek_error_preserves_tell` (`O_RDONLY` fd seeked to `off_max`) and `gzip.write_pending_seek_eagain_retry` (non-blocking `pipe()` hitting `EAGAIN` on `gz_zero()`, draining, clearing the error, retrying, and verifying exact output length) in `test/test_gzio.cc`.
 
-```c
-int ret = gz_comp(state, Z_NO_FLUSH);
-n -= strm->avail_in;
-state->x.pos += n;
-state->skip -= n;
-if (ret == -1) {
-    strm->avail_in = 0;
-    strm->next_in = state->in;
-    return -1;
-}
-```
+## Testing
 
-Both `state->x.pos` and `state->skip` advance/decrement by the exact consumed byte count (`n - strm->avail_in`), and unconsumed zero-fill input is discarded on failure before returning `-1`.
-
-Add two GoogleTest cases in `test/test_gzio.cc`:
-- `gzip.write_pending_seek_error_preserves_tell` (`O_RDONLY` `gzdopen(..., "wbT")` seeked to `off_max`, failing write + `gzclearerr()` + `gzputc()` preserving `gztell == off_max`);
-- `gzip.write_pending_seek_eagain_retry` (non-blocking `pipe()` filled to trigger `EAGAIN` on `gz_zero()` after `gzseek(10000)`, drained, `gzclearerr()`, `gzwrite("abc", 3)`, verifying exact 10,003 bytes written and `gztell == 10003` with no duplicate zeros).
-
-## Overlaps & Dependencies
-
-- **Internal (`gzwrite.c` & `test/test_gzio.cc`)**: completely disjoint from `0014` (`#2527`), `0016`, and `0017`.
-
-## Verification
-
-- `build-compat-san` & `build-native-san`:
-  - Before fix (`5f1f4899`): **both** `write_pending_seek_error_preserves_tell` (UBSan signed overflow at `gzlib.c`) and `write_pending_seek_eagain_retry` (`gztell == 14096` / `14099` bytes instead of `10003`) fail.
-  - After fix: both tests pass (`[  PASSED  ] 2 tests.`), and pass stacked alongside `0004+0014+0016+0017` (`85 compat / 83 native`).
+- Clang (`ZLIB_COMPAT=ON`, `WITH_OPTIM=OFF`, ASan + UBSan) and Clang (`ZLIB_COMPAT=OFF`, `WITH_OPTIM=ON`, ASan + UBSan):
+  - Before fix: `gzip.write_pending_seek_error_preserves_tell` aborts under UBSan (`signed integer overflow` in `gztell64()`), and `gzip.write_pending_seek_eagain_retry` writes `14099` bytes instead of `10003`.
+  - After fix: both tests pass in both builds.

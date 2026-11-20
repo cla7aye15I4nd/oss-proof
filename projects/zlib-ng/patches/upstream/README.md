@@ -20,7 +20,7 @@ Total: **20 entries** (**18** runnable `upstream.patch` series + **2** 0-commit 
 | [0011](0011/pr-summary.md) | `0011-inflate-extra-copy-bound.patch` | [zlib-ng#2528](https://github.com/zlib-ng/zlib-ng/pull/2528) (open; revised) | 1 | `inflate.c`, `test/test_inflate_copy.cc` |
 | [0012](0012/pr-summary.md) | `0012-longest-match-offset-base.patch` | Ready to submit | 1 | `match_tpl.h`, `test/test_deflate.cc` |
 | [0013](0013/pr-summary.md) | `0013-deflate-medium-insert-count.patch` | Ready to submit (+ `deflate_fast` hardening) | 1 | `deflate_fast.c`, `deflate_medium_tpl.h`, `test/test_deflate_tune.cc` |
-| [0014](0014/pr-summary.md) | `0014-gzwrite-caller-buffer-pointer.patch` | [zlib-ng#2527](https://github.com/zlib-ng/zlib-ng/pull/2527) (open; revised) | 1 | `gzwrite.c`, `test/test_gzfile_api_errors.cc` |
+| [0014](0014/pr-summary.md) | `0014-gzwrite-caller-buffer-pointer.patch` | [zlib-ng#2527](https://github.com/zlib-ng/zlib-ng/pull/2527) (open; revised, `df84af25` + `6be4bcda` + tests) | 3 | `gzwrite.c`, `test/test_gzfile_api_errors.cc` |
 | [0015](0015/pr-summary.md) | `0015-gz-buffer-alloc-null-offset.patch` | Ready to submit | 1 | `gzlib.c`, `test/test_gzfile_api_errors.cc` |
 | [0016](0016/pr-summary.md) | `0016-gzread-position-bound.patch` | Ready to submit (upgraded with `gz_room`) | 1 | `gzguts.h`, `gzread.c`, `test/test_gzio.cc` |
 | [0017](0017/pr-summary.md) | `0017-gzwrite-position-bound.patch` | Ready to submit (upgraded; `uint64_t` room) | 1 | `gzguts.h`, `gzwrite.c`, `test/test_gzio.cc` |
@@ -28,7 +28,7 @@ Total: **20 entries** (**18** runnable `upstream.patch` series + **2** 0-commit 
 | [0019](0019/pr-summary.md) | `0019-deflate-slow-match-start-bound.patch` | Ready to submit (root-cause `CLEAR_HASH`) | 1 | `deflate.c`, `test/test_deflate_params.cc` |
 | [0020](0020/pr-summary.md) | `0020-gzdirect-pending-skip.patch` | Ready to submit (`madler/zlib@b2596bde` + guard) | 2 | `gzread.c`, `test/test_gzseek.cc` |
 | [0021](0021/pr-summary.md) | `0021-gzgets-pending-skip.patch` | Ready to submit (`madler/zlib@f40786e3` + `gzgets`) | 2 | `gzread.c`, `test/test_gzseek.cc` |
-| [0022](0022/pr-summary.md) | `0022-gzwrite-zero-skip-on-failure.patch` | Ready to submit (`madler/zlib@51c7cd2c` port) | 1 | `gzwrite.c`, `test/test_gzio.cc` |
+| [0022](0022/pr-summary.md) | `0022-gzwrite-zero-skip-on-failure.patch` | Ready to submit (`madler/zlib@51c7cd2c` + tests) | 2 | `gzwrite.c`, `test/test_gzio.cc` |
 | [deflate-reset-block-open](deflate-reset-block-open/pr-summary.md) | Finding 18 (`not patched` locally yet) | Ready to submit (`block_open = 0` on reset) | 1 | `deflate.c`, `test/test_deflate_quick_block_open.cc` |
 
 ---
@@ -79,12 +79,32 @@ Several underlying bugs originate in shared `zlib` code and have parallel PRs on
 | [0016](0016/pr-summary.md) | Ready to submit | [madler/zlib#1405](https://github.com/madler/zlib/pull/1405) | **Open**; shares the `gz_room()` design in `gzread.c`, extended in `zlib-ng` for `state->x.pos < 0` and GoogleTest coverage. |
 | [0017](0017/pr-summary.md) | Ready to submit | [madler/zlib#1406](https://github.com/madler/zlib/pull/1406) | **Open**; `#1406` uses a `z_size_t` round-trip check, whereas `0017` compares directly in `uint64_t` plus adds a 4 GiB boundary test. |
 
-### 5. Recommended Upstream Submission / Merge Order
+### 5. Risk-Ranked Upstream Submission Order (Aligned with Formal Verification Status)
 
-1. **Update open PRs first**: `#2523` (`0006`), `#2525` (`0004` — should land before `0016` and `0017` so they reuse `GZ_OFF_MAX`), `#2527` (`0014`), `#2528` (`0011`); `#2524` (`0003`) is already ready.
-2. **After `#2525` (`0004`)**: submit `0016` (`gz_room` read bound) and `0017` (`uint64_t` write bound), plus `0022` (`gz_zero` accounting).
-3. **Sequential `gzread.c` pair**: submit `0020` (`gzdirect` pending skip) before `0021` (`gzgets` pending skip at EOF).
-4. **Independent PRs (any order)**: `0007`, `0008`, `0012`, `0013`, `0015`, `0018`, `0019`, and `deflate-reset-block-open`.
+Because formal safety verification in [../../docs/en/progress.md](../../docs/en/progress.md) is **done** for `inflate*`/`inflateBack*`/`gzopen*`/`deflateInit*`, while streaming `deflate*` and other `gz*` proofs are still in progress, submit upstream PRs in four tiers from highest certainty to highest review/invariant risk:
+
+1. **Tier 1 — Highest Confidence (Formally Proved Safe on `main` OR Already Merged/Accepted in `madler/zlib`)**:
+   - `0003` (update `#2524`): `inflateCopy` safety proved on `main` + accepted in `madler/zlib#1369`.
+   - `0008`: `inflateSync` safety proved on `main`; minimal 4-line guard.
+   - `0011` (update `#2528`): `inflate` safety proved on `main`; matches `nmoinvaz` inline test diff.
+   - `0007`: `inflate` & `inflateBack` safety proved on `main` (coordinate with `#2432` on `inffast_tpl.h`).
+   - `0014` (update `#2527`): cherry-pick of merged `madler/zlib@df84af25` (`CVE-2026-85091`) + `6be4bcda` + tests.
+   - `0022`: cherry-pick of merged `madler/zlib@51c7cd2c` + tests.
+   - `0020`: cherry-pick of merged `madler/zlib@b2596bde` + unset `x.next` guard + test (submit before `0021`).
+   - `0021`: cherry-pick of merged `madler/zlib@f40786e3` (TOB-ZLIB-006) + `gzgets()` guard + test (rebase on `0020`).
+2. **Tier 2 — High Confidence, Localized 1–2 Line Fixes (Low Risk)**:
+   - `0006` (update `#2523`): 1-line mask matching `nmoinvaz` inline diff.
+   - `0015`: `gzopen`/`gzdopen` safety proved on `main`; 2-line NULL-check reorder.
+   - `deflate-reset-block-open`: 1-line missing `s->block_open = 0` reset in `deflateResetKeep()`.
+   - `0013`: `[2U, STD_MAX_MATCH]` clamp in `deflate_medium_tpl.h` and `deflate_fast.c`.
+3. **Tier 3 — Complex `gz*` State/Arithmetic (Submit/Update Carefully While `gz*` Proofs Settle)**:
+   - `0004` (update `#2525`): commits 1–2 (`6995c67b`, `6ed77c48`) are merged in `madler/zlib`; commit 3 (`gzungetc` negative position, `madler/zlib#1361` open) should land before `0016`/`0017` for `GZ_OFF_MAX`.
+   - `0016`: hold until `gzread` formal proof settles and `#2525` lands (`madler/zlib#1405` open).
+   - `0017`: hold until `gzwrite` formal proof settles and `#2525` lands (`madler/zlib#1406` open).
+4. **Tier 4 — Hold Until `deflate` Streaming Formal Verification Completes**:
+   - `0012`: touches hot `match_tpl.h` template; verify invariant across all matchers and benchmark if requested.
+   - `0018`: `block_start` floor clamp relies on `deflate_quick` / `deflateParams` exit invariants.
+   - `0019`: diverges from local proof patch (`CLEAR_HASH(s)` 64 KiB `memset` vs `deflate_slow.c`); hold until `deflate_slow` + reset formal verification confirms completeness and perf trade-off.
 
 ---
 
