@@ -22,8 +22,9 @@ open ZlibNg.DeflateP ZlibNg.DeflateFast
 /-- `FLUSH_BLOCK(s, window, last)` from `SLF` with no pending bytes, the hash chains kept. -/
 theorem flushC (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1)
     (F : SLF h i b H) (hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo))
-    (Ck : CK b H) :
-    Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H2 => (avIn H2 i = avIn H i ∧ SLF h i b H2 ∧
+    (Ck : CK b H) (hsy0 : last = 0 → NZ b H) :
+    Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H2 => (avIn H2 i = avIn H i ∧
+      SLFe (lastSlack last) h i b H2 ∧
       (∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
         ∃ st, H.dstate b = some st ∧ st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
           st2.window = st.window) ∧
@@ -32,7 +33,7 @@ theorem flushC (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (hl0 
       CK b H2) := by
   obtain ⟨z, st, -, -, -, hst, -, -⟩ := F.live
   obtain ⟨d, hd⟩ := bytes_of_dstate hst
-  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T last hl0 hl1 F hp)
+  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T last hl0 hl1 F hp hsy0)
     (ZlibNgF.Proof.StrategyChain.slf_flush_chain T last hl0 hl1 F hp)) ?_
   rintro r H2 ⟨q, hck⟩
   exact ⟨q, fun st2 d2 h2 hd2 => hck st d st2 d2 hst hd h2 hd2 (Ck st d hst hd)⟩
@@ -140,7 +141,7 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
         (bs = .block_done ∨ bs = .finish_done) → (bs = .finish_done → flush = Z_FINISH) →
         (last ≠ 0 → flush = Z_FINISH) → ∀ (r : Option BlockState) H2,
         (avIn H2 i = avIn (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
-          else STD_MIN_MATCH - 1 } d1) i ∧ SLF h i b H2 ∧
+          else STD_MIN_MATCH - 1 } d1) i ∧ SLFe (lastSlack last) h i b H2 ∧
           (∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
             ∃ st, (SH H i z1 b { st1 with insert := if st1.strstart < STD_MIN_MATCH - 1 then st1.strstart
               else STD_MIN_MATCH - 1 } d1).dstate b = some st ∧ st2.lookahead = st.lookahead ∧
@@ -172,7 +173,7 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
     by_cases hf : flush == Z_FINISH
     · simp only [hf, ↓reduceIte]
       have hf' : flush = Z_FINISH := by simpa using hf
-      refine Sat.bind (Sat.mono (flushC T 1 (by decide) (by decide) C2.1 hp Ck2) ?_)
+      refine Sat.bind (Sat.mono (flushC T 1 (by decide) (by decide) C2.1 hp Ck2 (fun e => absurd e (by decide))) ?_)
       rintro r H3 ⟨q, Ck3⟩
       cases r with
       | none => exact Sat.pure (fx 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf') (fun _ => hf')
@@ -183,7 +184,8 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       by_cases hs : (st1.sym_next != 0) = true
       · simp only [hs, ↓reduceIte]
-        refine Sat.bind (Sat.mono (flushC T 0 (by decide) (by decide) C2.1 hp Ck2) ?_)
+        refine Sat.bind (Sat.mono (flushC T 0 (by decide) (by decide) C2.1 hp Ck2
+          (fun _ => nz_SH (show st1.sym_next ≠ 0 by simpa using hs))) ?_)
         rintro r H3 ⟨q, Ck3⟩
         cases r with
         | none => exact Sat.pure (fx 0 .block_done (by decide) (by decide) (.inl rfl) (fun e => by cases e)

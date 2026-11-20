@@ -1196,4 +1196,42 @@ theorem cf_fill {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
     (hf : 262 ≤ st.lookahead.toNat ∨ z.avail_in = 0) (hl : st.lookahead.toNat < 262) : CF (SH H0 i z b st d) i :=
   cf_of_avIn (avIn_fill hf hl)
 
+/-- Symbols wait in the block of `H` (after a tally: a `FLUSH_BLOCK(s, 0)` that follows has a block to pay for). -/
+def NZ (b : Nat) (H : Heap) : Prop := ∀ st, H.dstate b = some st → st.sym_next ≠ 0
+
+theorem nz_SH {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    (h : st.sym_next ≠ 0) : NZ b (SH H0 i z b st d) := fun st1 h1 => by
+  obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
+  exact h
+
+theorem nz_of_SH {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    (h : NZ b (SH H0 i z b st d)) : st.sym_next ≠ 0 := h st (SH_dstate _ _ _ _ _ _)
+
+open ZlibNgF.Proof.Tally (tally_lit_SH) in
+/-- After a tally from `SLW` with `sym_next ≤ sym_end`, symbols wait (`zng_tr_tally_lit`). -/
+theorem slw_tally_lit_nz {h H : Heap} {i b : Nat} {la ss : UInt32} (W : SLW h i b la ss H) (hle : SymLe b H)
+    (c : UInt8) : Sat H (zng_tr_tally_lit (some b) c) (fun _ H' => NZ b H') := by
+  obtain ⟨H0, z, st, d, rfl, F, -⟩ := W
+  have hl := hle st (SH_dstate _ _ _ _ _ _)
+  obtain ⟨sbo, hsb, hk, hlt, -⟩ := slf_sym F hl
+  have n3 := slf_sym3 F hl
+  refine Sat.mono (tally_lit_SH c hsb hk hlt) ?_
+  rintro r H' ⟨rfl, -⟩ st2 h2
+  rw [SH_dstate] at h2; cases h2
+  exact n3
+
+open ZlibNgF.Proof.Tally (tally_dist_SH) in
+/-- After a tally from `SLW` with `sym_next ≤ sym_end`, symbols wait (`zng_tr_tally_dist`). -/
+theorem slw_tally_dist_nz {h H : Heap} {i b : Nat} {la ss : UInt32} (W : SLW h i b la ss H) (hle : SymLe b H)
+    (dist len : UInt32) (hlen : len.toNat < 256) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768) :
+    Sat H (zng_tr_tally_dist (some b) dist len) (fun _ H' => NZ b H') := by
+  obtain ⟨H0, z, st, d, rfl, F, -⟩ := W
+  have hl := hle st (SH_dstate _ _ _ _ _ _)
+  obtain ⟨sbo, hsb, hk, hlt, hdt⟩ := slf_sym F hl
+  have n3 := slf_sym3 F hl
+  refine Sat.mono (tally_dist_SH dist len hlen hd1 hd2 hsb hk hlt hdt) ?_
+  rintro r H' ⟨rfl, -⟩ st2 h2
+  rw [SH_dstate] at h2; cases h2
+  exact n3
+
 end ZlibNgF.Proof.Strategy
