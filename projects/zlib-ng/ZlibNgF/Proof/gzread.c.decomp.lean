@@ -264,7 +264,8 @@ def AvailBudget (w : World) (b : Nat) (s : GzState) (z : ZStream) (r : Int32) (W
     z' = { z with next_in := z'.next_in, avail_in := z'.avail_in } ∧
     rdLeft W.fs s.fd + z'.avail_in.toNat ≤ rdLeft w.fs s.fd + z.avail_in.toNat ∧ (z'.avail_in ≠ 0 ∨ s'.eof ≠ 0)) ∧
   (r = -1 → H.streams s.strm = some z) ∧
-  (r = 0 → (s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) ∧ ∀ s', W.gz H b = some s' → s'.err = s.err)
+  (r = 0 → (s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) ∧ ∀ s', W.gz H b = some s' → s'.err = s.err) ∧
+  (r = -1 → ∀ s', W.gz H b = some s' → ¬(s'.err = ZlibNg.Inflate.Z_OK ∨ s'.err = ZlibNg.Inflate.Z_BUF_ERROR))
 
 theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hnc : s.how ≠ ZlibNg.Gz.COPY) {c base : Nat} {z : ZStream}
@@ -322,7 +323,8 @@ theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : Gz
     obtain ⟨⟨s', hsW, herr, hvW, -, hfsW, hstep⟩, hstr⟩ := q
     have hzH1 : H1.streams s.strm = some z := by obtain ⟨t, rfl, -⟩ := x1; exact hzH
     refine GSat.pure (GSat.pure ⟨⟨Or.inl rfl, hvW, ?_, by rw [hfsW]; exact hfs, s', hsW, errOf_shape herr h0⟩,
-      fun e => absurd e (by decide), fun _ => by rw [hstr]; exact hzH1, fun e => absurd e (by decide)⟩)
+      fun e => absurd e (by decide), fun _ => by rw [hstr]; exact hzH1, fun e => absurd e (by decide),
+      fun _ s2 h2 => by rw [hsW] at h2; cases h2; rcases herr.2 with e | e <;> rw [e] <;> decide⟩)
     exact (g1.trans (gstep_lit hs1 am) ⟨s, hsH⟩ ⟨s, hs1⟩).trans hstep ⟨s, hsH⟩ ⟨s, hs1⟩
   · intro hneg
     have hz1 : H1.streams s.strm = some z := by
@@ -356,7 +358,7 @@ theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : Gz
           fun e => absurd e (by decide), fun _ => ⟨hok, fun s2 h2 => by
             unfold World.gz at h2; split at h2
             · simp at h2; rw [← h2]
-            · cases h2⟩⟩
+            · cases h2⟩, fun e => absurd e (by decide)⟩
         · obtain ⟨sh1, hn1⟩ := inv_of hs1 hv1.1
           have sh1' := shape_msg sh1 e s.past s.err s.msg ⟨sh1.msg.1, sh1.msg.2⟩
           have hvE : GzInvR { w with fs := fs', gzs := upd w.gzs b (some { s with eof := e }) } H1 (some b) :=
@@ -408,7 +410,7 @@ theorem gz_avail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzI
   have done0 : (s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) → s.eof ≠ 0 → AvailPost w h b s 0 w h ∧ AvailBudget w b s z 0 w h :=
     fun hok he => ⟨⟨Or.inr rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩,
       fun _ => ⟨s, z, hs, hz, rfl, Nat.le_refl _, Or.inr he⟩, fun e => absurd e (by decide),
-      fun _ => ⟨hok, fun s2 h2 => by rw [hs] at h2; cases h2; rfl⟩⟩
+      fun _ => ⟨hok, fun s2 h2 => by rw [hs] at h2; cases h2; rfl⟩, fun e => absurd e (by decide)⟩
   have tail : ∀ H, HBuf h H c base (base + inSize s) → (s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) →
       GSat w H (availTail (some b) (some s.strm)) (fun r W H' => AvailPost w h b s r W H' ∧ AvailBudget w b s z r W H') := by
     intro H x hok
@@ -423,8 +425,11 @@ theorem gz_avail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzI
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
   apply GSat.ite
-  · intro _; exact GSat.pure ⟨⟨Or.inl rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩, fun e => absurd e (by decide),
-      fun _ => hz, fun e => absurd e (by decide)⟩
+  · intro hbad
+    have hb' : ¬(s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR) := by
+      rintro (e | e) <;> simp [e] at hbad
+    exact GSat.pure ⟨⟨Or.inl rfl, hv, GStep.refl w h b [], FsRd.refl _, s, hs, rfl⟩, fun e => absurd e (by decide),
+      fun _ => hz, fun e => absurd e (by decide), fun _ s2 h2 => by rw [hs] at h2; cases h2; exact hb'⟩
   · intro hok0
     have hok : s.err = ZlibNg.Inflate.Z_OK ∨ s.err = ZlibNg.Inflate.Z_BUF_ERROR := by
       by_cases e1 : s.err = ZlibNg.Inflate.Z_OK
