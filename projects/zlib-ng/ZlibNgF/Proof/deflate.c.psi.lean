@@ -71,7 +71,7 @@ theorem G_le : G ≤ 2 ^ 28 := by decide
 
 /-! ## The bound -/
 
-theorem markK_le (f : Int32) : markK f ≤ 5 := by unfold markK; split <;> [omega; split <;> omega]
+theorem markK_le (f : Int32) : markK f ≤ 5 := by unfold markK; split <;> (try split) <;> omega
 
 theorem mark_le (f : Int32) (st : DeflateState) : mark f st ≤ 5 := by
   unfold mark; split
@@ -79,7 +79,7 @@ theorem mark_le (f : Int32) (st : DeflateState) : mark f st ≤ 5 := by
   · omega
 
 theorem quickB_le (f : Int32) (st : DeflateState) : quickB f st ≤ 96 := by
-  unfold quickB; split <;> [split <;> omega; split <;> omega]
+  unfold quickB; split <;> split <;> omega
 
 /-- The window size of an invariant view is at most 65536. -/
 theorem window_size_le {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
@@ -98,7 +98,7 @@ theorem parts_le {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : Deflat
   have hsy := c.syms_le
   have hbi := c.bits
   obtain ⟨-, -, -, hl1, hl2, -, -⟩ := c.sizes
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, poo, -, -, hpe⟩ := c.lay
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hpe⟩ := c.lay
   have hw := c.wrap
   simp only [dview] at hws hl hb hsy hbi hl1 hl2 hpe hw
   have hb0 : (0 : Int32).toInt = 0 := rfl
@@ -139,12 +139,14 @@ theorem psi_step {f : Int32} {st st' : DeflateState} {k : Nat} (h1 : content st'
   unfold psi; omega
 
 /-- `zng_tr_flush_bits` moves the complete bytes of `bi_buf` to the pending bytes: `owed` stays. -/
-theorem owed_flush_bits (p b : Nat) (hb : b < 64) : (p + b / 8) + (b % 8 + 7) / 8 = p + (b + 7) / 8 := by
+theorem owed_flush_bits (p b : Nat) : (p + b / 8) + (b % 8 + 7) / 8 = p + (b + 7) / 8 := by
   omega
 
 /-- After `s->last_flush = flush` with no pending bytes, no marker is owed for `flush`. -/
 theorem mark_self {f : Int32} {st : DeflateState} (hp : st.pending = 0) (hl : st.last_flush = f) : mark f st = 0 := by
-  unfold mark; rw [if_neg]; rintro ⟨-, h | h⟩
+  unfold mark
+  refine ite_eq_right ?_
+  rintro ⟨-, h | h⟩
   · exact h hp
   · rw [hl] at h; exact Int.lt_irrefl _ h
 
