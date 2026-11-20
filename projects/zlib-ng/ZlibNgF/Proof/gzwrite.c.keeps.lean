@@ -1,12 +1,13 @@
 import ZlibNgF.Proof.«gzwrite.c.printf»
 import ZlibNgF.Proof.«gzwrite.c.compdone»
+import ZlibNgF.Proof.«gzwrite.c.params»
 
 /-!
 # The write-side calls keep the invariant of a write handle (`ZlibNgF`)
 
 With `gz_comp_spec`, the write-side calls keep `GzInvWS` (`KeepsW`) given `DeflateGz` only: `gzwrite`, `gzfwrite`,
-`gzputc`, `gzputs`, `gzflush`, `gzprintf` and `gzvprintf` in the step form of `GzWStep`. `gwrite_steps_of` gives
-`GWriteSteps` from `DeflateGz` and the step not proved here, `gzsetparams`.
+`gzputc`, `gzputs`, `gzflush`, `gzprintf`, `gzvprintf` and `gzsetparams` in the step form of `GzWStep`.
+`gwrite_steps_of` gives `GWriteSteps` from `DeflateGz`.
 -/
 
 set_option autoImplicit false
@@ -56,8 +57,13 @@ theorem gzvprintf_keepsW (G : DeflateGz) : KeepsW SVprintf := by
   obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
   exact keeps_of_call (gzvprintf_spec gz_comp_spec G hv hs fmt hf ho) e
 
-/-- **What the write side owes**, from `DeflateGz` and the step not proved here. -/
-theorem gwrite_steps_of (G : DeflateGz) (SP : KeepsW SSetparams) :
+theorem gzsetparams_keepsW (G : DeflateGz) : KeepsW SSetparams := by
+  intro w h w' h' f hv ⟨l, st, r, e⟩
+  obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+  exact keeps_of_call (gzsetparams_spec G hv hs l st) e
+
+/-- **What the write side owes**, from `DeflateGz`. -/
+theorem gwrite_steps_of (G : DeflateGz) :
     GWriteSteps := by
   refine ⟨fun w h w' h' f hv x => ?_⟩
   rcases x with x | x | x | x | x | x | x | x
@@ -68,6 +74,6 @@ theorem gwrite_steps_of (G : DeflateGz) (SP : KeepsW SSetparams) :
   · exact gzprintf_keepsW G _ _ _ _ _ hv x
   · exact gzvprintf_keepsW G _ _ _ _ _ hv x
   · exact gzflush_keepsW G _ _ _ _ _ hv x
-  · exact SP _ _ _ _ _ hv x
+  · exact gzsetparams_keepsW G _ _ _ _ _ hv x
 
 end ZlibNgF.Proof.GzWrite
