@@ -52,18 +52,20 @@ def DBufsSet (h : Heap) (s : StreamPtr) : Prop :=
 
 /-- The facts about the tallied symbols that hold between calls (kept by every public call, carried by the
 reachability induction) and that a strategy needs on entry and gives back on exit: room for one more symbol
-(`sym_next < sym_end`: every strategy flushes a full buffer before it returns); `strstart - block_start` bounded by
+(`sym_next < sym_end`: every strategy flushes a full buffer before it returns); except at level 1 with `Z_FIXED`
+(`deflate_quick` with `static_emit` keeps a block open across window slides), `strstart - block_start` bounded by
 the tallied symbols (a tally covers at most `STD_MAX_MATCH` window bytes, `deflate_slow` keeps one literal pending,
 `deflate_stored` and `fill_window` leave at most 65536 bytes); at level 0 (`deflate_stored`, which reads
 `window + block_start` and writes `pending_buf` over `sym_buf`) `block_start` is not negative and there are no
-symbols and no lookahead; at level 1 (`deflate_quick`, which never tallies and writes `pending_buf` over `sym_buf`)
-there are no symbols unless the strategy is `Z_HUFFMAN_ONLY` or `Z_RLE`; with `block_start == strstart` there are no
+symbols and no lookahead; at level 1 with `Z_FIXED` (`deflate_quick` with `static_emit`, which never tallies and
+writes `pending_buf` over `sym_buf`) there are no symbols; with `block_start == strstart` there are no
 symbols (every tallied symbol moved `strstart` past `block_start`, `FLUSH_BLOCK` resets both). -/
 def SymsOk (st : DeflateState) : Prop :=
   st.sym_next < st.sym_end ∧
-    (st.strstart.toNat : Int) - st.block_start.toInt ≤ 258 * (st.sym_next.toNat / 3 + 2) + 65536 ∧
+    (¬ (st.level = 1 ∧ st.strategy = Z_FIXED) →
+      (st.strstart.toNat : Int) - st.block_start.toInt ≤ 258 * (st.sym_next.toNat / 3 + 2) + 65536) ∧
     (st.level = 0 → 0 ≤ st.block_start ∧ st.sym_next = 0 ∧ st.lookahead = 0) ∧
-    (st.level = 1 → st.strategy ≠ Z_HUFFMAN_ONLY → st.strategy ≠ Z_RLE → st.sym_next = 0) ∧
+    (st.level = 1 → st.strategy = Z_FIXED → st.sym_next = 0) ∧
     ((st.strstart.toNat : Int) = st.block_start.toInt → st.sym_next = 0)
 
 /-- The fields that a strategy reads back unchanged: it never writes them. -/
