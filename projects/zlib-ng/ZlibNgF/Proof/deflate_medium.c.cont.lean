@@ -29,11 +29,11 @@ theorem laOf_SH (H0 : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState
   simp only [laOf, SH_dstate]
 
 /-- The state of the continuation loop. -/
-def CI (h : Heap) (i b A : Nat) (flush : Int32) (dist : UInt32) (x : Ctl × Bool) (H : Heap) : Prop :=
+def CI (h : Heap) (i b : Nat) (W : UInt32) (A : Nat) (flush : Int32) (dist : UInt32) (x : Ctl × Bool) (H : Heap) : Prop :=
   match x.1 with
-  | .cont => PE h i b A x.2 H ∧
+  | .cont => PE h i b W A x.2 H ∧
       ∀ st, H.dstate b = some st → 262 ≤ st.lookahead.toNat ∧ dist.toNat ≤ st.strstart.toNat
-  | .brk => PE h i b A x.2 H
+  | .brk => PE h i b W A x.2 H
   | .ret r => StratPost h (some i) flush r H ∧ ChainAll b H
 
 /-- The measure of the continuation loop. -/
@@ -48,23 +48,23 @@ theorem u32_add_toNat (x y : UInt32) (h : x.toNat + y.toNat < 2 ^ 32) : (x + y).
 theorem u32_sub_toNat (x y : UInt32) (h : y.toNat ≤ x.toNat) : (x - y).toNat = x.toNat - y.toNat :=
   UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr h)
 
-theorem pe_mono {h H : Heap} {i b A A' : Nat} {bf : Bool} (P : PE h i b A bf H) (hA : A ≤ A') : PE h i b A' bf H :=
+theorem pe_mono {h H : Heap} {i b A A' : Nat} {W : UInt32} {bf : Bool} (P : PE h i b W A bf H) (hA : A ≤ A') : PE h i b W A' bf H :=
   ⟨pf_mono P.1 hA, P.2⟩
 
 /-- One trip of the continuation loop. -/
-theorem cont_trip_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} (flush : Int32) (mic dist : UInt32)
+theorem cont_trip_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} (flush : Int32) (mic dist : UInt32)
     (bf : Bool) (hl : MedLv h b) (hm2 : 2 ≤ mic.toNat) (hm3 : mic.toNat ≤ 258) (hd1 : 1 ≤ dist.toNat)
     (hd2 : dist.toNat ≤ 32768)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
     (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
-    (P : PE h i b A bf H)
+    (P : PE h i b W A bf H)
     (hc : ∀ st, H.dstate b = some st → 262 ≤ st.lookahead.toNat ∧ dist.toNat ≤ st.strstart.toNat) :
     Sat H (deflate_medium_cont_trip (some b) (.ref (.heap b) wo) mic dist bf) (fun x H2 =>
-      CI h i b A flush dist x H2 ∧ CM b x H2 < laOf b H + 1) := by
+      CI h i b W A flush dist x H2 ∧ CM b x H2 < laOf b H + 1) := by
   have P0 := P
   obtain ⟨⟨H0, z, st, d, rfl, -⟩, -⟩ := P0
   obtain ⟨hla, hds⟩ := hc st (SH_dstate _ _ _ _ _ _)
-  obtain ⟨F, hp, hle, Ch, hs, hA⟩ := pe_st P
+  obtain ⟨F, hp, hle, Ch, hs, hA, hW⟩ := pe_st P
   obtain ⟨wo', po, ho, Ly, -, w1, w2, hlook, h65, hwp, hbig, -, -⟩ := slf_lay F
   have hwin : st.window = .val (.ref (.heap b) wo) := by
     obtain ⟨st0, h0, hw⟩ := F.win
@@ -136,7 +136,7 @@ theorem cont_trip_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} (flush : Int
   · simp only [hb, Bool.false_eq_true, ite_false]
     have hb' : (bf || r) = false := by simpa using hb
     have hbf : bf = false := by simp only [Bool.or_eq_false_iff] at hb'; exact hb'.1
-    have P4 : PE h i b A (bf || r) (SH H0 i z b { st2 with strstart := st2.strstart + cl } d3) :=
+    have P4 : PE h i b W A (bf || r) (SH H0 i z b { st2 with strstart := st2.strstart + cl } d3) :=
       ⟨pf_mono PF3 (by omega), hsl3 hbf⟩
     rw [hb'] at P4
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
@@ -152,18 +152,18 @@ theorem cont_trip_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} (flush : Int
 
 /-- The continuation loop from `PE` with at least `MIN_LOOKAHEAD` bytes of lookahead and `dist <= strstart`: it ends
 with `break` (`PE`, `A` kept) or a return (`StratPost` and the chains). -/
-theorem cont_loop_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} (flush : Int32) (mic dist : UInt32)
+theorem cont_loop_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} (flush : Int32) (mic dist : UInt32)
     (bf : Bool) (hl : MedLv h b) (hm2 : 2 ≤ mic.toNat) (hm3 : mic.toNat ≤ 258) (hd1 : 1 ≤ dist.toNat)
     (hd2 : dist.toNat ≤ 32768)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
     (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
-    (P : PE h i b A bf H)
+    (P : PE h i b W A bf H)
     (hc : ∀ st, H.dstate b = some st → 262 ≤ st.lookahead.toNat ∧ dist.toNat ≤ st.strstart.toNat) :
     Sat H (cwhile (fun (x : Ctl × Bool) => pure (x.1 matches .cont, x))
       (fun (x : Ctl × Bool) => deflate_medium_cont_trip (some b) (.ref (.heap b) wo) mic dist x.2) (Ctl.cont, bf))
-      (fun x H2 => CI h i b A flush dist x H2 ∧ x.1 ≠ Ctl.cont) := by
-  refine ZlibNgF.Proof.WinInv.sat_cwhileH (CI h i b A flush dist) (CM b)
-    (fun x H2 => CI h i b A flush dist x H2 ∧ x.1 ≠ Ctl.cont) ?_ (s := (Ctl.cont, bf)) ⟨P, hc⟩ ?_
+      (fun x H2 => CI h i b W A flush dist x H2 ∧ x.1 ≠ Ctl.cont) := by
+  refine ZlibNgF.Proof.WinInv.sat_cwhileH (CI h i b W A flush dist) (CM b)
+    (fun x H2 => CI h i b W A flush dist x H2 ∧ x.1 ≠ Ctl.cont) ?_ (s := (Ctl.cont, bf)) ⟨P, hc⟩ ?_
   · rintro ⟨c, bf1⟩ H1 hI
     refine Sat.pure ⟨fun hc1 => ?_, fun hc1 => ⟨hI, ?_⟩⟩
     · cases c with

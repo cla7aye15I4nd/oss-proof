@@ -117,6 +117,7 @@ theorem mg_fill {h H : Heap} {i b : Nat} {st : DeflateState} (G : MG h i b H) (h
     (hla : st.lookahead.toNat < 262) :
     Sat H (ZlibNg.Deflate.fill_window (some b)) (fun _ H2 => ∃ H0 z st2 d, H2 = SH H0 i z b st2 d ∧
       MG h i b H2 ∧ avIn H2 i + st2.lookahead.toNat ≤ avIn H i + st.lookahead.toNat ∧
+      (st2.lookahead ≠ st.lookahead → avIn H2 i < avIn H i) ∧ st2.w_size = st.w_size ∧
       (262 ≤ st2.lookahead.toNat ∨ z.avail_in = 0)) := by
   obtain ⟨C, Ch⟩ := G
   have I := sli_of_slc C hst
@@ -128,19 +129,48 @@ theorem mg_fill {h H : Heap} {i b : Nat} {st : DeflateState} (G : MG h i b H) (h
   obtain rfl : SH H0 i z b (FS st0 st0.lookahead st0.strstart) d = H1 := by
     injection e with e'; injection e'
   rw [FS_self] at q
-  obtain ⟨u, H2, e2, ⟨H0', z', st2, d2, rfl, I2, hsum, -, hend⟩⟩ := q
+  obtain ⟨u, H2, e2, ⟨H0', z', st2, d2, rfl, I2, hsum, hne, hend⟩⟩ := q
   obtain ⟨z1, st1, -, hz1, hb, hst1, -, -⟩ := C.1.live
   obtain rfl := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz1)
   have Ch2 := ZlibNgF.Proof.FillFacts.fill_window_chain _ _ (some i) b st0 d C.1.inv
     ⟨i, z, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _⟩ (SH_bytes _ _ _ _ _ _)
     (dinput_of_io C.1.io C.1.set) (fun _ => C.1.crc) hla (Ch _ _ (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _)) e2
-  refine ⟨u, _, e2, H0', z', st2, d2, rfl, ⟨sli_slc I2, fun st3 d3 h3 h4 => ?_⟩, ?_, hend⟩
+  obtain ⟨H3, e3, FI⟩ := ZlibNgF.Proof.FillIO.fill_io C.1.inv C.1.io C.1.set C.1.crc (SH_streams _ _ _ _ _ _) hb
+    (SH_dstate _ _ _ _ _ _) hla
+  have e3' : ZlibNg.Deflate.fill_window (some b) (SH H0 i z b st0 d) = .ok ((), H3) := e3
+  rw [e2] at e3'
+  obtain rfl : SH H0' i z' b st2 d2 = H3 := by injection e3' with e'; injection e'
+  obtain ⟨z5, z6, st5, st6, d6, -, hst5, e6, -, fws⟩ := FI.shape
+  obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst5)
+  have e7 := congrArg (fun H => H.dstate b) e6
+  simp only [SH_dstate] at e7
+  obtain rfl := Option.some.inj e7
+  have hws := (ZlibNgF.Proof.FillSlide.FWS.keeps fws).2.2.2.2
+  refine ⟨u, _, e2, H0', z', st2, d2, rfl, ⟨sli_slc I2, fun st3 d3 h3 h4 => ?_⟩, ?_, ?_, hws, hend⟩
   · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h3)
     obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans h4)
     obtain ⟨z5, h5, hb5⟩ := (sli_slc I2).1.blk
     obtain rfl := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h5)
     exact Ch2 _ _ ⟨i, z', rfl, SH_streams _ _ _ _ _ _, hb5, SH_dstate _ _ _ _ _ _⟩ (SH_bytes _ _ _ _ _ _)
   · rw [avIn_SH, avIn_SH] at *; omega
+  · intro h; simpa only [avIn_SH] using hne h
+
+/-- `FLUSH_BLOCK(s, window, last)` from `SLF` with no pending bytes keeps `w_size`. -/
+theorem slf_flush_ws (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1)
+    (F : SLF h i b H) (hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo)) :
+    Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun _ H2 =>
+      ∀ st st2, H.dstate b = some st → H2.dstate b = some st2 → st2.w_size = st.w_size) := by
+  obtain ⟨z, st, -, hz, hb, hst, -, -⟩ := F.live
+  obtain ⟨hp0, hwin⟩ := hp st hst
+  obtain ⟨hlv, -, -, h8⟩ := F.st st hst
+  obtain ⟨r, h', e, P, -⟩ := ZlibNgF.Proof.FlushBlock.flush_block_ok T last hl0 hl1 F.inv F.io F.set hz hb hst hp0 hlv
+    h8 hwin
+  refine ⟨r, h', e, fun st1 st2 h1 h2 => ?_⟩
+  obtain rfl := Option.some.inj (hst.symm.trans h1)
+  obtain ⟨z', st', L, -, hst', -, -, -, -, -, -, st3, hK1, hst'e⟩ := P.out
+  obtain rfl := Option.some.inj (hst'.symm.trans h2)
+  have hk : st'.w_size = st.w_size := by rw [hst'e, hK1]
+  exact hk
 
 /-- `FLUSH_BLOCK(s, window, last)` from `SLF` with no pending bytes and the chains: `slf_flush` and the chains
 after. -/
@@ -148,18 +178,18 @@ theorem slf_flush_mg (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32)
     (F : SLF h i b H) (hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo))
     (Ch : ChainAll b H) :
     Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H2 => avIn H2 i = avIn H i ∧ SLF h i b H2 ∧
-      ChainAll b H2 ∧
+      ChainAll b H2 ∧ (∀ st st2, H.dstate b = some st → H2.dstate b = some st2 → st2.w_size = st.w_size) ∧
       (∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
         ∃ st, H.dstate b = some st ∧ st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
           st2.window = st.window) ∧
       (r = none → ∀ st2, H2.dstate b = some st2 → st2.pending = 0) ∧
       (r ≠ none → r = some (if last != 0 then .finish_started else .need_more))) := by
   refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T last hl0 hl1 F hp)
-    (slf_flush_chain T last hl0 hl1 F hp)) ?_
-  rintro r H2 ⟨⟨a1, a2, a3, a4, a5⟩, K⟩
+    (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush_chain T last hl0 hl1 F hp) (slf_flush_ws T last hl0 hl1 F hp))) ?_
+  rintro r H2 ⟨⟨a1, a2, a3, a4, a5⟩, K, KW⟩
   obtain ⟨z, st, -, -, -, hst, -, -⟩ := F.live
   obtain ⟨d, hd⟩ := bytes_of_dstate hst
-  exact ⟨a1, a2, chainAll_keep K Ch ⟨st, d, hst, hd⟩, a3, a4, a5⟩
+  exact ⟨a1, a2, chainAll_keep K Ch ⟨st, d, hst, hd⟩, KW, a3, a4, a5⟩
 
 open ZlibNgF.Proof.Tally (W4 tally_lit_SH tally_dist_SH incF) in
 /-- `zng_tr_tally_lit` from `SLF` changes only `sym_next`, `dyn_ltree` and the bytes. -/
