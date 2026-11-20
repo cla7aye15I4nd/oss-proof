@@ -313,7 +313,7 @@ theorem shape_have {h : Heap} {s : GzState} (sh : GzShape h s) (v : UInt32) (hv 
       exact ⟨c, base, z, ⟨hb.1, hb.2, hb.3, hb.4, hb.5, hb.6⟩, hz, ⟨W.1, W.2, W.3, W.4, W.5⟩⟩
     have R := sh.read hr
     refine ⟨R.how, fun hsz => ?_, fun _ => rfl, fun hk => ?_, R.fresh, R.look,
-      by have := R.pos_have; simp; omega, fun h1 h2 => by have := R.look_pos h1 h2; simp; omega, R.gzip_direct⟩
+      by have := R.pos_have; simp; omega, fun h1 h2 => by have := R.look_pos h1 h2; simp; omega, R.gzip_direct, R.copy_in⟩
     · obtain ⟨c, base, z, hb, hi, hz, -, hai, hreg, hmsg⟩ := R.bufs hsz
       exact ⟨c, base, z, ⟨hb.1, hb.2, hb.3, hb.4, hb.5, hb.6⟩, hi, hz, Or.inl rfl, hai, hreg, hmsg⟩
     · show s.pos.toInt + s.skip.toInt + ((0 : UInt32).toNat : Int) ≤ _

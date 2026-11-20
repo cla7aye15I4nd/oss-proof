@@ -146,7 +146,8 @@ theorem shape_hbuf {h H : Heap} {cb lo hi : Nat} {s : GzState} (sh : GzShape h s
     · exact Or.inl e
     · obtain ⟨d', e1, -⟩ := hlive c d hd; exact Or.inr ⟨c, d', e, e1⟩
   · have R := sh.read hr
-    refine ⟨R.how, fun hsz' => ?_, R.nobuf, R.skip_have, R.fresh, R.look, R.pos_have, R.look_pos, R.gzip_direct⟩
+    refine ⟨R.how, fun hsz' => ?_, R.nobuf, R.skip_have, R.fresh, R.look, R.pos_have, R.look_pos, R.gzip_direct,
+      fun e z hz => R.copy_in e z hz⟩
     obtain ⟨c, base, z, hB, hi, hz, hhv, hai, hreg, hmsg⟩ := R.bufs hsz'
     obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hi
     cases e
@@ -706,7 +707,8 @@ stays inside the `in` buffer. -/
 theorem shape_strm {h : Heap} {b : Nat} {s : GzState} {z z' : ZStream} (sh : GzShape h s) (hr : s.mode = GZ_READ)
     (hsz0 : s.size ≠ 0) (hz : h.streams s.strm = some z)
     (ez : z' = { z with next_in := z'.next_in, avail_in := z'.avail_in, next_out := z'.next_out, avail_out := z'.avail_out })
-    (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat) :
+    (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat)
+    (hcp : s.how = ZlibNg.Gz.COPY → z'.avail_in = 0) :
     GzShape { h with streams := upd h.streams s.strm (some z') } s ∧
       ownL { h with streams := upd h.streams s.strm (some z') } b s = ownL h b s := by
   have hzs : z'.state = z.state := by rw [ez]
@@ -714,7 +716,8 @@ theorem shape_strm {h : Heap} {b : Nat} {s : GzState} {z z' : ZStream} (sh : GzS
   refine ⟨?_, by simp only [ownL, hst]⟩
   have R := sh.read hr
   refine ⟨sh.mode, ownStr_keep sh.path fun _ _ => rfl, ⟨z', by simp⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos,
-    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz0, fun e => absurd e hsz0, R.pos_have, R.look_pos, R.gzip_direct⟩,
+    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz0, fun e => absurd e hsz0, R.pos_have, R.look_pos, R.gzip_direct,
+      fun e z2 hz2 => by simp at hz2; rw [← hz2]; exact hcp e⟩,
     fun e => absurd (hr.symm.trans e) read_ne_write, fun hz' c hc => sh.dead hz' c (by rw [hst] at hc; exact hc)⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
@@ -740,11 +743,12 @@ theorem HLess.strm (h : Heap) (i : Nat) (z' : ZStream) : HLess h { h with stream
 theorem invR_strm {w : World} {h : Heap} {b : Nat} {s : GzState} {z z' : ZStream} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (hsz0 : s.size ≠ 0) (hz : h.streams s.strm = some z)
     (ez : z' = { z with next_in := z'.next_in, avail_in := z'.avail_in, next_out := z'.next_out, avail_out := z'.avail_out })
-    (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat) :
+    (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat)
+    (hcp : s.how = ZlibNg.Gz.COPY → z'.avail_in = 0) :
     GzInvR w { h with streams := upd h.streams s.strm (some z') } (some b) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
-  obtain ⟨sh', eo⟩ := shape_strm (b := b) sh hr hsz0 hz ez hin
+  obtain ⟨sh', eo⟩ := shape_strm (b := b) sh hr hsz0 hz ez hin hcp
   have := (keeps_store hs (HLess.strm h s.strm z') (fun d e => e) sh' (by rw [eo]; exact hn) rfl rfl).1 hv
   rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
   exact this
@@ -807,7 +811,7 @@ def AvailPost (w : World) (H0 : Heap) (b : Nat) (s : GzState) (r : Int32) (W : W
     ∃ s', W.gz H b = some s' ∧ s' = { s with eof := s'.eof, err := s'.err, msg := s'.msg }
 
 theorem availTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
-    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) {c base : Nat} {z : ZStream}
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hnc : s.how ≠ ZlibNg.Gz.COPY) {c base : Nat} {z : ZStream}
     (hB : GzBufs h s c base) (hz : h.streams s.strm = some z)
     (hai : z.avail_in = 0 ∨ Inside c base 0 (inSize s) z.next_in z.avail_in.toNat)
     {H : Heap} (x : HBuf h H c base (base + inSize s)) :
@@ -892,7 +896,7 @@ theorem availTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
           have sh1' := shape_msg sh1 e s.past s.err s.msg ⟨sh1.msg.1, sh1.msg.2⟩
           have hvE : GzInvR { w with fs := fs', gzs := upd w.gzs b (some { s with eof := e }) } H1 (some b) :=
             (keeps_store hs1 (HLess.refl H1) (fun _ e => e) sh1' hn1 rfl rfl).1 hv1
-          refine invR_strm (s := { s with eof := e }) (z := z) (z' := z') hvE hs2 hsz hz1 rfl fun c' base' hB' => Or.inr ⟨0, ?_, Nat.le_refl _, ?_⟩
+          refine invR_strm (s := { s with eof := e }) (z := z) (z' := z') hvE hs2 hsz hz1 rfl (fun c' base' hB' => Or.inr ⟨0, ?_, Nat.le_refl _, ?_⟩) (fun e => absurd e hnc)
           · have e1 := hB'.buffers; have e2 := hB.buffers
             rw [show ({ s with eof := e } : GzState).buffers = s.buffers from rfl, e2] at e1; cases e1; rfl
           · show 0 + (z.avail_in + lp.hv).toNat ≤ inSize s
@@ -916,7 +920,7 @@ theorem AvailPost.pre {w : World} {h H : Heap} {b : Nat} {s : GzState} {r : Int3
 /-- **`gz_avail`** on a read handle with buffers and `x.have == 0`: returns `-1` or `0`, leaves a read handle whose
 state differs at most in `eof`, `err` and `msg`, and only reads the file system. -/
 theorem gz_avail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
-    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) :
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hnc : s.how ≠ ZlibNg.Gz.COPY) :
     GSat w h (gz_avail (some b)) (AvailPost w h b s) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
@@ -932,7 +936,7 @@ theorem gz_avail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
       have := gstep_hbuf hs x hcb hown w.fs s rfl rfl rfl rfl
       rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
       exact this
-    exact (availTail_spec hv hs h0 hsz hB hz hai x).mono fun r W H' p => AvailPost.pre g hs hsH p
+    exact (availTail_spec hv hs h0 hsz hnc hB hz hai x).mono fun r W H' p => AvailPost.pre g hs hsH p
   unfold gz_avail
   refine GSat.bind (GSat.of_eq (strmOf_app hs) ?_)
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
