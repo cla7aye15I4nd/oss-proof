@@ -75,6 +75,23 @@ theorem flush_ret {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H)
     obtain rfl := Option.some.inj (hst'.symm.trans hst2)
     exact ⟨hp, hse⟩
 
+/-- `flush_pending`, `pendingReturn`, then a continuation on the result. -/
+theorem flush_ret_k {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
+    {β : Type} {k : Bool → M β} {Q : β → Heap → Prop}
+    (hk : ∀ r H', HRet h i b (fun st' => st'.pending = 0 ∧ st' = { st with
+          pending := st'.pending
+          pending_out := st'.pending_out
+          bi_buf := st'.bi_buf
+          bi_valid := st'.bi_valid }) r H' → Sat H' (k r) Q) :
+    Sat H (do ZlibNg.DeflateP.flush_pending (some i); let r ← pendingReturn (some b); k r) Q := by
+  obtain ⟨H', e, R', kk⟩ := run_flush R.w
+  obtain ⟨z, hz, -⟩ := R.blk
+  obtain ⟨z', st', hz', hst', hse, -, -, -⟩ := kk z st hz hst
+  refine Sat.bind ⟨(), H', e, ?_⟩
+  refine Sat.bind (Sat.mono (pend_ret R' fun st2 hst2 hp => ?_) hk)
+  obtain rfl := Option.some.inj (hst'.symm.trans hst2)
+  exact ⟨hp, hse⟩
+
 theorem HRet.mono {h : Heap} {i b : Nat} {K K' : DeflateState → Prop} {r : Bool} {H : Heap} (q : HRet h i b K r H)
     (k : ∀ st, K st → K' st) : HRet h i b K' r H :=
   ⟨q.1, q.2.1, fun e st hs => k st (q.2.2 e st hs)⟩
