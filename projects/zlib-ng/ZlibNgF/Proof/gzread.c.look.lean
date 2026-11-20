@@ -84,7 +84,7 @@ theorem alloc_aligned_ok {h : Heap} (size : UInt32) (hw : 8 + size.toNat + 64 < 
     simp only [h8, ite_true, bind_app, e4, e5, storePtrSlot, hb1, show d.toNat + 56 + 8 ≤ A.size by omega,
       ite_true, pure_app]
     have hO : alOff (h.baseAddr (.heap h.nextBlk)) = d.toNat + 64 := by
-      unfold alOff; rw [hD, if_pos h8, h64]
+      unfold alOff; rw [hD]; simp only [h8, ite_true, h64]
     rw [hO]
     rw [hH1]; simp only [alH, InflateInv.upd_upd, A, show d.toNat + 64 - 8 = d.toNat + 56 by omega]
   · have h8' : ¬ d.toNat < 8 := fun e => h8 (UInt64.lt_iff_toNat_lt.mpr e)
@@ -93,7 +93,7 @@ theorem alloc_aligned_ok {h : Heap} (size : UInt32) (hw : 8 + size.toNat + 64 < 
     simp only [h8, ite_false, bind_app, pure_app, e5, storePtrSlot, hb1,
       show d.toNat - 8 + 8 ≤ A.size by omega, ite_true]
     have hO : alOff (h.baseAddr (.heap h.nextBlk)) = d.toNat := by
-      unfold alOff; rw [hD, if_neg h8]
+      unfold alOff; rw [hD]; simp only [h8, ite_false]
     rw [hO]
     rw [hH1]; simp only [alH, InflateInv.upd_upd, A]
 
