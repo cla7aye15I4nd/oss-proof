@@ -1,0 +1,7 @@
+name = "OssProof"
+version = "0.1.0"
+defaultTargets = ["OssProof"]
+
+[[lean_lib]]
+name = "OssProof"
+roots = ["OssProof"]

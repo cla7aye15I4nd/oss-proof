@@ -123,7 +123,7 @@ def summarize_project(proj: Project) -> ProjectSummary:
 
     site_cfg = proj.data.get("site", {})
     upstream_cfg = proj.data["upstream"]
-    done = req_count > 0 and proved_req == req_count
+    done = req_count > 0 and proved_req == req_count and (doc_fns == 0 or proved_fns == doc_fns)
     has_full_book = bool(site_cfg.get("builder"))
     has_articles = (proj.root / "docs/en/read/codec.md").is_file()
     return ProjectSummary(

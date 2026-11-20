@@ -41,6 +41,10 @@ def isInductiveCtorIdxImpl (kernel : Kernel.Environment) (n : Name) : Bool :=
     match kernel.find? ind with | some (.inductInfo _) => true | _ => false
   | _ => false
 
+def isResultsCheckHelper (pkg : Name) (n : Name) : Bool :=
+  n == pkg ++ `Results ++ `expectedType ++ `go ++ `_unsafe_rec ||
+  n == pkg ++ `Results ++ `isGoalType ++ `_unsafe_rec
+
 def readNames (path : System.FilePath) : IO NameSet := do
   if !(← path.pathExists) then return {}
   let lines := (← IO.FS.readFile path).splitOn "\n"
@@ -48,16 +52,35 @@ def readNames (path : System.FilePath) : IO NameSet := do
     let line := line.trimAscii.toString
     if line.isEmpty || line.startsWith "#" then s else s.insert line.toName
 
+def parseArgs (args : List String) : Except String (String × Option String × Option String) :=
+  go args none none none
+where
+  go : List String → Option String → Option String → Option String →
+      Except String (String × Option String × Option String)
+    | [], some pkg, helpers, res => .ok (pkg, helpers, res)
+    | [], none, _, _ => .error "usage: PartialCheck.lean <Package> [compiler-helpers.txt] [--results <ResultsMod>]"
+    | "--results" :: r :: rest, pkg, helpers, _ => go rest pkg helpers (some r)
+    | "--results" :: [], _, _, _ => .error "missing module name after --results"
+    | a :: rest, none, helpers, res => go rest (some a) helpers res
+    | a :: rest, some pkg, none, res => go rest (some pkg) (some a) res
+    | a :: _, some _, some _, _ => .error s!"unexpected extra argument: {a}"
+
 def main (args : List String) : IO UInt32 := do
-  let pkgStr :: rest := args | do
-    IO.eprintln "usage: PartialCheck.lean <Package> [compiler-helpers.txt]"
-    return 2
+  let (pkgStr, helpersOpt, resultsOpt) ← match parseArgs args with
+    | .ok v => pure v
+    | .error msg =>
+      IO.eprintln msg
+      return 2
   let pkg := pkgStr.toName
-  let helpers ← match rest with
-    | h :: _ => readNames h
-    | [] => pure {}
+  let helpers ← match helpersOpt with
+    | some h => readNames h
+    | none => pure {}
   initSearchPath (← findSysroot)
-  let env ← importModules #[{ module := pkg }] {} 0
+  let imports : Array Import :=
+    match resultsOpt with
+    | some r => #[{ module := pkg }, { module := r.toName }]
+    | none => #[{ module := pkg }]
+  let env ← importModules imports {} 0
   let env := env.setExporting false
   let kernel := env.checked.get
   let mut problems : Array String := #[]
@@ -69,7 +92,7 @@ def main (args : List String) : IO UInt32 := do
       | none => false
     unless ours do continue
     count := count + 1
-    if !helpers.contains n && !isInductiveCtorIdxImpl kernel n then
+    if !helpers.contains n && !isInductiveCtorIdxImpl kernel n && !isResultsCheckHelper pkg n then
       if ci.isUnsafe then problems := problems.push s!"unsafe declaration {n}"; recursive := true
       if ci.isPartial then problems := problems.push s!"partial declaration {n}"; recursive := true
     match ci with

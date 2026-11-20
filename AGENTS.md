@@ -18,7 +18,7 @@ Work as fast as honest work allows: process exists to keep the result honest, no
 ## Repository layout
 
 - `lean-toolchain` — single pinned Lean 4 toolchain shared across every project (`projects/<id>/lean-toolchain` and `projects/<id>/tests/lean-toolchain` must equal it byte-for-byte).
-- `framework/` — shared verification gate (`check_project.py`, `check_options.py`, `check_forbidden.py`, `check_runtime_ub.py`, `check_spec_layers.py`, `ci_matrix.py`, `patches.py`, `run_difftest.py`), reusable Lean checkers (`framework/lean/ResultsCheck.lean`, `framework/lean/PartialCheck.lean`), strict runtime reference (`framework/lean/StrictPtr.lean`), project registry (`framework/projects.json`), `framework/PROOF_PLAYBOOK.md`, and `framework/TEMPLATE_AGENTS.md`.
+- `framework/` — shared verification gate (`check_project.py`, `check_options.py`, `check_forbidden.py`, `check_runtime_ub.py`, `check_spec_layers.py`, `check_proof_hygiene.py`, `ci_matrix.py`, `patches.py`, `run_difftest.py`), proof-engineering & resource tools (`build_guarded.py`, `remote_runner.sh`, `builders.example.toml`, `worktree_ops.py`, `preflight.py`, `install_hooks.py`, `plan_proof.py`, `falsify_spec.py`, `profile_lean.py`, `scaffold_project.py`), shared Lean 4 core (`framework/lean/OssProof/`, `PartialCheck.lean`, `ResultsCheck.lean`, `StrictPtr.lean`), project registry (`framework/projects.json`), `framework/PROOF_PLAYBOOK.md`, and `framework/TEMPLATE_AGENTS.md`.
 - `site/` — unified static site builder (`site/build.py`) and auditor (`site/check.py`), rendering the `oss-proof` portal (`site/dist/{en,zh}/`) and each project's subsite (`site/dist/<id>/{en,zh}/`).
 - `projects/<id>/` — one C library per directory (registered libraries in `framework/projects.json` plus scoped Tier-0 candidates with pinned upstream submodules and project-specific `AGENTS.md`).
 
@@ -126,23 +126,25 @@ Rules that hold everywhere:
 See [`framework/PROOF_PLAYBOOK.md`](framework/PROOF_PLAYBOOK.md) for concrete Lean 4.36 recipes,
 triage checklists, and anti-patterns.
 
-1. **Bootstrap strict runtime, translation, and gates first.** Wire `projects/<id>/project.json`
-   into `framework/projects.json` using `framework/lean/StrictPtr.lean`, `ResultsCheck.lean`, and
-   `PartialCheck.lean` so every commit passes `python3 framework/check_project.py <id>` (Python
-   >= 3.11) from day one. Freeze safety-only public goals (`Spec/Safety/`) and differential tests
-   before long proofs; do **not** write speculative C patches upfront.
-2. **Use the contract-free 4-stage hybrid flow.** Establish a thin `Wp` + write-footprint
-   (`Preserves`/`Modifies`) layer once and leverage Lean 4's built-in `grind` (pure kernel proof
-   terms, zero external packages). Build thin top-down composition skeletons on
+1. **Bootstrap strict runtime, translation, and gates first.** Scaffold new libraries with
+   `python3 framework/scaffold_project.py <id>` (wired to the shared `framework/lean/OssProof` core
+   with strict ISO C17 pointers, `Wp`, `Preserves`, `c_arith`, and `ResultsCheck.lean`) so every
+   commit passes `python3 framework/preflight.py` and `python3 framework/check_project.py <id>` from
+   day one. Freeze safety-only public goals (`Spec/Safety/`) and differential tests before long
+   proofs; do **not** write speculative C patches upfront.
+2. **Use the contract-free 4-stage hybrid flow.** Build on `OssProof` (`Wp`, `Preserves`/`Modifies`,
+   `cwhile_measure`, strict `Ptr`/`Libc` lemmas) and Lean 4's built-in `grind` (pure kernel proof
+   terms, zero external packages). Use `python3 framework/plan_proof.py <c-dir>` to derive the
+   bottom-up topological call-graph order. Build thin top-down composition skeletons on
    `skeleton/<id>-<result>` (`sorry` allowed only on `skeleton/*` branches, tracking open lemmas in
-   a header comment of the skeleton file, never in `docs/`), then prove callees **bottom-up** in
-   topological call-graph order.
+   a header comment of the skeleton file, never in `docs/`), then prove callees **bottom-up**.
 3. **Falsify against real C before proving & obey 1-round stall stop-loss.** Test non-trivial goal
-   statements, loop invariants, and state invariants on real C (under ASan + UBSan) before spending
-   hours proving them in Lean. If a subgoal stalls for one edit-compile cycle or hits repeated
-   heartbeat/`omega` timeouts, stop tactic hacking and triage in order: (a) test for a false
-   statement or real C bug, (b) audit the translation vs C, (c) check mid-call vs call-boundary
-   invariant mismatch, (d) profile with `-Dprofiler=true` and split into `rfl`-linked phases.
+   statements, loop invariants, and state invariants on real C using `python3 framework/falsify_spec.py`
+   (ASan + UBSan + strict zero-length `memcpy`/`memset` traps) before spending hours proving them in
+   Lean. If a subgoal stalls for one edit-compile cycle or hits repeated heartbeat/`omega` timeouts,
+   stop tactic hacking and triage in order: (a) test for a false statement or real C bug, (b) audit
+   the translation vs C, (c) check mid-call vs call-boundary invariant mismatch, (d) profile with
+   `python3 framework/profile_lean.py <file.lean>` and split into `rfl`-linked phases.
 4. **Keep invariants modular and proofs lean.**
    - Split state-machine invariants into **`CoreInv`** (holds mid-call across internal helpers) and
      **`BoundaryInv`** (lifted once at public API boundaries), accessed through small interface
@@ -159,10 +161,12 @@ triage checklists, and anti-patterns.
    private internal symbols), paired with a revert-to-fail regression test. Never leak internal
    patch numbering or repository jargon into upstream PRs.
 6. **Memory, Git, and multi-agent discipline.**
-   - Build with at most four parallel jobs (`LEAN_NUM_THREADS=4`, or `LEAN_NUM_THREADS=1` under a local memory guard) under a
-     16 GB limit, and run heavy builds one at a time per host; offload heavy builds to configured
-     build hosts (configured outside the repository) or PR CI rather than saturating the local
-     workstation.
+   - Run builds through `python3 framework/build_guarded.py <id>` (automatically routes to configured
+     remote build hosts in `~/.config/oss-proof/builders.toml` outside the repo, or falls back to
+     serialized local builds with capped `LEAN_NUM_THREADS` under a 16 GB limit and memory-guard
+     kill diagnostics). Hydrate fresh worktrees with `python3 framework/worktree_ops.py hydrate <id>`.
+   - Run `python3 framework/preflight.py` before pushing (2s static gate + proof hygiene + blast
+     radius + privacy leak scan), and install local guard hooks via `python3 framework/install_hooks.py`.
    - Never write scratch files or logs inside `.lake/` or `/tmp` (tmpfs).
    - Always fetch and check latest `origin/main` before auditing or branching; stage by explicit
      path only (never `git add -A`, never `git stash` across shared worktrees, never force-push

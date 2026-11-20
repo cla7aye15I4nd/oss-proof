@@ -9,6 +9,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from framework._py import ensure_python311
+
+ensure_python311()
 from framework.manifest import Project, REPO, check_relative_path, load_project
 
 
@@ -36,14 +39,16 @@ def run_project_difftest(proj: Project, *, san: bool = True) -> None:
             raise RuntimeError(f"[{proj.id}] {tc_path} differs from root lean-toolchain")
 
     dt_dir = proj.root / check_relative_path(dt["dir"])
+    env = os.environ.copy()
+    env.setdefault("LEAN_NUM_THREADS", str(min(4, max(1, os.cpu_count() or 1))))
     if dt.get("list"):
         list_file = proj.root / check_relative_path(dt["list"])
         targets = driver_targets(list_file)
         print(f"==> [{proj.id}] Building {len(targets)} differential drivers with --wfail")
-        subprocess.run(["lake", "build", "--wfail", *targets], cwd=dt_dir, check=True)
+        subprocess.run(["lake", "build", "--wfail", *targets], cwd=dt_dir, env=env, check=True)
+        env["SKIP_LAKE_BUILD"] = "1"
 
     upstream_sub = proj.root / check_relative_path(proj.data["upstream"]["submodule"])
-    env = os.environ.copy()
     env["PROJECT_DIR"] = str(proj.root)
     env["UPSTREAM_DIR"] = str(upstream_sub)
     if dt.get("upstream_env"):

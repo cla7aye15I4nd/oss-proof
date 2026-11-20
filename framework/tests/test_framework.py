@@ -12,7 +12,22 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from framework import check_forbidden, check_options, check_runtime_ub, check_spec_layers, ci_matrix, manifest, patches, run_difftest
+from framework import (
+    build_guarded,
+    check_forbidden,
+    check_options,
+    check_project,
+    check_proof_hygiene,
+    check_runtime_ub,
+    check_spec_layers,
+    ci_matrix,
+    manifest,
+    patches,
+    plan_proof,
+    preflight,
+    run_difftest,
+    scaffold_project,
+)
 
 
 class FrameworkTests(unittest.TestCase):
@@ -307,6 +322,204 @@ class FrameworkTests(unittest.TestCase):
         series = patches.discover(proj.root / "patches", "directories")
         self.assertEqual(len(series), proj.data["site"]["patches_count"])
         self.assertTrue(all(p.name == "upstream.patch" for p in series))
+
+    def test_options_allows_only_local_ossproof_require(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "DemoF").mkdir()
+            (root / "DemoF.lean").write_text("")
+            (root / "lean-toolchain").write_text("leanprover/lean4:v4.36.0\n")
+            (root / "lakefile.toml").write_text(
+                'name = "demo-f"\nversion = "0.1.0"\ndefaultTargets = ["DemoF"]\n'
+                '[[require]]\nname = "OssProof"\npath = "../../framework/lean"\n'
+                '[[lean_lib]]\nname = "DemoF"\nroots = ["DemoF", "DemoF.Results"]\n'
+            )
+            self.assertEqual(
+                check_options.check_project_options(root, "DemoF", root_toolchain="leanprover/lean4:v4.36.0\n"),
+                [],
+            )
+            # Any non-OssProof dependency must be rejected.
+            (root / "lakefile.toml").write_text(
+                'name = "demo-f"\nversion = "0.1.0"\ndefaultTargets = ["DemoF"]\n'
+                '[[require]]\nname = "Mathlib"\npath = "../mathlib"\n'
+                '[[lean_lib]]\nname = "DemoF"\nroots = ["DemoF"]\n'
+            )
+            errs = check_options.check_project_options(root, "DemoF", root_toolchain="leanprover/lean4:v4.36.0\n")
+            self.assertTrue(any("OssProof" in e for e in errs))
+
+    def test_forbidden_strips_comments_and_catches_sorry_and_multiline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "FooF").mkdir()
+            (root / "FooF.lean").write_text("import FooF.A\n")
+            mod = root / "FooF/A.lean"
+            # Comments and string literals must not false-positive.
+            mod.write_text(
+                "/- sorry axiom native_decide -/\n"
+                '-- admit partial def\n'
+                'def msg : String := "sorry bv_decide"\n'
+            )
+            self.assertEqual(check_forbidden.check_project_forbidden(root, "FooF"), [])
+            # `sorry` is rejected by default, allowed only with allow_sorry=True.
+            mod.write_text("theorem t : True := by sorry -- comment\n")
+            self.assertTrue(check_forbidden.check_project_forbidden(root, "FooF"))
+            self.assertEqual(check_forbidden.check_project_forbidden(root, "FooF", allow_sorry=True), [])
+            # Multiline `partial\ndef` is caught.
+            mod.write_text("partial\ndef loop : Nat → Nat | n => loop n\n")
+            self.assertTrue(check_forbidden.check_project_forbidden(root, "FooF"))
+        # Shared OssProof core itself must have zero forbidden constructs.
+        self.assertEqual(check_forbidden.check_shared_core_forbidden(REPO), [])
+
+    def test_runtime_ub_catches_memcmp_and_renamed_params(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rt = Path(tmp) / "Runtime"
+            rt.mkdir()
+            (rt / "Ptr.lean").write_text(
+                "def Ptr.add (p : Ptr R) (delta : Int) : M (Ptr R) := fun h =>\n"
+                "  if delta = 0 then .ok (p, h) else .error (.ub \"bad\")\n"
+            )
+            errs = check_runtime_ub.check_runtime_dir_ub(rt, "demo", base=Path(tmp))
+            self.assertEqual(len(errs), 1)
+            (rt / "Ptr.lean").write_text("def Ptr.add := 0\n")
+            (rt / "Libc.lean").write_text(
+                "def Ptr.memcmp (a b : Ptr R) (len : Nat) : M Int32 := fun h =>\n"
+                "  if len == 0 then .ok (0, h) else .error (.ub \"bad\")\n"
+            )
+            errs = check_runtime_ub.check_runtime_dir_ub(rt, "demo", base=Path(tmp))
+            self.assertEqual(len(errs), 1)
+        # Shared OssProof runtime must pass strict UB check.
+        self.assertEqual(
+            check_runtime_ub.check_runtime_dir_ub(REPO / "framework/lean/OssProof/Runtime", "OssProof", base=REPO),
+            [],
+        )
+
+    def test_ci_matrix_skips_doc_only_changes(self):
+        p_zlib = manifest.load_project("zlib", REPO)
+        self.assertEqual(
+            ci_matrix.compute_matrices([p_zlib], "pull_request", ["projects/zlib/docs/en/overview.md"]),
+            ([], []),
+        )
+        self.assertEqual(
+            ci_matrix.compute_matrices([p_zlib], "pull_request", ["projects/zlib/AGENTS.md"]),
+            ([], []),
+        )
+        self.assertEqual(
+            ci_matrix.compute_matrices([p_zlib], "pull_request", ["framework/PROOF_PLAYBOOK.md"]),
+            ([], []),
+        )
+
+    def test_check_patches_apply_rejects_uninitialized_submodule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "proj"
+            (root / "up").mkdir(parents=True)  # Empty dir without `.git`
+            proj = manifest.Project(
+                id="demo",
+                root=root,
+                data={
+                    "version": 1,
+                    "id": "demo",
+                    "title": "demo",
+                    "package": "DemoF",
+                    "upstream": {"submodule": "up", "patches_dir": "patches"},
+                    "build": {"targets": ["DemoF"], "results_module": "DemoF.Results"},
+                },
+            )
+            with self.assertRaisesRegex(RuntimeError, "not initialized"):
+                check_project.check_patches_apply(proj)
+
+    def test_proof_hygiene_and_orphan_detection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for sub in ("DemoF/Proof", "DemoF/Spec/Safety", "DemoF/Spec/Common"):
+                (root / sub).mkdir(parents=True)
+            (root / "DemoF.lean").write_text("import DemoF.Proof.A\n")
+            (root / "DemoF/Results.lean").write_text("import DemoF\n")
+            (root / "DemoF/Proof/A.lean").write_text(
+                "set_option maxHeartbeats 1000000\n"
+                "def recBad (n : Nat) : Nat := match n with | 0 => 0 | k + 1 => recBad k\n"
+                "theorem bad : True := by decide +kernel\n"
+            )
+            (root / "DemoF/Proof/Orphan.lean").write_text("theorem unused : True := trivial\n")
+            (root / "DemoF/Spec/Safety/G.lean").write_text("def Goal.stub : Prop := True\n")
+            proj = manifest.Project(
+                id="demo",
+                root=root,
+                data={
+                    "version": 1,
+                    "id": "demo",
+                    "title": "demo",
+                    "package": "DemoF",
+                    "upstream": {"submodule": "up"},
+                    "build": {"targets": ["DemoF"], "results_module": "DemoF.Results"},
+                },
+            )
+            self.assertEqual(check_project.check_orphan_modules(proj), ["DemoF.Proof.Orphan", "DemoF.Spec.Safety.G"])
+            rep = check_proof_hygiene.analyze_project(proj)
+            self.assertEqual(len(rep["rec_defs"]), 1)
+            self.assertEqual(len(rep["decide_kernels"]), 1)
+            self.assertEqual(len(rep["heartbeats"]), 1)
+            self.assertEqual(len(rep["placeholder_goals"]), 1)
+
+    def test_plan_proof_topological_waves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            c_file = Path(tmp) / "sample.c"
+            c_file.write_text(
+                "static int leaf(int x) { return x + 1; }\n"
+                "static int mid(int *p, int n) { int s = 0; for (int i = 0; i < n; i++) s += leaf(p[i]); return s; }\n"
+                "int entry(int *p, int n) { return mid(p, n); }\n"
+            )
+            funcs = plan_proof.scan_c_file(c_file, Path(tmp))
+            waves = plan_proof.plan_waves(funcs)
+            self.assertEqual([[f["name"] for f in w] for w in waves], [["leaf"], ["mid"], ["entry"]])
+
+    def test_build_guarded_config_and_routing(self):
+        defaults, builders = build_guarded.load_builders_config(REPO / "framework/builders.example.toml")
+        self.assertEqual(defaults["memory_max_gb"], 16)
+        self.assertEqual(len(builders), 2)
+        lean_cands = build_guarded.select_candidate_builders(builders, required_capability="lean")
+        diff_cands = build_guarded.select_candidate_builders(builders, required_capability="difftest")
+        self.assertEqual(len(lean_cands), 2)
+        self.assertEqual([b.name for b in diff_cands], ["builder-b"])
+        self.assertEqual(len(build_guarded.ssh_endpoints(builders[0])), 2)
+
+    def test_preflight_privacy_leak_scanner(self):
+        bad_diff = (
+            "+++ b/framework/foo.py\n"
+            "+HOST = '100.81.85.26'\n"
+            "+PATH = '/Users/alice/repo'\n"
+            "+Co-Authored-By: Bot\n"
+        )
+        hits = preflight.scan_added_diff_leaks(bad_diff)
+        self.assertEqual(len(hits), 3)
+        clean_diff = "+++ b/framework/foo.py\n+HOST = 'build-host.example.invalid'\n"
+        self.assertEqual(preflight.scan_added_diff_leaks(clean_diff), [])
+
+    def test_scaffold_project_passes_static_gates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "projects/demo"
+            files = scaffold_project.render_files("demo", "DemoF", "demo", "demo", "https://example.invalid/demo")
+            for rel, content in files.items():
+                p = dest / rel
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(content)
+            root_tc = (REPO / "lean-toolchain").read_text()
+            self.assertEqual(check_options.check_project_options(dest, "DemoF", root_toolchain=root_tc), [])
+            self.assertEqual(check_forbidden.check_project_forbidden(dest, "DemoF"), [])
+            errs, count, _ = check_spec_layers.SpecLayerChecker(dest, "DemoF").run()
+            self.assertEqual(errs, [])
+            self.assertEqual(count, 2)
+            proj = manifest.Project(id="demo", root=dest, data=json.loads((dest / "project.json").read_text()))
+            self.assertEqual(check_project.check_orphan_modules(proj), [])
+
+    def test_portal_done_requires_full_public_api_coverage(self):
+        sys.path.insert(0, str(REPO / "site"))
+        import portal
+
+        zlib_summary = portal.summarize_project(manifest.load_project("zlib", REPO))
+        self.assertTrue(zlib_summary.done)
+        zng_summary = portal.summarize_project(manifest.load_project("zlib-ng", REPO))
+        if zng_summary.proved_functions < zng_summary.documented_functions:
+            self.assertFalse(zng_summary.done)
 
 
 if __name__ == "__main__":
