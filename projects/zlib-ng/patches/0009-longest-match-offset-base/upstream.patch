@@ -1,15 +1,28 @@
-From 64f857b75077720b8826b4c6cf0fd99bdf21d7f3 Mon Sep 17 00:00:00 2001
+From bc0a506b2df9c0d3d0dd496850134f7193c3b146 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Thu, 19 Nov 2026 11:59:19 -0800
 Subject: [PATCH] Do not form window - match_offset in longest_match
 
-In the slow matchers mbase_start was moved back by match_offset, which points
-before the start of the deflate allocation when match_offset exceeds the
-alignment padding before the window. Keep mbase_start at the window and
-subtract match_offset from cur_match instead; every address read is unchanged.
+In the slow matchers (levels 7 to 9), mbase_start and mbase_end were moved
+back by match_offset after the offset search. match_offset reaches 256,
+while the window may start at the beginning of the deflate allocation, so
+window - match_offset can point before the start of the object, which is
+undefined in C (C17 6.5.6p8) even though only window + cur_match -
+match_offset is ever read.
+
+Keep mbase_start at the window and subtract match_offset from cur_match
+instead. Every candidate is read only while cur_match > limit_base +
+match_offset, so the subtraction does not wrap and every address read is
+unchanged; the compressed output is identical.
+
+Add a round-trip test at levels 7, 8 and 9 on input that makes both the
+knuth (levels 7 and 8) and the roll (level 9) matcher move match_offset.
+Forming an out-of-bounds pointer without dereferencing it is not reported
+by the sanitizers, so the test passes without the change as well.
 ---
- match_tpl.h | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+ match_tpl.h          | 15 ++++++---------
+ test/test_deflate.cc | 46 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 52 insertions(+), 9 deletions(-)
 
 diff --git a/match_tpl.h b/match_tpl.h
 index a05461f..bc9a9f9 100644
@@ -77,3 +90,57 @@ index a05461f..bc9a9f9 100644
                  mbase_end = (mbase_start+offset);
                  continue;
              }
+diff --git a/test/test_deflate.cc b/test/test_deflate.cc
+index e848197..407ae79 100644
+--- a/test/test_deflate.cc
++++ b/test/test_deflate.cc
+@@ -158,3 +158,49 @@ INSTANTIATE_TEST_SUITE_P(deflate_small_window, deflate_variant,
+         testing::Values(Z_DEFAULT_STRATEGY)                     /* strategy */
+     ),
+     deflate_test_name);
++
++/* Levels 7 to 9 search for a match at an offset into the candidate (longest_match_slow_knuth/_roll) and read
++ * each candidate at cur_match - match_offset. Mixed random, text, periodic and zero runs make that search
++ * move the offset; the stream must decode to the input. */
++TEST(deflate, slow_match_offset_round_trip) {
++    const size_t n = 70000;
++    static uint8_t in[n], out[2 * n + 1000], decoded[n];
++    static const char alpha[] = "etaoin shrdlu\n";
++    uint32_t x = 261107361U;
++    for (size_t i = 0; i < n; i++) {
++        x ^= x << 13;
++        x ^= x >> 17;
++        x ^= x << 5;
++        switch ((i / 1000) % 4) {
++        case 0:
++            in[i] = (uint8_t)(x & 0xff);
++            break;
++        case 1:
++            in[i] = (uint8_t)alpha[x % 14];
++            break;
++        case 2:
++            in[i] = (uint8_t)((i % 33) * 7 + 3);
++            break;
++        default:
++            in[i] = 0;
++        }
++    }
++    const int levels[] = {7, 8, 9};
++    for (int level : levels) {
++        SCOPED_TRACE(testing::Message() << "level " << level);
++        PREFIX3(stream) strm = {};
++        ASSERT_EQ(PREFIX(deflateInit2)(&strm, level, Z_DEFLATED, MAX_WBITS, 4, Z_FILTERED), Z_OK);
++        strm.next_in = in;
++        strm.avail_in = sizeof(in);
++        strm.next_out = out;
++        strm.avail_out = sizeof(out);
++        EXPECT_EQ(PREFIX(deflate)(&strm, Z_FINISH), Z_STREAM_END);
++        z_uintmax_t compressed_len = strm.total_out;
++        EXPECT_EQ(PREFIX(deflateEnd)(&strm), Z_OK);
++
++        z_uintmax_t decoded_len = sizeof(decoded);
++        ASSERT_EQ(PREFIX(uncompress)(decoded, &decoded_len, out, compressed_len), Z_OK);
++        EXPECT_EQ(decoded_len, (z_uintmax_t)sizeof(in));
++        EXPECT_EQ(memcmp(decoded, in, sizeof(in)), 0);
++    }
++}

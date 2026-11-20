@@ -1,4 +1,4 @@
-From d5882950af7866232967a4e2d4f798c6fba22a06 Mon Sep 17 00:00:00 2001
+From 72b7720b7f3dfc710f8a38db3dd7648532d910b4 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 02:00:18 -0800
 Subject: [PATCH] Bound the position lowered by gzungetc()

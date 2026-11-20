@@ -1,4 +1,4 @@
-From 1ecba8b0af43ae26e2f7b4629ff7569ebe5d77ee Mon Sep 17 00:00:00 2001
+From 372e98c7970ea173f65dc7e64357cb38604e4c53 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 00:11:47 -0800
 Subject: [PATCH] Do not fetch in gzgets() while a skip is pending
@@ -36,10 +36,10 @@ index ee6fe5a..a56544b 100644
              if (state->x.have == 0) {       /* end of file */
                  state->past = 1;            /* read past end */
 diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
-index d167582..d2fc0cd 100644
+index 56c9fea..e1d72f3 100644
 --- a/test/test_gzseek.cc
 +++ b/test/test_gzseek.cc
-@@ -96,3 +96,34 @@ TEST(gzip, seek_then_direct) {
+@@ -238,3 +238,34 @@ TEST(gzip, seek_then_direct) {
      }
      remove(path);
  }

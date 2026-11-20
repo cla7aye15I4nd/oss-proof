@@ -86,7 +86,7 @@ letter of the standard that misbehaves on no flat-memory target.
 | --- | --- | --- | --- |
 | `inflate-copy-pointer-equality` | 0001 | invalid pointer pair in `inflateCopy` | public API (pointer-pair check) |
 | `gzseek-offset-overflow` | 0002 | signed overflow in `gzseek64`: `offset + skip` with `SEEK_CUR` (run `cur`), `offset - x.pos` after `gzungetc` at position 0 (`set`), `x.pos + offset` in the test of the raw area (`pos`, on `/dev/zero`, its `lseek` answered as Linux's on other hosts); the `lseek` offset `offset - x.have` (run `lseek` of the repro, not run here: with patch 0013 in the build `x.pos + x.have <= GZ_OFF_MAX` rules it out) | public API; the `x.next + 0` that 0002 also removes is letter of the standard and not shown |
-| `gzseek-refusal-state` | 0002 | none: on calls that do not overflow, the results and the state afterwards are the same with and without the patch (a refused `SEEK_CUR` before the start on a reader and on a writer, `SEEK_SET` to a negative offset after two `gzungetc` at position 0 on a gzip file and on a plain file); the first version of 0002 is kept as a guard | public API (no defect: same results) |
+| `gzseek-refusal-state` | 0002 | none (a change of behaviour): with the patch a refused seek leaves the position unchanged, as zlib documents; without it a refused `SEEK_CUR` before the start on a reader and on a writer drops the pending skip, and a `SEEK_SET` to a negative offset after two `gzungetc` at position 0 (gzip file and plain file) is sought instead of refused (each run prints a different line) | public API (no defect: different documented results) |
 | `deflatebound-gzip-extra-length` | 0003 | `deflateBound` too small for a gzip extra field with `extra_len > 0xffff` | public API (wrong result) |
 | `inflate-window-copy` | 0004 | invalid pointer pair (window vs output) in `chunkcopy_safe` | public API (pointer-pair check) |
 | `infback-window-overlap` | 0004 | none: upstream is clean here; the case checks that `inflateBack`, whose output is the window, decodes matches into the previous window pass alike with and without the patch | public API (no defect: same results) |
@@ -152,17 +152,19 @@ Guards (an earlier, defective version of one of our patches, built in place of t
 reproduction must still show its defect there): `infback-window-overlap` with `first-0004.patch`, the first
 version of patch 0004, whose `memcpy` copies overlapping ranges when the output is the window
 (`memcpy-param-overlap`); `gzgetc-macro-position` with `first-0013.patch`, the first version of patch 0013, which left
-output buffered past `GZ_OFF_MAX` (the macro overflows in both runs); `gzseek-refusal-state` with `first-0002.patch`, the first version of patch 0002, which
-refused before upstream's own steps and so kept the pending skip of a refused `SEEK_CUR` and refused a negative
-`SEEK_SET` target after `gzungetc` (each run prints a different line).
+output buffered past `GZ_OFF_MAX` (the macro overflows in both runs).
 
 ## Library source across the patch layout change
 
 `patch-source-identity.sh <rev> [expected-diff]` builds the library part of the verified source (everything outside
 `test/`) twice on the pinned submodule: from the flat `patches/*.patch` of an earlier commit `<rev>`, and from the
 current series (`apply-patches.sh --library-only`), and prints `diff -r` of the two. Against the last commit with flat
-patches, the expected difference is `patch-source-identity.expected`: two comments, from the series `0008` and `0015`
-in the form proposed upstream; no statement differs.
+patches, the expected difference is `patch-source-identity.expected`: three comments, from the series `0006`, `0008`
+and `0015` in the form proposed upstream, and the `(z_size_t)` cast that `0003` drops in `deflateBound` (upstream
+review asked for it; the value is the same), and the new fix `0022` (`s->block_open = 0;` in `deflateResetKeep`, added
+after the layout change), and the new form of `0002` (`gzseek64` rewritten after madler/zlib `6995c67b` and
+`6ed77c48`, its `GZ_OFF_MAX` in `gzguts.h`, and a clause and a sentence added to the `gzseek` documentation of `zlib.h.in` and
+`zlib-ng.h.in`); no other statement differs.
 
 ## GoogleTest cases of the patches
 

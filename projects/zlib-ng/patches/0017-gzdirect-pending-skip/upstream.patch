@@ -1,4 +1,4 @@
-From b8b4acf868d6b0c22e8c53a61e7a12d50a8614a8 Mon Sep 17 00:00:00 2001
+From 263b613ace602d59dffa4fb6c368052286a28c4a Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Thu, 19 Nov 2026 23:45:55 -0800
 Subject: [PATCH] Skip buffered output covered by a pending seek in gzdirect()
@@ -51,12 +51,12 @@ index e6fdedd..ee6fe5a 100644
      return state->direct == 1;
  }
 diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
-index c14a073..d167582 100644
+index 2e2a441..56c9fea 100644
 --- a/test/test_gzseek.cc
 +++ b/test/test_gzseek.cc
-@@ -62,3 +62,37 @@ TEST(gzip, seek) {
-     PREFIX(gzclose)(file);
- #endif
+@@ -204,3 +204,37 @@ TEST(gzip, seek_before_first_read) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
+     remove("seek_first.txt");
  }
 +
 +/* gzdirect() after a seek on a file that is not gzip: gzdirect() reads the

@@ -1,24 +1,66 @@
-From 2b4c4c43420879363e9061c63471b826fda3052e Mon Sep 17 00:00:00 2001
-From: Zheng Yu <dataisland@outlook.com>
-Date: Wed, 18 Nov 2026 18:41:27 -0800
-Subject: [PATCH] Reject a NULL dictionary in inflateSetDictionary()
+From 60f57e90176bc5475573afd48361acb3387a6f84 Mon Sep 17 00:00:00 2001
+From: Hans Kristian Rosbach <hk-git@circlestorm.org>
+Date: Thu, 12 Nov 2026 14:36:25 +0100
+Subject: [PATCH 1/2] Check for NULL dictionary in inflateSetDictionary
 
-zlib.h documents Z_STREAM_ERROR for a NULL dictionary; on a raw stream the call
-instead computed NULL + 0, NULL - 0, called memcpy() from NULL and returned Z_OK.
+A NULL dictionary with a nonzero length crashed the caller: updatewindow()
+reads from dictionary + dictLength, and in DICT state adler32() reads the
+dictionary first. Reject it with Z_STREAM_ERROR instead.
+
+[Library part of commit f35ed264 of zlib-ng PR #2516. Its test extends
+test/test_inflate_api_errors.cc, which earlier commits of that PR add; the
+next commit adds the same test to test/test_dict.cc.]
 ---
- inflate.c | 2 ++
- 1 file changed, 2 insertions(+)
+ inflate.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
 diff --git a/inflate.c b/inflate.c
-index 62de337..0a0a90b 100644
+index 62de337..90c22e2 100644
 --- a/inflate.c
 +++ b/inflate.c
-@@ -1247,6 +1247,8 @@ int32_t Z_EXPORT PREFIX(inflateSetDictionary)(PREFIX3(stream) *strm, const uint8
+@@ -1247,6 +1247,11 @@ int32_t Z_EXPORT PREFIX(inflateSetDictionary)(PREFIX3(stream) *strm, const uint8
      if (inflateStateCheck(strm))
          return Z_STREAM_ERROR;
      state = (struct inflate_state *)strm->state;
++    /* Reject any NULL dictionary, symmetric with deflateSetDictionary(): even
++       a zero-length one would reach updatewindow() and the DFLTCC hook as a
++       NULL pointer. */
 +    if (dictionary == NULL)
 +        return Z_STREAM_ERROR;
      if (state->wrap != 0 && state->mode != DICT)
          return Z_STREAM_ERROR;
  
+
+From 85169591d814d32f32769b9f465e3e0a7e0a022c Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 11:02:59 -0800
+Subject: [PATCH 2/2] Test inflateSetDictionary() with a NULL dictionary
+
+The test of the previous commit, added to test/test_dict.cc, which exists
+without the earlier commits of PR #2516. Without the check, the call with
+length 0 on a raw stream passes NULL to memcpy() (reported by
+UndefinedBehaviorSanitizer) and returns Z_OK.
+---
+ test/test_dict.cc | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/test/test_dict.cc b/test/test_dict.cc
+index 8a882d5..a165170 100644
+--- a/test/test_dict.cc
++++ b/test/test_dict.cc
+@@ -96,3 +96,15 @@ TEST(dictionary, basic) {
+ 
+     EXPECT_TRUE(strncmp((char*)uncompr, hello, sizeof(hello)) == 0);
+ }
++
++/* inflateSetDictionary() with a NULL dictionary is rejected with Z_STREAM_ERROR for any length instead of
++ * reading from the NULL buffer (symmetric with deflateSetDictionary()). A raw stream is used so that the call
++ * reaches the dictionary handling instead of being rejected by the state check. */
++TEST(dictionary, inflate_null_dictionary) {
++    PREFIX3(stream) strm = {};
++    ASSERT_EQ(PREFIX(inflateInit2)(&strm, -MAX_WBITS), Z_OK);
++
++    EXPECT_EQ(PREFIX(inflateSetDictionary)(&strm, NULL, 0), Z_STREAM_ERROR);
++    EXPECT_EQ(PREFIX(inflateSetDictionary)(&strm, NULL, 5), Z_STREAM_ERROR);
++    EXPECT_EQ(PREFIX(inflateEnd)(&strm), Z_OK);
++}
