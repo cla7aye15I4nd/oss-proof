@@ -15,7 +15,7 @@ registered only once both structures are proved):
   `finish_done` (`StratPost`);
 * `TreesFacts`: the block emitters that the strategies and `deflate` call (`zng_tr_flush_block`,
   `zng_tr_stored_block`, `zng_tr_align`, and the `zng_tr_emit_*` of `deflate_quick`), in the working state of a
-  strategy (`DWork`: the invariant, except that up to 63 bits may wait in `bi_buf`), given room after the pending
+  strategy (`DWork`: the invariant, stated with the bits of `bi_buf` apart; the same as `DInv`), given room after the pending
   bytes (`PendRoom`), do not fault, keep the working state, change only the stream's block (within `pending_buf`) and
   the stream's `data_type`, keep the other state fields (`EmitKeeps`), and add a bounded number of pending bytes.
 -/
@@ -31,7 +31,7 @@ def PendRoom (b : Nat) (st : DeflateState) (n lim : Nat) : Prop :=
   ∃ pbo poo, st.pending_buf = .val (.ref (.heap b) pbo) ∧ st.pending_out = .val (.ref (.heap b) poo) ∧
     poo - pbo + st.pending.toNat + n ≤ lim
 
-/-- The working state of a strategy: the invariant's clauses, except that `bi_buf` holds up to 63 bits (the
+/-- The working state of a strategy: the invariant's clauses with `bi_buf`'s up to 63 bits stated apart (the
 clauses are those of `DCore` on the state with `bi_valid` cleared), and the complete bytes of `bi_buf` still fit
 after the pending bytes: in `pending_buf` (`PENDING_BUF_SIZE = 4 * lit_bufsize + 9` bytes), and before `sym_buf`
 while symbols wait there. -/
@@ -56,13 +56,18 @@ reachability induction) and that a strategy needs on entry and gives back on exi
 reads `window + block_start` and writes `pending_buf` over `sym_buf`) `block_start` is not negative and there are no
 symbols and no lookahead; at level 1 with `Z_FIXED` (`deflate_quick` with `static_emit`, which never tallies and
 writes `pending_buf` over `sym_buf`) there are no symbols; with `block_start == strstart` there are no symbols (every
-tallied symbol moved `strstart` past `block_start`, `FLUSH_BLOCK` resets both). The range of `block_start` is the
-invariant's (`DCore.bstart`, `DCore.bs_lo`). -/
+tallied symbol moved `strstart` past `block_start`, `FLUSH_BLOCK` resets both); 8 or more bits wait in `bi_buf` only
+at level 1 with `Z_FIXED` and with lookahead (`deflate_quick` with `static_emit` returns `need_more` with up to 63
+bits only for `Z_NO_FLUSH`, which never lets the lookahead fall to 0; every other return of a strategy and of
+`deflate` with bits written follows `flush_pending`, which leaves fewer than 8; so `zng_tr_flush_block` is called
+with fewer than 8 bits, and `deflateParams` and `deflateSetDictionary`, which require no lookahead, see fewer than
+8). The range of `block_start` is the invariant's (`DCore.bstart`, `DCore.bs_lo`). -/
 def SymsOk (st : DeflateState) : Prop :=
   st.sym_next < st.sym_end ∧
     (st.level = 0 → 0 ≤ st.block_start ∧ st.sym_next = 0 ∧ st.lookahead = 0) ∧
     (st.level = 1 → st.strategy = Z_FIXED → st.sym_next = 0) ∧
-    ((st.strstart.toNat : Int) = st.block_start.toInt → st.sym_next = 0)
+    ((st.strstart.toNat : Int) = st.block_start.toInt → st.sym_next = 0) ∧
+    (8 ≤ st.bi_valid → st.level = 1 ∧ st.strategy = Z_FIXED ∧ st.lookahead ≠ 0)
 
 /-- The fields that a strategy reads back unchanged: it never writes them. -/
 def StratKeeps (st st' : DeflateState) : Prop :=
@@ -236,7 +241,7 @@ def DInvW (h : Heap) (s : StreamPtr) : Prop :=
 becomes 0 only if it was 0 (a slide lowers both by `slide_len`, or, patch 0018, only `strstart` when `block_start`
 would fall below `-(2^30 + 2^16)`, which leaves a gap above `2^30`); at the end the lookahead is full or the input empty; the state fields that the
 callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function pointers, `sym_next`, `gzindex`,
-`last_flush`) kept. -/
+`last_flush`, `bi_valid`) kept. -/
 def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
   DInvW h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
   ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
@@ -254,7 +259,8 @@ def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
     (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0) ∧
     st'.wrap = st.wrap ∧ st'.status = st.status ∧ st'.gzhead = st.gzhead ∧ st'.level = st.level ∧
     st'.strategy = st.strategy ∧ st'.longest_match = st.longest_match ∧ st'.insert_batch = st.insert_batch ∧
-    st'.sym_next = st.sym_next ∧ st'.gzindex = st.gzindex ∧ st'.last_flush = st.last_flush
+    st'.sym_next = st.sym_next ∧ st'.gzindex = st.gzindex ∧ st'.last_flush = st.last_flush ∧
+    st'.bi_valid = st.bi_valid
 
 /-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
 the translated C code: `fill_window` from `DInvW` (the invariant, or the state inside `deflateSetDictionary`'s
@@ -280,31 +286,43 @@ structure WindowFacts : Prop where
 theorem pendRoom_of_core {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st : DeflateState} {al : DeflateAllocs}
     (c : DCore h s z b (dview st) al) : PendRoom b st 0 (4 * st.lit_bufsize.toNat + 9) := by
   obtain ⟨_, _, _, _, pbo, _, -, -, -, hpb, -, -, -, -, -, poo, hpo, -, hpe⟩ := c.lay
-  exact ⟨pbo, poo, hpb, hpo, hpe⟩
+  exact ⟨pbo, poo, hpb, hpo, by simp only [dview] at hpe; omega⟩
 
 /-- An invariant stream is in the working state. -/
 theorem DWork.of_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) : DWork h s := by
   obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, c⟩ := hv
   have b0 : 0 ≤ st.bi_valid := c.bits.1
-  have b8 : st.bi_valid < 8 := c.bits.2
-  have e8 : (8 : Int32).toInt = 8 := rfl
-  have e64 : (64 : Int32).toInt = 64 := rfl
-  have l8 := Int32.lt_iff_toInt_lt.mp b8
-  have l0 := Int32.le_iff_toInt_le.mp b0
-  have hz8 : st.bi_valid.toInt.toNat / 8 = 0 := by
-    have : (0 : Int32).toInt = 0 := rfl
-    omega
-  refine ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, b0, Int32.lt_iff_toInt_lt.mpr (by omega),
-    { c with bits := ⟨Int32.le_refl _, show (0 : Int32) < 8 by decide⟩ }, by rw [hz8]; exact pendRoom_of_core c,
-    fun hn => ?_⟩
-  obtain ⟨pbo, poo, hpb, hpo, hq⟩ := c.psym hn
-  exact ⟨pbo, poo, hpb, hpo, by rw [hz8]; exact hq⟩
+  have b64 : st.bi_valid < 64 := c.bits.2
+  have e0 : (0 : Int32).toInt.toNat / 8 = 0 := rfl
+  obtain ⟨d, wo, po, ho, pbo, hd, hw, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hpoo, hpe⟩ := c.lay
+  refine ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, b0, b64,
+    { c with
+      bits := ⟨Int32.le_refl _, show (0 : Int32) < 64 by decide⟩
+      lay := ⟨d, wo, po, ho, pbo, hd, hw, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hpoo, by
+        simp only [dview] at hpe ⊢; rw [e0]; omega⟩
+      psym := fun hn => by
+        obtain ⟨pbo1, poo1, hp1, ho1, hq⟩ := c.psym hn
+        exact ⟨pbo1, poo1, hp1, ho1, by simp only [dview] at hq ⊢; rw [e0]; omega⟩ },
+    ⟨pbo, poo, hpb, hpo, hpe⟩, fun hn => ?_⟩
+  obtain ⟨pbo1, poo1, hp1, ho1, hq⟩ := c.psym hn
+  exact ⟨pbo1, poo1, hp1, ho1, hq⟩
 
-/-- A working state with fewer than 8 bits in `bi_buf` is invariant. -/
+/-- The working state is the invariant (the invariant allows up to 63 bits in `bi_buf`). -/
+theorem DWork.inv' {h : Heap} {s : StreamPtr} (hw : DWork h s) : DInv h s := by
+  obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, b0, b64, c, ⟨pbo, poo, hpb, hpo, hq⟩, hps⟩ := hw
+  obtain ⟨d, wo, po, ho, pbo', hd, hw, hp, hh, hpb', h1, h2, h3, h4, hsb, poo', hpo', hpoo, -⟩ := c.lay
+  have ea := hpb'.symm.trans hpb
+  obtain rfl : pbo' = pbo := by injection ea with e1; injection e1
+  have eb := hpo'.symm.trans hpo
+  obtain rfl : poo' = poo := by injection eb with e1; injection e1
+  exact ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with
+    bits := ⟨b0, b64⟩
+    lay := ⟨d, wo, po, ho, pbo', hd, hw, hp, hh, hpb, h1, h2, h3, h4, hsb, poo', hpo, hpoo, hq⟩
+    psym := fun hn => hps hn }⟩
+
+/-- A working state with fewer than 8 bits in `bi_buf` is invariant (`DWork.inv'`; the bound is not needed). -/
 theorem DWork.inv {h : Heap} {s : StreamPtr} (hw : DWork h s)
-    (h8 : ∀ b st, DStateIs h s b st → st.bi_valid < 8) : DInv h s := by
-  obtain ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, b0, -, c, -⟩ := hw
-  exact ⟨i, z, b, st, al, rfl, hz, hb, hst, hal, { c with bits := ⟨b0, h8 b st ⟨i, z, rfl, hz, hb, hst⟩⟩ }⟩
+    (_h8 : ∀ b st, DStateIs h s b st → st.bi_valid < 8) : DInv h s := DWork.inv' hw
 
 /-- `strstart` of an invariant view is at most 65536, so `(int)strstart` is exact. -/
 theorem strstart_toInt32 {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}

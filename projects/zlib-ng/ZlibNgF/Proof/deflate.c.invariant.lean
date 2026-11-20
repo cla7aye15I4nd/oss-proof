@@ -15,8 +15,8 @@ later call keeps: `pending_buf` is set, `head` lies in the plain bytes of the bl
 (`lm_set_level`), the tree arrays have their C sizes (`zng_tr_init`); the sizes `w_size`, `window_size`,
 `lit_bufsize`, `pending_buf_size`, `sym_end`; the layout of `alloc_deflate` (window, `prev`, `head`, `pending_buf` in
 that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the pending bytes within `pending_buf`
-(from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end`; fewer than 8 bits in
-`bi_buf`; `strstart + lookahead` within the window; a valid `strategy`; both function pointers of `lm_set_level` set;
+(from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end`; at most 63 bits in
+`bi_buf`, whose complete bytes fit after the pending bytes; `strstart + lookahead` within the window; a valid `strategy`; both function pointers of `lm_set_level` set;
 valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
 are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
 `block_start` bounded below; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
@@ -178,21 +178,22 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   /-- the layout of `alloc_deflate`: the window (`window_size` bytes), `prev` (`w_size` two-byte entries), `head`
   (`HASH_SIZE` two-byte entries) and `pending_buf` (`PENDING_BUF_SIZE` bytes, then padding to 64) lie in that order
   in the plain bytes of block `b`; `sym_buf` is `pending_buf + lit_bufsize + PENDING_BUF_PAD`; the pending bytes
-  `[pending_out, pending_out + pending)` lie within `pending_buf` -/
+  `[pending_out, pending_out + pending)` and the complete bytes of `bi_buf` after them lie within `pending_buf` -/
   lay : ∃ d wo po ho pbo, h.bytes b = some d ∧ v.window = .val (.ref (.heap b) wo) ∧
     v.prev = .val (.ref (.heap b) po) ∧ v.head = .val (.ref (.heap b) ho) ∧
     v.pending_buf = .val (.ref (.heap b) pbo) ∧ wo + v.window_size.toNat ≤ po ∧ po + 2 * v.w_size.toNat ≤ ho ∧
     ho + 131072 ≤ pbo ∧ pbo + 4 * v.lit_bufsize.toNat + 64 ≤ d.size ∧
     v.sym_buf = .val (.ref (.heap b) (pbo + v.lit_bufsize.toNat + 8)) ∧
     ∃ poo, v.pending_out = .val (.ref (.heap b) poo) ∧ pbo ≤ poo ∧
-      poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9
+      poo - pbo + v.pending.toNat + v.bi_valid.toInt.toNat / 8 ≤ 4 * v.lit_bufsize.toNat + 9
   /-- with no pending bytes, `pending_out` is back at `pending_buf` (`flush_pending`, `deflateResetKeep`) -/
   pout : v.pending = 0 → v.pending_out = v.pending_buf
   /-- the symbol buffer holds whole three-byte symbols, at most `sym_end` bytes -/
   syms : v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0
-  /-- between calls the bit buffer holds fewer than 8 bits: every call that adds bits ends with
-  `zng_tr_flush_bits` (`flush_pending`, `deflatePrime`), which moves the complete bytes to `pending_buf` -/
-  bits : 0 ≤ v.bi_valid ∧ v.bi_valid < 8
+  /-- the bit buffer (64 bits) holds at most 63 bits: `zng_tr_flush_bits` (`flush_pending`, `deflatePrime`) moves the
+  complete bytes to `pending_buf`, but `deflate_quick` with `Z_FIXED` may return `need_more` with up to 63 bits
+  waiting (when fewer than 8 bits are left is a between-call fact, `DeflateFacts.SymsOk`) -/
+  bits : 0 ≤ v.bi_valid ∧ v.bi_valid < 64
   /-- the window positions in use lie in the window -/
   look : v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat
   /-- `strategy` is one of the five strategies -/
@@ -202,9 +203,10 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   /-- the symbols in `sym_buf` are those that `zng_tr_tally_*` write, and the frequencies count them (`SymOk`) -/
   symv : ∃ d sbo, h.bytes b = some d ∧ v.sym_buf = .val (.ref (.heap b) sbo) ∧
     SymOk d sbo v.sym_next v.ltree v.dtree
-  /-- while symbols wait in `sym_buf`, the pending bytes end before it -/
+  /-- while symbols wait in `sym_buf`, the pending bytes and the complete bytes of `bi_buf` end before it -/
   psym : v.sym_next ≠ 0 → ∃ pbo poo, v.pending_buf = .val (.ref (.heap b) pbo) ∧
-    v.pending_out = .val (.ref (.heap b) poo) ∧ poo - pbo + v.pending.toNat ≤ v.lit_bufsize.toNat + 8
+    v.pending_out = .val (.ref (.heap b) poo) ∧
+    poo - pbo + v.pending.toNat + v.bi_valid.toInt.toNat / 8 ≤ v.lit_bufsize.toNat + 8
   /-- in the header states (before the first block), no symbol is tallied -/
   hdr : v.status ≠ BUSY_STATE → v.status ≠ FINISH_STATE → v.sym_next = 0
   /-- `block_start` lies at or before `strstart` -/
@@ -260,8 +262,11 @@ structure SideEq (st st' : DeflateState) : Prop where
   lookahead : st'.lookahead = st.lookahead
   strategy : st'.strategy = st.strategy
   last_flush : st'.last_flush = st.last_flush
+  /-- `bi_buf` holds 8 or more bits only if it did before -/
+  bits : 8 ≤ st'.bi_valid → 8 ≤ st.bi_valid
 
-theorem SideEq.refl (st : DeflateState) : SideEq st st := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+theorem SideEq.refl (st : DeflateState) : SideEq st st :=
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, id⟩
 
 /-! ## Interface lemmas -/
 
