@@ -278,9 +278,9 @@ theorem distfix_table : CodeTable distfix 0 32 5 28 true := by
   have := tabB_ok (n := 5) distfix_tabB (by decide) (by decide) (by rw [distfix_size])
   rwa [distfix_size] at this
 
-/-- The four stores of `fixedtables`. -/
+/-- The five stores of `fixedtables`. -/
 def fixF (s : InflateState) : InflateState :=
-  { s with lencode := .val (.ref .lenfix 0), lenbits := 9, distcode := .val (.ref .distfix 0), distbits := 5 }
+  { s with wide_len := 1, lencode := .val (.ref .lenfix 0), lenbits := 9, distcode := .val (.ref .distfix 0), distbits := 5 }
 
 theorem fixedtables_eq {H : Heap} {b : Nat} {S : InflateState} (hs : H.istate b = some S) :
     fixedtables (some b) H = ZlibNg.Inflate.wrS (some b) fixF H := by

@@ -322,12 +322,31 @@ def inflatePrime (strm : StreamPtr) (bits : Int32) (value : Int32) : M Int32 := 
   wrS st fun s => { s with hold := s.hold + sh, bits := s.bits + bits.toUInt32 }
   return Z_OK
 
-/-- `void Z_INTERNAL fixedtables(struct inflate_state *state)` (`inflate.c:306-311`). -/
+/-- `void Z_INTERNAL fixedtables(struct inflate_state *state)` (`inflate.c:307-313`). -/
 def fixedtables (st : StatePtr) : M Unit := do
+  wrS st fun s => { s with wide_len := 1 }
   wrS st fun s => { s with lencode := .val (.ref .lenfix 0) }
   wrS st fun s => { s with lenbits := 9 }
   wrS st fun s => { s with distcode := .val (.ref .distfix 0) }
   wrS st fun s => { s with distbits := 5 }
+
+/-- `state->wide_len = 0; for (unsigned sym = 273; sym < state->nlen; sym++) if (state->lens[sym] != 0) { state->wide_len = 1; break; }`
+(`inflate.c:917-923`, `infback.c:354-360`). -/
+def setWideLen (st : StatePtr) (lens : WPtr) : M Unit := do
+  wrS st fun s => { s with wide_len := 0 }
+  let _ ← cwhile (σ := UInt32 × Bool)
+    (fun (sym, brk) => do
+      if brk then return (false, (sym, true))
+      let nlen ← rdS st (·.nlen)
+      return (sym < nlen, (sym, false)))
+    (fun (sym, _) => do
+      if (← Ptr.index lens (Int.ofNat sym.toNat)) != (0 : UInt16) then
+        wrS st fun s => { s with wide_len := 1 }
+        return (sym, true)
+      else
+        return (sym + 1, false))
+    (273, false)
+  pure ()
 
 /-- `static void updatewindow(PREFIX3(stream) *strm, const uint8_t *end, uint32_t len, int32_t cksum)`
 (`inflate.c:328-379`). -/
@@ -795,6 +814,7 @@ def inflate_CODELENS (c : Ctx) : X Unit := do
   if ret != 0 then
     SET_BAD c "invalid literal/lengths set"
     return
+  setWideLen c.st lens
   let nx ← (← rdS c.st (·.next)).get
   wrS c.st fun s => { s with distcode := .val nx }
   wrS c.st fun s => { s with distbits := 9 }

@@ -3,15 +3,15 @@ import ZlibNgF.Proof.«inflate.c.reset»
 /-!
 # `alloc_inflate`, `free_inflate`, `inflateInit2` (`ZlibNgF`)
 
-The symbolic run of `alloc_inflate` for every `baseAddr` and garbage oracle: one `zcalloc` of 42048 bytes (or its
-failure), the 64-byte alignment pad `PADSZ`, the carves of the `inflate_allocs` record at `pad + 41920` and of the
+The symbolic run of `alloc_inflate` for every `baseAddr` and garbage oracle: one `zcalloc` of 42112 bytes (or its
+failure), the 64-byte alignment pad `PADSZ`, the carves of the `inflate_allocs` record at `pad + 41984` and of the
 `inflate_state` at `pad + 32832`, the window at `pad`. Then `inflateInit2`: the state set-up, `inflateReset2` for every
 `windowBits`, and `free_inflate` when it fails. A successful call leaves the structural invariant; every call changes
 only the stream record and the fresh block (`Fr`).
 
 Proof engineering: the simp sets keep `2 ^ 40` and `Array.extract` of the fresh block unnormalised
 (`-Nat.reducePow`, `-Array.extract_extract`); otherwise the kernel compares the 1924-entry garbage `codes` array or the
-42048-byte block element by element.
+42112-byte block element by element.
 -/
 
 set_option autoImplicit false
@@ -20,15 +20,15 @@ namespace ZlibNgF.Proof.InflateAlloc
 open C ZlibNgF.Spec ZlibNg.Inflate
 open ZlibNgF.Proof.InflateInv (Live setZS upd_upd ldState_app ldStream_app Shape Core Inv view CodeTarget)
 
-/-- `alloc_inflate` with its constant sizes evaluated (`window_pos = 0`, `state_pos = 32832`, `alloc_pos = 41920`,
-`total_size = 42048`). -/
+/-- `alloc_inflate` with its constant sizes evaluated (`window_pos = 0`, `state_pos = 32832`, `alloc_pos = 41984`,
+`total_size = 42112`). -/
 theorem alloc_pre (s : StreamPtr) : alloc_inflate s = (do
     let z ← ldStream s
-    let original_buf ← callZalloc z.zalloc z.«opaque» 1 42048
+    let original_buf ← callZalloc z.zalloc z.«opaque» 1 42112
     if original_buf == .null then return none
     let ob ← addrOf original_buf
     let buff ← HINT_ALIGNED_64 (← original_buf.add (Int.ofNat (PADSZ ob 64).toNat))
-    let alloc_bufs ← carveAllocs (← buff.add 41920)
+    let alloc_bufs ← carveAllocs (← buff.add 41984)
     let a ← ldAllocs alloc_bufs
     stAllocs alloc_bufs { a with buf_start := .val original_buf }
     let z ← ldStream s
@@ -59,9 +59,9 @@ theorem space_get_heap (h : Heap) (b : Nat) : Space.get h (BRef.heap b) = h.byte
 window bytes up to the state, the state and the allocation record. -/
 def allocHeap (h : Heap) (zf : FnPtr) : Heap :=
   { h with
-    bytes := upd h.bytes h.nextBlk (some (((Array.ofFn (n := 42048) fun j =>
+    bytes := upd h.bytes h.nextBlk (some (((Array.ofFn (n := 42112) fun j =>
       (Junk.of (h.garbage h.nalloc j.val) : UInt8)).extract 0
-      ((PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat + 41920)).extract 0
+      ((PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat + 41984)).extract 0
       ((PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat + 32832)))
     savedPtrs := upd h.savedPtrs h.nextBlk none
     nextBlk := h.nextBlk + 1
@@ -81,7 +81,7 @@ theorem bind_fm {α β : Type} (m : Heap → Except Fault (α × Heap)) (f : α 
     (@bind M _ α β m f) h = match m h with | .ok (a, h') => f a h' | .error e => .error e := rfl
 
 theorem carveState_ok {h : Heap} {b off : Nat} (a : Array UInt8) (hb : h.bytes b = some a)
-    (hoff : off + 9088 ≤ a.size) (hal : ((h.baseAddr (.heap b)).toNat + off) % 64 = 0)
+    (hoff : off + 9152 ≤ a.size) (hal : ((h.baseAddr (.heap b)).toNat + off) % 64 = 0)
     (hfs : h.istates b = none) :
     carveState (.ref (.heap b) off) h = .ok (some b,
       { h with
@@ -91,7 +91,7 @@ theorem carveState_ok {h : Heap} {b off : Nat} (a : Array UInt8) (hb : h.bytes b
     SIZEOF_INFLATE_STATE, ALIGNOF_INFLATE_STATE]
 
 theorem carveState_fault {h : Heap} {b off : Nat} (a : Array UInt8) (x : InflateState) (hb : h.bytes b = some a)
-    (hoff : off + 9088 ≤ a.size) (hal : ((h.baseAddr (.heap b)).toNat + off) % 64 = 0)
+    (hoff : off + 9152 ≤ a.size) (hal : ((h.baseAddr (.heap b)).toNat + off) % 64 = 0)
     (hfs : h.istates b = some x) :
     carveState (.ref (.heap b) off) h = .error (.ub "second inflate_state in one block (not modelled)") := by
   simp [carveState, carveCheck, bind_app, bind_fm, hb, hoff, hal, hfs, SIZEOF_INFLATE_STATE,
@@ -108,29 +108,29 @@ theorem alloc_ok {h : Heap} {i : Nat} (hza : (h.streams i).map ZStream.zalloc = 
   generalize hP : (PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat = p at hpn
   have hp : p < 64 := by omega
   have a0 : ((h.baseAddr (.heap h.nextBlk)).toNat + p) % 64 = 0 := by omega
-  have a1 : ((h.baseAddr (.heap h.nextBlk)).toNat + (p + 41920)) % 8 = 0 := by omega
+  have a1 : ((h.baseAddr (.heap h.nextBlk)).toNat + (p + 41984)) % 8 = 0 := by omega
   have a2 : ((h.baseAddr (.heap h.nextBlk)).toNat + (p + 32832)) % 64 = 0 := by
     rw [show (h.baseAddr (.heap h.nextBlk)).toNat + (p + 32832) = (h.baseAddr (.heap h.nextBlk)).toNat + p + 64 * 513
       by omega, Nat.add_mul_mod_self_left]
     exact a0
-  have f1 : (p : Int) ≤ 42048 := by omega
-  have f2 : (p : Int) + 41920 ≤ 42048 := by omega
-  have f3 : p ≤ 42048 := by omega
-  have f4 : 0 ≤ (p : Int) + 41920 := by omega
-  have f5 : p + 41920 + 32 ≤ 42048 := by omega
-  have f6 : min (p + 41920) 42048 = p + 41920 := by omega
+  have f1 : (p : Int) ≤ 42112 := by omega
+  have f2 : (p : Int) + 41984 ≤ 42112 := by omega
+  have f3 : p ≤ 42112 := by omega
+  have f4 : 0 ≤ (p : Int) + 41984 := by omega
+  have f5 : p + 41984 + 32 ≤ 42112 := by omega
+  have f6 : min (p + 41984) 42112 = p + 41984 := by omega
   have f7 : 0 ≤ (p : Int) + 32832 := by omega
-  have f9 : p ≤ p + 41920 := by omega
-  have f12 : (p : Int) ≤ (p : Int) + 41920 := by omega
-  have e1 : ((p : Int) + 41920).toNat = p + 41920 := by omega
+  have f9 : p ≤ p + 41984 := by omega
+  have f12 : (p : Int) ≤ (p : Int) + 41984 := by omega
+  have e1 : ((p : Int) + 41984).toNat = p + 41984 := by omega
   have e2 : ((p : Int) + 32832).toNat = p + 32832 := by omega
   rw [alloc_pre]
   simp [bind_app, ldStream, hz, callZalloc, hza, ZlibNg.Zutil.zcalloc, allocB, hok, addrOf, Ptr.add,
     space_get_heap, HINT_ALIGNED_64, Ptr.castAligned, carveAllocs, carveCheck, cutBytes, ldAllocs, stAllocs,
     Heap.iallocsOf, SIZEOF_INFLATE_ALLOCS, ALIGNOF_INFLATE_ALLOCS,
     hP, a0, a1, hfa, f1, f2, f3, f4, f5, f6, f7, f9, f12, upd_upd, e1, e2, bind_mf, bind_fm]
-  rw [carveState_ok ((Array.ofFn (n := 42048) fun j => (Junk.of (h.garbage h.nalloc j.val) : UInt8)).extract 0
-    (p + 41920))]
+  rw [carveState_ok ((Array.ofFn (n := 42112) fun j => (Junk.of (h.garbage h.nalloc j.val) : UInt8)).extract 0
+    (p + 41984))]
   · simp [-Nat.reducePow, -Array.extract_extract, upd_upd, allocHeap, hP]
   · simp
   · simp; omega
@@ -149,21 +149,21 @@ theorem alloc_fault {h : Heap} {i : Nat} (hza : (h.streams i).map ZStream.zalloc
   generalize hP : (PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat = p at hpn
   have hp : p < 64 := by omega
   have a0 : ((h.baseAddr (.heap h.nextBlk)).toNat + p) % 64 = 0 := by omega
-  have a1 : ((h.baseAddr (.heap h.nextBlk)).toNat + (p + 41920)) % 8 = 0 := by omega
+  have a1 : ((h.baseAddr (.heap h.nextBlk)).toNat + (p + 41984)) % 8 = 0 := by omega
   have a2 : ((h.baseAddr (.heap h.nextBlk)).toNat + (p + 32832)) % 64 = 0 := by
     rw [show (h.baseAddr (.heap h.nextBlk)).toNat + (p + 32832) = (h.baseAddr (.heap h.nextBlk)).toNat + p + 64 * 513
       by omega, Nat.add_mul_mod_self_left]
     exact a0
-  have f1 : (p : Int) ≤ 42048 := by omega
-  have f2 : (p : Int) + 41920 ≤ 42048 := by omega
-  have f3 : p ≤ 42048 := by omega
-  have f4 : 0 ≤ (p : Int) + 41920 := by omega
-  have f5 : p + 41920 + 32 ≤ 42048 := by omega
-  have f6 : min (p + 41920) 42048 = p + 41920 := by omega
+  have f1 : (p : Int) ≤ 42112 := by omega
+  have f2 : (p : Int) + 41984 ≤ 42112 := by omega
+  have f3 : p ≤ 42112 := by omega
+  have f4 : 0 ≤ (p : Int) + 41984 := by omega
+  have f5 : p + 41984 + 32 ≤ 42112 := by omega
+  have f6 : min (p + 41984) 42112 = p + 41984 := by omega
   have f7 : 0 ≤ (p : Int) + 32832 := by omega
-  have f9 : p ≤ p + 41920 := by omega
-  have f12 : (p : Int) ≤ (p : Int) + 41920 := by omega
-  have e1 : ((p : Int) + 41920).toNat = p + 41920 := by omega
+  have f9 : p ≤ p + 41984 := by omega
+  have f12 : (p : Int) ≤ (p : Int) + 41984 := by omega
+  have e1 : ((p : Int) + 41984).toNat = p + 41984 := by omega
   have e2 : ((p : Int) + 32832).toNat = p + 32832 := by omega
   cases hfa : h.iallocs h.nextBlk with
   | some x =>
@@ -183,8 +183,8 @@ theorem alloc_fault {h : Heap} {i : Nat} (hza : (h.streams i).map ZStream.zalloc
       space_get_heap, HINT_ALIGNED_64, Ptr.castAligned, carveAllocs, carveCheck, cutBytes, ldAllocs, stAllocs,
       Heap.iallocsOf, SIZEOF_INFLATE_ALLOCS, ALIGNOF_INFLATE_ALLOCS,
       hP, a0, a1, hfa, f1, f2, f3, f4, f5, f6, f7, f9, f12, upd_upd, e1, e2, bind_mf, bind_fm]
-    rw [carveState_fault ((Array.ofFn (n := 42048) fun j => (Junk.of (h.garbage h.nalloc j.val) : UInt8)).extract 0
-      (p + 41920)) x]
+    rw [carveState_fault ((Array.ofFn (n := 42112) fun j => (Junk.of (h.garbage h.nalloc j.val) : UInt8)).extract 0
+      (p + 41984)) x]
     · simp
     · simp
     · simp; omega
@@ -262,8 +262,8 @@ theorem allocHeap_bytes_ne (b : Nat) (e : b ≠ h.nextBlk) : (allocHeap h zf).by
   exact upd_ne _ _ _ _ e
 /-- The bytes of the new block. -/
 def allocBytes : Array UInt8 :=
-  ((Array.ofFn (n := 42048) fun j => (Junk.of (h.garbage h.nalloc j.val) : UInt8)).extract 0
-    ((PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat + 41920)).extract 0
+  ((Array.ofFn (n := 42112) fun j => (Junk.of (h.garbage h.nalloc j.val) : UInt8)).extract 0
+    ((PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat + 41984)).extract 0
     ((PADSZ (h.baseAddr (.heap h.nextBlk)) 64).toNat + 32832)
 @[simp] theorem allocHeap_bytes_self : (allocHeap h zf).bytes h.nextBlk = some (allocBytes h) :=
   upd_same _ _ _
