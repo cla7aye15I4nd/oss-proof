@@ -602,4 +602,46 @@ theorem body_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState →
     exact GSat.mono T fun l' W' H' q => bpost_tail (nx := s.next) (H2 := H) (z2 := z) hx hd hs (FdWrites.refl _ _)
       (GStep.refl _ _ _ _) rfl rfl ha0 rfl q
 
+/-! ## The loop -/
+
+/-- The facts the loop of `gz_comp` keeps, from its entry `w0`, `h0`, `s0`, `z0` to `W`, `H`, `s`, `z`. -/
+def LFacts (w0 : World) (h0 : Heap) (b : Nat) (s0 : GzState)
+    (z0 : ZStream) (W : World) (H : Heap) (s : GzState) (z : ZStream) : Prop :=
+  GzWX W H b s z ∧ LFix s0 s ∧ FdWrites s0.fd w0.fs W.fs ∧
+    GStep w0 (setZ h0 s0.strm (flatZ z0)) W (setZ H s0.strm (flatZ z)) b [] ∧
+    z.avail_in ≤ z0.avail_in ∧ Adv z0.next_in z.next_in (z0.avail_in.toNat - z.avail_in.toNat) ∧
+    (InOk s0 z0 → InOk s z)
+
+/-- The invariant of the loop of `gz_comp`. -/
+def LInv (ψ : Int32 → C.DeflateState → Nat) (flush : Int32) (w0 : World) (h0 : Heap) (b : Nat) (s0 : GzState)
+    (z0 : ZStream) (l : CompLoop) (W : World) (H : Heap) : Prop :=
+  l.ctl = .go ∧ ∃ s z, LFacts w0 h0 b s0 z0 W H s z ∧
+    pot ψ flush s0.size.toNat H s0.strm ≤ pot ψ flush s0.size.toNat h0 s0.strm
+
+/-- What the loop of `gz_comp` leaves. -/
+def LPost (ψ : Int32 → C.DeflateState → Nat) (flush : Int32) (w0 : World) (h0 : Heap) (b : Nat) (s0 : GzState)
+    (z0 : ZStream) (l : CompLoop) (W : World) (H : Heap) : Prop :=
+  ∃ s z, LFacts w0 h0 b s0 z0 W H s z ∧
+    (l.ctl = .ret ∨ (l.ctl = .go ∧ pot ψ flush s0.size.toNat H s0.strm ≤ pot ψ flush s0.size.toNat h0 s0.strm ∧
+      z.avail_out ≠ 0 ∧ (flush ≠ ZlibNg.Inflate.Z_FINISH → z.avail_in = 0)))
+
+theorem lfacts_step {w0 W W' : World} {h0 H H' : Heap} {b : Nat}
+    {s0 s s' : GzState} {z0 z z' : ZStream} (hs0 : w0.gz h0 b = some s0) (F : LFacts w0 h0 b s0 z0 W H s z)
+    (hx' : GzWX W' H' b s' z') (hlf : LFix s s') (hfs : FdWrites s.fd W.fs W'.fs)
+    (g : GStep W (setZ H s.strm (flatZ z)) W' (setZ H' s.strm (flatZ z')) b [])
+    (h1 : z'.avail_in ≤ z.avail_in) (h2 : Adv z.next_in z'.next_in (z.avail_in.toNat - z'.avail_in.toNat))
+    (h3 : InOk s z → InOk s' z') : LFacts w0 h0 b s0 z0 W' H' s' z' := by
+  obtain ⟨hx, f1, f2, f3, f4, f5, f6⟩ := F
+  have hst : s.strm = s0.strm := f1.fix.strm
+  have hfd : s.fd = s0.fd := f1.fix.fd
+  rw [hst] at g; rw [hfd] at hfs
+  have l1 := UInt32.le_iff_toNat_le.mp h1
+  have l2 := UInt32.le_iff_toNat_le.mp f4
+  refine ⟨hx', f1.trans hlf, f2.trans hfs, f3.trans g ⟨s0, hs0⟩ ⟨s, hx.1⟩, UInt32.le_trans h1 f4, ?_,
+    fun hi => h3 (f6 hi)⟩
+  · have := adv_trans f5 h2
+    have e : z0.avail_in.toNat - z.avail_in.toNat + (z.avail_in.toNat - z'.avail_in.toNat) =
+        z0.avail_in.toNat - z'.avail_in.toNat := by omega
+    rw [e] at this; exact this
+
 end ZlibNgF.Proof.GzWrite
