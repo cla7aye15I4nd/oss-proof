@@ -619,7 +619,8 @@ theorem inflate_gz (G : InflateGz) (M : InflateMsg) {W : World} {H : Heap} {b : 
       · have hx : mc ∈ blkOf s.path ++ blkOf s.msg := by simp [em, blkOf]
         obtain ⟨d', e', -⟩ := liveB mc (hpm mc hx).1 d hd
         exact Or.inr ⟨mc, d', em, e'⟩
-    · refine ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun hz0 => absurd hz0 hsz, fun hz0 => absurd hz0 hsz⟩
+    · refine ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun hz0 => absurd hz0 hsz, fun hz0 => absurd hz0 hsz,
+        R.pos_have, R.look_pos, R.gzip_direct⟩
       obtain ⟨d, hd, hds⟩ := hB.fits
       obtain ⟨d', e', sz'⟩ := liveB c hcsb d hd
       have hsv : H'.savedPtrs c = H.savedPtrs c := hsaved c fun z2 hz2 => by
@@ -1172,6 +1173,7 @@ theorem tail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} {z0 : ZStream} 
     obtain ⟨sh, -⟩ := inv_of hs1 hv.1
     have P := sh.pos
     have hhow1 : s1.how = GZIP := by rw [hsh1]; exact hhow
+    have sh1R := sh.read (modeOf hs1 hv.2.1)
     have hsh1' := shape_wide hsh1
     -- the end: the state `sF` with the output count, its start and the new `how`
     have fin : ∀ hw' : Int32, (hw' = LOOK ∨ hw' = s1.how) → (hw' = LOOK → lp.ret = Z_STREAM_END) →
@@ -1188,6 +1190,9 @@ theorem tail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} {z0 : ZStream} 
           (by rcases hw1 with e | e
               · exact Or.inl e
               · rw [e, hhow1]; exact Or.inr (Or.inr rfl)) P.1 P.2 P.3 (Or.inl rfl) (fun _ => rfl) (fun e => absurd (by rw [hsh1] at e; exact e) hsz)
+          (by have := P.1; have := P.2; simp; omega)
+          (fun _ hd => absurd ((sh1R.gzip_direct hhow1)) hd)
+          (fun _ => sh1R.gzip_direct hhow1)
         simp only [InflateInv.upd_upd]
         exact hv2
       · exact decompSt_shape hsh1 _ _ _ _

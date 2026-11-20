@@ -106,6 +106,9 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   /-- before the kind of input is known (looking, transparent reading allowed), no data has been delivered: only
   bytes pushed back by `gzungetc` are buffered -/
   look_pos : s.how = LOOK → s.direct ≠ 0 → s.pos.toInt + s.«have».toNat ≤ 0
+  /-- a gzip stream is never transparent (`gz_look` sets `direct = 0` with `how = GZIP`), so a gzip member that ends
+  (`how` back to `LOOK`) does not look like the start of the input -/
+  gzip_direct : s.how = GZIP → s.direct = 0
 
 /-- The write buffers and the embedded stream `z` once the buffers exist (block `c`, `in` at `base`). -/
 structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop where
