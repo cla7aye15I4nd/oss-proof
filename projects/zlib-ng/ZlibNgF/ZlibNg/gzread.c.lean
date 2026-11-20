@@ -190,13 +190,14 @@ def gz_decomp (state : GzPtr) : G Int32 := do
     wrG state fun s => { s with how := LOOK }
   return 0
 
-/-- `static int gz_fetch(gz_state *state)` (`gzread.c:227-272`, with patch 0016: the output asked for, `room`, is at
-most `GZ_OFF_MAX - x.pos` when `x.pos > 0`, and at `x.pos == GZ_OFF_MAX` the call fails with `Z_DATA_ERROR`). The
+/-- `static int gz_fetch(gz_state *state)` (`gzread.c:227-272`, with patch 0016: the output asked for is at most
+`room`, which is `GZ_OFF_MAX - x.pos` when that is smaller than `UINT_MAX` and `x.pos > 0`, and at `x.pos ==
+GZ_OFF_MAX` the call fails with `Z_DATA_ERROR`). `MIN(a, b)` is `min a b`. The
 `default:` case is `Z_UNREACHABLE()` (`__builtin_unreachable()`): reaching it is undefined. `GZ_OFF_MAX - x.pos` is
 evaluated only for `x.pos > 0`, where it cannot overflow; both sides of the test are converted to `uint64_t`. -/
 def gz_fetch (state : GzPtr) : G Int32 := do
   let strm ← strmOf state
-  let mut room : UInt32 := (← rdG state (·.size)) <<< 1
+  let mut room : UInt32 := 0xFFFFFFFF
   let pos ← rdG state (·.pos)
   if pos > 0 && room.toUInt64 > (GZ_OFF_MAX - pos).toUInt64 then
     room := (GZ_OFF_MAX - pos).toUInt64.toUInt32
@@ -213,14 +214,15 @@ def gz_fetch (state : GzPtr) : G Int32 := do
           return (.ret, 0)
         return c
       else if how == COPY then
-        let (r, _) ← gz_load state (← (← ldGz state).out.get) room true
+        let (r, _) ← gz_load state (← (← ldGz state).out.get) (min ((← rdG state (·.size)) <<< 1) room) true
         if r == -1 then
           return (.ret, -1)
         let o ← (← ldGz state).out.get
         wrG state fun s => { s with next := .val o }
         return (.ret, 0)
       else if how == GZIP then
-        lm (wrZ strm fun z => { z with avail_out := room })
+        let sz ← rdG state (·.size)
+        lm (wrZ strm fun z => { z with avail_out := min (sz <<< 1) room })
         let o ← (← ldGz state).out.get
         lm (wrZ strm fun z => { z with next_out := o })
         if (← gz_decomp state) == -1 then
