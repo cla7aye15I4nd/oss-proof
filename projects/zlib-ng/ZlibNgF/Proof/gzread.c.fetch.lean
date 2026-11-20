@@ -750,4 +750,11 @@ theorem gz_fetch_specI (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
 theorem gz_fetch_spec_of (LX : LookExtra) : GzFetchSpec :=
   fun _ _ _ _ hv hs h0 => (gz_fetch_specI LX hv hs h0).mono fun _ _ _ q => q.1
 
+/-- **`gz_fetch` keeps `LookIdle`**, given what it needs of `gz_look` (`LookExtra`). -/
+theorem gz_fetch_idle_of (LX : LookExtra) : GzFetchIdle := by
+  intro w h b s r W H hv hi hs h0 e
+  obtain ⟨r2, W2, H2, e2, -, q⟩ := (gz_fetch_specI LX hv hs h0).run
+  obtain ⟨-, rfl, rfl⟩ := gdet e2 e
+  exact q hi
+
 end ZlibNgF.Proof.GzMode
