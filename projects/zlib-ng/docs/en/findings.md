@@ -1,10 +1,11 @@
 # Findings: issues found in zlib-ng
 
-The work found fifteen issues in the zlib-ng `develop` branch at the verified commit. Each is a defect of zlib-ng
+The work found seventeen issues in the zlib-ng `develop` branch at the verified commit. Each is a defect of zlib-ng
 itself, is reached through functions that `zlib.h` documents, and is shown by a run of the real C (or, where a
 sanitizer cannot see it, by the letter of ISO C17 on a traced run). Patches 0003, 0004, 0006, 0007, 0008, 0009,
-0010, 0011, 0012, 0013, 0014, 0015, 0016 and 0017 fix them: one patch each, except patch 0014, which fixes the two
-issues of a failed `gzwrite` (one stale pointer causes both).
+0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017 and 0018 fix the first sixteen: one patch each, except patch 0014, which
+fixes the two issues of a failed `gzwrite` (one stale pointer causes both). The last issue (`deflateReset` with a static
+block open) gives a wrong result without a memory error and is not patched.
 
 | Issue | What is wrong | Calls that reach it | Evidence | Fix | Upstream |
 | --- | --- | --- | --- | --- | --- |
@@ -23,6 +24,8 @@ issues of a failed `gzwrite` (one stale pointer causes both).
 | `gz_buffer_alloc` adds an offset to a null pointer | `gz_buffer_alloc` computes `state->out = state->buffers + in_size` before it checks the allocation: when it failed, that is `NULL` plus a nonzero offset (ISO C17 §6.5.6p8). | `gzopen`, `gzbuffer(file, 1 << 30)`, `gzwrite` or `gzread` when the 3 GiB allocation fails | UndefinedBehaviorSanitizer, `gzlib.c:90` | Patch 0015 | not submitted |
 | gz position overflow, reading | The readers add to the signed 64-bit position `x.pos` without a bound: signed overflow in `gz_read` (also `gzgetc` and `gzgets`). | `gzdopen` of a descriptor whose `lseek` succeeds without moving and which always has data (Linux `/dev/zero`), `gzgetc`, `gzseek(file, INT64_MAX, SEEK_SET)`, `gzread` | UndefinedBehaviorSanitizer, `gzread.c:356` | Patch 0016 | not submitted |
 | gz position overflow, writing | The writers add the length of each write to the signed 64-bit position `x.pos` without a bound, before they write: after `2^63` bytes in all, signed overflow in `gz_write` (also `gzputc` and `gzprintf`). A failed write keeps the addition, so nothing has to reach the file; writing to `/dev/null` reaches it as well. | `gzdopen(fd, "wT")` of a descriptor on which `write()` fails, `gzbuffer(file, 8)`, then `gzwrite(file, buf, INT_MAX)` and `gzclearerr(file)` about `2^32` times | UndefinedBehaviorSanitizer, `gzwrite.c:210` | Patch 0017 | not submitted |
+| `deflate` overflows `block_start` after `2^31` bytes without a block flush | `fill_window` lowers the `int` `block_start` by the slide length at every slide of the window; only a block flush sets it back to `strstart`. With strategy `Z_FIXED` at level 1, `deflate_quick` writes static-tree symbols into one block that stays open until a flush or the end of the stream, so one stream of more than `2^31` input bytes without a flush takes `block_start` past `INT_MIN`: signed overflow (ISO C17 §6.5p5). | `deflateInit2(strm, 1, Z_DEFLATED, 15, 8, Z_FIXED)`, then `deflate(strm, Z_NO_FLUSH)` over more than `2^31` bytes | UndefinedBehaviorSanitizer, `deflate.c:1274` | Patch 0018 | not submitted |
+| `deflateReset` keeps a static block of level 1 open | With strategy `Z_FIXED` at level 1, `deflate_quick` opens one static block (`block_open = 1`) and keeps it open until a flush or the end of the stream. `block_open` is cleared only by `deflateInit2`, not by `deflateReset` (nor by `lm_init`, which it runs). After `deflateReset` with the block still open, the next stream continues that block: its symbols follow the new zlib header without a block header. `inflate` rejects the output. A wrong result, with no memory error. | `deflateInit2(strm, 1, Z_DEFLATED, 15, 8, Z_FIXED)`, `deflate(strm, Z_NO_FLUSH)` over 3000 bytes, `deflateReset`, `deflate(strm, Z_FINISH)` over 1000 bytes, then `inflate` of that output | A run of the real C: 27 bytes of output, which `inflate` rejects with `Z_DATA_ERROR` ("invalid stored block lengths") | not patched | not submitted |
 
 Issues found in the earlier 2.3.3 release (`gzbuffer` size overflow, `crc32_combine*` not returning for a negative
 length, `adler32` with `NULL` and length 1) are fixed on the `develop` branch; their reproductions remain as
@@ -30,7 +33,7 @@ regression tests.
 
 The runs were made on an LP64 build of the verified sources in the verified configuration (see the
 [overview](index.html)), with every patch except the one that fixes the issue, not on the x86_64 Linux target
-itself. With every patch, each runs without a sanitizer report and returns (the gz position overflow was shown on a host whose
+itself. With every patch, each patched issue runs without a sanitizer report and returns (the gz position overflow was shown on a host whose
 `/dev/zero` does not behave as Linux's, with its `lseek` answered as Linux answers it).
 
 A sanitizer report or a run of the real C is evidence about that run. It is not a proof. The safety theorems are

@@ -214,18 +214,25 @@ theorem deflateBound_z_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (hr : DHea
   have hws : st.w_size ≠ 0 := cr.w_size
   have hctz : ∃ c, zng_ctz32 st.w_size h = .ok (c, h) := ⟨_, by simp [zng_ctz32, hws]; rfl⟩
   obtain ⟨c, hc⟩ := hctz
-  rcases cr.wrap with hw | hw | hw
-  · have hw' : st.wrap = 0 := hw
+  have haw : (if st.wrap < 0 then -st.wrap else st.wrap) = 0 ∨ (if st.wrap < 0 then -st.wrap else st.wrap) = 1 ∨
+      (if st.wrap < 0 then -st.wrap else st.wrap) = 2 := by
+    rcases cr.wrap with e | e | e | e | e
+    all_goals
+      have e' : st.wrap = _ := e
+      rw [e']
+      decide
+  rcases haw with hw | hw | hw
+  · have hw' := hw
     simp [ZlibNg.Deflate.deflateBound_z, bind_app, L.check, L.stateOf, ldDState_app L.dstate, hw',
       W_BITS, hc]
     repeat' split
     all_goals exact ⟨_, _, rfl⟩
-  · have hw' : st.wrap = 1 := hw
+  · have hw' := hw
     simp [ZlibNg.Deflate.deflateBound_z, bind_app, L.check, L.stateOf, ldDState_app L.dstate, hw',
       W_BITS, hc]
     repeat' split
     all_goals exact ⟨_, _, rfl⟩
-  · have hw' : st.wrap = 2 := hw
+  · have hw' := hw
     obtain ⟨hp, hgz⟩ := cr.gzhead
     have hgz' : st.gzhead = .val hp := hgz
     cases hp with
@@ -262,6 +269,8 @@ theorem deflateBound_z_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (hr : DHea
           W_BITS, hgz', Ival.get, hld]
         repeat' (first | exact ⟨_, _, rfl⟩ | split | (simp only [bind_app, pure_app, hld, hc, K1, K2]) | contradiction |
           (exfalso; simp_all [cstr_null_iff]))
+
+
 
 theorem deflateBound_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (hr : DHeaderReadable h s)
     (hob : ObjBound h) (n : UInt64) : ∃ r, C.run (ZlibNg.Deflate.deflateBound s n) h = .ok (r, h) := by

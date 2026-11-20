@@ -10,12 +10,18 @@ and the entry points read in range. As on the inflate side (`Proof/inflate.c.inv
 the state only through the view `dview`: a store that changes only fields outside the view keeps it by `rfl`. Proofs
 use it through the interface lemmas at the end of this file.
 
-The clauses are those that the proofs so far need: besides the fields of the state check, `pending_buf` is set,
-`head` lies in the plain bytes of the block (`CLEAR_HASH` of `deflateReset`), `level` is 0..9 (`lm_set_level`) and
-the tree arrays have their C sizes (`zng_tr_init`). Clauses for the layout of the window, `prev` and `pending_buf`,
-the window and match positions, `pending` / `pending_out`, `sym_next` / `sym_end`, `bi_valid` and the function
-pointers are added with the proofs of the entry points that read them (`deflatePrime`, `deflateGetDictionary`,
-`deflateSetDictionary`, `deflate`).
+Besides the fields of the state check, the clauses fix what `deflateInit2` and `deflateReset` set up and every
+later call keeps: `pending_buf` is set, `head` lies in the plain bytes of the block (`CLEAR_HASH`), `level` is 0..9
+(`lm_set_level`), the tree arrays have their C sizes (`zng_tr_init`); the sizes `w_size`, `window_size`,
+`lit_bufsize`, `pending_buf_size`, `sym_end`; the layout of `alloc_deflate` (window, `prev`, `head`, `pending_buf` in
+that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the pending bytes within `pending_buf`
+(from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end`; fewer than 8 bits in
+`bi_buf`; `strstart + lookahead` within the window; a valid `strategy`; both function pointers of `lm_set_level` set;
+valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
+are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
+`block_start` bounded below; `w_size` a power of two and `fill_end + MIN_LOOKAHEAD` a multiple of it within the window; the
+tree descriptors of `zng_tr_init`; `lit_bufsize` a multiple of 16; the sizes of the scratch arrays of `trees.c`;
+`opt_len`, `static_len` and the `bl_tree` frequencies 0 between blocks.
 -/
 
 set_option autoImplicit false
@@ -38,11 +44,105 @@ structure DView where
   lsize : Nat
   dsize : Nat
   bsize : Nat
+  window : Ival BPtr
+  prev : Ival BPtr
+  window_size : UInt32
+  lit_bufsize : UInt32
+  pending_buf_size : UInt32
+  sym_buf : Ival BPtr
+  sym_end : UInt32
+  sym_next : UInt32
+  pending : UInt32
+  pending_out : Ival BPtr
+  bi_valid : Int32
+  strstart : UInt32
+  lookahead : UInt32
+  strategy : Int32
+  longest_match : Ival LongestMatchFn
+  insert_batch : Ival InsertBatchFn
+  block_start : Int32
+  insert : UInt32
+  fill_end : UInt32
+  ltree : Array Ct
+  dtree : Array Ct
+  l_dyn : Ival CtPtr
+  l_stat : Ival StaticDescPtr
+  d_dyn : Ival CtPtr
+  d_stat : Ival StaticDescPtr
+  bl_dyn : Ival CtPtr
+  bl_stat : Ival StaticDescPtr
+  pqlsize : Nat
+  pqssize : Nat
+  blcsize : Nat
+  opt_len : UInt32
+  static_len : UInt32
+  bltree : Array Ct
 
 /-- The constrained fields of `st`. -/
 def dview (st : DeflateState) : DView :=
   ⟨st.strm, st.alloc_bufs, st.status, st.wrap, st.gzhead, st.w_size, st.pending_buf, st.head, st.level,
-    st.dyn_ltree.size, st.dyn_dtree.size, st.bl_tree.size⟩
+    st.dyn_ltree.size, st.dyn_dtree.size, st.bl_tree.size, st.window, st.prev, st.window_size, st.lit_bufsize,
+    st.pending_buf_size, st.sym_buf, st.sym_end, st.sym_next, st.pending, st.pending_out, st.bi_valid, st.strstart,
+    st.lookahead, st.strategy, st.longest_match, st.insert_batch, st.block_start, st.insert, st.fill_end,
+    st.dyn_ltree, st.dyn_dtree, st.l_desc.dyn_tree, st.l_desc.stat_desc, st.d_desc.dyn_tree, st.d_desc.stat_desc,
+    st.bl_desc.dyn_tree, st.bl_desc.stat_desc, st.pq_leaves.size, st.pq_scratch.size, st.bl_count.size, st.opt_len,
+    st.static_len, st.bl_tree⟩
+
+/-! ## The tallied symbols -/
+
+/-- The distance of tallied symbol `j` (the first two bytes, little endian) in bytes `d` from `sym_buf` offset `sbo`;
+0 for a literal. -/
+def symDist (d : Array UInt8) (sbo j : Nat) : Nat := d[sbo + 3 * j]!.toNat + 256 * d[sbo + 3 * j + 1]!.toNat
+
+/-- The literal/length code of tallied symbol `j`: the literal byte, or `zng_length_code[lc] + LITERALS + 1`. -/
+def symLCode (d : Array UInt8) (sbo j : Nat) : Nat :=
+  if symDist d sbo j = 0 then d[sbo + 3 * j + 2]!.toNat else zng_length_code[d[sbo + 3 * j + 2]!.toNat]!.toNat + 257
+
+/-- `d_code(dist)` on natural numbers. -/
+def dCodeOf (dist : Nat) : Nat :=
+  if dist < 256 then zng_dist_code[dist]!.toNat else zng_dist_code[256 + dist / 128]!.toNat
+
+/-- The number of the first `n` tallied symbols whose literal/length code is `c`. -/
+def lCount (d : Array UInt8) (sbo n c : Nat) : Nat := (List.range n).countP (fun j => symLCode d sbo j = c)
+
+/-- The number of the first `n` tallied symbols that are matches with distance code `c` (`d_code(dist - 1)`). -/
+def dCount (d : Array UInt8) (sbo n c : Nat) : Nat :=
+  (List.range n).countP (fun j => symDist d sbo j ≠ 0 ∧ dCodeOf (symDist d sbo j - 1) = c)
+
+/-- The symbols in `sym_buf` (bytes `d` from offset `sbo`, `sym_next` bytes) are those that `zng_tr_tally_*` write,
+and the frequencies of `dyn_ltree` / `dyn_dtree` count them: a distance of at most 32768 (`compress_block` indexes
+`zng_dist_code` with `d_code(dist - 1)`); `dyn_ltree[c].Freq` the number of symbols with literal/length code `c`, plus
+one for `END_BLOCK` (`init_block`); `dyn_dtree[c].Freq` the number of matches with distance code `c`. -/
+structure SymOk (d : Array UInt8) (sbo : Nat) (sym_next : UInt32) (lt dt : Array Ct) : Prop where
+  dist : ∀ j, j < sym_next.toNat / 3 → symDist d sbo j ≤ 32768
+  lfreq : ∀ c, c < 286 → (lt[c]!).fc.toNat = lCount d sbo (sym_next.toNat / 3) c + (if c = 256 then 1 else 0)
+  dfreq : ∀ c, c < 30 → (dt[c]!).fc.toNat = dCount d sbo (sym_next.toNat / 3) c
+
+/-- `SymOk` reads only the bytes of the symbols. -/
+theorem SymOk.of_eq {d d' : Array UInt8} {sbo : Nat} {n : UInt32} {lt dt : Array Ct} (hs : SymOk d sbo n lt dt)
+    (he : ∀ k, k < n.toNat → d'[sbo + k]! = d[sbo + k]!) : SymOk d' sbo n lt dt := by
+  have hj : ∀ j, j < n.toNat / 3 → symDist d' sbo j = symDist d sbo j ∧ symLCode d' sbo j = symLCode d sbo j := by
+    intro j hj
+    have e0 := he (3 * j) (by omega)
+    have e1 := he (3 * j + 1) (by omega)
+    have e2 := he (3 * j + 2) (by omega)
+    rw [← Nat.add_assoc] at e1 e2
+    have hd : symDist d' sbo j = symDist d sbo j := by simp only [symDist, e0, e1]
+    exact ⟨hd, by simp only [symLCode, hd, e2]⟩
+  refine ⟨fun j h3 => ?_, fun c hc => ?_, fun c hc => ?_⟩
+  · rw [(hj j h3).1]; exact hs.dist j h3
+  · rw [hs.lfreq c hc]; congr 1
+    exact List.countP_congr fun j hm => by
+      rw [(hj j (List.mem_range.mp hm)).2]
+  · rw [hs.dfreq c hc]
+    exact List.countP_congr fun j hm => by
+      rw [(hj j (List.mem_range.mp hm)).1]
+
+/-- With no symbols, `SymOk` says that the frequencies are those of `init_block`. -/
+theorem SymOk.empty {d : Array UInt8} {sbo : Nat} {lt dt : Array Ct}
+    (hl : ∀ c, c < 286 → (lt[c]!).fc.toNat = if c = 256 then 1 else 0) (hd : ∀ c, c < 30 → (dt[c]!).fc.toNat = 0) :
+    SymOk d sbo 0 lt dt :=
+  ⟨fun j h => by simp at h, fun c hc => by simp [lCount, hl c hc], fun c hc => by simp [dCount, hd c hc]⟩
 
 /-- The clauses on the stream record `z`, the constrained state fields `v` and the allocation record `al` of
 block `b`. -/
@@ -56,7 +156,8 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   al_buf : al.buf_start = .val (.ref (.heap b) 0)
   status_lo : INIT_STATE ≤ v.status
   status_hi : v.status ≤ MAX_STATE
-  wrap : v.wrap = 0 ∨ v.wrap = 1 ∨ v.wrap = 2
+  /-- `wrap` is 0 (raw), 1 (zlib) or 2 (gzip), negated by `deflate` once the trailer is written (`Z_FINISH`) -/
+  wrap : v.wrap = 0 ∨ v.wrap = 1 ∨ v.wrap = 2 ∨ v.wrap = -1 ∨ v.wrap = -2
   gzhead : ∃ hp, v.gzhead = .val hp
   /-- `w_size = 1 << w_bits` is not zero (`W_BITS` takes its trailing zeros) -/
   w_size : v.w_size ≠ 0
@@ -68,16 +169,99 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   level : 0 ≤ v.level ∧ v.level ≤ 9
   /-- the tree arrays have their C sizes -/
   trees : v.lsize = HEAP_SIZE ∧ v.dsize = 2 * 30 + 1 ∧ v.bsize = 2 * 19 + 1
+  /-- the sizes that `deflateInit2` and `lm_init` set: `w_size = 1 << windowBits` (`windowBits` 9..15),
+  `window_size = W_BUF_SIZE(w_size)`, `lit_bufsize = 1 << (memLevel + 6)`, `pending_buf_size = 4 * lit_bufsize`,
+  `sym_end = (lit_bufsize - 1) * 3` -/
+  sizes : 512 ≤ v.w_size.toNat ∧ v.w_size.toNat ≤ 32768 ∧ v.window_size = W_BUF_SIZE v.w_size ∧
+    128 ≤ v.lit_bufsize.toNat ∧ v.lit_bufsize.toNat ≤ 32768 ∧ v.pending_buf_size.toNat = 4 * v.lit_bufsize.toNat ∧
+    v.sym_end.toNat = 3 * (v.lit_bufsize.toNat - 1)
+  /-- the layout of `alloc_deflate`: the window (`window_size` bytes), `prev` (`w_size` two-byte entries), `head`
+  (`HASH_SIZE` two-byte entries) and `pending_buf` (`PENDING_BUF_SIZE` bytes, then padding to 64) lie in that order
+  in the plain bytes of block `b`; `sym_buf` is `pending_buf + lit_bufsize + PENDING_BUF_PAD`; the pending bytes
+  `[pending_out, pending_out + pending)` lie within `pending_buf` -/
+  lay : ∃ d wo po ho pbo, h.bytes b = some d ∧ v.window = .val (.ref (.heap b) wo) ∧
+    v.prev = .val (.ref (.heap b) po) ∧ v.head = .val (.ref (.heap b) ho) ∧
+    v.pending_buf = .val (.ref (.heap b) pbo) ∧ wo + v.window_size.toNat ≤ po ∧ po + 2 * v.w_size.toNat ≤ ho ∧
+    ho + 131072 ≤ pbo ∧ pbo + 4 * v.lit_bufsize.toNat + 64 ≤ d.size ∧
+    v.sym_buf = .val (.ref (.heap b) (pbo + v.lit_bufsize.toNat + 8)) ∧
+    ∃ poo, v.pending_out = .val (.ref (.heap b) poo) ∧ pbo ≤ poo ∧
+      poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9
+  /-- with no pending bytes, `pending_out` is back at `pending_buf` (`flush_pending`, `deflateResetKeep`) -/
+  pout : v.pending = 0 → v.pending_out = v.pending_buf
+  /-- the symbol buffer holds whole three-byte symbols, at most `sym_end` bytes -/
+  syms : v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0
+  /-- between calls the bit buffer holds fewer than 8 bits: every call that adds bits ends with
+  `zng_tr_flush_bits` (`flush_pending`, `deflatePrime`), which moves the complete bytes to `pending_buf` -/
+  bits : 0 ≤ v.bi_valid ∧ v.bi_valid < 8
+  /-- the window positions in use lie in the window -/
+  look : v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat
+  /-- `strategy` is one of the five strategies -/
+  strategy : 0 ≤ v.strategy ∧ v.strategy ≤ 4
+  /-- `lm_set_level` has set both function pointers -/
+  fns : (∃ f, v.longest_match = .val f) ∧ (∃ f, v.insert_batch = .val f)
+  /-- the symbols in `sym_buf` are those that `zng_tr_tally_*` write, and the frequencies count them (`SymOk`) -/
+  symv : ∃ d sbo, h.bytes b = some d ∧ v.sym_buf = .val (.ref (.heap b) sbo) ∧
+    SymOk d sbo v.sym_next v.ltree v.dtree
+  /-- while symbols wait in `sym_buf`, the pending bytes end before it -/
+  psym : v.sym_next ≠ 0 → ∃ pbo poo, v.pending_buf = .val (.ref (.heap b) pbo) ∧
+    v.pending_out = .val (.ref (.heap b) poo) ∧ poo - pbo + v.pending.toNat ≤ v.lit_bufsize.toNat + 8
+  /-- in the header states (before the first block), no symbol is tallied -/
+  hdr : v.status ≠ BUSY_STATE → v.status ≠ FINISH_STATE → v.sym_next = 0
+  /-- `block_start` lies at or before `strstart` -/
+  bstart : v.block_start.toInt ≤ v.strstart.toNat
+  /-- `insert` is at most `strstart` -/
+  ins : v.insert ≤ v.strstart
+  /-- `w_size` is a power of two (`1 << windowBits`, `windowBits` 9..15) -/
+  wpow : ∃ k, 9 ≤ k ∧ k ≤ 15 ∧ v.w_size.toNat = 2 ^ k
+  /-- `fill_end + MIN_LOOKAHEAD` is a multiple of `w_size` (`lm_init` sets `2 * w_size - MIN_LOOKAHEAD`,
+  `fill_window` adds `w_size`) within the window -/
+  fe_mod : (v.fill_end.toNat + 262) % v.w_size.toNat = 0
+  fe_hi : v.fill_end.toNat + 262 ≤ v.window_size.toNat
+  /-- `block_start` stays far from `INT_MIN` (patch 0018: `fill_window` lowers it only while it stays at or above
+  `-(2^30 + 2^16)`; every other store writes `strstart`, 0, or a value at least 0) -/
+  bs_lo : -(2 ^ 30 + 2 ^ 16) ≤ v.block_start.toInt
+  /-- the tree descriptors that `zng_tr_init` sets -/
+  descs : v.l_dyn = .val (.ref (.dyn_ltree b) 0) ∧ v.l_stat = .val .static_l_desc ∧
+    v.d_dyn = .val (.ref (.dyn_dtree b) 0) ∧ v.d_stat = .val .static_d_desc ∧
+    v.bl_dyn = .val (.ref (.bl_tree b) 0) ∧ v.bl_stat = .val .static_bl_desc
+  /-- `lit_bufsize = 1 << (memLevel + 6)` is a multiple of 16 (`alloc_deflate` of `deflateCopy` aligns the state that
+  follows `pending_buf` with it) -/
+  lmod : v.lit_bufsize.toNat % 16 = 0
+  /-- `lit_bufsize = 1 << (memLevel + 6)` is a power of two (`memLevel` 1..9) -/
+  lpow : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ v.lit_bufsize.toNat = 2 ^ k
+  /-- the scratch arrays of `build_tree` / `gen_bitlen` have their C sizes: `pq_leaves` and `pq_scratch` `L_CODES + 1`
+  entries, `bl_count` `MAX_BITS + 1` -/
+  scratch : v.pqlsize = 287 ∧ v.pqssize = 287 ∧ v.blcsize = 16
+  /-- between blocks `opt_len`, `static_len` and the frequencies of `bl_tree` are 0: `init_block` sets them, and only
+  `zng_tr_flush_block` (which ends with `init_block`) writes them -/
+  blk : v.opt_len = 0 ∧ v.static_len = 0 ∧ ∀ c, c < 19 → (v.bltree[c]!).fc = 0
 
 /-- The clauses read the heap only through block `b`. -/
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
     (hb : h'.bytes b = h.bytes b) (c : DCore h s z b v al) : DCore h' s z b v al :=
-  { c with head := by rw [hb]; exact c.head }
+  { c with head := by rw [hb]; exact c.head, lay := by rw [hb]; exact c.lay, symv := by rw [hb]; exact c.symv }
 
 /-- The structural invariant of the deflate stream `s` in `h`. -/
 def DInv (h : Heap) (s : StreamPtr) : Prop :=
   ∃ i z b st al, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
     h.dallocsOf b = some al ∧ DCore h s z b (dview st) al
+
+/-- `st'` agrees with `st` on the fields that the between-call facts (`DeflateSide.SideAt`) read. -/
+structure SideEq (st st' : DeflateState) : Prop where
+  status : st'.status = st.status
+  wrap : st'.wrap = st.wrap
+  gzhead : st'.gzhead = st.gzhead
+  gzindex : st'.gzindex = st.gzindex
+  sym_next : st'.sym_next = st.sym_next
+  sym_end : st'.sym_end = st.sym_end
+  strstart : st'.strstart = st.strstart
+  block_start : st'.block_start = st.block_start
+  level : st'.level = st.level
+  lookahead : st'.lookahead = st.lookahead
+  strategy : st'.strategy = st.strategy
+  last_flush : st'.last_flush = st.last_flush
+
+theorem SideEq.refl (st : DeflateState) : SideEq st st := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-! ## Interface lemmas -/
 
