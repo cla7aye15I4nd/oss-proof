@@ -91,29 +91,31 @@ def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' :
       (flush ≠ Z_NO_FLUSH → st'.sym_next = 0) ∧
       (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0)
 
-/-- A strategy `f`: from `StratPre`, no fault and `StratPost`. -/
-def StratOk (f : StatePtr → Int32 → M BlockState) : Prop :=
+/-- A strategy `f` that `deflate` dispatches to on states with `dispatch`: from `StratPre` and `dispatch`, no fault
+and `StratPost`. -/
+def StratOkP (dispatch : DeflateState → Prop) (f : StatePtr → Int32 → M BlockState) : Prop :=
   ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
+    (∀ b' st, DStateIs h s b' st → dispatch st) →
     ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s flush bs h'
 
-/-- A strategy `f` that `deflate` calls only at a level above 0: as `StratOk`, given `0 < level`. -/
-def StratOkL (f : StatePtr → Int32 → M BlockState) : Prop :=
-  ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
-    (∀ b' st, DStateIs h s b' st → 0 < st.level) →
-    ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s flush bs h'
+/-- The dispatch of `deflate` to the strategy of a level from `configuration_table`: that level, and a strategy
+other than `Z_HUFFMAN_ONLY` and `Z_RLE`. -/
+def TableAt (lo hi : Int32) (st : DeflateState) : Prop :=
+  lo ≤ st.level ∧ st.level ≤ hi ∧ st.strategy ≠ Z_HUFFMAN_ONLY ∧ st.strategy ≠ Z_RLE
 
-/-- The strategies, one field each (`deflate` calls `deflate_stored` for level 0, `deflate_huff` for
-`Z_HUFFMAN_ONLY`, `deflate_rle` for `Z_RLE`, else the function of `configuration_table`; so every strategy but
-`deflate_stored` runs at a level above 0). -/
+/-- The strategies, one field each, with the facts of `deflate`'s dispatch (`level == 0 ? deflate_stored :
+strategy == Z_HUFFMAN_ONLY ? deflate_huff : strategy == Z_RLE ? deflate_rle : configuration_table[level].func`;
+the table: 1 `deflate_quick`, 2 `deflate_fast`, 3-4 `deflate_medium`, 5-6 `deflate_medium_fizzle`, 7-9
+`deflate_slow`). -/
 structure StrategyFacts : Prop where
-  stored : StratOk ZlibNg.DeflateStored.deflate_stored
-  quick : StratOkL ZlibNg.DeflateQuick.deflate_quick
-  fast : StratOkL ZlibNg.DeflateFast.deflate_fast
-  medium : StratOkL ZlibNg.DeflateMedium.deflate_medium
-  medium_fizzle : StratOkL ZlibNg.DeflateMedium.deflate_medium_fizzle
-  slow : StratOkL ZlibNg.DeflateSlow.deflate_slow
-  huff : StratOkL ZlibNg.DeflateHuff.deflate_huff
-  rle : StratOkL ZlibNg.DeflateRle.deflate_rle
+  stored : StratOkP (fun st => st.level = 0) ZlibNg.DeflateStored.deflate_stored
+  quick : StratOkP (TableAt 1 1) ZlibNg.DeflateQuick.deflate_quick
+  fast : StratOkP (TableAt 2 2) ZlibNg.DeflateFast.deflate_fast
+  medium : StratOkP (TableAt 3 4) ZlibNg.DeflateMedium.deflate_medium
+  medium_fizzle : StratOkP (TableAt 5 6) ZlibNg.DeflateMedium.deflate_medium_fizzle
+  slow : StratOkP (TableAt 7 9) ZlibNg.DeflateSlow.deflate_slow
+  huff : StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_HUFFMAN_ONLY) ZlibNg.DeflateHuff.deflate_huff
+  rle : StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_RLE) ZlibNg.DeflateRle.deflate_rle
 
 /-- Only `data_type` of the stream record of `s` changes (`zng_tr_flush_block` sets it). -/
 def StreamKeep (h h' : Heap) (s : StreamPtr) : Prop :=
