@@ -90,3 +90,4 @@ import ZlibNgF.Proof.«gzlib.c.reach»
 import ZlibNgF.Proof.«gzlib.c.gsat»
 import ZlibNgF.Proof.«gzlib.c.open»
 import ZlibNgF.Proof.«public-gzopen»
+import ZlibNgF.Proof.«gzlib.c.mode»

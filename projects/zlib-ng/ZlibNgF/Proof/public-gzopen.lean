@@ -130,14 +130,14 @@ theorem post_drop {w : World} {h HS : Heap} {r : GzPtr} {W : World} {H : Heap} (
     simp only; rw [upd_ne _ _ _ _ hne]; exact n1 c (by omega) hn' (by rw [hby c hne]; exact hd)
   · obtain ⟨e1, e2⟩ := d1 c (by omega) hn'
     exact ⟨by rw [e1, same.dstates], by rw [e2, same.dallocs]⟩
-  · obtain ⟨⟨b0, s, e0, hs, sh⟩, s', hs', hnone, hsz, hmsg, c, hpc, hc⟩ := succ b e
+  · obtain ⟨⟨b0, s, e0, hs, sh, hnd⟩, s', hs', hnone, hsz, hmsg, c, hpc, hc⟩ := succ b e
     cases e0
     rw [hs] at hs'; cases hs'
     have hcL : c ≠ h.nextBlk := by omega
     have hbL : b ≠ h.nextBlk := by
       intro e2; subst e2; unfold World.gz at hs; rw [hL] at hs; split at hs <;> cases hs
     have hs2 : W.gz { H with bytes := upd H.bytes h.nextBlk none } b = some s := by rw [hgz b hbL]; exact hs
-    refine ⟨⟨b, s, rfl, hs2, ?_⟩, s, hs2, by rw [← hstr]; exact hnone, hsz, hmsg, c, hpc, by omega⟩
+    refine ⟨⟨b, s, rfl, hs2, ?_, hnd⟩, s, hs2, by rw [← hstr]; exact hnone, hsz, hmsg, c, hpc, by omega⟩
     obtain ⟨c', n', e', hcs'⟩ := sh.path
     rw [hpc] at e'; cases e'
     obtain ⟨r', off', d', e1, e2, e3⟩ := hcs'
@@ -145,7 +145,7 @@ theorem post_drop {w : World} {h HS : Heap} {r : GzPtr} {W : World} {H : Heap} (
     have hsz0 : ¬ s.size ≠ 0 := fun e => e hsz
     exact ⟨sh.mode, ⟨c, n', hpc, .heap c, 0, d', rfl, by show (upd H.bytes h.nextBlk none) c = _; rw [upd_ne _ _ _ _ hcL]; exact e2, e3⟩,
       sh.strm, sh.want_lo, sh.want_hi, sh.size, sh.pos, ⟨Or.inl hmsg, fun _ => hmsg⟩,
-      fun hr => ⟨(sh.read hr).how, fun e => absurd e hsz0⟩, fun _ => ⟨fun e => absurd e hsz0⟩⟩
+      fun hr => ⟨(sh.read hr).how, fun e => absurd e hsz0, (sh.read hr).nobuf, (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd e hsz0⟩⟩
 
 theorem gzdopen_spec {w : World} {h : Heap} (hwf : GzWF w h) (fd : Int32) (mode : BPtr)
     (hm : mode = .null ∨ CStr h mode) : GSat w h (gzdopen fd mode) (OpenPost w h) := by
@@ -184,31 +184,16 @@ theorem gzdopen_safety : Goal.gzdopen_safety := by
   obtain ⟨r, w', h', e, q⟩ := gzdopen_spec hwf fd mode hm
   exact ⟨r, w', h', e, q.2.1, q.1⟩
 
-/-! ## The opening obligations of `GPending` -/
+/-! ## A successful opening call leaves the invariant -/
 
 theorem open_inv {m : G GzPtr} {w : World} {h : Heap} {f : GzPtr} {w' : World} {h' : Heap}
-    (hs : GSat w h m (OpenPost w h)) (e : GzRun m w h f w' h') (hne : f ≠ none) : GzInv w' h' f := by
+    (hs : GSat w h m (OpenPost w h)) (e : GzRun m w h f w' h') (hne : f ≠ none) : GzInv w' h' f ∧ GzWF w' h' := by
   obtain ⟨r, w2, h2, e2, q⟩ := hs
   have e' : m w h = .ok ((f, w'), h') := e
   rw [e2] at e'
   cases e'
   cases f with
   | none => exact absurd rfl hne
-  | some b => exact (q.2.2 b rfl).1
-
-/-- The obligations of `GPending` other than the opening calls (which are proved here). -/
-structure GSteps : Prop where
-  step : ∀ (w h w' h' : _) (f : GzPtr), GzInv w h f → GzStep w h w' h' f → GzInv w' h' f
-  caller : ∀ (w h w' h' : _) (f : GzPtr), GzInv w h f → GzCallerStep w h w' h' f → GzInv w' h' f
-
-theorem GSteps.pending (P : GSteps) : GzReach.GPending where
-  gzopen := fun _ _ _ _ path mode _ hwf hp hm e hne =>
-    open_inv (gzopen_spec hwf path mode (Or.inr hp) (Or.inr hm)) e hne
-  gzopen64 := fun _ _ _ _ path mode _ hwf hp hm e hne =>
-    open_inv (gzopen64_spec hwf path mode (Or.inr hp) (Or.inr hm)) e hne
-  gzdopen := fun _ _ _ _ fd mode _ hwf hm e hne =>
-    open_inv (gzdopen_spec hwf fd mode (Or.inr hm)) e hne
-  step := P.step
-  caller := P.caller
+  | some b => exact ⟨(q.2.2 b rfl).1, q.1⟩
 
 end ZlibNgF.Proof.GzOpenPublic

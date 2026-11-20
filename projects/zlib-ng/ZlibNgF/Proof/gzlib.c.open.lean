@@ -607,7 +607,7 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
     GSat w1 h1 (gz_reset (some b)) (fun _ W H => OI w h b i W H ∧ H.bytes = h1.bytes ∧ H.nextBlk = h1.nextBlk ∧
       ∃ st', W.gz H b = some st' ∧ st'.path = st.path ∧ st'.mode = st.mode ∧ st'.strm = st.strm ∧
         st'.size = st.size ∧ st'.want = st.want ∧ st'.msg = st.msg ∧ st'.pos = 0 ∧ st'.skip = 0 ∧
-        st'.err = ZlibNg.Inflate.Z_OK ∧ (st.mode = GZ_READ → st'.how = LOOK)) := by
+        st'.err = ZlibNg.Inflate.Z_OK ∧ st'.«have» = 0 ∧ (st.mode = GZ_READ → st'.how = LOOK)) := by
   obtain ⟨d, hd⟩ : ∃ d, h1.bytes b = some d := by
     unfold World.gz at hs; split at hs
     · next d hd => exact ⟨d, hd⟩
@@ -794,22 +794,24 @@ theorem gzbufsize_toNat : GZBUFSIZE.toNat = 131072 := by decide
 /-- `gz_reset(state); return state;` -/
 theorem finish_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st : GzState}
     (o : OI w h b i W H) (t : TS h b i W H st) (hmode : st.mode = GZ_READ ∨ st.mode = GZ_WRITE)
-    (hpath : OwnedStr H st.path) (hfr : ∃ c, st.path = .val (.ref (.heap c) 0) ∧ h.nextBlk ≤ c) :
+    (hpath : OwnedStr H st.path) (hfr : ∃ c, st.path = .val (.ref (.heap c) 0) ∧ h.nextBlk ≤ c ∧ c ≠ b) :
     GSat W H (gz_reset (some b) >>= fun _ => pure (some b)) (OpenPost w h) := by
   refine GSat.bind (GSat.mono (gsat_reset o t.hst t.hbl t.p0.msg t.p0.strm) fun _ W' H' q => ?_)
-  obtain ⟨o', hby, -, st', hst', hpa, hmo, hstm, hsz, hwa, hms, hpo, hsk, -, hhow⟩ := q
+  obtain ⟨o', hby, -, st', hst', hpa, hmo, hstm, hsz, hwa, hms, hpo, hsk, -, hhv, hhow⟩ := q
   refine GSat.pure ⟨o'.post.1, o'.post.2, fun b' e => ?_⟩
   cases e
   have hsz0 : st'.size = 0 := by rw [hsz]; exact t.p0.size
+  obtain ⟨cp, hcp, hcf, hcb⟩ := hfr
   refine ⟨?_, st', hst', by rw [hstm, t.p0.strm]; exact o'.inone, hsz0,
-    by rw [hms]; exact t.p0.msg, by rw [hpa]; exact hfr⟩
-  refine ⟨b, st', rfl, hst', ?_⟩
+    by rw [hms]; exact t.p0.msg, cp, by rw [hpa]; exact hcp, hcf⟩
+  refine ⟨b, st', rfl, hst', ?_, by simp [ownL, hsz0, blkOf, hpa, hcp, hms, t.p0.msg]; exact fun e => hcb e.symm⟩
   obtain ⟨c, n, hc, hcs⟩ := hpath
   refine ⟨by rw [hmo]; exact hmode, ⟨c, n, by rw [hpa]; exact hc, ?_⟩, o'.wf.2.2.2.2.1 b st' hst',
     by rw [hwa, t.p0.want, gzbufsize_toNat]; omega, by rw [hwa, t.p0.want, gzbufsize_toNat]; omega, Or.inl hsz0,
     ⟨by rw [hsk]; decide, by rw [hpo, hsk]; decide, by rw [hpo]; decide, fun _ => by rw [hpo]; decide⟩,
     ⟨Or.inl (by rw [hms]; exact t.p0.msg), fun _ => by rw [hms]; exact t.p0.msg⟩,
-    fun hr => ⟨Or.inl (hhow (by rw [← hmo]; exact hr)), fun e => absurd hsz0 e⟩, fun _ => ⟨fun e => absurd hsz0 e⟩⟩
+    fun hr => ⟨Or.inl (hhow (by rw [← hmo]; exact hr)), fun e => absurd hsz0 e, fun _ => hhv,
+      fun e => absurd hsk e⟩, fun _ => ⟨fun e => absurd hsz0 e⟩⟩
   obtain ⟨r, off, d, e1, e2, e3⟩ := hcs
   exact ⟨r, off, d, e1, by cases e1; show H'.bytes c = some d; rw [hby]; exact e2, e3⟩
 
@@ -840,7 +842,7 @@ theorem TS.fs {h : Heap} {b i : Nat} {W W' : World} {H : Heap} {st : GzState} (t
 
 theorem tailRead_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st : GzState}
     (o : OI w h b i W H) (t : TS h b i W H st) (hmode : st.mode = GZ_READ ∨ st.mode = GZ_WRITE)
-    (hpath : OwnedStr H st.path) (hfr : ∃ c, st.path = .val (.ref (.heap c) 0) ∧ h.nextBlk ≤ c) :
+    (hpath : OwnedStr H st.path) (hfr : ∃ c, st.path = .val (.ref (.heap c) 0) ∧ h.nextBlk ≤ c ∧ c ≠ b) :
     GSat W H (tailRead (some b)) (OpenPost w h) := by
   unfold tailRead
   refine GSat.bind (GSat.of_eq (rdG_app' t.hst _) ?_)
@@ -906,14 +908,14 @@ theorem tailFd_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
       refine GSat.bind (GSat.mono (gsat_wrG_oi o2 t2.hst t2.hbl _ rfl) fun _ W3 H3 q => ?_)
       obtain ⟨rfl, hst3, o3⟩ := q
       exact tailRead_ok o3 (t2.wr hst3 ⟨t.p0.1, t.p0.2, t.p0.3, t.p0.4, t.p0.5, t.p0.6, t.p0.7, t.p0.8⟩)
-        (Or.inr rfl) ⟨c, np, pk.path, pk.str⟩ ⟨c, pk.path, pk.fresh⟩
+        (Or.inr rfl) ⟨c, np, pk.path, pk.str⟩ ⟨c, pk.path, pk.fresh, pk.ne⟩
     · intro hna
       have hm' : st.mode = GZ_READ ∨ st.mode = GZ_WRITE := by
         rcases hmode with e | e | e
         · exact Or.inl e
         · exact Or.inr e
         · simp [e] at hna
-      exact tailRead_ok o1 t1 hm' ⟨c, np, pk.path, pk.str⟩ ⟨c, pk.path, pk.fresh⟩
+      exact tailRead_ok o1 t1 hm' ⟨c, np, pk.path, pk.str⟩ ⟨c, pk.path, pk.fresh, pk.ne⟩
 
 theorem strlenB_of {H : Heap} {p : BPtr} {n : Nat} (hs : CStringLen H p n) :
     strlenB p H = .ok (UInt64.ofNat n, H) := by
@@ -1122,7 +1124,7 @@ theorem open_frame_fails {w : World} {h : Heap} {f : GzPtr} {W : World} {H : Hea
     (hp : OpenPost w h f W H) (hf : f ≠ none) : ¬ GzFrame w h W H none [] := by
   intro hfr
   obtain ⟨b, rfl⟩ : ∃ b, f = some b := by cases f with | none => exact absurd rfl hf | some b => exact ⟨b, rfl⟩
-  obtain ⟨⟨b0, s, e0, hs, sh⟩, s', hs', hnone, -⟩ := hp.2.2 b rfl
+  obtain ⟨⟨b0, s, e0, hs, sh, -⟩, s', hs', hnone, -⟩ := hp.2.2 b rfl
   cases e0
   rw [hs] at hs'; cases hs'
   obtain ⟨z, hz⟩ := sh.strm

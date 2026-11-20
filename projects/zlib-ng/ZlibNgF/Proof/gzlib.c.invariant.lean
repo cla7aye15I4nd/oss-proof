@@ -21,10 +21,14 @@ so that a proof about one function opens only the clauses it needs.
 * positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -2^31` (only `gzungetc` lowers it, by at
   most the `2 * want` bytes of the output buffer), `pos ≥ 0` when writing;
 * reading: `how ∈ {LOOK, COPY, GZIP}`; with buffers, the inflate stream has the inflate invariant (`gz_look` called
-  `inflateInit2`), `x.have` bytes from `x.next` lie inside `out`, and `avail_in` bytes from `next_in` inside `in`;
-* writing: with buffers and not `direct`, the deflate stream has the deflate invariant (`gz_write_init`), and
-  `next_in` is `in` plus at most `size` with `avail_in` bytes after it inside `in` (patch 0014: no pointer into a
-  caller's buffer is left between calls).
+  `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, and `avail_in` bytes
+  from `next_in` inside `in`; without buffers `x.have` is 0; a pending skip and the bytes `gzungetc` pushed back
+  after it keep `pos + skip + have ≤ GZ_OFF_MAX`;
+* writing: with buffers and not `direct`, the deflate stream has the deflate invariant (`gz_write_init`) and no
+  `gz_header` registered, and `next_in` is `in` plus at most `size` with `avail_in` bytes after it inside `in`
+  (patch 0014: no pointer into a caller's buffer is left between calls);
+* the blocks the file frees (`ownL`: the state, `path`, `msg`, and with buffers the buffers and the block of the
+  stream's state) are pairwise distinct.
 -/
 
 set_option autoImplicit false
@@ -66,13 +70,19 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   bufs : s.size ≠ 0 → ∃ c base z, GzBufs h s c base ∧ InflateInv.Inv h (some s.strm) ∧
     h.streams s.strm = some z ∧
     (s.«have» = 0 ∨ ∃ p, s.next = .val p ∧ Inside c base (inSize s) (inSize s + outSize s) p s.«have».toNat) ∧
-    (z.avail_in = 0 ∨ Inside c base 0 (inSize s) z.next_in z.avail_in.toNat)
+    (z.avail_in = 0 ∨ Inside c base 0 (inSize s) z.next_in z.avail_in.toNat) ∧
+    (∀ hp, RegisteredHeader h (some s.strm) hp → hp = none)
+  /-- no output is buffered before the buffers exist -/
+  nobuf : s.size = 0 → s.«have» = 0
+  /-- a pending skip and the bytes pushed back by `gzungetc` after it stay below `GZ_OFF_MAX` -/
+  skip_have : s.skip ≠ 0 → s.pos.toInt + s.skip.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt
 
 /-- Writing. -/
 structure GzWrite (h : Heap) (s : GzState) : Prop where
   bufs : s.size ≠ 0 → ∃ c base z, GzBufs h s c base ∧ h.streams s.strm = some z ∧
     (s.direct = 0 → DeflateInv.DInv h (some s.strm)) ∧
-    (z.avail_in = 0 ∨ Inside c base 0 s.size.toNat z.next_in z.avail_in.toNat)
+    (z.avail_in = 0 ∨ Inside c base 0 s.size.toNat z.next_in z.avail_in.toNat) ∧
+    (∀ sb st k, z.state = some sb → h.dstate sb = some st → st.gzhead ≠ .val (some k))
 
 /-- The error message. -/
 structure GzMsg (h : Heap) (s : GzState) : Prop where
@@ -92,14 +102,27 @@ structure GzShape (h : Heap) (s : GzState) : Prop where
   read : s.mode = GZ_READ → GzRead h s
   write : s.mode = GZ_WRITE → GzWrite h s
 
-/-- **The invariant** of an open file. -/
+/-- The block of the inflate or deflate state of the embedded stream of `s`, if any. -/
+def stBlk (h : Heap) (s : GzState) : List Nat :=
+  match h.streams s.strm with | some z => (match z.state with | some c => [c] | none => []) | none => []
+
+/-- The heap block of an owned pointer field, if any. -/
+def blkOf (p : Ival BPtr) : List Nat := match p with | .val (.ref (.heap c) _) => [c] | _ => []
+
+/-- The blocks the file `b` owns and frees: its state, `path`, `msg` and, once the buffers exist, the buffers and the
+block of the stream's state. -/
+def ownL (h : Heap) (b : Nat) (s : GzState) : List Nat :=
+  [b] ++ blkOf s.path ++ blkOf s.msg ++ (if s.size = 0 then [] else blkOf s.buffers ++ stBlk h s)
+
+/-- **The invariant** of an open file: the fields, and its blocks are pairwise distinct. -/
 def GzInv (w : World) (h : Heap) (f : GzPtr) : Prop :=
-  ∃ b s, f = some b ∧ w.gz h b = some s ∧ GzShape h s
+  ∃ b s, f = some b ∧ w.gz h b = some s ∧ GzShape h s ∧ (ownL h b s).Nodup
 
 /-! ## Interface lemmas -/
 
 theorem live {w : World} {h : Heap} {f : GzPtr} (hv : GzInv w h f) :
-    ∃ b s, f = some b ∧ w.gz h b = some s ∧ GzShape h s := hv
+    ∃ b s, f = some b ∧ w.gz h b = some s ∧ GzShape h s := by
+  obtain ⟨b, s, e, hs, sh, -⟩ := hv; exact ⟨b, s, e, hs, sh⟩
 
 /-- Reading a field of the live state changes nothing. -/
 theorem rdG_app {α : Type} {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
@@ -111,7 +134,7 @@ theorem rdG_app {α : Type} {w : World} {h : Heap} {b : Nat} {s : GzState} (hs :
 /-- The mode of an open file is `GZ_READ` or `GZ_WRITE`. -/
 theorem mode {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
     (hv : GzInv w h (some b)) : s.mode = GZ_READ ∨ s.mode = GZ_WRITE := by
-  obtain ⟨b', s', e, hs', sh⟩ := hv
+  obtain ⟨b', s', e, hs', sh, -⟩ := hv
   cases e
   rw [hs] at hs'
   cases hs'
@@ -120,7 +143,7 @@ theorem mode {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = som
 /-- The positions of an open file. -/
 theorem pos {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
     (hv : GzInv w h (some b)) : GzPos s := by
-  obtain ⟨b', s', e, hs', sh⟩ := hv
+  obtain ⟨b', s', e, hs', sh, -⟩ := hv
   cases e
   rw [hs] at hs'
   cases hs'
