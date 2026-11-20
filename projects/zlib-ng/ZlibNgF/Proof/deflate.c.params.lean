@@ -144,7 +144,8 @@ def TailPost (st : DeflateState) (d : Array UInt8) (ho : Nat) (level strategy : 
     (d' : Array UInt8) : Prop :=
   ∃ (x1 x2 a1 a2 a4 : UInt32) (a3 : Int32) (lm : Ival LongestMatchFn) (ib : Ival InsertBatchFn),
     st' = tailS st x1 x2 a1 a2 a4 a3 lm ib level strategy ∧
-    (lm = st.longest_match ∨ ∃ f, lm = .val f) ∧ (ib = st.insert_batch ∨ ∃ f, ib = .val f) ∧
+    (lm = st.longest_match ∨ ∃ f, lm = .val f) ∧
+    (ib = st.insert_batch ∧ level = st.level ∨ ib = .val (ZlibNgF.Proof.DeflateInv.insertBatchOf level)) ∧
     (((staleOf st level strategy && !HASHLESS level strategy) = true ∧
         d' = fillFold 0 ho (List.range' 0 (HASH_SIZE.toNat * 2)) d ∧ x2 ≤ st.strstart) ∨
       ((staleOf st level strategy && !HASHLESS level strategy) = false ∧ d' = d ∧ x2 = st.insert))
@@ -164,20 +165,21 @@ theorem tail_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
         (fun r H' => r = Z_OK ∧ ∃ (a1 a2 a4 : UInt32) (a3 : Int32) (lm : Ival LongestMatchFn)
           (ib : Ival InsertBatchFn),
             H' = SH H i z b (tailS s1 s1.ins_h s1.insert a1 a2 a4 a3 lm ib level strategy) d1 ∧
-          (lm = s1.longest_match ∨ ∃ f, lm = .val f) ∧ (ib = s1.insert_batch ∨ ∃ f, ib = .val f)) := by
+          (lm = s1.longest_match ∨ ∃ f, lm = .val f) ∧
+            (ib = s1.insert_batch ∧ level = s1.level ∨ ib = .val (ZlibNgF.Proof.DeflateInv.insertBatchOf level))) := by
     intro s1 d1 hl1
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
     by_cases hc : (s1.level != level) = true
     · rw [ite_t hc]
-      obtain ⟨c, lm, ib, e⟩ := lm_set_level_SH (H := H) (i := i) (z := z) (b := b) (st := s1) (d := d1) level l0 l9
+      obtain ⟨c, lm, ib, hib, e⟩ := lm_set_level_SH (H := H) (i := i) (z := z) (b := b) (st := s1) (d := d1) level l0 l9
       refine Sat.bind (Sat.of_eq e ?_)
       refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-      exact Sat.pure ⟨rfl, _, _, _, _, _, _, rfl, Or.inr ⟨_, rfl⟩, Or.inr ⟨_, rfl⟩⟩
+      exact Sat.pure ⟨rfl, _, _, _, _, _, _, rfl, Or.inr ⟨_, rfl⟩, Or.inr (by rw [hib])⟩
     · rw [ite_f hc]
       have e : s1.level = level := by simpa using hc
       refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
       refine Sat.pure ⟨rfl, s1.max_lazy_match, s1.good_match, s1.max_chain_length, s1.nice_match,
-        s1.longest_match, s1.insert_batch, ?_, Or.inl rfl, Or.inl rfl⟩
+        s1.longest_match, s1.insert_batch, ?_, Or.inl rfl, Or.inl ⟨rfl, e.symm⟩⟩
       rw [← e]; rfl
   unfold paramsTail
   refine Sat.bind (Sat.of_eq ldDState_SH ?_)
@@ -251,9 +253,10 @@ theorem tail_dcore {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflat
         rcases hlm with e | ⟨f, e⟩
         · rw [e]; exact c.fns.1
         · exact ⟨f, e⟩, by
-        rcases hib with e | ⟨f, e⟩
-        · rw [e]; exact c.fns.2
-        · exact ⟨f, e⟩⟩
+        show ib = .val (ZlibNgF.Proof.DeflateInv.insertBatchOf level)
+        rcases hib with ⟨e, el⟩ | e
+        · rw [e, el]; exact c.fns.2
+        · exact e⟩
     ins := hx2
     lay := ⟨d', wo, po, ho1, pbo, SH_bytes _ _ _ _ _ _, hw, hp, hh, hpb, l1, l2, l3, by rw [sz]; exact l4, hsb, poo,
       hpo, hpoo, hpe⟩

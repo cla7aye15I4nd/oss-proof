@@ -712,7 +712,7 @@ theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {
     exact Sat.pure ⟨by rw [e0]; exact hv, by rw [e0]; exact ⟨InflateInit.frame_refl h _ _ _ _, fun _ _ _ => ⟨rfl, rfl⟩⟩,
       Or.inl e0⟩
   rw [ite_f hchk]
-  obtain ⟨ib, hib⟩ := c.fns.2
+  obtain ⟨ib, hib⟩ : ∃ f, (dview st).insert_batch = .val f := ⟨_, c.fns.2⟩
   have hib' : st.insert_batch = .val ib := hib
   rw [hib']
   refine Sat.bind (Sat.pure ?_); try dsimp only

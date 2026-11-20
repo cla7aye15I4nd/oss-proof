@@ -342,7 +342,8 @@ def lmS (st : DeflateState) (c : Config) (lm : Ival LongestMatchFn) (ib : Ival I
 
 theorem lm_set_level_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
     (level : Int32) (h0 : 0 ≤ level) (h9 : level ≤ 9) :
-    ∃ (c : Config) (lm : LongestMatchFn) (ib : InsertBatchFn), lm_set_level (some b) level (SH H i z b st d) = .ok ((), SH H i z b
+    ∃ (c : Config) (lm : LongestMatchFn) (ib : InsertBatchFn), ib = DeflateInv.insertBatchOf level ∧
+      lm_set_level (some b) level (SH H i z b st d) = .ok ((), SH H i z b
       { st with max_lazy_match := c.max_lazy.toUInt32, good_match := c.good_length.toUInt32,
                 nice_match := c.nice_length.toUInt32.toInt32, max_chain_length := c.max_chain.toUInt32,
                 longest_match := .val lm, insert_batch := .val ib, level := level } d) := by
@@ -361,20 +362,23 @@ theorem lm_set_level_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : Defla
   unfold lm_set_level
   rw [hc]
   by_cases h1 : level ≥ MIN_ROLL_LEVEL
-  · exact ⟨.longest_match_slow_roll_c, .insert_roll_batch, by simp [bind_app, wrD_SH, h1]⟩
+  · exact ⟨.longest_match_slow_roll_c, .insert_roll_batch, by simp [DeflateInv.insertBatchOf, h1],
+      by simp [bind_app, wrD_SH, h1]⟩
   · by_cases h2 : level == 1
-    · exact ⟨.longest_match_slow_knuth_c, .insert_knuth_batch_head, by simp [bind_app, wrD_SH, h1, h2]⟩
-    · exact ⟨.longest_match_slow_knuth_c, .insert_knuth_batch, by simp [bind_app, wrD_SH, h1, h2]⟩
+    · exact ⟨.longest_match_slow_knuth_c, .insert_knuth_batch_head, by simp [DeflateInv.insertBatchOf, h1, h2],
+        by simp [bind_app, wrD_SH, h1, h2]⟩
+    · exact ⟨.longest_match_slow_knuth_c, .insert_knuth_batch, by simp [DeflateInv.insertBatchOf, h1, h2],
+        by simp [bind_app, wrD_SH, h1, h2]⟩
 
 theorem lm_set_level_sat {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
     (level : Int32) (h0 : 0 ≤ level) (h9 : level ≤ 9) :
     Sat (SH H i z b st d) (lm_set_level (some b) level) (fun _ H' => ∃ (c : Config) (lm : LongestMatchFn)
-      (ib : InsertBatchFn), H' = SH H i z b
+      (ib : InsertBatchFn), ib = DeflateInv.insertBatchOf level ∧ H' = SH H i z b
       { st with max_lazy_match := c.max_lazy.toUInt32, good_match := c.good_length.toUInt32,
                 nice_match := c.nice_length.toUInt32.toInt32, max_chain_length := c.max_chain.toUInt32,
                 longest_match := .val lm, insert_batch := .val ib, level := level } d) := by
-  obtain ⟨c, lm, ib, e⟩ := lm_set_level_SH (H := H) (i := i) (z := z) (b := b) (st := st) (d := d) level h0 h9
-  exact ⟨(), _, e, c, lm, ib, rfl⟩
+  obtain ⟨c, lm, ib, hib, e⟩ := lm_set_level_SH (H := H) (i := i) (z := z) (b := b) (st := st) (d := d) level h0 h9
+  exact ⟨(), _, e, c, lm, ib, hib, rfl⟩
 
 /-- The `head` array (65536 `Pos` at offset `ho` of `d`) is zero unless the configuration is `HASHLESS` (`lm_init`'s
 `CLEAR_HASH`). -/
@@ -384,7 +388,8 @@ def HeadClear (d : Array UInt8) (st : DeflateState) (ho : Nat) : Prop :=
 /-- `lm_init` on a state whose `head` lies in its block and whose `level` is 0..9. -/
 theorem lm_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8} {ho : Nat}
     (hh : st.head = .val (.ref (.heap b) ho)) (hho : ho + 131072 ≤ d.size) (h0 : 0 ≤ st.level) (h9 : st.level ≤ 9) :
-    Sat (SH H i z b st d) (lm_init (some b)) (fun _ H' => ∃ c lm ib d', H' = SH H i z b (lmS st c (.val lm) (.val ib)) d' ∧
+    Sat (SH H i z b st d) (lm_init (some b)) (fun _ H' => ∃ c lm ib, ib = DeflateInv.insertBatchOf st.level ∧
+      ∃ d', H' = SH H i z b (lmS st c (.val lm) (.val ib)) d' ∧
       d'.size = d.size ∧ HeadClear d' st ho) := by
   unfold lm_init
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
@@ -398,8 +403,8 @@ theorem lm_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
     try dsimp only
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.mono (lm_set_level_sat _ h0 h9) ?_)
-    rintro _ _ ⟨c, lm, ib, rfl⟩
-    refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, fillFold 0 ho (List.range' 0 (HASH_SIZE.toNat * 2)) d, ?_, ?_, ?_⟩
+    rintro _ _ ⟨c, lm, ib, hib, rfl⟩
+    refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, hib, fillFold 0 ho (List.range' 0 (HASH_SIZE.toNat * 2)) d, ?_, ?_, ?_⟩
     · simp [lmS, hh]
     · simp [fillFold_size]
     · intro _ j h1 h2
@@ -408,8 +413,8 @@ theorem lm_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
   · rw [ite_f hh2]
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.mono (lm_set_level_sat _ h0 h9) ?_)
-    rintro _ _ ⟨c, lm, ib, rfl⟩
-    refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, d, ?_, rfl, fun e => absurd e (by simpa using hh2)⟩
+    rintro _ _ ⟨c, lm, ib, hib, rfl⟩
+    refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, hib, d, ?_, rfl, fun e => absurd e (by simpa using hh2)⟩
     simp [lmS]
 
 /-- The layout facts about a state before `deflateReset` (set by `deflateInit2`, kept by every later call) from
@@ -431,7 +436,7 @@ theorem reset_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
     (h1 : st.dyn_ltree.size = HEAP_SIZE) (h2 : st.dyn_dtree.size = 2 * 30 + 1) (h3 : st.bl_tree.size = 2 * 19 + 1)
     {ho : Nat} (hh : st.head = .val (.ref (.heap b) ho)) (hho : ho + 131072 ≤ d.size) (l0 : 0 ≤ st.level)
     (l9 : st.level ≤ 9) (R : RLay b st d.size) :
-    Sat (SH H i z b st d) (deflateReset (some i)) (fun r H' => r = Z_OK ∧ ∃ A B C c lm ib d',
+    Sat (SH H i z b st d) (deflateReset (some i)) (fun r H' => r = Z_OK ∧ ∃ A B C c lm ib, ib = DeflateInv.insertBatchOf st.level ∧ ∃ d',
       H' = SH H i (rkZ z st.wrap) b (lmS (trS b (rkS st) A B C) c (.val lm) (.val ib)) d' ∧ d'.size = d.size ∧
       A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C ∧ RLay b st d.size ∧
       HeadClear d' (lmS (trS b (rkS st) A B C) c (.val lm) (.val ib)) ho) := by
@@ -444,13 +449,13 @@ theorem reset_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
   try dsimp only
   rw [hzs]
   refine Sat.bind (Sat.mono (lm_init_SH (ho := ho) hh hho l0 l9) ?_)
-  rintro _ _ ⟨c, lm, ib, d', rfl, hd', hz⟩
-  exact Sat.pure ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, R, hz⟩
+  rintro _ _ ⟨c, lm, ib, hib, d', rfl, hd', hz⟩
+  exact Sat.pure ⟨rfl, A, B, C, c, lm, ib, hib, d', rfl, hd', hA, hB, hC, hF, R, hz⟩
 
 /-- The layout and position clauses of the invariant after `deflateReset`. -/
 theorem RLay.post {b : Nat} {st : DeflateState} {D : Nat} (r : RLay b st D) (H : Heap) (d : Array UInt8)
     (hd : H.bytes b = some d) (hD : d.size = D) (A B C : Array Ct) (c : Config) (lm : LongestMatchFn)
-    (ib : InsertBatchFn) :
+    (ib : InsertBatchFn) (hib : ib = DeflateInv.insertBatchOf st.level) :
     let v := DeflateInv.dview (lmS (trS b (rkS st) A B C) c (.val lm) (.val ib))
     (512 ≤ v.w_size.toNat ∧ v.w_size.toNat ≤ 32768 ∧ v.window_size = W_BUF_SIZE v.w_size ∧
       128 ≤ v.lit_bufsize.toNat ∧ v.lit_bufsize.toNat ≤ 32768 ∧ v.pending_buf_size.toNat = 4 * v.lit_bufsize.toNat ∧
@@ -467,14 +472,14 @@ theorem RLay.post {b : Nat} {st : DeflateState} {D : Nat} (r : RLay b st D) (H :
     (0 ≤ v.bi_valid ∧ v.bi_valid < 64) ∧
     (v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat) ∧
     (0 ≤ v.strategy ∧ v.strategy ≤ 4) ∧
-    ((∃ f, v.longest_match = .val f) ∧ (∃ f, v.insert_batch = .val f)) := by
+    ((∃ f, v.longest_match = .val f) ∧ v.insert_batch = .val (DeflateInv.insertBatchOf v.level)) := by
   obtain ⟨wo, po, ho, pbo, hw, hp, hh, hpb, h1, h2, h3, h4, hs⟩ := r.lay
   refine ⟨⟨r.ws.1, r.ws.2, rfl, r.lb.1, r.lb.2, r.pbs, r.se⟩,
     ⟨d, wo, po, ho, pbo, hd, hw, hp, hh, hpb, h1, h2, h3, by rw [hD]; exact h4, hs, pbo, hpb, Nat.le_refl _,
       by simp [DeflateInv.dview, lmS, trS, rkS]⟩, fun _ => by simp [DeflateInv.dview, lmS, trS, rkS],
     ⟨by simp [DeflateInv.dview, lmS, trS, rkS], by simp [DeflateInv.dview, lmS, trS, rkS]⟩,
     by simp [DeflateInv.dview, lmS, trS, rkS], by simp [DeflateInv.dview, lmS, trS, rkS], r.strat,
-    ⟨lm, rfl⟩, ⟨ib, rfl⟩⟩
+    ⟨lm, rfl⟩, by subst hib; rfl⟩
 
 /-! ## `deflateInit2` -/
 
@@ -838,8 +843,8 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
     · simp only [hl32]; omega
     · simp only [hl32]
     · exact ⟨Int32.not_lt.mp hs0, Int32.not_lt.mp hs4⟩
-  rintro r H' ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, RL, hz⟩
-  obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C c lm ib
+  rintro r H' ⟨rfl, A, B, C, c, lm, ib, hib, d', rfl, hd', hA, hB, hC, hF, RL, hz⟩
+  obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C c lm ib hib
   refine ⟨⟨?_, fun _ => ⟨?_, _, h.nextBlk, _, SH_streams _ _ _ _ _ _, rfl, SH_dstate _ _ _ _ _ _,
     fresh_lmS _ _ _ _ _ _ _ _, _, d', SH_bytes _ _ _ _ _ _, rfl, hz⟩⟩, fun _ _ _ _ _ _ _ => rfl⟩
   · refine dframe_of (fun j hj => by simp [SH, AH, upd_ne _ _ _ _ hj]) rfl (fun c hc => ?_) rfl rfl rfl rfl
