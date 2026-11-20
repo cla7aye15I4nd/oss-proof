@@ -634,10 +634,11 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
         ldStream, stStream, hsi, hz, Ival.get, liftM, monadLift, MonadLift.monadLift, StateT.lift, getHeap_app]
       and_intros <;> rfl
     case q =>
-      refine ⟨oi_stream (hW _ ?_ ?_ ?_ rfl) _ (o.snone z hz), rfl, rfl, ?_⟩
+      refine ⟨oi_stream (hW _ ?_ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
       · rfl
       · intro c hc; simp only [upd_ne _ _ _ _ hc]
       · simp
+      · rfl
       · simp [World.gz, hd, hm, hmsg, ZlibNg.Inflate.Z_OK]
         exact hsi.symm
   · refine ⟨?r2, ?W2, ?H2, ?e2, ?q2⟩
@@ -646,10 +647,11 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
         ldStream, stStream, hsi, hz, Ival.get, liftM, monadLift, MonadLift.monadLift, StateT.lift, getHeap_app]
       and_intros <;> rfl
     case q2 =>
-      refine ⟨oi_stream (hW _ ?_ ?_ ?_ rfl) _ (o.snone z hz), rfl, rfl, ?_⟩
+      refine ⟨oi_stream (hW _ ?_ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
       · rfl
       · intro c hc; simp only [upd_ne _ _ _ _ hc]
       · simp
+      · rfl
       · simp [World.gz, hd, hm, hsi, hmsg, ZlibNg.Inflate.Z_OK]
 
 /-! ## The mode loop -/
