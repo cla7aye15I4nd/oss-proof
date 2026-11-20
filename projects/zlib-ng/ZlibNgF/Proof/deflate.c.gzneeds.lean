@@ -160,7 +160,7 @@ theorem callOk_of {f : Int32} {K : Nat} {h h' : Heap} {s : StreamPtr}
     (hreg : DRegisteredHeader h s none) : CallOk (psi f) G2 K h h' s := by
   intro z hz
   obtain ⟨z', hz', ba⟩ := BA z hz
-  refine ⟨z', hz', ba, fun b st st' ⟨⟨zb, ⟨i, e, hzb⟩, hb⟩, hst⟩ ⟨-, hst'⟩ => ?_⟩
+  refine ⟨z', hz', ba, fun b st st' ⟨⟨zb, ⟨i, e, hzb⟩, hb⟩, hst⟩ ⟨_, hst'⟩ => ?_⟩
   subst e
   obtain ⟨i1, e1, hz1⟩ := hz
   obtain rfl := Option.some.inj e1
@@ -177,9 +177,9 @@ theorem callOk_of {f : Int32} {K : Nat} {h h' : Heap} {s : StreamPtr}
   have hk : (if z'.avail_out.toNat = 0 then markK f else 0) ≤ (if z'.avail_out = 0 then K else 0) := by
     by_cases h0 : z'.avail_out = 0
     · have h0' : z'.avail_out.toNat = 0 := by rw [h0]; rfl
-      simp only [h0, h0', ↓reduceIte]; exact hK
+      rw [ite_eq_left h0', ite_eq_left h0]; exact hK
     · have h0' : z'.avail_out.toNat ≠ 0 := fun x => h0 (UInt32.toNat_inj.mp (by rw [x]; rfl))
-      simp only [h0, h0', ↓reduceIte, Nat.le_refl]
+      rw [ite_eq_right h0', ite_eq_right h0]; exact Nat.le_refl _
   omega
 
 /-- **The obligations of the deflate side of the gz write layer** (`GzWriteNeeds.DeflateGz`). -/
