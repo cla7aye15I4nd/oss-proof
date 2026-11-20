@@ -161,7 +161,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       extract_lets jpI
       run_tac Lean.Elab.Tactic.withMainContext do
         let lctx ← Lean.getLCtx
-        let ns := (lctx.foldl (fun acc d => acc ++ s!"{d.userName} ") "").drop 1500
+        let ns := lctx.foldl (fun acc d => acc ++ s!"{d.userName} ") ""
         Lean.logInfo m!"NAMES {ns}"
       rw [k4.2.1]
       -- after the insertions
