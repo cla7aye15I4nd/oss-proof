@@ -86,7 +86,7 @@ print the expected result.
 | `gzclose-after-failed-write` | 0014 | heap use after free: `gzclose` writes from the caller's freed buffer after a failed direct `gzwrite` |
 | `gzbuffer-alloc-null-offset` | 0015 | `NULL` plus an offset in `gz_buffer_alloc` when the allocation fails (clang's UBSan; GCC's does not report it, and the case then checks that the calls run alike) |
 | `gzread-position-overflow` | 0016 | signed overflow of `x.pos` in `gz_read` after `gzseek` to `INT64_MAX` on a descriptor that keeps delivering data |
-| `fixed-block-start-overflow` | 0018 | signed overflow of `block_start` in `fill_window` after `2^31` bytes of one `Z_FIXED` level-1 stream (about 20 s; the same `repro.c` with argument `r` shows the `deflateResetKeep` sequence) |
+| `fixed-block-start-overflow` | 0018 | signed overflow of `block_start` in `fill_window` after `2^31` bytes of one `Z_FIXED` level-1 stream (about 20 s) |
 
 Patch 0017 (the writers' position) has no case here: its defect needs about `2^32` calls of `gzwrite` (minutes to
 hours). It was shown once on the real C (findings page); the `gz` differential test covers the refusal it adds.
