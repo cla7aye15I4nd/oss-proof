@@ -20,7 +20,8 @@ oracles). A closed handle is not accepted (using it is the caller's undefined be
 
 **Termination.** The read oracle delivers finitely many bytes (`Fs.budget` is a natural number) and regular files are
 finite: every loop of the gz* functions is bounded by the input they read, the output they write and the skip they
-were asked for. `GzWF` bounds these by `2^62` so that the model's loop fuel (`2^64` iterations) is never the limit.
+were asked for. `GzWF` bounds these by `2^61` so that the model's loop fuel (`2^64` iterations) is never the limit: the
+read loops count at most a few iterations per byte of input still to come, plus one per 16 bytes of output.
 An endless input (a pipe whose writer never stops) is outside the model; on it `gzread` may not return, as any reader
 would not.
 
@@ -61,13 +62,13 @@ def LitOk (w : World) (h : Heap) : Prop :=
 
 /-- The world and heap are those of a C program: CRC tables, no object in an unallocated block, objects below
 `2^63` bytes, the `gz_state` objects in allocated blocks with their embedded `z_stream` alive, the inputs (the
-read budget and the files) below `2^62` bytes, every `lseek` value the oracle chooses `-1` or not negative, and
+read budget and the files) below `2^61` bytes, every `lseek` value the oracle chooses `-1` or not negative, and
 the literal table consistent (`LitOk`). -/
 def GzWF (w : World) (h : Heap) : Prop :=
   CrcGlobals h ∧ DFreshBlocks h ∧ ObjBound h ∧
   (∀ b, h.nextBlk ≤ b → w.gzs b = none) ∧
   (∀ b s, w.gz h b = some s → ∃ z, h.streams s.strm = some z) ∧
-  w.fs.budget < 2 ^ 62 ∧ (∀ d ∈ w.fs.nodes, d.size < 2 ^ 62) ∧
+  w.fs.budget < 2 ^ 61 ∧ (∀ d ∈ w.fs.nodes, d.size < 2 ^ 61) ∧
   (∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v) ∧
   LitOk w h
 
