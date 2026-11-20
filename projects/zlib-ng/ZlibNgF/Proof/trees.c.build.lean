@@ -12,27 +12,8 @@ set_option autoImplicit false
 
 namespace ZlibNgF.Proof.TreesBuild
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNg.Trees ZlibNgF.Proof.DeflateInit ZlibNgF.Proof.TreesPrims
-open ZlibNgF.Proof.TreesScan ZlibNgF.Proof.TreesForce
+open ZlibNgF.Proof.TreesScan ZlibNgF.Proof.TreesForce ZlibNgF.Proof.TreesSort
 open ZlibNg.Inftrees (aget aset)
-
-/-- The sort of the leaves: the swap of two leaves, or one or two radix passes. Returns `(sorted, internals)`. -/
-def sortBlock (leaves scratch : DWPtr) (nleaves : Int32) (count_lo count_hi : Array UInt16) : M (DWPtr × DWPtr) := do
-  if nleaves == 2 then
-    let l0 ← dwGet leaves 0
-    let l1 ← dwGet leaves 1
-    if l0 > l1 then
-      let t := l0
-      dwSet leaves 0 l1
-      dwSet leaves 1 t
-      pure (leaves, scratch)
-    else pure (leaves, scratch)
-  else if (← aget count_hi 1).toUInt32.toInt32 == nleaves then
-    let _ ← pq_radix_pass leaves scratch nleaves PQ_NODE_BITS.toInt32 count_lo
-    pure (scratch, leaves)
-  else
-    let _ ← pq_radix_pass leaves scratch nleaves PQ_NODE_BITS.toInt32 count_lo
-    let _ ← pq_radix_pass scratch leaves nleaves (PQ_NODE_BITS + 8).toInt32 count_hi
-    pure (leaves, scratch)
 
 /-- The condition of the merge loop. -/
 def mergeCond : Int32 × Int32 × Int32 × Int32 × Int32 → M (Bool × (Int32 × Int32 × Int32 × Int32 × Int32)) :=
