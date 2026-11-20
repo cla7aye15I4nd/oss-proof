@@ -201,4 +201,9 @@ def Goal.compressBound_safety : Prop :=
   ∀ (h : C.Heap) (sourceLen : UInt64),
     ∃ r, C.run (ZlibNg.Compress.compressBound sourceLen) h = .ok (r, h)
 
+/-- `z_size_t compressBound_z(z_size_t sourceLen)`: never faults and preserves the heap for all `UInt64`. -/
+def Goal.compressBound_z_safety : Prop :=
+  ∀ (h : C.Heap) (sourceLen : UInt64),
+    ∃ r, C.run (ZlibNg.Compress.compressBound_z sourceLen) h = .ok (r, h)
+
 end ZlibNgF.Spec.Safety
