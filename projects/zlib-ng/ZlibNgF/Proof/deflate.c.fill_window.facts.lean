@@ -111,6 +111,7 @@ theorem dcore_fw {h H : Heap} {i : Nat} {z z' : ZStream} {b : Nat} {st st' : Def
     ins := UInt32.le_iff_toNat_le.mpr C.ins
     wpow := C.wpow
     lmod := c.lmod
+    lpow := c.lpow
     scratch := c.scratch
     blk := c.blk
     fe_mod := C.fe_mod

@@ -712,6 +712,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
   have pl3 : 2 ^ (ml.toInt.toNat + 6) % 16 = 0 := by
     have : 2 ^ (ml.toInt.toNat + 6) = 2 ^ (ml.toInt.toNat + 2) * 2 ^ 4 := by rw [← Nat.pow_add]
     rw [this]; simp
+  have pl4 : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ 2 ^ (ml.toInt.toNat + 6) = 2 ^ k := ⟨_, by omega, by omega, rfl⟩
   have hl := i32_ofNat_toInt (k := 2 ^ (ml.toInt.toNat + 6)) (by omega)
   generalize 2 ^ (ml.toInt.toNat + 6) = l at *
   cases hok : h.allocOk h.nalloc
@@ -815,7 +816,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       rw [SH_bytes]
       exact upd_same _ _ _
     · refine ⟨by simp [rkZ, hza], by simp [rkZ, hzf], rfl, rfl, rfl, by simp [dAllocRec, hzf], rfl, ?_, ?_, ?_,
-        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
       · rcases hw with e | e | e
@@ -849,6 +850,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       · simp [DeflateInv.dview, lmS, trS, rkS]
       · simp [DeflateInv.dview, lmS, trS, rkS]
       · simp only [DeflateInv.dview, lmS, trS, rkS, hl32]; exact pl3
+      · simp only [DeflateInv.dview, lmS, trS, rkS, hl32]; exact pl4
       · simp only [DeflateInv.dview, lmS, trS, rkS]; exact gs
       · simp only [DeflateInv.dview, lmS, trS, rkS]; exact ⟨by simp, by simp, hF.2.2⟩
 

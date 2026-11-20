@@ -480,6 +480,7 @@ theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Def
     ins := c.ins
     wpow := c.wpow
     lmod := c.lmod
+    lpow := c.lpow
     scratch := c.scratch
     blk := c.blk
     fe_mod := c.fe_mod
