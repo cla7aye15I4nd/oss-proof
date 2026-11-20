@@ -15,7 +15,7 @@
 	url = https://github.com/google/brotli.git
 [submodule "projects/bzip2/bzip2"]
 	path = projects/bzip2/bzip2
-	url = https://sourceware.org/git/bzip2.git
+	url = https://github.com/libarchive/bzip2.git
 [submodule "projects/lcms2/lcms2"]
 	path = projects/lcms2/lcms2
 	url = https://github.com/mm2/Little-CMS.git
@@ -33,7 +33,7 @@
 	url = https://github.com/pnggroup/libpng.git
 [submodule "projects/libtiff/libtiff"]
 	path = projects/libtiff/libtiff
-	url = https://gitlab.com/libtiff/libtiff.git
+	url = https://github.com/libsdl-org/libtiff.git
 [submodule "projects/libvips/libvips"]
 	path = projects/libvips/libvips
 	url = https://github.com/libvips/libvips.git
@@ -63,4 +63,4 @@
 	url = https://github.com/mozilla/mozjpeg.git
 [submodule "projects/libxml2/libxml2"]
 	path = projects/libxml2/libxml2
-	url = https://gitlab.gnome.org/GNOME/libxml2.git
+	url = https://github.com/GNOME/libxml2.git
