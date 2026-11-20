@@ -241,6 +241,17 @@ def ExitOk (flush : Int32) (bs : BlockState) (st : DeflateState) : Prop :=
     (bs = .finish_started ∨ bs = .finish_done → st.sym_next = 0 ∧ st.lookahead = 0) ∧
     (bs = .block_done → st.sym_next = 0)
 
+/-- The stream `i` keeps its state block `b` from `h` to `H`. -/
+theorem stateBlock_keep {h H : Heap} {i b : Nat} (h0 : ∃ z, h.streams i = some z ∧ z.state = some b)
+    (h1 : ∃ z, H.streams i = some z ∧ z.state = some b) : ∀ b', StateBlock h (some i) b' → StateBlock H (some i) b' := by
+  intro b' ⟨z', ⟨i', e, hz'⟩, hb'⟩
+  obtain ⟨z0, hz0, hb0⟩ := h0
+  obtain rfl := Option.some.inj e
+  obtain rfl : z0 = z' := Option.some.inj (hz0.symm.trans hz')
+  obtain rfl : b = b' := Option.some.inj (hb0.symm.trans hb')
+  obtain ⟨z1, hz1, hb1⟩ := h1
+  exact ⟨z1, ⟨i, rfl, hz1⟩, hb1⟩
+
 /-- `StratPost` from `SLF`, the exit facts, and `LazyOk` after from `LazyOk` at entry, for a strategy entered at a
 level other than 1 or with a strategy other than `Z_FIXED`. -/
 theorem slf_postL {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
@@ -251,7 +262,8 @@ theorem slf_postL {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs
   obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
-  refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out, fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
+  refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
+    stateBlock_keep F.blk0 F.blk, fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
