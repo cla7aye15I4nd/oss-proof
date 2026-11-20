@@ -479,12 +479,13 @@ theorem core_CLlen {H : Heap} {i b : Nat} {z : ZStream} {al : InflateAllocs} {S 
 
 /-- `SET_BAD(msg); return;` after stores into the state that the invariant follows only together with the mode
 `BAD`. -/
-theorem bad_withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
-    (S' : InflateState)
+theorem bad_withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (v : Int32)
+    {m : Nat} (S' : InflateState)
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view { S' with mode := BAD }) al)
     (hh : S'.head = S.head) (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) < m) (msg : String)
     {i : Nat} (hi : strTable.findIdx? (· == msg) = some i) :
-    SatX (withS H E.b S') l (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ()) (Post E m) := by
+    SatX (withS H E.b S') { l with ret := v } (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ())
+      (Post E m) := by
   have li1 := li.withS { S' with mode := BAD } keep hh (Or.inr fun _ => show rank BAD ≤ 2 by decide)
   have hs : Sat (withS H E.b S') (SET_BAD E.c msg) (fun _ H' => ∃ z', LI E l H' z' { S' with mode := BAD }) := by
     unfold SET_BAD
@@ -494,7 +495,7 @@ theorem bad_withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     exact Sat.mono (li1.wrZ (fun z => { z with msg := .ref (.str i) 0 }) rfl rfl rfl) (fun _ H2 li2 => ⟨_, li2⟩)
   refine SatX.bind (SatX.lift (Sat.mono hs ?_))
   rintro _ H1 ⟨z1, li2⟩
-  refine SatX.pure (post_ok li2 ?_)
+  refine SatX.pure ⟨z1, _, Or.inr ⟨rfl, l.ret, li2⟩, ?_⟩
   unfold μ; dsimp only; rw [rank_BAD]; omega
 
 /-! ## `CODELENS` -/
@@ -644,12 +645,12 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
     exact congrArg (fun H' => Except.ok (_, H')) (withS_withS H1 E.b S4 _)
   refine SatX.bind (SatX.lift (Sat.of_eq e' ?_))
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
-  have li1r : LI E { l1 with ret := ret } H1 z1 S1 :=
-    li1.setRet ret (by rcases hr3 with e | e | e <;> rw [e] <;> decide)
+  have li1r : ret = 0 → LI E { l1 with ret := ret } H1 z1 S1 :=
+    fun h0 => li1.setRet ret (by rw [h0]; decide)
   refine SatX.bind (SatX.modify (SatX.ite (fun hne => ?_) (fun hne => ?_)))
   · have h0 : ret ≠ 0 := by simpa using hne
     obtain rfl := herr h0
-    exact bad_withS li1r { S4 with
+    exact bad_withS li1 ret { S4 with
         codes := codes'
         work := work'
         next := .val (.ref (.codes E.b) 0)
@@ -694,12 +695,12 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
     exact congrArg (fun H' => Except.ok (_, H')) (withS_withS H1 E.b S6 _)
   refine SatX.bind (SatX.lift (Sat.of_eq e2' ?_))
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
-  have li1r2 : LI E { { l1 with ret := ret } with ret := ret2 } H1 z1 S1 :=
-    li1r.setRet ret2 (by rcases hr32 with e | e | e <;> rw [e] <;> decide)
+  have li1r2 : ret2 = 0 → LI E { { l1 with ret := ret } with ret := ret2 } H1 z1 S1 :=
+    fun h02 => (li1r h0).setRet ret2 (by rw [h02]; decide)
   refine SatX.bind (SatX.modify (SatX.ite (fun hne2 => ?_) (fun hne2 => ?_)))
   · have h02 : ret2 ≠ 0 := by simpa using hne2
     have ho := herr2 h02
-    exact bad_withS li1r2 { S6 with
+    exact bad_withS (li1r h0) ret2 { S6 with
         codes := codes''
         work := work''
         next := .val (.ref (.codes E.b) o'')
@@ -715,7 +716,7 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
   have hct1' : CodeTable codes'' 0 o' lb.toNat 28 false :=
     hct1.congr (by rw [hcs2]; show o' ≤ 1924; omega) (fun j _ h2 => hkeep2 j h2)
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
-  have liF := li1r2.withS { S6 with
+  have liF := (li1r2 h02).withS { S6 with
       codes := codes''
       work := work''
       next := .val (.ref (.codes E.b) o'')
