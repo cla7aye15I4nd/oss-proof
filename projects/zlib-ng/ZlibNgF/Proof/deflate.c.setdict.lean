@@ -267,9 +267,10 @@ def SdK (st0 st : DeflateState) : Prop :=
     st.level = st0.level ∧ st.strategy = st0.strategy ∧ st.last_flush = st0.last_flush ∧ st.bi_valid = st0.bi_valid
 
 /-- What `deflateSetDictionary` leaves, from state `st0`: the fields of `SdK` and `wrap` kept, `block_start` at
-`strstart`, no lookahead. -/
+`strstart`, no lookahead, no pending match or literal. -/
 def SdPost (st0 st : DeflateState) : Prop :=
-  SdK st0 st ∧ st.wrap = st0.wrap ∧ st.block_start.toInt = st.strstart.toNat ∧ st.lookahead = 0
+  SdK st0 st ∧ st.wrap = st0.wrap ∧ st.block_start.toInt = st.strstart.toNat ∧ st.lookahead = 0 ∧
+    st.prev_length = 0 ∧ st.match_available = 0
 
 theorem SdK.mv {st0 st st' : DeflateState} (k : SdK st0 st) (e1 : st'.sym_next = st.sym_next)
     (e2 : st'.status = st.status) (e3 : st'.gzhead = st.gzhead) (e4 : st'.gzindex = st.gzindex)
@@ -446,7 +447,7 @@ theorem tail_ok {H He : Heap} {i b : Nat} {ze : ZStream} {ste : DeflateState} {w
     obtain rfl : b = b' := Option.some.inj (hbe.symm.trans h2)
     rw [SH_dstate] at h3
     obtain rfl := Option.some.inj h3
-    exact ⟨SdK.mv hk rfl rfl rfl rfl rfl rfl rfl rfl, hw0, hS, rfl⟩
+    exact ⟨SdK.mv hk rfl rfl rfl rfl rfl rfl rfl rfl, hw0, hS, rfl, rfl, rfl⟩
 
 /-- The insertion loop and the tail of `deflateSetDictionary` (`sdC`) from the invariant after the cut. -/
 theorem sdC_ok (W : WindowFacts) {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}

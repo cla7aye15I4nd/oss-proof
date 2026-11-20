@@ -234,7 +234,8 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
   obtain ⟨r, h', e, np, bb, bv, d', rfl, w, h0, h8, hle, hor⟩ := S
   refine ⟨i, z, b, rfl, L.hz, L.hb, r, _, e, dframe_SH0 L.hz _ _ _, fun st0 h0 => ?_, fun hpr => ?_⟩
   · obtain rfl := Option.some.inj (h0.symm.trans L.dstate)
-    refine ⟨_, _, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun hc => ?_⟩, rfl, rfl, rfl,
+    refine ⟨_, _, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun hc => ?_, rfl, rfl, rfl, rfl⟩, rfl, rfl,
+      rfl,
       fun d0 pbo1 hd0 hpb1 j hj => ?_⟩
     rotate_left
     · obtain rfl := Option.some.inj (hd0.symm.trans hd)

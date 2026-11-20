@@ -158,7 +158,7 @@ def CM (v : UInt32 × UInt32 × QuickExit) : Nat :=
 
 /-- One trip of the continuation loop (`quick_cont_trip` with `static_emit == 0`). -/
 theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la ss dist : UInt32} {K : Nat}
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
+    (hn : NotSlow h b)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (I : SLI h i b la ss H)
     (hla : 262 ≤ la.toNat) (hd : dist.toNat ≤ ss.toNat) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768)
     (hK : avIn H i + la.toNat ≤ K) :
@@ -206,7 +206,7 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {l
 /-- The continuation loop, entered after a match of `STD_MAX_MATCH` bytes with `lookahead >= MIN_LOOKAHEAD`: it ends
 in `CI` with `brk` or `ret`. -/
 theorem cloop_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la ss dist : UInt32} {K : Nat}
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
+    (hn : NotSlow h b)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (I : SLI h i b la ss H)
     (hla : 262 ≤ la.toNat) (hd : dist.toNat ≤ ss.toNat) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768)
     (hK : avIn H i + la.toNat ≤ K) (body : UInt32 × UInt32 × QuickExit → M (UInt32 × UInt32 × QuickExit))
@@ -246,7 +246,7 @@ def QM (i : Nat) (v : UInt32 × UInt32 × QuickExit) (H : Heap) : Nat :=
 /-- `quick_try_match` with `static_emit == 0` (`deflate_quick.c:168-220`) on the loop invariant: `none` keeps it (the
 `head` store aside), `some` ends the trip in `QI` with a smaller measure. -/
 theorem qmatch_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la ss : UInt32}
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
+    (hn : NotSlow h b)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (I : SLI h i b la ss H)
     (str_val : UInt32) :
     Sat H (quick_try_match (some b) (.ref (.heap b) wo) 0 ss la str_val) (fun o H2 =>
