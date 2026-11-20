@@ -72,7 +72,7 @@ theorem slw_layw {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} 
   have hw : st.window = .val (.ref (.heap b) wo) := by
     obtain ⟨H1, z1, st1, d1, e, F, -⟩ := W
     obtain ⟨rfl, rfl, rfl⟩ := SH_inj e
-    exact slf_win F hw0 _ (SH_dstate _ _ _ _ _ _)
+    exact slf_win F hw0 (FS st la ss) (SH_dstate _ _ _ _ _ _)
   have hw' := L.win
   rw [hw] at hw'
   obtain rfl : wo = wo' := by injection hw' with e; injection e
@@ -84,7 +84,7 @@ chains kept; when it does not return, `SLC` with the same `lookahead` / `strstar
 theorem flush0_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (W : SLW h i b la ss H)
     (hH : Held b la ss H) (Ck : CK b H)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1) :
+    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2) :
     Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) 0) (fun r H2 => avIn H2 i = avIn H i ∧ CK b H2 ∧
       (r = none → SLC h i b H2 ∧ Held b la ss H2) ∧
       (r ≠ none → r = some .need_more ∧ ∀ flush, StratPost h (some i) flush .need_more H2)) := by
@@ -133,7 +133,7 @@ def CM (b : Nat) (v : Ctl × Bool) (H : Heap) : Nat :=
 theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {cd mi : UInt32} {K : Nat}
     {bf : Bool} {la ss : UInt32}
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
+    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2)
     (hl : ∀ st0, h.dstate b = some st0 → st0.level = 2 ∧ HASHLESS st0.level st0.strategy = false)
     (hmi : 2 ≤ mi.toNat) (hd1 : 1 ≤ cd.toNat) (hd2 : cd.toNat ≤ 32768)
     (W : SLW h i b la ss H) (hH : Held b la ss H) (I : bf = false → SLI h i b la ss H) (hle : bf = true → SymLe b H)

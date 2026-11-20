@@ -7,7 +7,8 @@ import ZlibNgF.Proof.«deflate_strategy.chain»
 `deflate_fast` runs at level 2 with any strategy but `Z_HUFFMAN_ONLY` and `Z_RLE`, `Z_FIXED` included. The entry and
 exit lemmas of `Proof/deflate_strategy.common.lean` (`sli_entry`, `slf_post`, `slc_tail`, `slc_post`) take a strategy
 other than `Z_FIXED`, which they use only to rule out the level-1 clauses of `SymsOk`; a level other than 1 rules them
-out as well. The lemmas here are those with that premise (`…_l`).
+out as well. The lemmas here take level 2 instead (`…_l`); `LazyOk` follows from `StratKeeps` (level 2 is not
+`deflate_slow`'s).
 -/
 
 set_option autoImplicit false
@@ -18,44 +19,30 @@ open ZlibNgF.Proof.DeflateInv ZlibNgF.Proof.DeflateFacts ZlibNgF.Proof.Strategy
 open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNg.DeflateP
 
-/-- `slf_post` for a strategy entered at a level other than 1. -/
+/-- `slf_post` for a strategy entered at level 2 (any strategy, `Z_FIXED` included). -/
 theorem slf_post_l {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
+    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2)
     (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
-  obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
-  obtain ⟨z0, hz0, hb0⟩ := F.blk0
-  have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
-  refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
-    fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
-  · rw [hsi]; exact F.frame
-  · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
-    obtain rfl : i = i' := Option.some.inj e
-    obtain rfl : i = i1 := Option.some.inj e1
-    obtain rfl : z = z' := Option.some.inj (hz.symm.trans hz')
-    obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb')
-    obtain rfl : st = st' := Option.some.inj (hst.symm.trans hst')
-    obtain ⟨hlv, -, hg2⟩ := F.st st hst
-    obtain ⟨st0, h0, hk⟩ := F.keeps
-    obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans hst1)
-    have K := hk st hst
-    obtain ⟨x1, x2, x3, x4, x5⟩ := hs st hst
-    refine ⟨⟨x1, fun e0 => ?_, fun e1 _ => ?_, hg2.1, fun e8 => absurd hg2.2 (Int32.not_lt.mpr e8)⟩, K,
-      fun hf _ => x3 hf, x4, x5⟩
-    · rw [e0] at hlv; exact absurd hlv (by decide)
-    · exact absurd (K.2.2.2.2.1.symm.trans e1) (hn st0 h0)
+  refine slf_postL F flush bs (fun st0 h0 e => absurd ((hn st0 h0).symm.trans e) (by decide))
+    (fun st0 h0 L st hst => ?_) hs
+  obtain ⟨st1, h1, hk⟩ := F.keeps
+  obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
+  have hT : ¬ TableAt 7 9 st0 := fun ht => by
+    have := ht.1; rw [hn st0 h0] at this; exact absurd this (by decide)
+  obtain ⟨L', hm⟩ := (hk st hst).lazy L hT
+  exact ⟨L', fun _ => hm⟩
 
 /-- `sli_entry` for a strategy entered at a level above 1. -/
 theorem sli_entry_l {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : StratPre h (some i) flush)
     (hz : h.streams i = some z) (hb : z.state = some b)
     (hE : ∀ b' st, DStateIs h (some i) b' st → 0 < st.level ∧ st.level ≠ 1) :
     ∃ st, h.dstate b = some st ∧ SLI h i b st.lookahead st.strstart h := by
-  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, hs1⟩ := P
+  obtain ⟨hv, hcrc, hio, hset, -, -, b1, st1, ⟨i1, z1, e1, hz1, hb1, hst1⟩, hp0, hs1, ⟨hsym, -, -, hg2, hg8⟩, -⟩ := P
   obtain rfl : i = i1 := Option.some.inj e1
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   have hD : DStateIs h (some i) b st1 := ⟨i, z, rfl, hz, hb, hst1⟩
   obtain ⟨hlv, hl1⟩ := hE b st1 hD
-  obtain ⟨hs1, hsym, -, -, hg2, hg8⟩ := hs1
   have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hl1 (hg8 e8).1⟩
   refine ⟨st1, hst1, sli_of_slc ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
@@ -75,8 +62,8 @@ theorem sli_entry_l {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : St
   · obtain rfl : st1 = st := Option.some.inj (hst1.symm.trans h1)
     exact ⟨hp0, hsym⟩
 
-/-- `slc_post` at a level other than 1. -/
-theorem slc_post_l {h H : Heap} {i b : Nat} (C : SLC h i b H) (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1) :
+/-- `slc_post` at level 2. -/
+theorem slc_post_l {h H : Heap} {i b : Nat} (C : SLC h i b H) (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2) :
     StratPost h (some i) Z_NO_FLUSH .need_more H := by
   refine slf_post_l C.1 _ _ hn fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
   · intro e; rcases e with e | e <;> cases e
@@ -84,10 +71,10 @@ theorem slc_post_l {h H : Heap} {i b : Nat} (C : SLC h i b H) (hn : ∀ st0, h.d
   · intro e; rcases e with e | e <;> cases e
   · intro e; cases e
 
-/-- `slc_tail` at a level other than 1. -/
+/-- `slc_tail` at level 2. -/
 theorem slc_tail_l (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C : SLC h i b H)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
+    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2)
     (hla : ∀ st, H.dstate b = some st → st.lookahead = 0) :
     Sat H (strat_tail (some b) (.ref (.heap b) wo) flush) (fun r H' => StratPost h (some i) flush r H') := by
   have hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo) := by
