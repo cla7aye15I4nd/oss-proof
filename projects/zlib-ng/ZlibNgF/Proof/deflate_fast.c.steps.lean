@@ -55,8 +55,8 @@ theorem cg_ins {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S S' : Nat →
     {z : ZStream} {st : DeflateState} {d d' : Array UInt8} (G : CG b st0 d0 S (SH H0 i z b st d))
     (g : GrowSt b st d d' S') : CG b st0 d0 (fun q => S q ∨ S' q) (SH H0 i z b st d') := by
   obtain ⟨st1, d1, h1, h2, g0, c⟩ := G
-  obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
-  obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans h2)
+  obtain rfl : st1 = st := Option.some.inj (h1.symm.trans (SH_dstate _ _ _ _ _ _))
+  obtain rfl : d1 = d := Option.some.inj (h2.symm.trans (SH_bytes _ _ _ _ _ _))
   refine ⟨st1, d', SH_dstate _ _ _ _ _ _, SH_bytes _ _ _ _ _ _, fun ho po hh hp => ?_, c⟩
   have g1 := g ho po (by rw [c.2.2.1]; exact hh) (by rw [c.2.2.2.1]; exact hp)
   rw [c.2.2.2.2] at g1
@@ -67,8 +67,8 @@ theorem cg_st {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S : Nat → Pro
     {z : ZStream} {st st' : DeflateState} {d : Array UInt8} (G : CG b st0 d0 S (SH H0 i z b st d))
     (c : CF st st') : CG b st0 d0 S (SH H0 i z b st' d) := by
   obtain ⟨st1, d1, h1, h2, g0, c0⟩ := G
-  obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
-  obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans h2)
+  obtain rfl : st1 = st := Option.some.inj (h1.symm.trans (SH_dstate _ _ _ _ _ _))
+  obtain rfl : d1 = d := Option.some.inj (h2.symm.trans (SH_bytes _ _ _ _ _ _))
   exact ⟨st', d1, SH_dstate _ _ _ _ _ _, SH_bytes _ _ _ _ _ _, g0, c0.trans c⟩
 
 /-- A store at or after `ho + 131072` (`head` at `ho`) with the chain fields kept. -/
@@ -79,8 +79,8 @@ theorem cg_wr {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S : Nat → Pro
       ho + 131072 ≤ lo ∧ po + 2 * st.w_size.toNat ≤ ho ∧ 0 < st.w_size.toNat) :
     CG b st0 d0 S (SH H0 i z b st' d') := by
   obtain ⟨st1, d1, h1, h2, g0, c0⟩ := G
-  obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
-  obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans h2)
+  obtain rfl : st1 = st := Option.some.inj (h1.symm.trans (SH_dstate _ _ _ _ _ _))
+  obtain rfl : d1 = d := Option.some.inj (h2.symm.trans (SH_bytes _ _ _ _ _ _))
   refine ⟨st', d', SH_dstate _ _ _ _ _ _, SH_bytes _ _ _ _ _ _, fun ho po hh hp => ?_, c0.trans c⟩
   obtain ⟨a1, a2, a3⟩ := hl ho po (by rw [c0.2.2.1]; exact hh) (by rw [c0.2.2.2.1]; exact hp)
   rw [c0.2.2.2.2] at a2 a3
@@ -97,8 +97,8 @@ theorem ck_of_cg {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S : Nat → 
       ∀ q, S q → q ≠ 0 → q < st.strstart.toNat) : CK b H := by
   intro st d h1 h2
   obtain ⟨st1, d1, h3, h4, g, c⟩ := G
-  obtain rfl := Option.some.inj (h1.symm.trans h3)
-  obtain rfl := Option.some.inj (h2.symm.trans h4)
+  obtain rfl : st1 = st := Option.some.inj (h3.symm.trans h1)
+  obtain rfl : d1 = d := Option.some.inj (h4.symm.trans h2)
   obtain ⟨e1, e2, e3, e4, e5⟩ := c
   obtain ⟨hss, hq⟩ := hs st1 h1
   have hl' : st1.level = 2 := e1.trans hl
