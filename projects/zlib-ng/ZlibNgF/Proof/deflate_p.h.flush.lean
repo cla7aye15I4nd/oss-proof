@@ -305,13 +305,16 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
         refine ⟨d1, wo, po, ho, pbo, OH_bytes_b hob, hwo, hp, hh, hpb, h1, h2, h3, by rw [hd1]; exact h4, hsb, ?_⟩
         by_cases hP : P = 0
         · refine ⟨pbo, by simp only [dview]; rw [hpz hP, hpb], Nat.le_refl _, ?_⟩
-          simp only [dview, hP]; simp
+          simp only [dview, hP]
+          have h0' : (0 : UInt32).toNat = 0 := rfl
+          omega
         · refine ⟨poo + L, by simp only [dview]; rw [hpnz hP], by omega, ?_⟩
           simp only [dview]; omega
       pout := fun hP => by simp only [dview] at hP ⊢; rw [hpz hP]
       syms := c.syms
       bits := ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact hb0'),
-        Int32.lt_iff_toInt_lt.mpr (by rw [show (8 : Int32).toInt = 8 from rfl]; exact hb8')⟩
+        Int32.lt_iff_toInt_lt.mpr (by
+          rw [show (64 : Int32).toInt = 64 from rfl]; exact Int.lt_trans hb8' (by decide))⟩
       look := c.look
       strategy := c.strategy
       fns := c.fns
@@ -329,7 +332,10 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
         simp only [dview] at hn ⊢
         have := hsymb hn
         by_cases hP : P = 0
-        · exact ⟨pbo, pbo, hpb, by rw [hpz hP, hpb], by rw [hP]; simp⟩
+        · refine ⟨pbo, pbo, hpb, by rw [hpz hP, hpb], ?_⟩
+          rw [hP]
+          have h0' : (0 : UInt32).toNat = 0 := rfl
+          omega
         · exact ⟨pbo, poo + L, hpb, hpnz hP, by omega⟩
       hdr := c.hdr
       bstart := c.bstart
