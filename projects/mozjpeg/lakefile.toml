@@ -1,0 +1,7 @@
+name = "MozjpegF"
+version = "0.1.0"
+defaultTargets = ["MozjpegF"]
+
+[[lean_lib]]
+name = "MozjpegF"
+roots = ["MozjpegF", "MozjpegF.Results"]

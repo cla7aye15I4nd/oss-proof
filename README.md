@@ -14,6 +14,7 @@ its stated frame, and returns, under the premises each theorem states.
 | [`zstd`](projects/zstd/README.md) | Zstandard 1.5.7 (`756e62a9`) | portable scalar x86_64 Linux LP64 (`libzstd` decoder) | Strict ISO C17 runtime checked; C translation & public decoder proofs not done | — | Not done |
 | [`brotli`](projects/brotli/README.md) | Brotli 1.2 (`libbrotlidec` decoder) | portable scalar x86_64 Linux LP64 | Strict ISO C17 runtime checked; C translation & public decoder proofs not done | — | Not done |
 | [`zlib-ng`](projects/zlib-ng/README.md) | zlib-ng 2.3.3 (`12731092`) + [7 patches](projects/zlib-ng/patches/README.md) | `ZLIB_COMPAT` x86_64 Linux LP64, generic C kernels | Checksums, version/error strings & `compressBound` safe (most also functionally correct); streaming `deflate`/`inflate`, one-shot and `gz*` not done | [7 patches](projects/zlib-ng/patches/README.md) | Not done |
+| [`mozjpeg`](projects/mozjpeg/README.md) | mozjpeg 5.0.0 (`08265790`) | portable static 8-bit `WITH_JPEG8=1` x86_64 Linux LP64 | Strict ISO C17 runtime, `jutils.c`, `jpeg_std_error`, `jpeg_save_markers`, teardown/query helpers & `jpeg_calc_output_dimensions` (incl. `1/2`–`1/8` shrink-on-load) proved; header/entropy/IDCT scanline decode not done | — | Not done |
 
 ## Candidate targets (Tier 0)
 
@@ -26,7 +27,6 @@ branch; none is registered for CI yet, and no translation or proof exists.
 | Library | Reached from | Tier 0 |
 | --- | --- | --- |
 | [`libvips`](projects/libvips/AGENTS.md) | every [Sharp](projects/sharp/AGENTS.md) call | format sniffing, loader glue, vendored GIF decoder, EXIF and ICC bridges |
-| [`mozjpeg`](projects/mozjpeg/AGENTS.md) | Sharp JPEG | `jpeg_read_header` … `jpeg_read_scanlines`, scaled decoding |
 | [`libpng`](projects/libpng/AGENTS.md) | Sharp PNG | `png_read_info`, chunk handlers, `png_read_row` / `png_read_image` |
 | [`libwebp`](projects/libwebp/AGENTS.md) | Sharp and Pillow WebP | `WebPDecode`, demuxer, `WebPAnimDecoder*` |
 | [`libtiff`](projects/libtiff/AGENTS.md) | Sharp and Pillow TIFF | directory parsing, strip/tile reads, built-in codecs |
