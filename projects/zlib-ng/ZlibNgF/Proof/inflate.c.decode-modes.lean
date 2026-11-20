@@ -776,7 +776,7 @@ theorem LI.afterFast {E : Env} (eo : EnvOK E) {l : IL} {H2 h' : Heap} {z : ZStre
       { S with hold := l.hold, bits := l.bits.toUInt32 })
     (hm : S.mode = LEN) {o0 ob : Nat} {ri : BRef} (hinp : E.inp = .ref ri o0)
     (hhA : l.have_.toNat ≤ E.A0.toNat)
-    (hob1 : E.oo ≤ ob) (hob2 : ob + l.out.toNat ≤ E.oo + E.O0.toNat)
+    (hob1 : E.oo ≤ ob) (hob2 : ob + l.out.toNat = E.oo + E.O0.toNat)
     (hput : l.put = .ref (.heap E.bo) (ob + (l.out - l.left).toNat)) (hlo : l.left ≤ l.out)
     {ai ao m' bits len was off : UInt32} {hold : UInt64} {msg : BPtr}
     (hai : ai ≤ l.have_) (hao : ao ≤ l.left)

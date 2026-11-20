@@ -32,7 +32,7 @@ theorem LI.outBytes {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
 
 /-- `put` in the output buffer with `left` bytes of room. -/
 theorem LI.outPos {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) :
-    ∃ p, l.put = .ref (.heap E.bo) p ∧ E.oo ≤ p ∧ p + l.left.toNat ≤ E.oo + E.O0.toNat := by
+    ∃ p, l.put = .ref (.heap E.bo) p ∧ E.oo ≤ p ∧ p + l.left.toNat = E.oo + E.O0.toNat := by
   obtain ⟨hle, ob, h1, h2, hput⟩ := li.outAt
   have hle' : l.left.toNat ≤ l.out.toNat := hle
   refine ⟨_, hput, by omega, ?_⟩

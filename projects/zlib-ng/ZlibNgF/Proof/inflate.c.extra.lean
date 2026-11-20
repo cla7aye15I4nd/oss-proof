@@ -152,6 +152,35 @@ theorem inflate_ok_progress {h : Heap} {i : Nat} {flush r : Int32} {h' : Heap} {
   · have : z'.avail_out.toNat < z.avail_out.toNat := h
     omega
 
+/-- **The codes of `inflate`** (any `flush`): `Z_OK`, `Z_STREAM_END`, `Z_NEED_DICT`, `Z_BUF_ERROR`, `Z_DATA_ERROR` or
+`Z_STREAM_ERROR` (`Z_MEM_ERROR` is never returned: no mode of this `inflate` sets `MEM`). -/
+theorem inflate_res : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO h (some i) →
+    h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
+    r = Z_OK ∨ r = Z_STREAM_END ∨ r = Z_NEED_DICT ∨ r = Z_BUF_ERROR ∨ r = Z_DATA_ERROR ∨ r = Z_STREAM_ERROR := by
+  intro h i flush r h' hv hio hc e
+  obtain ⟨r2, h2, e2, -, -, -, -, -, -, -, hres⟩ := InflateTop.inflate_full flush hv hio hc
+  rw [e] at e2
+  cases e2
+  exact hres
+
+/-- **The exact accounting of `inflate`** (any `flush`, every code but `Z_STREAM_ERROR`): `next_in` advanced by the
+`avail_in - avail_in'` bytes consumed (`InAt`; a `NULL` input stays `NULL` with no bytes), `next_out` advanced by the
+`avail_out - avail_out'` bytes written, the state kept. `Z_STREAM_ERROR` is excluded: the entry check rejects a
+`NULL` `next_in` with `avail_in != 0` (where `InAt` does not hold), and the modes `SYNC` / `MEM` return before
+`RESTORE()`. -/
+theorem inflate_io : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO h (some i) →
+    h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
+    r ≠ Z_STREAM_ERROR → ∀ z, h.streams i = some z →
+    ∃ z', h'.streams i = some z' ∧ z'.state = z.state ∧
+      InflateLoop.InAt z.next_in z.avail_in z'.next_in z'.avail_in ∧ z'.avail_out ≤ z.avail_out ∧
+      ∃ bo oo, z.next_out = .ref (.heap bo) oo ∧
+        z'.next_out = .ref (.heap bo) (oo + (z.avail_out - z'.avail_out).toNat) := by
+  intro h i flush r h' hv hio hc e hr
+  obtain ⟨r2, h2, e2, -, -, -, -, -, -, hio', -⟩ := InflateTop.inflate_full flush hv hio hc
+  rw [e] at e2
+  cases e2
+  exact hio' hr
+
 /-- `inflateInit2_`, whatever it returns: no deflate object changes, the static bytes stay, `nextBlk` does not
 shrink, the heap stays well formed and the object bound holds. On success the stream's state is the block numbered
 `h.nextBlk` (the first fresh block, so `nextBlk` grows), with the invariant. -/

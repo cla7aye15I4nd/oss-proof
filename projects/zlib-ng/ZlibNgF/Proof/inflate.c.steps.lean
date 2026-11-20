@@ -133,9 +133,9 @@ theorem LI.locals {E : Env} {l l' : IL} {H : Heap} {z : ZStream} {S : InflateSta
     by rw [h3, h4, h5]; exact li.outAt, by rw [h6]; exact li.bits, by rw [h7]; exact li.inn,
     by rw [h4]; exact li.outO, by rw [h8]; exact li.retB⟩
 
-/-- `LI` with `ret` set to a value other than `Z_BUF_ERROR`. -/
+/-- `LI` with `ret` set to `Z_OK`, `Z_STREAM_END` or `Z_DATA_ERROR`. -/
 theorem LI.setRet {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (v : Int32)
-    (hv : v ≠ Z_BUF_ERROR) : LI E { l with ret := v } H z S :=
+    (hv : RetOK v) : LI E { l with ret := v } H z S :=
   { li with retB := hv }
 
 /-- In a mode of rank above 2 (every mode before `CHECK`), `out` is the output count at entry. -/
@@ -186,10 +186,17 @@ theorem dispatch_eq (c : Ctx) : dispatch c = (do let m ← rdS c.st (·.mode); m
 
 /-- One trip of the loop from the statements of the modes. -/
 theorem trip_of_modes {E : Env} (hm : ∀ M, ModeRun E (modeFn M) (fun S => S.mode = M)) : TripOK E := by
-  intro l H z S li
+  intro l H z S lh
   rw [dispatch_eq]
-  refine SatX.bind (SatX.lift_eq (li.rdS (·.mode)) ?_)
-  exact hm S.mode l H z S li rfl _ (Nat.le_refl _)
+  rcases lh with li | ⟨hm0, v, li⟩
+  · refine SatX.bind (SatX.lift_eq (li.rdS (·.mode)) ?_)
+    exact hm S.mode l H z S li rfl _ (Nat.le_refl _)
+  · refine SatX.bind (SatX.lift_eq (li.rdS (·.mode)) ?_)
+    rw [hm0]
+    show SatX H l (inflate_BAD E.c) (Post E (μ l S))
+    unfold inflate_BAD
+    refine SatX.bind (SatX.modify ?_)
+    exact SatX.throw ⟨⟨z, S, li.setRet Z_DATA_ERROR (by decide)⟩, Or.inl (show Z_DATA_ERROR ≠ Z_OK by decide)⟩
 
 /-! ## `BAD`, `DONE`, `SYNC` / `MEM` -/
 
@@ -212,7 +219,7 @@ theorem run_default (E : Env) (M : UInt32) (hM : M = SYNC ∨ M = 16210) :
   have e : modeFn M E.c = throw (Ex.ret Z_STREAM_ERROR) := by
     rcases hM with rfl | rfl <;> rfl
   rw [e]
-  exact SatX.throw ⟨⟨li.inv, li.frame, _, _, li.hz, li.hb, li.hs, li.head⟩, by decide, by decide⟩
+  exact SatX.throw ⟨⟨li.inv, li.frame, _, _, li.hz, li.hb, li.hs, li.head⟩, Or.inr rfl⟩
 
 /-! ## The input buffer -/
 
