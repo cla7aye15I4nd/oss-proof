@@ -690,4 +690,96 @@ theorem copy_spec {w : World} {h : Heap} {cb base j : Nat} {a : Array UInt8} (ha
   have : (st.n - 1).toNat ≠ 0 := fun e => this (UInt32.toNat_inj.mp (by simpa using e))
   omega
 
+/-! ## Changes of the stream's buffer fields on a read handle -/
+
+theorem regHdr_strm {h : Heap} {i : Nat} {z z' : ZStream} (hz : h.streams i = some z) (hzs : z'.state = z.state)
+    {hp : HeaderPtr} (hr : RegisteredHeader { h with streams := upd h.streams i (some z') } (some i) hp) :
+    RegisteredHeader h (some i) hp := by
+  obtain ⟨sb, st, ⟨z1, ⟨i', e, hz1⟩, hsb⟩, hst1, hhd⟩ := hr
+  cases e
+  simp at hz1
+  subst hz1
+  exact ⟨sb, st, ⟨z, ⟨i, rfl, hz⟩, by rw [← hzs]; exact hsb⟩, hst1, hhd⟩
+
+/-- New `next_in`, `avail_in`, `next_out`, `avail_out` in the stream of a read handle keep its fields when the input
+stays inside the `in` buffer. -/
+theorem shape_strm {h : Heap} {b : Nat} {s : GzState} {z z' : ZStream} (sh : GzShape h s) (hr : s.mode = GZ_READ)
+    (hz : h.streams s.strm = some z)
+    (ez : z' = { z with next_in := z'.next_in, avail_in := z'.avail_in, next_out := z'.next_out, avail_out := z'.avail_out })
+    (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat) :
+    GzShape { h with streams := upd h.streams s.strm (some z') } s ∧
+      ownL { h with streams := upd h.streams s.strm (some z') } b s = ownL h b s := by
+  have hzs : z'.state = z.state := by rw [ez]
+  have hst : stBlk { h with streams := upd h.streams s.strm (some z') } s = stBlk h s := by simp [stBlk, hz, hzs]
+  refine ⟨?_, by simp only [ownL, hst]⟩
+  have R := sh.read hr
+  refine ⟨sh.mode, ownStr_keep sh.path fun _ _ => rfl, ⟨z', by simp⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos,
+    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have⟩,
+    fun e => absurd (hr.symm.trans e) read_ne_write, fun hz' c hc => sh.dead hz' c (by rw [hst] at hc; exact hc)⟩
+  · rcases sh.msg.msg with e | hm
+    · exact Or.inl e
+    · exact Or.inr (ownBlk_keep hm fun _ _ => rfl)
+  · obtain ⟨c, base, z0, hb, hi, hz0, hhv, -, hreg⟩ := R.bufs hsz
+    rw [hz] at hz0; cases hz0
+    obtain ⟨d, hd, hds⟩ := hb.fits
+    obtain ⟨i, z1, sb, st, al, e, hz1, hsb, hst1, hal, core⟩ := hi
+    cases e
+    rw [hz] at hz1; cases hz1
+    refine ⟨c, base, z', ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, ?_,
+      by simp, hhv, hin c base hb, fun hp hr' => hreg hp (regHdr_strm hz hzs hr')⟩
+    exact InflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst1, hal, core⟩
+      ⟨s.strm, z, z', sb, rfl, hz, by simp, hsb, ez, rfl, rfl, rfl, fun k g _ hg => ⟨g, hg⟩, rfl, Nat.le_refl _⟩
+
+theorem HLess.strm (h : Heap) (i : Nat) (z' : ZStream) : HLess h { h with streams := upd h.streams i (some z') } := by
+  refine ⟨fun _ _ e => e, fun j z0 e => ?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ _ e => e⟩
+  by_cases hj : j = i
+  · subst hj; exact ⟨z', by simp⟩
+  · exact ⟨z0, by simp [upd_ne _ _ _ _ hj, e]⟩
+
+/-- A read handle stays one when its stream gets new buffer fields with the input inside the `in` buffer. -/
+theorem invR_strm {w : World} {h : Heap} {b : Nat} {s : GzState} {z z' : ZStream} (hv : GzInvR w h (some b))
+    (hs : w.gz h b = some s) (hz : h.streams s.strm = some z)
+    (ez : z' = { z with next_in := z'.next_in, avail_in := z'.avail_in, next_out := z'.next_out, avail_out := z'.avail_out })
+    (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat) :
+    GzInvR w { h with streams := upd h.streams s.strm (some z') } (some b) := by
+  obtain ⟨sh, hn⟩ := inv_of hs hv.1
+  have hr := modeOf hs hv.2.1
+  obtain ⟨sh', eo⟩ := shape_strm (b := b) sh hr hz ez hin
+  have := (keeps_store hs (HLess.strm h s.strm z') (fun d e => e) sh' (by rw [eo]; exact hn) rfl rfl).1 hv
+  rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
+  exact this
+
+/-! ## `gz_avail` -/
+
+theorem rdZ_app {α : Type} {H : Heap} {i : Nat} {z : ZStream} (hz : H.streams i = some z) (f : ZStream → α) :
+    ZlibNg.Inflate.rdZ (some i) f H = .ok (f z, H) := by
+  simp [ZlibNg.Inflate.rdZ, C.ldStream, hz]
+
+theorem wrZ_app {H : Heap} {i : Nat} {z : ZStream} (hz : H.streams i = some z) (f : ZStream → ZStream) :
+    ZlibNg.Inflate.wrZ (some i) f H = .ok ((), { H with streams := upd H.streams i (some (f z)) }) := by
+  simp [ZlibNg.Inflate.wrZ, C.ldStream, C.stStream, hz]
+
+/-- A change of the stream of the file only is a step of a call on it. -/
+theorem gstep_strm {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) {z : ZStream} (z' : ZStream)
+    (hz : h.streams s.strm = some z) (hzs : z'.state = z.state) :
+    GStep w h w { h with streams := upd h.streams s.strm (some z') } b [] := by
+  have hs' : w.gz { h with streams := upd h.streams s.strm (some z') } b = some s := hs
+  refine gstep_mk hs hs' rfl (fun _ _ _ => rfl) (fun i hi => by simp [upd_ne _ _ _ _ hi]) rfl
+    (fun _ _ _ => ⟨rfl, rfl, rfl, rfl, rfl⟩) (fun _ _ e => e) rfl rfl rfl (Nat.le_refl _) (fun c hc _ => ?_)
+  simp only [GzOwned, hs', hs] at hc ⊢
+  simp only [upd_same, hz, hzs] at hc ⊢; exact hc
+
+/-- The part of `gz_avail` after the copy (copied from the translation). -/
+def availTail (state : GzPtr) (strm : StreamPtr) : G Int32 := do
+  let inb ← (← ldGz state).«in».get
+  let ai ← lm (ZlibNg.Inflate.rdZ strm (·.avail_in))
+  let (r, got) ← gz_load state (← lm (inb.add (Int.ofNat ai.toNat)))
+    ((← rdG state (·.size)) - (← lm (ZlibNg.Inflate.rdZ strm (·.avail_in)))) false
+  if r == -1 then
+    return -1
+  lm (ZlibNg.Inflate.wrZ strm fun z => { z with avail_in := z.avail_in + got })
+  let inb ← (← ldGz state).«in».get
+  lm (ZlibNg.Inflate.wrZ strm fun z => { z with next_in := inb })
+  return 0
+
 end ZlibNgF.Proof.GzMode
