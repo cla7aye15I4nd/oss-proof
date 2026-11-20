@@ -162,7 +162,8 @@ refused before upstream's own steps and so kept the pending skip of a refused `S
 `test/`) twice on the pinned submodule: from the flat `patches/*.patch` of an earlier commit `<rev>`, and from the
 current series (`apply-patches.sh --library-only`), and prints `diff -r` of the two. Against the last commit with flat
 patches, the expected difference is `patch-source-identity.expected`: three comments, from the series `0006`, `0008`
-and `0015` in the form proposed upstream; no statement differs.
+and `0015` in the form proposed upstream, and the `(z_size_t)` cast that `0003` drops in `deflateBound` (upstream
+review asked for it; the value is the same); no other statement differs.
 
 ## GoogleTest cases of the patches
 
