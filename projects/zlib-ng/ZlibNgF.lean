@@ -189,6 +189,8 @@ import ZlibNgF.Proof.«gzread.c.ungetc»
 import ZlibNgF.Proof.«gzread.c.readspec»
 import ZlibNgF.Proof.«gzread.c.getc»
 import ZlibNgF.Proof.«gzread.c.gets»
+import ZlibNgF.Proof.«gzread.c.idlespec»
+import ZlibNgF.Proof.«gzread.c.pushback»
 import ZlibNgF.Proof.«gzread.c.fetch»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
