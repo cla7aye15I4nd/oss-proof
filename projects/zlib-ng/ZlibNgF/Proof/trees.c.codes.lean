@@ -8,6 +8,11 @@ import ZlibNgF.Math.BitReverse
 modulo `2^16` (`gc1_SH`), and every code `n ≤ max_code` with `Len ≠ 0` gets `Code = bi_reverse(next_code[Len]++, Len)`,
 which is the canonical code `nextCode bl_count Len + #{m < n : Len m = Len}` reversed in `Len` bits (`gc2_SH`,
 `bi_reverse_eq`, with `zng_bitreverse16` reversing all 16 bits).
+
+`buildTreeSpec` glues `build_tree` together (`prefix_SH`, `merge_SH`, `gen_bitlen_SH`, `gen_codes_SH`) and proves
+`BuildTreeSpec`: the lengths are the model's `treeLengths`, the codes `tCode`, and the net increments of `opt_len` /
+`static_len` are `optAdd` / `statAdd` (the forcing loop's decrements cancel against the forced leaves' terms
+`1 * (1 + 0)` and `1 * (stree[n].Len + 0)`).
 -/
 
 set_option autoImplicit false
@@ -392,5 +397,564 @@ theorem gen_codes_SH (t : DescSel) (Y : DeflateState) (mc : Int32) (MC : Nat) (h
   exact Sat.bind (Sat.mono (gc2_SH t Y mc MC hmc hMC hsz _ nc hs hv hlen) fun _ H2 h2 => Sat.pure h2)
 
 end
+
+end ZlibNgF.Proof.TreesCodes
+
+/-! # `build_tree` -/
+
+namespace ZlibNgF.Proof.TreesCodes
+open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNg.Trees ZlibNgF.Proof.DeflateInit ZlibNgF.Proof.TreesPrims
+open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono sat_cwhile)
+open ZlibNgF.Math.BitReverse (rev rev_succ)
+open ZlibNgF.Proof.TreesBuildSpec (nextCode revBits xb tElems tMaxLen tSize)
+open ZlibNgF.Math.Huff (forced forceNode forceNext scanLeaves maxCode1 posOf)
+open ZlibNgF.Math.HuffSymbols (mass)
+open ZlibNgF.Math.TreesLabeled
+open ZlibNgF.Proof.TreesBitlen (glen LS sumF statT stp BC)
+open ZlibNgF.Proof.TreesBuildSpec (BuildPre BuildPost BuildTreeSpec optAdd statAdd tLen tCode treeCode blFinal)
+open ZlibNgF.Proof.TreesScan (frq pk tPut_self qPut_self)
+open ZlibNgF.Proof.TreesForce (sdl optSub statSub setOnes)
+open ZlibNgF.Proof.TreesBuild (buildTail prefix_SH tSize_ge elems_tSD)
+open ZlibNgF.Proof.TreesMerge (merge_SH tSize_eq)
+open ZlibNgF.Proof.TreesScan (chkI32_ok i32_ofInt)
+open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f)
+
+/-! ## Model facts for the glue -/
+
+theorem revBits_eq : ∀ l x, revBits l x = rev l x
+  | 0, _ => rfl
+  | l + 1, x => by simp only [revBits, rev_succ, revBits_eq l (x / 2)]
+
+theorem nextCode_congr (c c' : Nat → Nat) : ∀ l, (∀ j, j < l → c j = c' j) → nextCode c l = nextCode c' l
+  | 0, _ => rfl
+  | l + 1, h => by
+    simp only [nextCode, nextCode_congr c c' l (fun j hj => h j (by omega)), h l (by omega)]
+
+theorem forced_prefix (L : List (Nat × Nat)) (m : Nat) : (forced L m).1 = L ++ (forced L m).1.drop L.length := by
+  match L with
+  | [] => simp [forced]
+  | [_] => simp [forced]
+  | _ :: _ :: _ => simp [forced]
+
+theorem forced_ex (L : List (Nat × Nat)) (m : Nat) : ∀ e ∈ (forced L m).1.drop L.length, e.1 = 1 ∧ e.2 ≤ 2 := by
+  have h1 := ZlibNgF.Proof.TreesForce.forceNode_le m
+  have h2 := ZlibNgF.Proof.TreesForce.forceNode_le (forceNext m)
+  match L with
+  | [] => intro e he; simp [forced] at he; rcases he with rfl | rfl <;> simp <;> omega
+  | [_] => intro e he; simp [forced] at he; subst he; simp; omega
+  | _ :: _ :: _ => intro e he; simp [forced] at he
+
+theorem forced_ex_two (L : List (Nat × Nat)) (m : Nat) (h : (forced L m).1.drop L.length ≠ []) :
+    (forced L m).1.length = 2 := by
+  match L with
+  | [] => simp [forced]
+  | [_] => simp [forced]
+  | _ :: _ :: _ => simp [forced] at h
+
+theorem forced_lt (f : Nat → Nat) (n : Nat) :
+    ∀ e ∈ (forced (scanLeaves f n) (maxCode1 f n)).1, e.2 < (forced (scanLeaves f n) (maxCode1 f n)).2 := by
+  have hge := ZlibNgF.Math.Huff.maxCode1_ge f n
+  have fn : ∀ m, forceNode m < forceNext m := fun m => by unfold forceNode forceNext; split <;> omega
+  have fm : ∀ m, m ≤ forceNext m := fun m => by unfold forceNext; split <;> omega
+  generalize scanLeaves f n = L at hge
+  generalize maxCode1 f n = m at hge
+  match L with
+  | [] =>
+    intro e he; simp only [forced, List.mem_cons, List.not_mem_nil, or_false] at he ⊢
+    have := fn m; have := fn (forceNext m); have := fm (forceNext m)
+    rcases he with h | h <;> rw [h] <;> (try simp only) <;> omega
+  | [l] =>
+    intro e he; simp only [forced, List.mem_cons, List.not_mem_nil, or_false] at he ⊢
+    have := hge l (by simp); have := fm m; have := fn m
+    rcases he with h | h <;> rw [h] <;> (try simp only) <;> omega
+  | a :: c :: r =>
+    intro e he; simp only [forced] at he ⊢; have := hge e he; omega
+
+/-- The scanned leaves add up to the `mass` of their weights. -/
+theorem scan_mass (f w : Nat → Nat) : ∀ n,
+    ((scanLeaves f n).map (fun e => e.1 * w e.2)).sum = mass (fun k => f k * w k) n
+  | 0 => rfl
+  | n + 1 => by
+    simp only [scanLeaves, List.map_append, List.sum_append, mass, scan_mass f w n]
+    by_cases h : f n = 0 <;> simp [h]
+
+theorem posOf_idx : ∀ (l : List (Nat × Nat)), (l.map Prod.snd).Nodup → ∀ j, j < l.length → posOf (l[j]!).2 l = some j
+  | [], _, j, hj => by simp at hj
+  | x :: l, hnd, j, hj => by
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    cases j with
+    | zero => simp [posOf]
+    | succ j =>
+      simp only [List.length_cons] at hj
+      have hne : x.2 ≠ (l[j]!).2 := by
+        intro e
+        apply hnd.1
+        refine ⟨l[j]!, ?_, e.symm⟩
+        rw [getElem!_pos l j (by omega)]; exact List.getElem_mem (by omega)
+      simp only [posOf, List.getElem!_cons_succ, hne, ↓reduceIte, posOf_idx l hnd.2 j (by omega), Option.map_some]
+
+theorem posOf_none (v : Nat) : ∀ (l : List (Nat × Nat)), v ∉ l.map Prod.snd → posOf v l = none
+  | [], _ => rfl
+  | x :: l, h => by
+    simp only [List.map_cons, List.mem_cons, not_or] at h
+    simp only [posOf, Ne.symm h.1, ↓reduceIte, posOf_none v l h.2, Option.map_none]
+
+theorem xb_small (t : DescSel) (k : Nat) (hk : k ≤ 2) : xb t k = 0 := by
+  have : k = 0 ∨ k = 1 ∨ k = 2 := by omega
+  cases t <;> rcases this with rfl | rfl | rfl <;> decide
+
+theorem sum_ones' {α : Type} : ∀ l : List α, (l.map fun _ => 1).sum = l.length
+  | [] => rfl
+  | _ :: l => by simp only [List.map_cons, List.sum_cons, sum_ones' l, List.length_cons]; omega
+
+theorem u32_sum (l : List Nat) : (l.map Nat.toUInt32).sum = l.sum.toUInt32 := by
+  induction l with
+  | nil => rfl
+  | cons x l ih =>
+    simp only [List.map_cons, List.sum_cons, ih]
+    apply UInt32.toNat_inj.mp
+    simp only [UInt32.toNat_add, Nat.toUInt32_eq, UInt32.toNat_ofNat']
+    omega
+
+
+/-- Every leaf gets a length `≥ 1`; with two leaves, both get 1. -/
+theorem glen_facts (L : Nat) (hL : 1 ≤ L) (srt : List (Nat × Nat)) (T : NT) (E N : Nat) (hN : N = srt.length)
+    (hN2 : 2 ≤ N) (hlab : T.lab = E + N - 2) (hlnd : T.labs.Nodup) (hints : T.ints.Perm (List.range' E (N - 1)))
+    (hlvs : T.lvs.Perm (srt.map Prod.snd)) (hb : ∀ e ∈ srt, e.2 < E) (hNp : N ≤ 2 ^ L) :
+    (∀ j, j < N → 1 ≤ glen L srt T.erase j) ∧ (N = 2 → ∀ j, j < N → glen L srt T.erase j = 1) := by
+  have hlvnd : T.lvs.Nodup := (List.nodup_append.mp ((NT.labs_perm T).nodup_iff.mp hlnd)).2.1
+  -- every leaf has a parent `p ∈ [E, E + N - 2]`, one level up
+  have hpar : ∀ j, j < N → ∃ p, E ≤ p ∧ p ≤ E + N - 2 ∧ T.dep 0 (srt[j]!).2 = T.dep 0 p + 1 := by
+    intro j hj
+    have hm : srt[j]! ∈ srt := ZlibNgF.Proof.TreesBitlen.mem_of_idx' srt j (by omega)
+    have hv : (srt[j]!).2 ∈ T.lvs := hlvs.mem_iff.mpr (List.mem_map_of_mem hm)
+    have hvE := hb _ hm
+    obtain ⟨p, hp⟩ := NT.has_parent T _ (NT.lvs_sub T hv) (by rw [hlab]; omega)
+    have hpp := List.mem_range'_1.mp (hints.mem_iff.mp (NT.edge_par T hp))
+    exact ⟨p, by simp only at hpp; omega, by simp only at hpp; omega, NT.dep_edge T 0 hlnd _ hp⟩
+  have hdI : ∀ j, j < N → ZlibNgF.Math.Huff.depthIn T.erase (srt[j]!).2 = T.dep 0 (srt[j]!).2 := fun j hj =>
+    NT.depthIn_erase T hlnd _ (hlvs.mem_iff.mpr (List.mem_map_of_mem
+      (ZlibNgF.Proof.TreesBitlen.mem_of_idx' srt j (by omega))))
+  constructor
+  · intro j hj
+    unfold glen
+    split
+    · rw [hdI j hj]; obtain ⟨p, _, _, hd⟩ := hpar j hj; omega
+    · rename_i hov
+      have hnode : ∃ n a c, T = NT.node n a c := by
+        cases T with
+        | leaf s w => simp [NT.ints] at hints; omega
+        | node n a c => exact ⟨n, a, c, rfl⟩
+      obtain ⟨n0, a0, c0, hT⟩ := hnode
+      have hpos : ∀ x ∈ T.erase.leaves, 1 ≤ x.d := by rw [hT]; exact ZlibNgF.Math.TreesRank.leaves_pos _ _
+      have hR0 := ZlibNgF.Math.TreesRank.init_inv L hL srt T.erase (by rw [NT.erase_syms]; exact hlvnd)
+        (by rw [NT.erase_syms]; exact hlvs) hpos hov
+      have hev := ZlibNgF.Math.Huff.overflow_even L T.erase
+      rw [show (ZlibNgF.Math.Huff.overflowCount L T.erase + 1) / 2 = ZlibNgF.Math.Huff.overflowCount L T.erase / 2
+        by omega]
+      have hRF := ZlibNgF.Math.TreesRank.riter_inv L srt.length (by omega) _ _ hR0
+      have h4 := (ZlibNgF.Math.Huff.lenSearch_spec (ZlibNgF.Math.Huff.repairIter L
+        (ZlibNgF.Math.Huff.overflowCount L T.erase / 2) (ZlibNgF.Math.Huff.blCount L srt T.erase))
+        (srt.length - j) L 0).2.2.2
+      simp only [Nat.zero_add] at h4
+      have h5 := h4 (by rw [hRF.tot]; omega)
+      refine Nat.pos_of_ne_zero fun h0 => ?_
+      unfold ZlibNgF.Math.Huff.lenOfRank at h0
+      rw [h0] at h5
+      simp only [ZlibNgF.Math.Huff.cumC, hRF.z] at h5
+      omega
+  · intro h2 j hj
+    -- the root is the only internal node
+    have hint : T.ints = [E] := by
+      rw [h2] at hints
+      simpa using hints
+    have hlabE : T.lab = E := by omega
+    have hdep1 : ∀ j, j < N → T.dep 0 (srt[j]!).2 = 1 := by
+      intro j hj
+      obtain ⟨p, h1, h2', hd⟩ := hpar j hj
+      have : p = E := by omega
+      rw [hd, this, ← hlabE, NT.dep_lab]
+    have hov : ZlibNgF.Math.Huff.overflowCount L T.erase = 0 := by
+      unfold ZlibNgF.Math.Huff.overflowCount
+      rw [NT.ovf_erase L 0 T hlnd, hint, hlvs.countP_eq, List.countP_map]
+      have e1 : [E].countP (fun x => decide (L < T.dep 0 x)) = 0 := by
+        rw [← hlabE]; simp [NT.dep_lab]
+      have e2 : srt.countP ((fun x => decide (L < T.dep 0 x)) ∘ Prod.snd) = 0 := by
+        rw [List.countP_eq_zero]
+        intro e he
+        obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem he
+        have := hdep1 k (by omega)
+        rw [getElem!_pos srt k hk] at this
+        simp [this]; omega
+      rw [e1, e2]
+    unfold glen
+    rw [ite_eq_left hov, hdI j hj, hdep1 j hj]
+    omega
+
+
+theorem nd_eq_of_snd {l : List (Nat × Nat)} (h : (l.map Prod.snd).Nodup) {a c : Nat × Nat} (ha : a ∈ l) (hc : c ∈ l)
+    (e : a.2 = c.2) : a = c := by
+  induction l with
+  | nil => simp at ha
+  | cons x l ih =>
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at h
+    rcases List.mem_cons.mp ha with rfl | ha'
+    · rcases List.mem_cons.mp hc with rfl | hc'
+      · rfl
+      · exact absurd ⟨c, hc', e.symm⟩ h.1
+    · rcases List.mem_cons.mp hc with rfl | hc'
+      · exact absurd ⟨a, ha', e⟩ h.1
+      · exact ih h.2 ha' hc'
+
+theorem forced_snd_le (L : List (Nat × Nat)) (m E : Nat) (hm : m ≤ E) (hE : 3 ≤ E) : (forced L m).2 ≤ E := by
+  match L with
+  | [] => simp only [forced, forceNext]; split <;> (try split) <;> omega
+  | [_] => simp only [forced, forceNext]; split <;> omega
+  | _ :: _ :: _ => simp only [forced]; omega
+
+theorem statT_ne (t : DescSel) (ht : t ≠ .bl_desc) (e : Nat × Nat) :
+    statT t e = e.1 * ((sdl t e.2).toNat + xb t e.2) := by
+  cases t
+  · rfl
+  · rfl
+  · exact absurd rfl ht
+
+theorem statAdd_ne (t : DescSel) (ht : t ≠ .bl_desc) (F : Array Ct) :
+    statAdd t F = mass (fun k => frq F k * ((sdl t k).toNat + xb t k)) (tElems t) := by
+  cases t
+  · rfl
+  · rfl
+  · exact absurd rfl ht
+
+/-! ## The state of `buildTail` -/
+
+section
+variable (t : DescSel) (s : DeflateState) (A : Array Ct) (Lv Sc : Array UInt32) (mc : Int32) (o0 s0 : UInt32)
+
+/-- The state when `buildTail` starts. -/
+def XB : DeflateState :=
+  { t.set (tPut t { s with opt_len := o0, static_len := s0 } A) { t.get s with max_code := mc } with
+    pq_leaves := Lv, pq_scratch := Sc }
+
+theorem XB_tArr : tArr t (XB t s A Lv Sc mc o0 s0) = A := by cases t <;> rfl
+theorem XB_q (q : Bool) : qArr q (XB t s A Lv Sc mc o0 s0) = if q then Sc else Lv := by cases t <;> cases q <;> rfl
+theorem XB_get : t.get (XB t s A Lv Sc mc o0 s0) = { t.get s with max_code := mc } := by cases t <;> rfl
+theorem XB_bc : (XB t s A Lv Sc mc o0 s0).bl_count = s.bl_count := by cases t <;> rfl
+theorem XB_opt : (XB t s A Lv Sc mc o0 s0).opt_len = o0 := by cases t <;> rfl
+theorem XB_stat : (XB t s A Lv Sc mc o0 s0).static_len = s0 := by cases t <;> rfl
+theorem XB_pql : (XB t s A Lv Sc mc o0 s0).pq_leaves = Lv := by cases t <;> rfl
+theorem XB_pqs : (XB t s A Lv Sc mc o0 s0).pq_scratch = Sc := by cases t <;> rfl
+
+theorem final_shape (qS : Bool) (Iq : Array UInt32) (A' A3 A5 : Array Ct) (blc : Array UInt16) (o sl : UInt32) :
+    tPut t (LS t (tPut t (qPut (!qS) (XB t s A Lv Sc mc o0 s0) Iq) A') A3 blc o sl) A5 =
+      t.set { tPut t s A5 with
+        bl_count := blc
+        pq_leaves := (qPut (!qS) (XB t s A Lv Sc mc o0 s0) Iq).pq_leaves
+        pq_scratch := (qPut (!qS) (XB t s A Lv Sc mc o0 s0) Iq).pq_scratch
+        opt_len := o
+        static_len := sl } { t.get s with max_code := mc } := by
+  cases t <;> cases qS <;> cases s <;> rfl
+
+end
+
+section
+variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8}
+
+theorem buildTreeSpec_aux (t : DescSel) (s : DeflateState) (pre : BuildPre t b s) :
+    Sat (SH H i z b s d) (build_tree (some b) t) (fun _ H' => ∃ s', H' = SH H i z b s' d ∧ BuildPost t s s') := by
+  obtain ⟨hdyn, hstat, hF, hql, hqs, hblc, hmass⟩ := pre
+  obtain ⟨hEs, hE3, hE286⟩ := tSize_ge t
+  have hsz := tSize_eq t
+  obtain ⟨hL, hLm1, hLm15, hE2⟩ := ZlibNgF.Proof.TreesBitlen.maxlen_tSD t
+  refine prefix_SH t s hdyn hstat hF hql hqs _ ?_
+  intro A Lv Sc qS nl mc hAs hAfc hAdl hnl hmc hLs hSs hsorted
+  have hX : { t.set (tPut t { s with
+            opt_len := optSub s.opt_len ((forced (scanLeaves (frq (tArr t s)) (tElems t))
+              (maxCode1 (frq (tArr t s)) (tElems t))).1.drop (scanLeaves (frq (tArr t s)) (tElems t)).length)
+            static_len := statSub t s.static_len ((forced (scanLeaves (frq (tArr t s)) (tElems t))
+              (maxCode1 (frq (tArr t s)) (tElems t))).1.drop (scanLeaves (frq (tArr t s)) (tElems t)).length) } A)
+            { t.get s with max_code := mc } with pq_leaves := Lv, pq_scratch := Sc } =
+      XB t s A Lv Sc mc (optSub s.opt_len ((forced (scanLeaves (frq (tArr t s)) (tElems t))
+              (maxCode1 (frq (tArr t s)) (tElems t))).1.drop (scanLeaves (frq (tArr t s)) (tElems t)).length))
+        (statSub t s.static_len ((forced (scanLeaves (frq (tArr t s)) (tElems t))
+              (maxCode1 (frq (tArr t s)) (tElems t))).1.drop (scanLeaves (frq (tArr t s)) (tElems t)).length)) := rfl
+  rw [hX] at hsorted ⊢
+  -- the model
+  obtain ⟨hok, hfnd, hf2, hfE, hfcomp, hfsum⟩ := ZlibNgF.Math.Huff.forced_ok (elems := tElems t)
+    (freq := frq (tArr t s)) hE3
+  have hperm := ZlibNgF.Math.Huff.sortKeys_perm (forced (scanLeaves (frq (tArr t s)) (tElems t))
+    (maxCode1 (frq (tArr t s)) (tElems t))).1
+  have hpre := forced_prefix (scanLeaves (frq (tArr t s)) (tElems t)) (maxCode1 (frq (tArr t s)) (tElems t))
+  have hexf := forced_ex (scanLeaves (frq (tArr t s)) (tElems t)) (maxCode1 (frq (tArr t s)) (tElems t))
+  have hlt := forced_lt (frq (tArr t s)) (tElems t)
+  generalize hsc : scanLeaves (frq (tArr t s)) (tElems t) = sc at *
+  generalize hfo : forced sc (maxCode1 (frq (tArr t s)) (tElems t)) = fo at *
+  generalize hsrt : ZlibNgF.Math.Huff.sortKeys fo.1 = srt at *
+  generalize hex : fo.1.drop sc.length = ex at *
+  generalize hE : tElems t = E at *
+  generalize hFd : tArr t s = F at *
+  clear hX
+  generalize hXB : XB t s A Lv Sc mc (optSub s.opt_len ex) (statSub t s.static_len ex) = X at hsorted
+  have hXt : tArr t X = A := by rw [← hXB, XB_tArr]
+  have hXq : ∀ q, qArr q X = if q then Sc else Lv := fun q => by rw [← hXB, XB_q]
+  -- facts on the sorted leaves
+  have hN : srt.length = fo.1.length := hperm.length_eq
+  have hsnd : (srt.map Prod.snd).Nodup := (hperm.map Prod.snd).nodup_iff.mpr hfnd
+  have hmem : ∀ e, e ∈ srt ↔ e ∈ fo.1 := fun e => hperm.mem_iff
+  have hsum : (srt.map Prod.fst).sum < 65536 := by
+    rw [ZlibNgF.Math.Huff.perm_sum (hperm.map Prod.fst)]; omega
+  have hb : ∀ e ∈ srt, e.1 < 65536 ∧ e.2 < E := fun e he => by
+    have h1 : e.1 ≤ (srt.map Prod.fst).sum := ZlibNgF.Proof.TreesMerge.nat_le_sum (List.mem_map_of_mem he)
+    exact ⟨by omega, (hok e ((hmem e).mp he)).1⟩
+  unfold buildTail
+  refine Sat.bind (Sat.mono (merge_SH (H := H) (i := i) (z := z) (b := b) (d := d) t X qS srt nl (tSD t).get.elems
+    (by rw [elems_tSD, hE]) (by rw [hnl, hN]) (by omega) (by rw [hE]; omega) (by rw [hXt, hAs, hF])
+    (by rw [hXq]; split <;> assumption) (by rw [hXq]; cases qS <;> simp [hLs, hSs])
+    (fun p hp => hsorted p (by omega)) hsnd (by rw [hE]; exact fun e he => (hb e he).2) hsum) fun x H1 h1 => ?_)
+  obtain ⟨Iq, A', q, rfl, hnd, hIqs, hA's, hA'fc, hA'o, hmq, hqn, hqed⟩ := h1
+  rw [hE] at hnd hA'fc hA'o hmq hqn
+  obtain ⟨q', hq', hq'n, hlab, hlnd, hints, hlvs, hed, hml⟩ := ZlibNgF.Math.TreesLabeled.final_tree srt E hsnd
+    (fun e he => (hb e he).2) (by omega)
+  rw [hmq] at hq'
+  obtain rfl : q = q' := by simpa using hq'
+  clear hq' hq'n
+  obtain ⟨_, _, _, _, nd⟩ := x
+  dsimp only at hnd ⊢
+  have hN2 : 2 ≤ srt.length := by omega
+  rw [chkI32_ok (v := nd.toInt - 1) (by omega) (by omega), pure_bind_M]
+  -- `gen_bitlen`
+  have hX1g : ∀ t' : DescSel, t'.get (tPut t (qPut (!qS) X Iq) A') = t'.get X := fun t' => by
+    cases t <;> cases t' <;> cases qS <;> rfl
+  have hXg : t.get X = { t.get s with max_code := mc } := by rw [← hXB, XB_get]
+  have hfcA : ∀ e ∈ srt, ((tArr t (tPut t (qPut (!qS) X Iq) A'))[e.2]!).fc.toNat = e.1 := by
+    intro e he
+    have hE' := (hb e he).2
+    have hlok := hok e ((hmem e).mp he)
+    rw [tArr_tPut, hA'fc e.2 hE', hXt, hAfc e.2 (by omega)]
+    unfold setOnes
+    split
+    · rename_i hin
+      obtain ⟨e', he', hee⟩ := List.mem_map.mp hin
+      have := (hexf e' he').1
+      have he'f : e' ∈ fo.1 := by rw [hpre]; exact List.mem_append_right _ he'
+      have : e' = e := by
+        have h1 : e' ∈ fo.1 := he'f
+        have h2 : e ∈ fo.1 := (hmem e).mp he
+        exact nd_eq_of_snd hfnd h1 h2 hee
+      subst this
+      simp [(hexf e' he').1]
+    · rename_i hnin
+      rcases hlok.2.2 with ⟨h1, h2⟩ | ⟨h1, h2⟩
+      · rw [h1]; rfl
+      · exfalso; apply hnin
+        have hef : e ∈ fo.1 := (hmem e).mp he
+        rw [hpre] at hef
+        rcases List.mem_append.mp hef with h3 | h3
+        · rw [← hsc] at h3
+          have := (ZlibNgF.Math.Huff.scan_mem h3).2.2; exact absurd h2 this
+        · exact List.mem_map_of_mem h3
+  have hnonleaf : ∀ k, k < E → k ∉ srt.map Prod.snd → frq F k = 0 := by
+    intro k hk hn
+    refine Classical.byContradiction fun h0 => hn ?_
+    exact List.mem_map.mpr ⟨_, (hmem _).mpr (hfcomp k hk h0), rfl⟩
+  have hX1t : tArr t (tPut t (qPut (!qS) X Iq) A') = A' := tArr_tPut _ _ _
+  have hX1q : qArr qS (tPut t (qPut (!qS) X Iq) A') = qArr qS X := by
+    rw [ZlibNgF.Proof.TreesScan.qArr_tPut, ZlibNgF.Proof.TreesSort.qArr_qPut_not]
+  have hX1bc : (tPut t (qPut (!qS) X Iq) A').bl_count = s.bl_count := by
+    rw [ZlibNgF.Proof.TreesBitlen.bc_tPut, ← hXB]; cases qS <;> exact XB_bc ..
+  refine Sat.bind (Sat.mono (ZlibNgF.Proof.TreesBitlen.gen_bitlen_SH (H := H) (i := i) (z := z) (b := b) (d := d) t
+    (tPut t (qPut (!qS) X Iq) A') qS srt q.tree srt.length (E + srt.length - 2) nl (Int32.ofInt (nd.toInt - 1))
+    (by rw [hX1g, hXg]; exact hdyn) (by rw [hX1g, hXg]; exact hstat) rfl hN2 (by rw [hE]; omega) (by rw [hE])
+    (by rw [i32_ofInt _ (by omega) (by omega)]; omega) (by rw [hnl, hN]) (by rw [hX1t, hA's, hXt, hAs, hF])
+    (by rw [hX1bc, hblc]) (by rw [hX1q, hXq]; split <;> assumption)
+    (fun p hp => by rw [hX1q]; exact hsorted p (by omega)) (by rw [hE]; exact hb) hsnd hfcA
+    (by rw [hlab, hqn]) hlnd (by rw [hE]; exact hints) hlvs hed (fun e he => by rw [hX1t]; exact hqed e he))
+    fun _ H2 h2 => ?_)
+  obtain ⟨A3, blc, rfl, hBC, hA3s, hA3fc, hA3o, hA3l⟩ := h2
+  rw [hE] at hA3o
+  generalize hLmd : tMaxLen t = Lm at *
+  -- the built tree of the model
+  have hbuilt : ZlibNgF.Math.Huff.buildTree E (frq F) = ⟨srt, fo.2, q.tree.erase⟩ := by
+    unfold ZlibNgF.Math.Huff.buildTree
+    simp only [hsc, hfo, hsrt, hml]
+    rfl
+  have hgf := glen_facts Lm hLm1 srt q.tree E srt.length rfl hN2 (by rw [hlab, hqn]) hlnd hints hlvs
+    (fun e he => (hb e he).2) (by omega)
+  have hglen_le : ∀ j, j < srt.length → glen Lm srt q.tree.erase j ≤ Lm := by
+    intro j hj
+    unfold glen
+    split
+    · omega
+    · exact ZlibNgF.Math.TreesRank.lenOfRank_leL _ _ _
+  -- every leaf is some `srt[j]`
+  have hidx : ∀ k, k ∈ srt.map Prod.snd → ∃ j, j < srt.length ∧ (srt[j]!).2 = k := by
+    intro k hk
+    obtain ⟨e, he, rfl⟩ := List.mem_map.mp hk
+    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem he
+    exact ⟨j, hj, by rw [getElem!_pos srt j hj]⟩
+  -- the lengths of the model
+  have htLen : ∀ k, tLen t F k = ZlibNgF.Math.Huff.genBitlen Lm ⟨srt, fo.2, q.tree.erase⟩ k := by
+    intro k
+    unfold tLen ZlibNgF.Math.Huff.treeLengths
+    simp only [hE, hLmd, hbuilt]
+  have hlenLeaf : ∀ j, j < srt.length → tLen t F (srt[j]!).2 = glen Lm srt q.tree.erase j := by
+    intro j hj
+    rw [htLen]
+    unfold ZlibNgF.Math.Huff.genBitlen glen
+    rw [posOf_idx srt hsnd j hj]
+  have hlenNon : ∀ k, k ∉ srt.map Prod.snd → tLen t F k = 0 := by
+    intro k hk
+    rw [htLen]
+    unfold ZlibNgF.Math.Huff.genBitlen
+    rw [posOf_none k srt hk]
+  -- non-leaves keep the entry of the forced tree
+  have hA3non : ∀ k, k < E → k ∉ srt.map Prod.snd → A3[k]! = A[k]! := by
+    intro k hk hn
+    rw [hA3o k hk hn, hX1t, hA'o k hk hn, hXt]
+  have hAnon : ∀ k, k < E → k ∉ srt.map Prod.snd → (A[k]!).dl.toNat = 0 ∧ (A[k]!).fc = (F[k]!).fc := by
+    intro k hk hn
+    have h0 := hnonleaf k hk hn
+    have hfc0 : (F[k]!).fc = 0 := UInt16.toNat_inj.mp (by simpa [frq] using h0)
+    refine ⟨by rw [hAdl k (by omega)]; simp [hk, hfc0], ?_⟩
+    rw [hAfc k (by omega)]
+    unfold setOnes
+    split
+    · rename_i hin
+      exfalso; apply hn
+      obtain ⟨e', he', hee⟩ := List.mem_map.mp hin
+      have : e' ∈ fo.1 := by rw [hpre]; exact List.mem_append_right _ he'
+      exact List.mem_map.mpr ⟨e', (hmem e').mpr this, hee⟩
+    · rfl
+  -- `gen_codes`
+  have hMC : fo.2 ≤ E := by
+    rw [← hfo]; exact forced_snd_le _ _ _ (ZlibNgF.Math.Huff.maxCode1_le _ _) hE3
+  refine Sat.bind (Sat.of_eq (show blCountP (some b) _ = _ from rfl) ?_)
+  have hA3sz : A3.size = 2 * E + 1 := by rw [hA3s, hX1t, hA's, hXt, hAs, hF, hsz]
+  refine Sat.mono (gen_codes_SH t _ mc fo.2 hmc (by rw [ZlibNgF.Proof.TreesBitlen.tArr_LS]; omega)
+    (by rw [ZlibNgF.Proof.TreesBitlen.tArr_LS]; omega) (by simp; exact hBC.1)
+    (fun m hm => ?_)) fun _ H3 h3 => ?_
+  · simp only [ZlibNgF.Proof.TreesBitlen.tArr_LS, lenOf]
+    by_cases hm' : m ∈ srt.map Prod.snd
+    · obtain ⟨j, hj, rfl⟩ := hidx m hm'
+      rw [hA3l j hj]; have := hglen_le j hj; omega
+    · rw [hA3non m (by omega) hm', (hAnon m (by omega) hm').1]; omega
+  obtain ⟨A5, rfl, hA5s, hA5dl, hA5fc, hA5code⟩ := h3
+  simp only [ZlibNgF.Proof.TreesBitlen.tArr_LS, ZlibNgF.Proof.TreesBitlen.LS_bc] at hA5s hA5dl hA5fc hA5code
+  -- the lengths
+  have hA3leaf : ∀ e ∈ srt, (A3[e.2]!).dl.toNat = tLen t F e.2 := by
+    intro e he
+    obtain ⟨j, hj, hje⟩ := hidx e.2 (List.mem_map_of_mem he)
+    rw [← hje, hA3l j hj, hlenLeaf j hj]
+  have hA3all : ∀ k, k < E → lenOf A3 k = tLen t F k := by
+    intro k hk
+    by_cases hk' : k ∈ srt.map Prod.snd
+    · obtain ⟨e, he, rfl⟩ := List.mem_map.mp hk'
+      exact hA3leaf e he
+    · unfold lenOf; rw [hA3non k hk hk', (hAnon k hk hk').1, hlenNon k hk']
+  -- `opt_len`
+  have hex1 : ∀ e ∈ ex, e.1 * (tLen t F e.2 + xb t e.2) = 1 := by
+    intro e he
+    obtain ⟨h1, h2⟩ := hexf e he
+    have hne : ex ≠ [] := List.ne_nil_of_mem he
+    have h2' := forced_ex_two sc (maxCode1 (frq F) E) (by rw [hfo, hex]; exact hne)
+    rw [hfo] at h2'
+    have hef : e ∈ srt := (hmem e).mpr (by rw [hpre]; exact List.mem_append_right _ he)
+    obtain ⟨j, hj, hje⟩ := hidx e.2 (List.mem_map_of_mem hef)
+    rw [h1, ← hje, hlenLeaf j hj, hgf.2 (by omega) j hj, hje, xb_small t e.2 h2]
+  have hsumF : sumF t srt A3 = ZlibNgF.Proof.TreesBuildSpec.optAdd t F + ex.length := by
+    unfold sumF ZlibNgF.Proof.TreesBuildSpec.optAdd
+    rw [List.map_congr_left (fun e he => by rw [hA3leaf e he]),
+      ZlibNgF.Math.Huff.perm_sum (hperm.map _), hpre, List.map_append, List.sum_append, ← hsc,
+      scan_mass (frq F) (fun k => tLen t F k + xb t k) E, hE,
+      List.map_congr_left hex1, sum_ones']
+  have hX1o : (tPut t (qPut (!qS) X Iq) A').opt_len = optSub s.opt_len ex := by
+    rw [ZlibNgF.Proof.TreesBitlen.opt_tPut, ← hXB]; cases qS <;> exact XB_opt ..
+  have hX1s : (tPut t (qPut (!qS) X Iq) A').static_len = statSub t s.static_len ex := by
+    rw [ZlibNgF.Proof.TreesBitlen.stat_tPut, ← hXB]; cases qS <;> exact XB_stat ..
+  have hopt : (tPut t (qPut (!qS) X Iq) A').opt_len + (sumF t srt A3).toUInt32 =
+      s.opt_len + (ZlibNgF.Proof.TreesBuildSpec.optAdd t F).toUInt32 := by
+    rw [hX1o, hsumF]
+    unfold optSub
+    apply UInt32.toNat_inj.mp
+    simp only [UInt32.toNat_add, UInt32.toNat_sub, Nat.toUInt32_eq, UInt32.toNat_ofNat']
+    omega
+  have hstatv : (tPut t (qPut (!qS) X Iq) A').static_len + ((srt.map (statT t)).sum).toUInt32 =
+      s.static_len + (statAdd t F).toUInt32 := by
+    rw [hX1s, ZlibNgF.Math.Huff.perm_sum (hperm.map _), hpre, List.map_append, List.sum_append]
+    unfold statSub
+    by_cases ht : t = .bl_desc
+    · subst ht
+      have h0 : ∀ l : List (Nat × Nat), (l.map (statT .bl_desc)).sum = 0 := by
+        intro l; induction l with
+        | nil => rfl
+        | cons x l ih => simp only [List.map_cons, List.sum_cons, ih]; rfl
+      have h1 : ∀ l : List (Nat × Nat), (l.map (fun e => sdl .bl_desc e.2)).sum = 0 := by
+        intro l; induction l with
+        | nil => rfl
+        | cons x l ih => simp only [List.map_cons, List.sum_cons, ih]; rfl
+      rw [h0, h0, h1, show statAdd DescSel.bl_desc F = 0 from rfl, UInt32.sub_zero]
+    · rw [List.map_congr_left (fun e _ => statT_ne t ht e), List.map_congr_left (fun e _ => statT_ne t ht e),
+        ← hsc, scan_mass (frq F) (fun k => (sdl t k).toNat + xb t k) E, statAdd_ne t ht, hE]
+      have hexs : (ex.map (fun e => e.1 * ((sdl t e.2).toNat + xb t e.2))).sum =
+          (ex.map (fun e => (sdl t e.2).toNat)).sum := by
+        congr 1
+        exact List.map_congr_left (fun e he => by
+          rw [(hexf e he).1, xb_small t e.2 (hexf e he).2]; simp)
+      have hu : (ex.map (fun e => sdl t e.2)).sum = ((ex.map (fun e => (sdl t e.2).toNat)).sum).toUInt32 := by
+        rw [← u32_sum, List.map_map]
+        congr 1
+        exact List.map_congr_left (fun e _ => by apply UInt32.toNat_inj.mp; simp)
+      rw [hexs, hu]
+      apply UInt32.toNat_inj.mp
+      simp only [UInt32.toNat_add, UInt32.toNat_sub, Nat.toUInt32_eq, UInt32.toNat_ofNat']
+      omega
+  rw [hopt, hstatv, ← hXB, final_shape]
+  subst hFd
+  refine ⟨_, rfl, ⟨A5, blc, _, _, mc, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+  · rw [hA5s, hA3sz, ← hsz, ← hF]
+  · rw [hBC.1, hblc]
+  · cases qS
+    · show (XB t s A Lv Sc mc (optSub s.opt_len ex) (statSub t s.static_len ex)).pq_leaves.size = _
+      rw [XB_pql, hLs, hql]
+    · show Iq.size = _; rw [hIqs, hql]
+  · cases qS
+    · show Iq.size = _; rw [hIqs, hqs]
+    · show (XB t s A Lv Sc mc (optSub s.opt_len ex) (statSub t s.static_len ex)).pq_scratch.size = _
+      rw [XB_pqs, hSs, hqs]
+  · rw [hE, hbuilt]; exact hmc
+  · intro k hk
+    rw [hE] at hk
+    rw [hA5dl k]; exact hA3all k hk
+  · intro k hk
+    rw [hE] at hk
+    by_cases hk' : k ∈ srt.map Prod.snd
+    · obtain ⟨j, hj, hjk⟩ := hidx k hk'
+      have hl0 : tLen t (tArr t s) k ≠ 0 := by
+        rw [← hjk, hlenLeaf j hj]; have := hgf.1 j hj; omega
+      simp only [hl0, ↓reduceIte]
+      have hkMC : k < fo.2 := by
+        obtain ⟨e, he, rfl⟩ := List.mem_map.mp hk'
+        exact hlt e ((hmem e).mp he)
+      have hl15 : tLen t (tArr t s) k ≤ 15 := by
+        rw [← hjk, hlenLeaf j hj]; have := hglen_le j hj; omega
+      rw [hA5code k hkMC (by rw [hA3all k hk]; exact hl0)]
+      unfold tCode treeCode
+      rw [revBits_eq, hA3all k hk]
+      congr 2
+      · refine nextCode_congr _ _ _ (fun j' hj' => ?_)
+        rw [hBC.2 j' (by omega), hE, hbuilt, hLmd]
+        rfl
+      · unfold cntBelow
+        refine List.countP_congr (fun m hm => ?_)
+        have hm' : m < k := List.mem_range.mp hm
+        rw [hA3all m (by omega)]
+    · have hl0 : tLen t (tArr t s) k = 0 := hlenNon k hk'
+      simp only [hl0, ↓reduceIte]
+      rw [hA5fc k (Or.inr (by rw [hA3all k hk]; exact hl0)), hA3non k hk hk', (hAnon k hk hk').2]
+
+end
+
+/-- **`build_tree` meets its specification** (`BuildTreeSpec` of `Proof/trees.c.buildspec.lean`) on each descriptor. -/
+theorem buildTreeSpec : BuildTreeSpec := fun t _ _ _ _ s _ pre => buildTreeSpec_aux t s pre
 
 end ZlibNgF.Proof.TreesCodes
