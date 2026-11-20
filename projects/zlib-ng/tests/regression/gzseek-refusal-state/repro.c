@@ -1,10 +1,10 @@
-/* Patch 0002 refuses every gzseek64 whose arithmetic would overflow, and on every other call runs upstream's
- * statements: the results and the state afterwards are upstream's. Documented calls only. The first version of
- * patch 0002 (first-0002.patch here) computed the target position up front and returned -1 before upstream's own
- * steps, so on well-defined calls it changed the state afterwards: a refused SEEK_CUR kept the pending skip that
- * upstream drops, and a SEEK_SET to a negative offset at a negative position (after gzungetc at the start) was
- * refused where upstream skips. Each run prints the results of its calls; without patch 0002 and with every patch
- * they must be the same line, and with first-0002.patch they differ.
+/* Patch 0002 follows zlib (madler/zlib 6995c67b and 6ed77c48): a seek that gzseek refuses returns -1 and leaves the
+ * stream position unchanged (zlib.h: "If gzseek returns -1, the stream position is unchanged."). Without the patch a
+ * SEEK_CUR refused because its target lies before the start drops the pending skip (on a reader and on a writer: gztell
+ * and the next read or write then differ), and after gzungetc at position 0 a SEEK_SET to a negative offset is not
+ * refused: it consumes pushed-back bytes and returns a negative position. This is a change of behaviour, not a defect:
+ * the case checks that each run prints the line of the documented behaviour with the patch and upstream's line
+ * without it. Documented calls only.
  *   read:  a gzip file of 1000 bytes 'a' + i % 26; gzseek(100, SEEK_SET), gzseek(-200, SEEK_CUR) (before the
  *          start: -1), gztell, gzgetc.
  *   write: a gzip writer on a file; gzseek(10, SEEK_SET), gzseek(-20, SEEK_CUR) (-1), gztell, gzputc, gzclose,

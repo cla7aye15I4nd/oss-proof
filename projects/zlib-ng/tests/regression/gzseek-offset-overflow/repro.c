@@ -1,6 +1,6 @@
 /* Patch 0002. gzseek64 normalizes and applies the offset in signed 64-bit arithmetic without bounds. Each run
  * reaches one overflow (ISO C17 §6.5p5) through documented calls; with the patch the seek is refused (-1) without a
- * report, or (lseek) takes the rewind path:
+ * report:
  *   cur:   a writer, gzseek(INT64_MAX, SEEK_SET), gzseek(1, SEEK_CUR): offset += skip overflows. The file is not
  *          closed: gzclose would write the INT64_MAX zero bytes the first seek requested.
  *   set:   a reader of a file that is not gzip, gzungetc at position 0 (x.pos -1), gzseek(INT64_MAX, SEEK_SET):
@@ -10,7 +10,8 @@
  *   lseek: a transparent reader of /dev/zero with output buffered at a position near INT64_MAX, gzseek(0, SEEK_SET):
  *          the lseek offset offset - x.have overflows, on upstream and with the first version of patch 0013. The
  *          current patch 0013 keeps x.pos + x.have <= GZ_OFF_MAX, which rules this out, so run.sh does not run it;
- *          it is kept to show the overflow on such a build. With patch 0002 the seek rewinds instead.
+ *          it is kept to show the overflow on such a build. Patch 0002 computes the lseek offset as
+ *          pos - x.pos - x.have, which fits while x.pos + x.have <= GZ_OFF_MAX (patch 0013).
  * The last two need Linux /dev/zero, whose lseek returns 0 without moving and whose reads never end; on a system
  * whose /dev/zero lseek does not behave so, the repro answers lseek on its descriptor as Linux does. */
 #include <stdio.h>
