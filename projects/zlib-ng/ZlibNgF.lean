@@ -192,6 +192,7 @@ import ZlibNgF.Proof.«gzread.c.gets»
 import ZlibNgF.Proof.«gzread.c.idlespec»
 import ZlibNgF.Proof.«gzread.c.pushback»
 import ZlibNgF.Proof.«gzread.c.fetch»
+import ZlibNgF.Proof.«gzread.c.skip»
 import ZlibNgF.Proof.«gzread.c.wrap»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
