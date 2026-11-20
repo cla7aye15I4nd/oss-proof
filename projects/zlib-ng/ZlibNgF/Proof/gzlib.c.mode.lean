@@ -222,6 +222,56 @@ def KeepsR (S : World → Heap → World → Heap → GzPtr → Prop) : Prop :=
 def KeepsW (S : World → Heap → World → Heap → GzPtr → Prop) : Prop :=
   ∀ w h w' h' f, GzInvWS w h f → S w h w' h' f → GzInvWS w' h' f
 
+/-- **Between calls, a handle that may still turn out transparent holds fewer than two bytes of input.** While `how` is
+`LOOK` and transparent reading is allowed (`direct ≠ 0`), the input buffer has fewer than two bytes: `gz_look` either
+leaves `LOOK` (it switches to `COPY` or `GZIP`), or reads no input past the test `avail_in < 2`. So the next
+`gz_look` calls `gz_avail` (which fails on a pending error) before it can copy input to the output. Not a clause of
+`GzRead`: inside `gz_look` it fails between `gz_avail` and the switch. -/
+def LookIdle (w : World) (h : Heap) (f : GzPtr) : Prop :=
+  ∀ b s z, f = some b → w.gz h b = some s → h.streams s.strm = some z →
+    s.how = LOOK → s.direct ≠ 0 → z.avail_in.toNat < 2
+
+/-- `S` keeps the invariant of read handles together with `LookIdle`. -/
+def KeepsRI (S : World → Heap → World → Heap → GzPtr → Prop) : Prop :=
+  ∀ w h w' h' f, GzInvR w h f → LookIdle w h f → S w h w' h' f → GzInvR w' h' f ∧ LookIdle w' h' f
+
+theorem idle_mk {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (H : ∀ z, h.streams s.strm = some z → s.how = LOOK → s.direct ≠ 0 → z.avail_in.toNat < 2) :
+    LookIdle w h (some b) := by
+  intro b' s' z e hs' hz
+  cases e; rw [hs] at hs'; cases hs'; exact H z hz
+
+theorem idle_get {w : World} {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (hi : LookIdle w h (some b))
+    (hs : w.gz h b = some s) (hz : h.streams s.strm = some z) : s.how = LOOK → s.direct ≠ 0 → z.avail_in.toNat < 2 :=
+  hi b s z rfl hs hz
+
+/-- `LookIdle` carries over to a state with the same `how`, `direct` and stream, and the same stream record. -/
+theorem idle_same {w W : World} {h H : Heap} {b : Nat} {s s' : GzState} (hi : LookIdle w h (some b))
+    (hs : w.gz h b = some s) (hs' : W.gz H b = some s') (e1 : s'.how = s.how) (e2 : s'.direct = s.direct)
+    (e3 : s'.strm = s.strm) (e4 : H.streams s.strm = h.streams s.strm) : LookIdle W H (some b) := by
+  refine idle_mk hs' fun z hz h1 h2 => ?_
+  rw [e3, e4] at hz; rw [e1] at h1; rw [e2] at h2
+  exact idle_get hi hs hz h1 h2
+
+/-- `LookIdle` of a state whose stream has no input. -/
+theorem idle_zero {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s)
+    (H : ∀ z, h.streams s.strm = some z → z.avail_in = 0) : LookIdle w h (some b) :=
+  idle_mk hs fun z hz _ _ => by rw [H z hz]; decide
+
+/-- `LookIdle` of a read handle that is not looking at transparent-capable input, or has no buffers. -/
+theorem idle_of {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b)) (hs : w.gz h b = some s)
+    (hc : s.how ≠ LOOK ∨ s.direct = 0 ∨ s.size = 0) : LookIdle w h (some b) := by
+  refine idle_mk hs fun z hz h1 h2 => ?_
+  rcases hc with hc | hc | hc
+  · exact absurd h1 hc
+  · exact absurd hc h2
+  · obtain ⟨⟨b', s', e, hs', sh, -⟩, hm, -⟩ := hv
+    cases e; rw [hs] at hs'; cases hs'
+    have hr : s.mode = GZ_READ := by
+      obtain ⟨b2, s2, e2, hs2, hm2⟩ := hm; cases e2; rw [hs] at hs2; cases hs2; exact hm2
+    obtain ⟨z', hz', -, -, h0⟩ := (sh.read hr).fresh hc
+    rw [hz] at hz'; cases hz'; rw [h0]; decide
+
 /-- **What the write side owes**: on a write handle, the write-side calls keep `GzInvWS` (the caller's steps keep it:
 `caller_keepsW`). -/
 structure GWriteSteps : Prop where
