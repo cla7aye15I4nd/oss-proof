@@ -162,6 +162,7 @@ import ZlibNgF.Proof.«public-gzopen»
 import ZlibNgF.Proof.«public-gzopen-nonvacuous»
 import ZlibNgF.Proof.«gzlib.c.mode»
 import ZlibNgF.Proof.«gzlib.c.seek»
+import ZlibNgF.Proof.«gzlib.c.seek64»
 import ZlibNgF.Proof.«gzlib.c.error»
 import ZlibNgF.Proof.«gzread.c.close»
 import ZlibNgF.Proof.«gzread.c.facts»
