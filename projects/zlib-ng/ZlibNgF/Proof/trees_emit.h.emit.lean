@@ -86,6 +86,7 @@ theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room gr
   have hpo' : st'.pending_out = st.pending_out := congrArg DView.pending_out hv
   have hsn : st'.sym_next = st.sym_next := congrArg DView.sym_next hv
   have hsz := w.1
+  have e00 : (0 : Int32).toInt.toNat / 8 = 0 := rfl
   refine ⟨_, e, ⟨i, z, b, st', al, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _,
     by simp [Heap.dallocsOf, SH, hda], Int32.le_iff_toInt_le.mpr (by simpa using v0'),
     Int32.lt_iff_toInt_lt.mpr (by simpa using v64'), ?_,
@@ -112,7 +113,7 @@ theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room gr
       trees := c.trees
       sizes := c.sizes
       lay := ⟨d', wo, po, ho, pbo, by simp [SH], hw, hp, hh, hpb, h1, h2, h3, by rw [hsz]; exact h4, hsb, poo, hpo,
-        hpoo, by simp only [dview]; omega⟩
+        hpoo, by simp only [dview]; rw [e00]; omega⟩
       pout := fun hz0 => by
         simp only [dview] at hz0 ⊢
         have : st'.pending.toNat = 0 := by rw [hz0]; rfl
@@ -141,7 +142,7 @@ theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room gr
         obtain ⟨pbo3, poo3, hp3, ho3, hq⟩ := hr2 hn
         obtain rfl := pend_inj hpb hp3
         obtain rfl := pend_inj hpo ho3
-        exact ⟨pbo, poo, hpb, hpo, by omega⟩
+        exact ⟨pbo, poo, hpb, hpo, by rw [e00]; omega⟩
       hdr := c.hdr
       bstart := c.bstart
       ins := c.ins
