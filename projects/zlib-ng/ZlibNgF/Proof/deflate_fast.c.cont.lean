@@ -84,7 +84,7 @@ chains kept; when it does not return, `SLC` with the same `lookahead` / `strstar
 theorem flush0_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (W : SLW h i b la ss H)
     (hH : Held b la ss H) (Ck : CK b H)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2) :
+    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2) (hz : NZ b H) :
     Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) 0) (fun r H2 => avIn H2 i = avIn H i ∧ CK b H2 ∧
       (r = none → SLC h i b H2 ∧ Held b la ss H2) ∧
       (r ≠ none → r = some .need_more ∧ ∀ flush, StratPost h (some i) flush .need_more H2)) := by
@@ -96,7 +96,7 @@ theorem flush0_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} 
       st1.window = .val (.ref (.heap b) wo) := fun st1 h1 => by
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
     exact ⟨hp0, slf_win F0 hw0 _ (SH_dstate _ _ _ _ _ _)⟩
-  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T 0 (by decide) (by decide) F0 hp)
+  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T 0 (by decide) (by decide) F0 hp fun _ => hz)
     (ZlibNgF.Proof.StrategyChain.slf_flush_chain T 0 (by decide) (by decide) F0 hp)) ?_
   rintro r H2 ⟨⟨hav, F2, hs2, hn2, hsm, hcf⟩, hck⟩
   refine ⟨hav, fun st2 d2 h2 hd2 => hck st d st2 d2 (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _) h2 hd2
@@ -118,9 +118,10 @@ theorem flush0_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} 
 def CI (h : Heap) (i b : Nat) (flush : Int32) (cd : UInt32) (K : Nat) (v : Ctl × Bool) (H : Heap) : Prop :=
   match v.1 with
   | .cont => ∃ la ss, SLW h i b la ss H ∧ Held b la ss H ∧ (v.2 = false → SLI h i b la ss H) ∧
-      (v.2 = true → SymLe b H) ∧ 262 ≤ la.toNat ∧ cd.toNat ≤ ss.toNat ∧ CK b H ∧ avIn H i + la.toNat + 1 ≤ K
+      (v.2 = true → SymLe b H) ∧ 262 ≤ la.toNat ∧ cd.toNat ≤ ss.toNat ∧ CK b H ∧ avIn H i + la.toNat + 1 ≤ K ∧
+      (v.2 = true → NZ b H)
   | .brk => ∃ la ss, SLW h i b la ss H ∧ Held b la ss H ∧ (v.2 = false → SLI h i b la ss H) ∧ CK b H ∧
-      avIn H i + la.toNat + 1 ≤ K
+      avIn H i + la.toNat + 1 ≤ K ∧ (v.2 = true → NZ b H)
   | .ret r => StratPost h (some i) flush r H ∧ CK b H
 
 /-- The measure of the continuation loop. -/
@@ -137,7 +138,8 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
     (hl : ∀ st0, h.dstate b = some st0 → st0.level = 2 ∧ HASHLESS st0.level st0.strategy = false)
     (hmi : 2 ≤ mi.toNat) (hd1 : 1 ≤ cd.toNat) (hd2 : cd.toNat ≤ 32768)
     (W : SLW h i b la ss H) (hH : Held b la ss H) (I : bf = false → SLI h i b la ss H) (hle : bf = true → SymLe b H)
-    (hla : 262 ≤ la.toNat) (hcd : cd.toNat ≤ ss.toNat) (Ck : CK b H) (hK : avIn H i + la.toNat + 1 ≤ K) :
+    (hla : 262 ≤ la.toNat) (hcd : cd.toNat ≤ ss.toNat) (Ck : CK b H) (hK : avIn H i + la.toNat + 1 ≤ K)
+    (hz : bf = true → NZ b H) :
     Sat H (deflate_fast_cont_trip (some b) (.ref (.heap b) wo) mi cd bf) (fun v H2 =>
       CI h i b flush cd K v H2 ∧ CM b v H2 < la.toNat + 1) := by
   obtain ⟨H0, z, st, d, rfl, F0, hp0⟩ := W
@@ -156,7 +158,7 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
   rintro cl _ ⟨rfl, hcl⟩
   by_cases h8 : cl < 8
   · simp only [h8, ↓reduceIte]
-    exact Sat.pure ⟨⟨st.lookahead, st.strstart, W, held_SH, I, Ck, hK⟩, by simp [CM]⟩
+    exact Sat.pure ⟨⟨st.lookahead, st.strstart, W, held_SH, I, Ck, hK, hz⟩, by simp [CM]⟩
   simp only [h8, ↓reduceIte]
   have h8' : 8 ≤ cl.toNat := by
     have := UInt32.le_iff_toNat_le.mp (UInt32.not_lt.mp h8); simpa using this
@@ -184,7 +186,7 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
   -- after the tally: the chains, `Held`, the measure
   have post : ∀ (bfl : Bool) (H3 : Heap), SLW h i b (st.lookahead - cl) (st.strstart + cl) H3 →
       (bfl = false → SLI h i b (st.lookahead - cl) (st.strstart + cl) H3) →
-      avIn H3 i = avIn (SH H0 i z b st2 d1) i →
+      avIn H3 i = avIn (SH H0 i z b st2 d1) i → NZ b H3 →
       (∃ st3 d3 lo hi, H3 = SH H0 i z b st3 d3 ∧ TK st2 st3 ∧ ZlibNgF.Proof.DeflateBits.WrIn d1 lo hi d3 ∧
         ∀ ho, st2.head = .val (.ref (.heap b) ho) → ho + 131072 ≤ lo) →
       Sat H3 (if bfl = true then do
@@ -193,7 +195,7 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
             | some r => pure (Ctl.ret r, bfl)
             | none => jpC () bf1
         else jpC () bfl) (fun v H2 => CI h i b flush cd K v H2 ∧ CM b v H2 < st.lookahead.toNat + 1) := by
-    intro bfl H3 W3 I3 hav3 ⟨st3, d3, lo, hi, e3, K3, Wr3, hlo⟩
+    intro bfl H3 W3 I3 hav3 hz3 ⟨st3, d3, lo, hi, e3, K3, Wr3, hlo⟩
     subst e3
     have G3 := cg_tally W2 G2 K3 Wr3 hlo
     have hH3 : Held b (st.lookahead - cl) (st.strstart + cl) (SH H0 i z b st3 d3) := fun st4 h4 => by
@@ -220,12 +222,13 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
         rw [hav4, hla2]; omega
       by_cases hl2 : st.lookahead - cl < MIN_LOOKAHEAD
       · simp only [hl2, ↓reduceIte]
-        exact Sat.pure ⟨⟨_, _, sli_slw hIa, hH4, fun _ => hIa, Ck4, hav5⟩, by simp [CM]⟩
+        exact Sat.pure ⟨⟨_, _, sli_slw hIa, hH4, fun _ => hIa, Ck4, hav5, fun e => by simp at e⟩, by simp [CM]⟩
       · simp only [hl2, ↓reduceIte]
         have hl2' : 262 ≤ (st.lookahead - cl).toNat := by
           have := UInt32.le_iff_toNat_le.mp (UInt32.not_lt.mp hl2)
           simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using this
-        refine Sat.pure ⟨⟨_, _, sli_slw hIa, hH4, fun _ => hIa, fun e => by simp at e, hl2', by omega, Ck4, hav5⟩, ?_⟩
+        refine Sat.pure ⟨⟨_, _, sli_slw hIa, hH4, fun _ => hIa, fun e => by simp at e, hl2', by omega, Ck4, hav5,
+          fun e => by simp at e⟩, ?_⟩
         simp only [CM, LaS_SH]; rw [e5]; omega
     cases bfl with
     | false =>
@@ -233,7 +236,7 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
       exact jp _ (I3 rfl) hH3 Ck3 hav3'
     | true =>
       simp only [↓reduceIte]
-      refine Sat.bind (Sat.mono (flush0_ok T W3 hH3 Ck3 hw0 hn) ?_)
+      refine Sat.bind (Sat.mono (flush0_ok T W3 hH3 Ck3 hw0 hn hz3) ?_)
       rintro r H4 ⟨hav4, Ck4, hnone, hsome⟩
       cases r with
       | none =>
@@ -255,18 +258,20 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
       obtain ⟨rfl, rfl, rfl⟩ := SH_inj e
       exact UInt32.le_of_lt (C.2 _ (SH_dstate _ _ _ _ _ _)).2
     refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (sli_tally_dist_le I2 cd (cl - STD_MIN_MATCH) cl (by omega) hd1 hd2
-      (by omega) hcl (by omega)) (tally_dist_K W2 hlt cd (cl - STD_MIN_MATCH) (by omega) hd1 hd2)) ?_)
-    rintro r H3 ⟨⟨hav3, W3, -, -, I3⟩, K3⟩
-    exact post (false || r) H3 W3 (fun e => I3 (by simpa using e)) hav3 K3
+      (by omega) hcl (by omega)) (ZlibNgF.Proof.MediumStep.Sat.and (tally_dist_K W2 hlt cd (cl - STD_MIN_MATCH)
+        (by omega) hd1 hd2) (slw_tally_dist_nz W2 (symle_SH hlt) cd (cl - STD_MIN_MATCH) (by omega) hd1 hd2))) ?_)
+    rintro r H3 ⟨⟨hav3, W3, -, -, I3⟩, K3, hz3⟩
+    exact post (false || r) H3 W3 (fun e => I3 (by simpa using e)) hav3 hz3 K3
   | true =>
     have hle2 : SymLe b (SH H0 i z b st2 d1) := fun st4 h4 => by
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h4)
       rw [k2.2.2.2.1, k2.2.2.2.2.2]; exact hle rfl st (SH_dstate _ _ _ _ _ _)
     refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slw_tally_dist W2 hle2 cd (cl - STD_MIN_MATCH) cl (by omega) hd1 hd2
-      (by omega) hcl (by omega)) (tally_dist_K W2 (hle2 _ (SH_dstate _ _ _ _ _ _)) cd (cl - STD_MIN_MATCH)
-        (by omega) hd1 hd2)) ?_)
-    rintro r H3 ⟨⟨hav3, W3, -⟩, K3⟩
-    exact post (true || r) H3 W3 (fun e => by simp at e) hav3 K3
+      (by omega) hcl (by omega)) (ZlibNgF.Proof.MediumStep.Sat.and (tally_dist_K W2 (hle2 _ (SH_dstate _ _ _ _ _ _))
+        cd (cl - STD_MIN_MATCH) (by omega) hd1 hd2) (slw_tally_dist_nz W2 hle2 cd (cl - STD_MIN_MATCH) (by omega)
+        hd1 hd2))) ?_)
+    rintro r H3 ⟨⟨hav3, W3, -⟩, K3, hz3⟩
+    exact post (true || r) H3 W3 (fun e => by simp at e) hav3 hz3 K3
 
 /-- The continuation loop, entered after a match of `STD_MAX_MATCH` bytes with `lookahead >= MIN_LOOKAHEAD`: it ends
 in `CI` with `brk` or `ret`. -/
@@ -277,21 +282,22 @@ theorem cloop_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
     (hl : ∀ st0, h.dstate b = some st0 → st0.level = 2 ∧ HASHLESS st0.level st0.strategy = false)
     (hmi : 2 ≤ mi.toNat) (hd1 : 1 ≤ cd.toNat) (hd2 : cd.toNat ≤ 32768)
     (W : SLW h i b la ss H) (hH : Held b la ss H) (I : bf = false → SLI h i b la ss H) (hle : bf = true → SymLe b H)
-    (hla : 262 ≤ la.toNat) (hcd : cd.toNat ≤ ss.toNat) (Ck : CK b H) (hK : avIn H i + la.toNat + 1 ≤ K) :
+    (hla : 262 ≤ la.toNat) (hcd : cd.toNat ≤ ss.toNat) (Ck : CK b H) (hK : avIn H i + la.toNat + 1 ≤ K)
+    (hz : bf = true → NZ b H) :
     Sat H (cwhile (fun (x : Ctl × Bool) => pure (x.1 matches .cont, x))
         (fun (x : Ctl × Bool) => deflate_fast_cont_trip (some b) (.ref (.heap b) wo) mi cd x.2) (Ctl.cont, bf))
       (fun v H2 => CI h i b flush cd K v H2 ∧ (v.1 matches .cont) = false) := by
   refine ZlibNgF.Proof.WinInv.sat_cwhileH (CI h i b flush cd K) (CM b)
     (fun v H => CI h i b flush cd K v H ∧ (v.1 matches .cont) = false) ?_ (s := (Ctl.cont, bf))
-    ⟨la, ss, W, hH, I, hle, hla, hcd, Ck, hK⟩ ?_
+    ⟨la, ss, W, hH, I, hle, hla, hcd, Ck, hK, hz⟩ ?_
   · rintro ⟨c, bf1⟩ H1 hI
     refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨hI, hc⟩⟩
     cases c with
     | cont =>
-      obtain ⟨la1, ss1, W1, hH1, I1, hle1, hla1, hcd1, Ck1, hK1⟩ := hI
+      obtain ⟨la1, ss1, W1, hH1, I1, hle1, hla1, hcd1, Ck1, hK1, hz1⟩ := hI
       have W1' := W1
       obtain ⟨H0, z, st, d, rfl, -⟩ := W1'
-      refine Sat.mono (ctrip_ok T hw0 hn hl hmi hd1 hd2 W1 hH1 I1 hle1 hla1 hcd1 Ck1 hK1)
+      refine Sat.mono (ctrip_ok T hw0 hn hl hmi hd1 hd2 W1 hH1 I1 hle1 hla1 hcd1 Ck1 hK1 hz1)
         fun v H2 ⟨a, m⟩ => ⟨a, ?_⟩
       simp only [CM, LaS_SH]
       rw [(hH1 st (SH_dstate _ _ _ _ _ _)).1]; exact m

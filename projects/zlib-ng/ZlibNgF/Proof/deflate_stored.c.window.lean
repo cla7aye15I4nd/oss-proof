@@ -21,10 +21,11 @@ open ZlibNgF.Proof.InflateDict (copyFold copyFold_size copyFold_get)
 open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f)
 open ZlibNgF.Proof.WinInv (InTail)
 open ZlibNg.DeflateStored
+open ZlibNgF.Proof.DeflatePsi (psiS G span owed)
 
 /-- `SF` after a change of `strstart`, `insert`, `block_start`, `high_water` and the bytes of the block (same size). -/
-theorem sf_state {h H : Heap} {i b wo : Nat} {z : ZStream} {st st' : DeflateState} {d d' : Array UInt8}
-    {ob oo pbo : Nat} {X : Array UInt8} (F : SF h i b H) (S : SFX H i b wo z st d ob oo X pbo)
+theorem sf_state {e : Nat} {h H : Heap} {i b wo : Nat} {z : ZStream} {st st' : DeflateState} {d d' : Array UInt8}
+    {ob oo pbo : Nat} {X : Array UInt8} (F : SF e h i b H) (S : SFX H i b wo z st d ob oo X pbo)
     (he : st' = { st with
       strstart := st'.strstart
       insert := st'.insert
@@ -33,15 +34,15 @@ theorem sf_state {h H : Heap} {i b wo : Nat} {z : ZStream} {st st' : DeflateStat
       bi_used := st'.bi_used })
     (hss : st'.strstart.toNat ≤ st.window_size.toNat) (hb0 : 0 ≤ st'.block_start.toInt)
     (hbs : st'.block_start.toInt ≤ st'.strstart.toNat) (hins : st'.insert.toNat ≤ st'.strstart.toNat)
-    (hd : d'.size = d.size) :
-    SF h i b (SH (setB H ob X) i z b st' d') := by
+    (hd : d'.size = d.size) (hsp : span st' ≤ span st) :
+    SF e h i b (SH (setB H ob X) i z b st' d') := by
   obtain ⟨st0, h0, -, la0, hk⟩ := F.keeps
   have hla : st.lookahead = 0 := (hk st S.hst).2.2.2.1.trans la0
   have hsy : (dview st').sym_next = 0 := by show st'.sym_next = 0; rw [he]; exact S.sym
   have hws := S.ws.1
   refine sf_next F S.hz S.hst S.hno S.hX (L := 0) rfl (fun _ _ => rfl) (Nat.zero_le _) rfl (Or.inl ⟨rfl, rfl⟩)
     (Nat.le_refl _) (by rw [S.hno]; rfl) (by simp) (fun al _ c => dcore_mv ?_ S.hd (SH_bytes _ _ _ _ _ _) hd hsy rfl rfl)
-    ?_ ?_
+    ?_ ?_ fun f => ?_
   · rw [he]
     exact dcore_set c st'.strstart st.lookahead st'.insert st'.block_start (by simp only [dview, hla]; simpa using hss)
       hbs (UInt32.le_iff_toNat_le.mpr hins) (by omega)
@@ -49,6 +50,11 @@ theorem sf_state {h H : Heap} {i b wo : Nat} {z : ZStream} {st st' : DeflateStat
   · refine ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact hb0), ?_, ?_⟩
     · rw [he]; exact S.sym
     · rw [he]; exact S.b8
+  · have q := psiS_parts (f := f) (st := st) (st' := st') (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he])
+      (by rw [he]) (by rw [he])
+    have ho : owed st' = owed st := by rw [he]; rfl
+    rw [Nat.sub_self, Nat.mul_zero]
+    omega
 
 /-- A pointer moved back by `k` bytes within its object. -/
 theorem add_back {H0 : Heap} {r : BRef} {src : Array UInt8} {off k : Nat} (hg : Space.get H0 r = some src)
@@ -65,11 +71,11 @@ theorem get_SHB {H : Heap} {i : Nat} {z : ZStream} {b ob : Nat} {st : DeflateSta
 
 /-- The window update after the copy loop keeps `SF`, no pending bytes, and the stream record; it keeps `bi_valid` and
 does not grow the bytes left in the window (`strstart - block_start`). -/
-theorem uw_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
+theorem uw_ok {e : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (last : Int32)
     {z0 : ZStream} {st0 : DeflateState} (h0 : h.streams i = some z0) (hs0 : h.dstate b = some st0) :
     Sat H (stored_update_window (some b) (.ref (.heap b) wo) st0.w_size z0.avail_in last) (fun _ H' =>
-      SF h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avIn H' i = avIn H i ∧
+      SF e h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avIn H' i = avIn H i ∧
         avOut H' i = avOut H i ∧ ∀ st st', H.dstate b = some st → H'.dstate b = some st' →
           st'.bi_valid = st.bi_valid ∧
           (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ st.strstart.toNat - st.block_start.toInt) := by
@@ -80,7 +86,7 @@ theorem uw_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dsta
   have hai : avIn H i = z.avail_in.toNat := by simp [avIn, S.hz]
   rw [hav, hai]
   suffices hS : Sat H (stored_update_window (some b) (.ref (.heap b) wo) st0.w_size z0.avail_in last) (fun _ H' =>
-      SF h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avIn H' i = z.avail_in.toNat ∧
+      SF e h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avIn H' i = z.avail_in.toNat ∧
         avOut H' i = z.avail_out.toNat ∧ ∀ st', H'.dstate b = some st' → st'.bi_valid = st.bi_valid ∧
           (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ st.strstart.toNat - st.block_start.toInt) by
     refine Sat.mono hS fun _ H' ⟨q1, q2, q3, q4, q5⟩ => ⟨q1, q2, q3, q4, fun st1 st2 h1 h2 => ?_⟩
@@ -102,15 +108,16 @@ theorem uw_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dsta
       Sat (SH (setB H ob X) i z b { st with strstart := ss, insert := ins } d1) (do
         wrD (some b) fun s => { s with block_start := s.strstart.toInt32 }
         wrD (some b) fun s => { s with high_water := MAX32 s.high_water s.strstart }) (fun _ H' =>
-          SF h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avIn H' i = z.avail_in.toNat ∧
+          SF e h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avIn H' i = z.avail_in.toNat ∧
             avOut H' i = z.avail_out.toNat ∧ ∀ st', H'.dstate b = some st' → st'.bi_valid = st.bi_valid ∧
               (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ st.strstart.toNat - st.block_start.toInt) := by
     intro ss ins d1 h1 h2 h3
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-    refine Sat.of_eq (wrD_SH _) ⟨sf_state F S rfl h1 ?_ ?_ h2 h3, fun st2 h4 => ?_, by simp [avIn], by simp [avOut],
+    refine Sat.of_eq (wrD_SH _) ⟨sf_state F S rfl h1 ?_ ?_ h2 h3 ?_, fun st2 h4 => ?_, by simp [avIn], by simp [avOut],
       fun st2 h4 => ?_⟩
     · show 0 ≤ ss.toInt32.toInt; rw [DeflateAlloc.u32_toInt32_toInt _ (by omega)]; omega
     · show ss.toInt32.toInt ≤ ss.toNat; rw [DeflateAlloc.u32_toInt32_toInt _ (by omega)]; omega
+    · unfold span; dsimp only; rw [DeflateAlloc.u32_toInt32_toInt _ (by omega)]; omega
     · rw [SH_dstate] at h4; cases h4; exact hp
     · rw [SH_dstate] at h4; cases h4
       refine ⟨rfl, ?_⟩
@@ -126,7 +133,8 @@ theorem uw_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dsta
   by_cases hc : (used != 0 && last == 0) = true
   rotate_left
   · simp only [hc, Bool.false_eq_true, ↓reduceIte]
-    refine Sat.of_eq (wrD_SH _) ⟨sf_state F S rfl (by omega) (by omega) (by omega) (by omega) rfl, fun st2 h4 => ?_,
+    refine Sat.of_eq (wrD_SH _) ⟨sf_state F S rfl (by omega) (by omega) (by omega) (by omega) rfl (Nat.le_refl _),
+      fun st2 h4 => ?_,
       by simp [avIn], by simp [avOut], fun st2 h4 => ?_⟩
     · rw [SH_dstate] at h4; cases h4; exact hp
     · rw [SH_dstate] at h4; cases h4; exact ⟨rfl, Int.le_refl _⟩
@@ -171,7 +179,7 @@ theorem uw_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dsta
         wrD (some b) fun s => { s with insert := s.insert + MIN32 used (st.w_size - s.insert) }
         wrD (some b) fun s => { s with block_start := s.strstart.toInt32 }
         wrD (some b) fun s => { s with high_water := MAX32 s.high_water s.strstart }) (fun _ H' =>
-          SF h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avIn H' i = z.avail_in.toNat ∧
+          SF e h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avIn H' i = z.avail_in.toNat ∧
             avOut H' i = z.avail_out.toNat ∧ ∀ st', H'.dstate b = some st' → st'.bi_valid = st.bi_valid ∧
               (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ st.strstart.toNat - st.block_start.toInt) := by
     intro ss ins d1 h1 h2 h3
@@ -256,9 +264,9 @@ def FillX (H H' : Heap) (i b : Nat) : Prop :=
 /-- The tail of the filling: `read_buf` of `min(have, avail_in)` input bytes into the window at `strstart`, and
 `high_water`. -/
 theorem fill_tail {h H : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {ob oo pbo : Nat}
-    {X : Array UInt8} (F : SF h i b H) (S : SFX H i b wo z st d ob oo X pbo) (hp : st.pending = 0)
+    {X : Array UInt8} {e : Nat} (F : SF e h i b H) (S : SFX H i b wo z st d ob oo X pbo) (hp : st.pending = 0)
     {α : Type} (k : M α) (Q : α → Heap → Prop)
-    (hk : ∀ H', SF h i b H' → (∀ st, H'.dstate b = some st → st.pending = 0) → FillX H H' i b → Sat H' k Q)
+    (hk : ∀ H', SF e h i b H' → (∀ st, H'.dstate b = some st → st.pending = 0) → FillX H H' i b → Sat H' k Q)
     (hv ss ins : UInt32) (bs : Int32) (d1 : Array UInt8) :
     hv.toNat = st.window_size.toNat - ss.toNat →
       ss.toNat ≤ st.window_size.toNat → 0 ≤ bs.toInt → bs.toInt ≤ ss.toNat → ins.toNat ≤ ss.toNat →
@@ -306,9 +314,16 @@ theorem fill_tail {h H : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} 
     refine hk _ (sf_next F S.hz S.hst S.hno S.hX (L := 0) rfl (fun _ _ => rfl) (Nat.zero_le _) e1 e2 e3
       (by rw [e4, S.hno]; rfl) (by rw [e5]; simp) (fun al _ c => dcore_mv (z := z) ?_ S.hd (SH_bytes _ _ _ _ _ _) e9 (by exact S.sym)
         (by rw [e1]) (by rw [e1])) ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl, rfl⟩
-      ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact h3), S.sym, S.b8⟩) ?_ ?_
+      ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact h3), S.sym, S.b8⟩
+      fun f => ?_) ?_ ?_
     · exact dcore_set c ss' st.lookahead ins' bs (by simp only [dview, hla]; simpa using e6) e7
         (UInt32.le_iff_toNat_le.mpr e8) (by omega)
+    · refine psiS_pay rfl rfl rfl rfl rfl rfl ?_
+      have s1 := span_eq (st := st) (by have := S.bs; omega)
+      have ho : owed { st with strstart := ss', block_start := bs, insert := ins' } = owed st := rfl
+      have := G_pay (z.avail_in.toNat - z'.avail_in.toNat)
+      unfold span at s1 ⊢; unfold owed at ho ⊢; dsimp only at ho ⊢
+      omega
     · intro st3 h7; rw [SH_dstate] at h7; cases h7; exact hp
     · intro z3 st3 z4 st4 g1 g2 g3 g4
       rw [S.hz] at g1; cases g1; rw [S.hst] at g2; cases g2
@@ -353,10 +368,10 @@ theorem fill_tail {h H : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} 
   omega
 
 /-- The filling of the window keeps `SF` and no pending bytes. -/
-theorem fill_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
+theorem fill_ok {e : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) {st0 : DeflateState}
     (hs0 : h.dstate b = some st0) {α : Type} (k : M α) (Q : α → Heap → Prop)
-    (hk : ∀ H', SF h i b H' → (∀ st, H'.dstate b = some st → st.pending = 0) → FillX H H' i b → Sat H' k Q) :
+    (hk : ∀ H', SF e h i b H' → (∀ st, H'.dstate b = some st → st.pending = 0) → FillX H H' i b → Sat H' k Q) :
     Sat H (fill_part (some b) (.ref (.heap b) wo) st0.w_size k) Q := by
   obtain ⟨z, st, d, ob, oo, X, pbo, S⟩ := F.facts hw0
   have e0 : SH (setB H ob X) i z b st d = H := by

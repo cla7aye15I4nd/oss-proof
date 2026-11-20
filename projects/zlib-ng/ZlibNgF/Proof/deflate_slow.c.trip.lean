@@ -47,7 +47,7 @@ theorem cpre_of {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sB : DeflateState} {
   obtain ⟨hp0, hsym⟩ := P.slc.2 sB (SH_dstate _ _ _ _ _ _)
   obtain ⟨l1, l2, -, -⟩ := P.lazy
   exact ⟨P.env, slc_of (slf_view (st' := { sB with prev_match := sB.match_start, match_start := ms }) P.slc.1 rfl rfl
-    rfl hT) hp0 hsym, chain_keep P.slc.1 P.ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (Nat.le_refl _)
+    rfl hT (view_le rfl rfl (.inr rfl))) hp0 hsym, chain_keep P.slc.1 P.ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (Nat.le_refl _)
     fun _ _ _ _ => rfl, P.la1, l1, l2, hml, P.meas⟩
 
 /-- `slowB`: `prev_match = match_start`, and, for a candidate `hash_head` within `MAX_DIST` behind `strstart` and a
@@ -86,7 +86,7 @@ theorem slowB_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sB
       rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_of_lt hg)]; omega
     · simp
   refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := s2) rfl) ?_)
-  have F2 := slf_view (st' := s2) P.slc.1 rfl rfl rfl hT
+  have F2 := slf_view (st' := s2) P.slc.1 rfl rfl rfl hT (view_le rfl rfl (.inr rfl))
   refine Sat.bind (Sat.mono (slf_match F2 lm hh hcm hlb) ?_)
   rintro r _ ⟨ms, rfl, hpr⟩
   refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sB with prev_match := sB.match_start, match_start := ms })

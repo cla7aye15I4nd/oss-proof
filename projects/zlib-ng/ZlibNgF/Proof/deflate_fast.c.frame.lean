@@ -20,11 +20,12 @@ open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNg.DeflateP
 
 /-- `slf_post` for a strategy entered at level 2 (any strategy, `Z_FIXED` included). -/
-theorem slf_post_l {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
+theorem slf_post_l {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState)
     (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2) (hx : ExitIO H i flush bs)
-    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
+    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) (he : e ≤ finSlack bs := by slack_tac) :
+    StratPost h (some i) flush bs H := by
   refine slf_postL F flush bs hx (fun st0 h0 e => absurd ((hn st0 h0).symm.trans e) (by decide))
-    (fun st0 h0 L st hst => ?_) hs
+    (fun st0 h0 L st hst => ?_) hs he
   obtain ⟨st1, h1, hk⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
   have hT : ¬ TableAt 7 9 st0 := fun ht => by
@@ -46,8 +47,8 @@ theorem sli_entry_l {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : St
   have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hl1 (hg8 e8).1⟩
   refine ⟨st1, hst1, sli_of_slc ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
-    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩,
-    fun st h1 => ?_⟩ hst1⟩
+    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_,
+    ZlibNgF.Proof.DeflatePsi.PsiAcc.refl h i b⟩, fun st h1 => ?_⟩ hst1⟩
   · have hio0 := hio
     obtain ⟨z2, b2, hp, ⟨i2, e2, hz2⟩, hb2, -, -, -, hout, hnb, -⟩ := hio0
     obtain rfl : i = i2 := Option.some.inj e2

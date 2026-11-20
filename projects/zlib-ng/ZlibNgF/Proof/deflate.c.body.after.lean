@@ -56,7 +56,7 @@ theorem run_post {h H H' : Heap} {i b : Nat} {flush : Int32} {bs : BlockState} {
       (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0) ∧
       (bs = .block_done → st'.sym_next = 0 ∧ st'.match_available = 0) ∧
       (bs = .block_done ∨ bs = .finish_done → st'.pending = 0) := by
-  obtain ⟨Pinv, Pio, Pset, Pfr, Pout, Pblk, Pinp, -, -, -, Ppend, Pst⟩ := P
+  obtain ⟨Pinv, Pio, Pset, Pfr, Pout, Pblk, Pinp, -, -, -, Ppend, Pst, -⟩ := P
   obtain ⟨z, hz, hb⟩ := R.blk
   obtain ⟨z', ⟨i', e', hz'⟩, hb'⟩ := Pblk b ⟨z, ⟨i, rfl, hz⟩, hb⟩
   obtain rfl := Option.some.inj e'

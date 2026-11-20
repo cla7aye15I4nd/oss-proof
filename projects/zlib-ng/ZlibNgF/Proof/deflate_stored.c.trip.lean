@@ -21,6 +21,7 @@ open ZlibNgF.Proof.InflateDict (copyFold copyFold_size copyFold_get)
 open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f)
 open ZlibNgF.Proof.WinInv (InTail)
 open ZlibNg.DeflateStored
+open ZlibNgF.Proof.DeflatePsi (psiS G span owed)
 
 section
 variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
@@ -178,12 +179,14 @@ theorem min32_toNat (a b : UInt32) : (MIN32 a b).toNat = min a.toNat b.toNat := 
   · rename_i h; have := UInt32.not_lt.mp h; have := UInt32.le_iff_toNat_le.mp this; omega
 
 /-- The window part of a trip: `min(left, len)` window bytes from `block_start` copied to `next_out`. -/
-theorem win_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
+theorem win_ok {e e' : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H)
+    (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (left len : UInt32)
     (hl : ∀ st, H.dstate b = some st → (left.toNat : Int) ≤ st.strstart.toNat - st.block_start.toInt)
     (ho : ∀ z, H.streams i = some z → min left.toNat len.toNat ≤ z.avail_out.toNat)
+    (he : e ≤ 5 * min left.toNat len.toNat + e')
     {α : Type} (k : UInt32 → M α) (Q : α → Heap → Prop)
-    (hk : ∀ len2 H', SF h i b H' → (∀ st, H'.dstate b = some st → st.pending = 0) →
+    (hk : ∀ len2 H', SF e' h i b H' → (∀ st, H'.dstate b = some st → st.pending = 0) →
       len2.toNat = len.toNat - min left.toNat len.toNat → avOut H' i + min left.toNat len.toNat = avOut H i →
       avIn H' i = avIn H i → Sat H' (k len2) Q) :
     Sat H (win_part (some b) (.ref (.heap b) wo) left len k) Q := by
@@ -191,7 +194,7 @@ theorem win_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   by_cases h0 : left = 0
   · subst h0
     simp only [bne_self_eq_false, Bool.false_eq_true, ↓reduceIte, pure_bind_M]
-    exact hk len H F hp0 (by simp) (by simp) rfl
+    exact hk len H (F.mono (by simpa using he)) hp0 (by simp) (by simp) rfl
   have h0' : (left != 0) = true := by simpa using h0
   simp only [h0', ↓reduceIte]
   obtain ⟨z, st, d, ob, oo, X, pbo, S⟩ := F.facts hw0
@@ -249,13 +252,25 @@ theorem win_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
         S.hd (SH_bytes _ _ _ _ _ _) rfl S.sym rfl rfl) ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl, rfl⟩
       ⟨Int32.le_iff_toInt_le.mpr
         (by show (0 : Int) ≤ (Int32.ofInt (st.block_start.toInt + ↑lf.toNat)).toInt; omega), S.sym, S.b8⟩
+      fun f => ?_
+    have q := psiS_parts (f := f) (st := st) (st' := { st with
+      block_start := Int32.ofInt (st.block_start.toInt + ↑lf.toNat) }) rfl rfl rfl rfl rfl rfl
+    have s1 := span_eq (st := st) hbs
+    have s2 := span_eq (st := { st with block_start := Int32.ofInt (st.block_start.toInt + ↑lf.toNat) })
+      (by simp only []; omega)
+    simp only [] at s2 q
+    have ho : owed { st with block_start := Int32.ofInt (st.block_start.toInt + ↑lf.toNat) } = owed st := rfl
+    rw [Nat.sub_self, Nat.mul_zero]
+    omega
   · rw [SH_dstate] at h2; cases h2; exact hp
 
 /-- `read_buf` of `len` input bytes straight into `next_out` (`deflate_stored.c:92-97`). -/
-theorem rd_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
+theorem rd_ok {e e' : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H)
+    (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (last : Int32) (len : UInt32)
-    (hla : ∀ z, H.streams i = some z → len.toNat ≤ z.avail_in.toNat ∧ len.toNat ≤ z.avail_out.toNat) :
-    Sat H (rd_part (some b) last len) (fun v H' => v = (last, false) ∧ SF h i b H' ∧
+    (hla : ∀ z, H.streams i = some z → len.toNat ≤ z.avail_in.toNat ∧ len.toNat ≤ z.avail_out.toNat)
+    (he : e ≤ 5 * len.toNat + e') :
+    Sat H (rd_part (some b) last len) (fun v H' => v = (last, false) ∧ SF e' h i b H' ∧
       (∀ st, H'.dstate b = some st → st.pending = 0) ∧ avOut H' i + len.toNat = avOut H i ∧
       avIn H' i + len.toNat = avIn H i) := by
   obtain ⟨z, st, d, ob, oo, X, pbo, S⟩ := F.facts hw0
@@ -270,7 +285,8 @@ theorem rd_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dsta
   by_cases h0 : len = 0
   · subst h0
     simp only [bne_self_eq_false, Bool.false_eq_true, ↓reduceIte]
-    exact Sat.pure ⟨rfl, by rw [e0]; exact F, by rw [e0]; exact hp0, by simp [avOut], by simp [avIn]⟩
+    exact Sat.pure ⟨rfl, by rw [e0]; exact F.mono (by simpa using he), by rw [e0]; exact hp0, by simp [avOut],
+      by simp [avIn]⟩
   have h0' : (len != 0) = true := by simpa using h0
   have hl0 : len.toNat ≠ 0 := fun e => h0 (UInt32.toNat_inj.mp (by rw [e]; rfl))
   simp only [h0', ↓reduceIte]
@@ -313,9 +329,13 @@ theorem rd_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dsta
       (Or.inr ⟨r, os, hni, ?_⟩) (by simp [ZlibNgF.Proof.ReadBuf.RBZ]; omega) rfl
       (by simp [ZlibNgF.Proof.ReadBuf.RBZ]; omega)
       (fun al _ c => dcore_mv c S.hd (SH_bytes _ _ _ _ _ _) rfl S.sym rfl rfl) (SK.refl _)
-      ⟨(F.st st S.hst).1, S.sym, S.b8⟩
-    simp only [ZlibNgF.Proof.ReadBuf.RBZ]
-    rw [hsubn, hnl]; congr 2; omega
+      ⟨(F.st st S.hst).1, S.sym, S.b8⟩ fun f => ?_
+    · simp only [ZlibNgF.Proof.ReadBuf.RBZ]
+      rw [hsubn, hnl]; congr 2; omega
+    · simp only [ZlibNgF.Proof.ReadBuf.RBZ]
+      rw [hsubn, show z.avail_in.toNat - (z.avail_in.toNat - len.toNat) = len.toNat by omega]
+      have := G_pay len.toNat
+      omega
   · rw [SH_dstate] at h2; cases h2; exact hp
   · simp [avOut, ZlibNgF.Proof.ReadBuf.RBZ]; omega
   · simp [avIn, ZlibNgF.Proof.ReadBuf.RBZ]; omega
@@ -330,12 +350,13 @@ theorem copyFold_out (src X : Array UInt8) (oo os n : Nat) :
 
 /-- The header part of a trip: the empty stored block, its `LEN` / `NLEN` rewritten, all flushed (the header fits in
 `avail_out`). -/
-theorem hdr_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
+theorem hdr_ok {e : Nat} {h H : Heap} {i b wo : Nat} (F : SF e h i b H)
+    (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (len : UInt32) (last : Int32)
     (hroom : ∀ z st, H.streams i = some z → H.dstate b = some st →
       (st.bi_valid.toInt.toNat + 42) / 8 ≤ z.avail_out.toNat)
     {α : Type} (k : M α) (Q : α → Heap → Prop)
-    (hk : ∀ H', SF h i b H' → (∀ st, H'.dstate b = some st → st.pending = 0) →
+    (hk : ∀ H', SF (e + 5) h i b H' → (∀ st, H'.dstate b = some st → st.pending = 0) →
       (∀ st, H.dstate b = some st → ∃ p, 4 ≤ p ∧ p ≤ (st.bi_valid.toInt.toNat + 42) / 8 ∧
         avOut H' i + p = avOut H i) → avIn H' i = avIn H i →
       (∀ st st', H.dstate b = some st → H'.dstate b = some st' → st'.strstart = st.strstart ∧
@@ -386,7 +407,7 @@ theorem hdr_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   rintro st3 ⟨he3, hp3, hbv3⟩
   refine Sat.bind (Sat.of_eq (strmOf_SH (by rw [he3]; exact S.strm)) ?_)
   have hpo : st.pending_out = .val (.ref (.heap b) pbo) := (S.pout hp).trans S.hpb
-  refine Sat.bind (Sat.mono (flush_SH (lb := st.lit_bufsize.toNat) (pbo := pbo) (poo := pbo) (ad := X) (oo := oo) (ob := ob) S.hb S.hob (by simp [setB]) S.hno hoo ?_ ?_
+  refine Sat.bind (Sat.mono (flushO_SH (lb := st.lit_bufsize.toNat) (pbo := pbo) (poo := pbo) (ad := X) (oo := oo) (ob := ob) S.hb S.hob (by simp [setB]) S.hno hoo ?_ ?_
     (Nat.le_refl _) ?_ ?_ l2 ?_ ?_ ?_) ?_)
   · rw [he3]; exact S.hpb
   · rw [he3]; exact hpo
@@ -395,12 +416,14 @@ theorem hdr_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   · rw [hbv3]; decide
   · rw [hbv3]; decide
   · intro _; rw [he3]; exact hpo.trans S.hpb.symm
-  rintro _ H4 ⟨np, bb, bv, d4, L, z', st', rfl, w4, hbv0, hbv8, hnp, hL, hst', hpn, hpz, -, hz', hno', hav'⟩
+  rintro _ H4 ⟨⟨np, bb, bv, d4, L, z', st', rfl, w4, hbv0, hbv8, hnp, hL, hst', hpn, hpz, -, hz', hno', hav'⟩, hO⟩
   have hnp' : np.toNat = pend.toNat := by
     rw [hnp, hp3, hbv3]; rfl
   clear hnp
   have hLp : L = pend.toNat := by rw [hL, hnp']; exact Nat.min_eq_left hpA.1
   subst hLp
+  have hO' := hO z' st' (by simp [OH]) (OH_dstate S.hob)
+  have ho3 : owed st3 = pend.toNat := by unfold owed; rw [hp3, hbv3]; simp
   rw [OH_eq S.hob, setB_setB]
   obtain ⟨no, ao, tt, rfl⟩ : ∃ no ao tt, z' = { z with next_out := no, avail_out := ao, total_out := tt } :=
     ⟨_, _, _, hz'⟩
@@ -427,9 +450,16 @@ theorem hdr_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
     have hAo : pend.toNat ≤ z.avail_out.toNat := hpA.1
     refine sf_next F S.hz S.hst S.hno S.hX (L := pend.toNat) hX4 hXo hAo rfl (Or.inl ⟨rfl, rfl⟩)
       (Nat.le_refl _) hno' hav' (fun al _ c => dcore_mv (dcore_flush c he hP hQ hb0' hb8')
-        S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_
+        S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_ fun f => ?_
     · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl, rfl⟩
     · exact ⟨by rw [he]; exact (F.st st S.hst).1, by rw [he]; exact S.sym, hb8'⟩
+    · have q := psiS_parts (f := f) (st := st) (st' := st') (by rw [he]) (by rw [he]) (by rw [he]) (by rw [he])
+        (by rw [he]) (by rw [he])
+      have hsp : span st' = span st := by rw [he]; rfl
+      have h0 := owed_p0 hp
+      simp only [] at hav' hO'
+      rw [Nat.sub_self, Nat.mul_zero]
+      omega
   · rw [SH_dstate] at h2; cases h2; rw [hP, hp]
   · rw [S.hst] at h2; cases h2
     refine ⟨pend.toNat, by omega, by omega, ?_⟩
@@ -485,11 +515,11 @@ def TExit (H : Heap) (i b : Nat) (mb : UInt32) : Prop :=
 /-- One trip of the copy loop from `SF` with no pending bytes: `SF` and no pending bytes after; a trip that does not
 break lowers `avail_out`; `last` set only under `Z_FINISH`; a trip that breaks stops at `TExit`. -/
 theorem trip_ok {h H : Heap} {i b wo : Nat} (flush : Int32) (min_block : UInt32) (last : Int32)
-    (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
+    (F : SF 0 h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hmb : min_block.toNat ≤ 65535) (hL : last ≠ 0 → flush = Z_FINISH) :
+    (hmb : min_block.toNat ≤ 65535) (hmb1 : 1 ≤ min_block.toNat) (hL : last ≠ 0 → flush = Z_FINISH) :
     Sat H (stored_trip (some b) (.ref (.heap b) wo) flush min_block last) (fun v H' =>
-      SF h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ (v.2 = false → avOut H' i < avOut H i) ∧
+      SF (if v.1 = 0 then 0 else 5) h i b H' ∧ (∀ st, H'.dstate b = some st → st.pending = 0) ∧ (v.2 = false → avOut H' i < avOut H i) ∧
         (v.1 ≠ 0 → flush = Z_FINISH) ∧ (v.2 = true → TExit H' i b min_block)) := by
   obtain ⟨z, st, d, ob, oo, X, pbo, S⟩ := F.facts hw0
   have e0 : SH (setB H ob X) i z b st d = H := by
@@ -512,7 +542,7 @@ theorem trip_ok {h H : Heap} {i b wo : Nat} (flush : Int32) (min_block : UInt32)
   refine Sat.bind (Sat.of_eq (erz _) ?_)
   by_cases hbr : z.avail_out < hv
   · simp only [hbr, ↓reduceIte]
-    refine Sat.pure ⟨F, hp0, (fun e => by cases e), hL, fun _ z1 st1 h1 h2 => ?_⟩
+    refine Sat.pure ⟨F.mono (Nat.zero_le _), hp0, (fun e => by cases e), hL, fun _ z1 st1 h1 h2 => ?_⟩
     rw [S.hz] at h1; cases h1; rw [S.hst] at h2; cases h2
     have := UInt32.lt_iff_toNat_lt.mp hbr
     left; omega
@@ -535,26 +565,49 @@ theorem trip_ok {h H : Heap} {i b wo : Nat} (flush : Int32) (min_block : UInt32)
   · rename_i hc
     have hc1 : len.toNat < min_block.toNat := by
       simp only [Bool.and_eq_true, decide_eq_true_eq] at hc; exact UInt32.lt_iff_toNat_lt.mp hc.1
-    refine Sat.pure ⟨F, hp0, (fun e => by cases e), hL, fun _ z1 st1 h1 h2 => ?_⟩
+    refine Sat.pure ⟨F.mono (Nat.zero_le _), hp0, (fun e => by cases e), hL, fun _ z1 st1 h1 h2 => ?_⟩
     rw [S.hz] at h1; cases h1; rw [S.hst] at h2; cases h2
     omega
+  rename_i hc
+  -- an empty block is the last one
+  have key : len.toNat = 0 →
+      (if flush == Z_FINISH && len == left + z.avail_in then (1 : Int32) else 0) ≠ 0 := by
+    intro h0
+    have h0' : len = 0 := UInt32.toNat_inj.mp (by rw [h0]; rfl)
+    have hmb0 : (0 : UInt32) < min_block := UInt32.lt_iff_toNat_lt.mpr (by simp; omega)
+    rw [h0'] at hc ⊢
+    simp only [hmb0, decide_true, beq_self_eq_true, Bool.true_and, Bool.or_eq_true, bne_iff_ne, ne_eq,
+      beq_iff_eq, not_or, Decidable.not_not] at hc
+    obtain ⟨⟨hf, -⟩, hl⟩ := hc
+    have : (flush == Z_FINISH && (0 : UInt32) == left + z.avail_in) = true := by
+      rw [hf, ← hl]; decide
+    rw [ite_eq_left this]; decide
+  generalize hln : (if flush == Z_FINISH && len == left + z.avail_in then (1 : Int32) else 0) = ln at key ⊢
   refine hdr_ok F hp0 hw0 _ _ (fun z2 st2 h2 h3 => ?_) _ _ ?_
   · rw [S.hz] at h2; cases h2; rw [S.hst] at h3; cases h3; omega
   intro H1 F1 hp1 hav1 hai1 hk1
   obtain ⟨p, hp4, hpv, hpA⟩ := hav1 st S.hst
-  refine win_ok F1 hp1 hw0 left len (fun st2 h2 => ?_) (fun z2 h2 => ?_) _ _ ?_
+  refine win_ok (e' := if min left.toNat len.toNat = 0 then 5 else 0) F1 hp1 hw0 left len (fun st2 h2 => ?_)
+    (fun z2 h2 => ?_) (by split <;> omega) _ _ ?_
   · obtain ⟨e2, e3⟩ := hk1 st st2 S.hst h2
     rw [e2, e3]; omega
   · have : avOut H1 i = z2.avail_out.toNat := by simp [avOut, h2]
     omega
   intro len2 H2 F2 hp2 hl2 hav2 hai2
-  refine Sat.mono (rd_ok F2 hp2 hw0 _ len2 (fun z3 h3 => ?_)) ?_
+  refine Sat.mono (rd_ok (e' := if ln = 0 then 0 else 5) F2 hp2 hw0 _ len2 (fun z3 h3 => ?_) ?_) ?_
   · have e4 : avOut H2 i = z3.avail_out.toNat := by simp [avOut, h3]
     have e5 : avIn H2 i = z3.avail_in.toNat := by simp [avIn, h3]
     omega
+  · by_cases hm : min left.toNat len.toNat = 0
+    · rw [ite_eq_left hm]
+      by_cases hn : ln = 0
+      · have := mt key (fun h => h hn); omega
+      · rw [ite_eq_right hn]; omega
+    · rw [ite_eq_right hm]; omega
   rintro v H3 ⟨rfl, F3, hp3, hav3, -⟩
   refine ⟨F3, hp3, fun _ => by omega, fun hne => ?_, fun e => by cases e⟩
   simp only [] at hne
+  rw [← hln] at hne
   split at hne
   · rename_i hc; simp only [Bool.and_eq_true, beq_iff_eq] at hc; exact hc.1
   · exact absurd rfl hne

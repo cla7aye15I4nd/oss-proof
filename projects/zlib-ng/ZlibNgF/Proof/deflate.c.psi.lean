@@ -376,6 +376,72 @@ theorem content_flush_le {st st' : DeflateState}
   simp only [UInt32.toNat_zero, Nat.zero_div, Nat.mul_zero]
   omega
 
+/-- A change of fields that `psiS` reads only through `match_available`, cleared or kept: `psiS` does not grow. -/
+theorem psiS_view {f : Int32} {st st' : DeflateState} (e1 : st'.lookahead = st.lookahead)
+    (e2 : st'.strstart = st.strstart) (e3 : st'.block_start = st.block_start) (e4 : st'.sym_next = st.sym_next)
+    (e6 : st'.status = st.status) (e7 : st'.wrap = st.wrap)
+    (e8 : st'.block_open = st.block_open) (e9 : st'.pending = st.pending) (e10 : st'.bi_valid = st.bi_valid)
+    (hm : st'.match_available = 0 ∨ st'.match_available = st.match_available) : psiS f st' ≤ psiS f st := by
+  rcases hm with hm | hm
+  · have hc : content st' ≤ content st := by
+      unfold content span; rw [e1, e2, e3, e4, e6, e7, hm]; simp only [ne_eq, not_true_eq_false, ↓reduceIte]; omega
+    have hq : quickB f st' = quickB f st := by unfold quickB; rw [e1, e8]
+    have ho : owed st' = owed st := by unfold owed; rw [e9, e10]
+    unfold psiS; omega
+  · exact Nat.le_of_eq (psiS_congr e1 e2 e3 e4 hm e6 e7 e8 e9 e10)
+
+/-- As `psiS_view` with any `match_available`: `psiS` grows by at most `2^18`. -/
+theorem psiS_view_set {f : Int32} {st st' : DeflateState} (e1 : st'.lookahead = st.lookahead)
+    (e2 : st'.strstart = st.strstart) (e3 : st'.block_start = st.block_start) (e4 : st'.sym_next = st.sym_next)
+    (e6 : st'.status = st.status) (e7 : st'.wrap = st.wrap)
+    (e8 : st'.block_open = st.block_open) (e9 : st'.pending = st.pending) (e10 : st'.bi_valid = st.bi_valid) :
+    psiS f st' ≤ psiS f st + 2 ^ 18 := by
+  have hc : content st' ≤ content st + 2 ^ 18 := by
+    unfold content span; rw [e1, e2, e3, e4, e6, e7]; split <;> split <;> omega
+  have hq : quickB f st' = quickB f st := by unfold quickB; rw [e1, e8]
+  have ho : owed st' = owed st := by unfold owed; rw [e9, e10]
+  unfold psiS; omega
+
+/-- `n` bytes move from the lookahead to the window span (`strstart += n`, `lookahead -= n`): `psiS` drops by
+`2^19 n - 6 n`. -/
+theorem psiS_move {f : Int32} (st : DeflateState) (ss la : UInt32) (n : Nat)
+    (e1 : la.toNat + n = st.lookahead.toNat) (e2 : ss.toNat = st.strstart.toNat + n)
+    (hs0 : st.block_start.toInt ≤ st.strstart.toNat) :
+    psiS f { st with strstart := ss, lookahead := la } + 2 ^ 19 * n ≤ psiS f st + 6 * n := by
+  have hc := content_move (st := st) (st' := { st with strstart := ss, lookahead := la }) n e1
+    (by show ((ss.toNat : Nat) : Int) - st.block_start.toInt = _; rw [e2]; omega) hs0 rfl rfl rfl rfl
+  have hq := quickB_drop (f := f) (st := st) (st' := { st with strstart := ss, lookahead := la })
+    (show la.toNat ≤ st.lookahead.toNat by omega) rfl
+  unfold psiS; unfold owed at *; simp only [] at hc hq ⊢; omega
+
+/-- As `psiS_view` with `match_available` cleared from a set one: `psiS` drops by `2^18`. -/
+theorem psiS_view_clear {f : Int32} {st st' : DeflateState} (e1 : st'.lookahead = st.lookahead)
+    (e2 : st'.strstart = st.strstart) (e3 : st'.block_start = st.block_start) (e4 : st'.sym_next = st.sym_next)
+    (e6 : st'.status = st.status) (e7 : st'.wrap = st.wrap)
+    (e8 : st'.block_open = st.block_open) (e9 : st'.pending = st.pending) (e10 : st'.bi_valid = st.bi_valid)
+    (hm : st.match_available ≠ 0) (hm' : st'.match_available = 0) : psiS f st' + 2 ^ 18 ≤ psiS f st := by
+  have hc : content st' + 2 ^ 18 ≤ content st := by
+    unfold content span; rw [e1, e2, e3, e4, e6, e7, hm']
+    simp only [ne_eq, not_true_eq_false, ↓reduceIte, hm, not_false_eq_true]; omega
+  have hq : quickB f st' = quickB f st := by unfold quickB; rw [e1, e8]
+  have ho : owed st' = owed st := by unfold owed; rw [e9, e10]
+  unfold psiS; omega
+
+/-- One symbol added and nothing else that `psiS` reads changed: `psiS` grows by `2^18`. -/
+theorem psiS_sym {f : Int32} {st st' : DeflateState} (e1 : st'.lookahead = st.lookahead)
+    (e2 : st'.strstart = st.strstart) (e3 : st'.block_start = st.block_start)
+    (e4 : st'.sym_next.toNat = st.sym_next.toNat + 3) (e5 : st'.match_available = st.match_available)
+    (e6 : st'.status = st.status) (e7 : st'.wrap = st.wrap)
+    (e8 : st'.block_open = st.block_open) (e9 : st'.pending = st.pending) (e10 : st'.bi_valid = st.bi_valid) :
+    psiS f st' ≤ psiS f st + 2 ^ 18 := by
+  have hc : content st' ≤ content st + 2 ^ 18 := by
+    unfold content span; rw [e1, e2, e3, e4, e5, e6, e7]
+    have : (st.sym_next.toNat + 3) / 3 = st.sym_next.toNat / 3 + 1 := by omega
+    rw [this]; omega
+  have hq : quickB f st' = quickB f st := by unfold quickB; rw [e1, e8]
+  have ho : owed st' = owed st := by unfold owed; rw [e9, e10]
+  unfold psiS; omega
+
 /-! ## The accounting of a strategy call -/
 
 /-- From the heap `h` to the heap `H` (stream `i`, state block `b`), `psiS` dropped by the bytes produced, less `G`
@@ -384,6 +450,14 @@ def PsiAcc (e : Nat) (h H : Heap) (i b : Nat) : Prop :=
   ∀ z0 z st0 st, h.streams i = some z0 → H.streams i = some z → h.dstate b = some st0 → H.dstate b = some st →
     ∀ f, psiS f st + (z0.avail_out.toNat - z.avail_out.toNat) ≤
       psiS f st0 + G * (z0.avail_in.toNat - z.avail_in.toNat) + e
+
+/-- `PsiAcc` for one flush value `f` (the flush of the call). -/
+def PsiAccF (f : Int32) (e : Nat) (h H : Heap) (i b : Nat) : Prop :=
+  ∀ z0 z st0 st, h.streams i = some z0 → H.streams i = some z → h.dstate b = some st0 → H.dstate b = some st →
+    psiS f st + (z0.avail_out.toNat - z.avail_out.toNat) ≤ psiS f st0 + G * (z0.avail_in.toNat - z.avail_in.toNat) + e
+
+theorem PsiAcc.toF {e : Nat} {h H : Heap} {i b : Nat} (A : PsiAcc e h H i b) (f : Int32) : PsiAccF f e h H i b :=
+  fun z0 z st0 st h0 h1 s0 s1 => A z0 z st0 st h0 h1 s0 s1 f
 
 theorem PsiAcc.refl (h : Heap) (i b : Nat) : PsiAcc 0 h h i b := by
   intro z0 z st0 st h0 h1 s0 s1 f

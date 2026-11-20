@@ -48,7 +48,7 @@ theorem fin_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la 
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
     (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2)
     (W : SLW h i b la ss H) (hH : Held b la ss H) (I : bf = false → SLI h i b la ss H) (Ck : CK b H)
-    (hml : ml.toNat < 4) (hK : avIn H i + la.toNat + 1 ≤ K) :
+    (hml : ml.toNat < 4) (hK : avIn H i + la.toNat + 1 ≤ K) (hz : bf = true → NZ b H) :
     Sat H (do
       if bf = true then do
         let __do_lift ← FLUSH_BLOCK (some b) (.ref (.heap b) wo) 0
@@ -66,7 +66,7 @@ theorem fin_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la 
     simp only [OM, LaS_SH]; omega
   | true =>
     simp only [↓reduceIte]
-    refine Sat.bind (Sat.mono (flush0_ok T W hH Ck hw0 hn) ?_)
+    refine Sat.bind (Sat.mono (flush0_ok T W hH Ck hw0 hn (hz rfl)) ?_)
     rintro r H4 ⟨hav4, Ck4, hnone, hsome⟩
     cases r with
     | none =>
@@ -97,12 +97,12 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
   -- the end of the trip
   have hF : ∀ (bfl : Bool) (ml' : UInt32) (H2 : Heap) (la ss : UInt32), SLW h i b la ss H2 → Held b la ss H2 →
       (bfl = false → SLI h i b la ss H2) → CK b H2 → ml'.toNat < 4 → avIn H2 i + la.toNat + 1 ≤ K →
-      Sat H2 (jpF () bfl ml') (fun v H2 => OI h i b flush v H2 ∧ OM i b v H2 < K + 1) :=
-    fun bfl ml' H2 la ss W hH I Ck hml hK => fin_ok T hw0 hn W hH I Ck hml hK
+      (bfl = true → NZ b H2) → Sat H2 (jpF () bfl ml') (fun v H2 => OI h i b flush v H2 ∧ OM i b v H2 < K + 1) :=
+    fun bfl ml' H2 la ss W hH I Ck hml hK hz => fin_ok T hw0 hn W hH I Ck hml hK hz
   have hZ : ∀ (bfl : Bool) (H2 : Heap) (la ss : UInt32), SLW h i b la ss H2 → Held b la ss H2 →
-      (bfl = false → SLI h i b la ss H2) → CK b H2 → avIn H2 i + la.toNat + 1 ≤ K →
+      (bfl = false → SLI h i b la ss H2) → CK b H2 → avIn H2 i + la.toNat + 1 ≤ K → (bfl = true → NZ b H2) →
       Sat H2 (jpZ () bfl) (fun v H2 => OI h i b flush v H2 ∧ OM i b v H2 < K + 1) :=
-    fun bfl H2 la ss W hH I Ck hK => hF bfl 0 H2 la ss W hH I Ck (by decide) hK
+    fun bfl H2 la ss W hH I Ck hK hz => hF bfl 0 H2 la ss W hH I Ck (by decide) hK hz
   -- the tally of a literal or of a match
   have hM : ∀ (H0 : Heap) (z : ZStream) (st : DeflateState) (d : Array UInt8) (S : Nat → Prop)
       (ml' : UInt32) (lc : UInt8) (st1 : DeflateState) (d1 : Array UInt8),
@@ -137,8 +137,10 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have hsub : (ml' - STD_MIN_MATCH).toNat = ml'.toNat - 3 := u32_sub_toNat (by simp [STD_MIN_MATCH]; omega)
       refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and
         (sli_tally_dist_le I1 cd (ml' - STD_MIN_MATCH) ml' (by omega) (by omega) (by omega) (by omega) hm258 hmla)
-        (tally_dist_K (sli_slw I1) hle1 cd (ml' - STD_MIN_MATCH) (by omega) (by omega) (by omega))) ?_)
-      rintro r H3 ⟨⟨-, W3, -, hle3, I3⟩, st3, d3, lo, hi, rfl, K3, Wr3, hlo⟩
+        (ZlibNgF.Proof.MediumStep.Sat.and
+          (tally_dist_K (sli_slw I1) hle1 cd (ml' - STD_MIN_MATCH) (by omega) (by omega) (by omega))
+          (sli_tally_dist_nz I1 cd (ml' - STD_MIN_MATCH) (by omega) (by omega) (by omega)))) ?_)
+      rintro r H3 ⟨⟨-, W3, -, hle3, I3⟩, ⟨st3, d3, lo, hi, rfl, K3, Wr3, hlo⟩, hz3⟩
       have G3 := cg_tally (sli_slw I1) G1 K3 Wr3 hlo
       extract_lets bfl jpI
       obtain ⟨st4, hst4⟩ : ∃ st4 : DeflateState, st4 = { st3 with lookahead := st3.lookahead - ml' } := ⟨_, rfl⟩
@@ -179,6 +181,8 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
           obtain rfl : st6 = st5 := Option.some.inj (h6.symm.trans (SH_dstate _ _ _ _ _ _))
           exact ⟨k5.2.1, k5.2.2.1⟩
         have G6 := cg_st G5 k5.1
+        have nz6 : NZ b (SH H0 i z b st5 d5) := nz_SH (by
+          rw [k5.2.2.2.1, k4.2.2.2.1]; exact nz_of_SH hz3)
         have Ck6 : CK b (SH H0 i z b st5 d5) := ck_of_cg C0 G6 hlev fun st6 h6 => by
           obtain rfl : st6 = st5 := Option.some.inj (h6.symm.trans (SH_dstate _ _ _ _ _ _))
           rw [k5.2.2.1, hss]
@@ -196,18 +200,18 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
               have := UInt32.le_iff_toNat_le.mp h262
               simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using this
             refine Sat.bind (Sat.mono (cloop_ok T (flush := flush) (K := K) hw0 hn hl hmi hcd1 hcd2 W6 hH6 I6
-              (fun _ => hle6) h262' (by omega) Ck6 hK6) ?_)
+              (fun _ => hle6) h262' (by omega) Ck6 hK6 (fun _ => nz6)) ?_)
             rintro ⟨c, bf2⟩ H7 ⟨hCI, hex⟩
             cases c with
             | cont => cases hex
             | ret r => exact Sat.pure ⟨hCI, by simp [OM]⟩
             | brk =>
-              obtain ⟨la2, ss2, W7, hH7, I7, Ck7, hK7⟩ := hCI
-              exact hZ bf2 H7 la2 ss2 W7 hH7 I7 Ck7 hK7
+              obtain ⟨la2, ss2, W7, hH7, I7, Ck7, hK7, hz7⟩ := hCI
+              exact hZ bf2 H7 la2 ss2 W7 hH7 I7 Ck7 hK7 hz7
           · simp -zeta only [h262, ↓reduceIte]
-            exact hZ bfl _ _ _ W6 hH6 I6 Ck6 hK6
+            exact hZ bfl _ _ _ W6 hH6 I6 Ck6 hK6 (fun _ => nz6)
         · simp -zeta only [h258, Bool.false_eq_true, ↓reduceIte]
-          exact hZ bfl _ _ _ W6 hH6 I6 Ck6 hK6
+          exact hZ bfl _ _ _ W6 hH6 I6 Ck6 hK6 (fun _ => nz6)
       obtain ⟨po4, ho4, L4, hp4, w14, -, hlook4, h654, hwp4, -⟩ := slw_layw W4 hw0
       rw [hss, hlam] at hlook4
       by_cases hl4 : st.lookahead - ml' ≥ WANT_MIN_MATCH
@@ -241,8 +245,8 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       have hml4 : ml'.toNat < 4 := by
         have := UInt32.lt_iff_toNat_lt.mp (UInt32.not_le.mp hm4); simpa [WANT_MIN_MATCH] using this
       refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (sli_tally_lit_le I1 hla1 lc)
-        (tally_lit_K (sli_slw I1) hle1 lc)) ?_)
-      rintro r H3 ⟨⟨-, W3, -, -, I3⟩, st3, d3, lo, hi, rfl, K3, Wr3, hlo⟩
+        (ZlibNgF.Proof.MediumStep.Sat.and (tally_lit_K (sli_slw I1) hle1 lc) (sli_tally_lit_nz I1 lc))) ?_)
+      rintro r H3 ⟨⟨-, W3, -, -, I3⟩, ⟨st3, d3, lo, hi, rfl, K3, Wr3, hlo⟩, hz3⟩
       have G3 := cg_tally (sli_slw I1) G1 K3 Wr3 hlo
       extract_lets bfl
       obtain ⟨st4, hst4⟩ : ∃ st4 : DeflateState, st4 = { st3 with lookahead := st3.lookahead - 1 } := ⟨_, rfl⟩
@@ -265,6 +269,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
         rw [k5.2.2, hss]
         exact ⟨by omega, fun q hq _ => by have := hS q hq; omega⟩
       exact hF bfl ml' _ _ _ W5 hH5 I5 Ck5 hml4 (by rw [avIn_SH, hla5]; omega)
+        (fun _ => nz_SH (by have := nz_of_SH hz3; rw [hst5, hst4]; exact this))
   -- the insertion of `strstart` and the match search
   have hS : ∀ (H0 : Heap) (z : ZStream) (st : DeflateState) (d : Array UInt8),
       SLI h i b st.lookahead st.strstart (SH H0 i z b st d) → CK b (SH H0 i z b st d) → 1 ≤ st.lookahead.toNat →
