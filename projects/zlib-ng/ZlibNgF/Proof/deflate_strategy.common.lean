@@ -379,6 +379,14 @@ theorem lastSlack_tail {last : Int32} {bs : BlockState} (h : last ≠ 0 → bs =
   · rw [if_pos h0]; exact Nat.zero_le _
   · rw [if_neg h0, h h0]; decide
 
+/-- The allowance of a flush with `last` when a last block returns `finish_started` or `finish_done`. -/
+theorem lastSlack_fin {last : Int32} {bs : BlockState} (h : last ≠ 0 → bs = .finish_started ∨ bs = .finish_done) :
+    lastSlack last ≤ finSlack bs := by
+  unfold lastSlack finSlack
+  by_cases h0 : last = 0
+  · rw [if_pos h0]; exact Nat.zero_le _
+  · rw [if_neg h0, if_pos (h h0)]; exact Nat.le_refl _
+
 theorem lastSlack_le (last : Int32) :
     lastSlack last ≤ finSlack (if last != 0 then .finish_started else .need_more) := by
   unfold lastSlack finSlack

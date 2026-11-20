@@ -156,13 +156,14 @@ theorem medium_tpl_ok (T : TreesFacts) (fz : Bool) (lo hi : Int32) (hlo : 3 ≤ 
       exact ⟨(C3.2 st4 h4).1, (hw st4 h4).trans (hw0 st0 h0)⟩
     have fl : ∀ (last : Int32) (bs : BlockState), 0 ≤ last → last ≤ 1 → (bs = .block_done ∨ bs = .finish_done) →
         (bs = .finish_done → flush = Z_FINISH) → (last ≠ 0 → flush = Z_FINISH) → (last = 0 → st2.sym_next ≠ 0) →
+        (last ≠ 0 → bs = .finish_done) →
         Sat (SH H2 i z2 b { st2 with
           insert := if st2.strstart < STD_MIN_MATCH - 1 then st2.strstart else STD_MIN_MATCH - 1 } d2)
           (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H' =>
             ∀ k : Unit → M BlockState, k () = pure bs →
             Sat H' (match r with | some r => pure r | none => k ()) (fun bs h' =>
               StratPost h (some i) flush bs h' ∧ ChainAll b h')) := by
-      intro last bs hl0' hl1 hbs hF hL hz
+      intro last bs hl0' hl1 hbs hF hL hz hlb
       refine Sat.mono (slf_flush_mg T last hl0' hl1 C3.1 hp Ch3 fun e => nz_SH (hz e)) ?_
       rintro r H4 ⟨hav4, F4, Ch4, -, hs4, hn4, hsm, hcf⟩ k hk
       have hx : ∀ st5, H4.dstate b = some st5 → st5.sym_next = 0 ∧ st5.sym_next < st5.sym_end ∧
@@ -173,25 +174,25 @@ theorem medium_tpl_ok (T : TreesFacts) (fz : Bool) (lo hi : Int32) (hlo : 3 ≤ 
       cases r with
       | none =>
         rw [hk]
-        exact Sat.pure ⟨slf_postM F4 _ _ hl (exitIO_tail hbs (cf_of_avIn (by rw [hav4, avIn_SH]; exact hin)) hF)
+        exact Sat.pure ⟨slf_postM (he := lastSlack_tail hlb) F4 _ _ hl (exitIO_tail hbs (cf_of_avIn (by rw [hav4, avIn_SH]; exact hin)) hF)
           fun st5 h5 =>
           ⟨(hx st5 h5).2.1, fun _ => hn4 rfl st5 h5, fun _ => (hx st5 h5).1,
             fun _ => ⟨(hx st5 h5).1, (hx st5 h5).2.2⟩, fun _ => (hx st5 h5).1⟩, Ch4⟩
       | some v =>
         obtain ⟨rfl⟩ := Option.some.inj (hsm (by simp))
-        refine Sat.pure ⟨slf_postM F4 _ _ hl (exitIO_flush (hcf (by simp)) hL) fun st5 h5 => ⟨(hx st5 h5).2.1, fun e => ?_, fun _ => (hx st5 h5).1,
+        refine Sat.pure ⟨slf_postM (he := lastSlack_le last) F4 _ _ hl (exitIO_flush (hcf (by simp)) hL) fun st5 h5 => ⟨(hx st5 h5).2.1, fun e => ?_, fun _ => (hx st5 h5).1,
           fun _ => ⟨(hx st5 h5).1, (hx st5 h5).2.2⟩, fun _ => (hx st5 h5).1⟩, Ch4⟩
         split at e <;> rcases e with e | e <;> cases e
     refine sat_ite (fun hf => ?_) (fun hf => ?_)
     · have hf' : flush = Z_FINISH := by simpa using hf
       exact Sat.bind (Sat.mono (fl 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf') (fun _ => hf')
-        (fun e => absurd e (by decide)))
+        (fun e => absurd e (by decide)) (fun _ => rfl))
         fun r H' q =>
         q (fun _ => pure .finish_done) rfl)
     · refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       refine sat_ite (fun hs => ?_) (fun hs => ?_)
       · exact Sat.bind (Sat.mono (fl 0 .block_done (by decide) (by decide) (.inl rfl) (fun e => by cases e)
-          (fun e => absurd rfl e) (fun _ => by simpa using hs)) fun r H' q =>
+          (fun e => absurd rfl e) (fun _ => by simpa using hs) (fun e => absurd rfl e)) fun r H' q =>
           q (fun _ => pure .block_done) rfl)
       · have h0 : st2.sym_next = 0 := by simpa using hs
         refine Sat.pure ⟨slf_postM C3.1 _ _ hl (exitIO_bd (cf_of_avIn (by rw [avIn_SH]; exact hin)))

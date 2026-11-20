@@ -31,12 +31,13 @@ theorem exit_ok {e : Nat} {h H2 : Heap} {i b wo : Nat} {level : Int32} (E : Env 
     (flush : Int32) (bs : BlockState) (hx : ExitIO H2 i flush bs)
     (hs : ∀ s2, H2.dstate b = some s2 → s2.sym_next = 0 ∧ s2.sym_next < s2.sym_end ∧ s2.lookahead = 0 ∧
       LazyOk s2 ∧ s2.match_available = 0)
-    (hp : bs = .block_done ∨ bs = .finish_done → ∀ s2, H2.dstate b = some s2 → s2.pending = 0) :
+    (hp : bs = .block_done ∨ bs = .finish_done → ∀ s2, H2.dstate b = some s2 → s2.pending = 0)
+    (he : e ≤ finSlack bs := by slack_tac) :
     StratPost h (some i) flush bs H2 :=
   slf_postW F2 flush bs hx (fun st0 h0 => (tab_lv (E.tab st0 h0).1).2.1)
     (fun _ _ _ s2 h2 => ⟨(hs s2 h2).2.2.2.1, fun _ => (hs s2 h2).2.2.2.2⟩)
     (fun s2 h2 => ⟨(hs s2 h2).2.1, fun e => hp e s2 h2, fun _ _ => (hs s2 h2).1,
-      fun _ => ⟨(hs s2 h2).1, (hs s2 h2).2.2.1⟩, fun _ => (hs s2 h2).1⟩)
+      fun _ => ⟨(hs s2 h2).1, (hs s2 h2).2.2.1⟩, fun _ => (hs s2 h2).1⟩) he
 
 /-- `FLUSH_BLOCK` at the end, with no lookahead and no pending match or literal: the facts of `exit_ok` after, the
 hash chains kept, no pending bytes when it does not return, and its return value. -/
@@ -104,7 +105,8 @@ theorem slowEnd_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
       insert := if sT.strstart < STD_MIN_MATCH - 1 then sT.strstart else STD_MIN_MATCH - 1 } :=
     ZlibNgF.Proof.DeflateSide.ChainOk.of_state Ch rfl rfl rfl rfl rfl rfl rfl
   have fin : ∀ (last : Int32) (bs : BlockState), 0 ≤ last → last ≤ 1 → (bs = .block_done ∨ bs = .finish_done) →
-      (bs = .finish_done → flush = Z_FINISH) → (last ≠ 0 → flush = Z_FINISH) → (r : Option BlockState) → ∀ H2,
+      (bs = .finish_done → flush = Z_FINISH) → (last ≠ 0 → flush = Z_FINISH) → (last ≠ 0 → bs = .finish_done) →
+      (r : Option BlockState) → ∀ H2,
       (SLFe (lastSlack last) h i b H2 ∧ (∀ s2, H2.dstate b = some s2 → s2.sym_next = 0 ∧ s2.sym_next < s2.sym_end ∧
         s2.lookahead = 0 ∧ LazyOk s2 ∧ s2.match_available = 0) ∧
         (∀ s2 d2, H2.dstate b = some s2 → H2.bytes b = some d2 → ChainOk b d2 s2) ∧
@@ -112,9 +114,15 @@ theorem slowEnd_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
         (r ≠ none → r = some (if last != 0 then .finish_started else .need_more)) ∧
         avIn H2 i = z.avail_in.toNat ∧ (r ≠ none → O0 H2 i)) →
       (r = none → SPost h i b flush bs H2) ∧ ∀ v, r = some v → SPost h i b flush v H2 := by
-    intro last bs _ _ hbs hF hL r H2 ⟨F2, hs2, hc2, hn2, hsm, hav, hcf⟩
-    refine ⟨fun e => ⟨exit_ok E F2 flush bs (exitIO_tail hbs (cf_of_avIn (by rw [hav]; exact hin)) hF) hs2
-      fun _ => hn2 e, hc2⟩, fun v e => ⟨exit_ok E F2 flush v ?_ hs2 ?_, hc2⟩⟩
+    intro last bs _ _ hbs hF hL hlb r H2 ⟨F2, hs2, hc2, hn2, hsm, hav, hcf⟩
+    refine ⟨fun e => ⟨exit_ok (he := lastSlack_tail hlb) E F2 flush bs
+      (exitIO_tail hbs (cf_of_avIn (by rw [hav]; exact hin)) hF) hs2
+      fun _ => hn2 e, hc2⟩, fun v e => ⟨exit_ok (he := lastSlack_fin fun hne => by
+        have hv := hsm (by rw [e]; simp)
+        rw [e] at hv
+        rw [Option.some.inj hv]
+        have : (last != 0) = true := by simpa using hne
+        simp [this]) E F2 flush v ?_ hs2 ?_, hc2⟩⟩
     · have hv := hsm (by rw [e]; simp)
       rw [e] at hv
       obtain rfl := Option.some.inj hv
@@ -129,7 +137,7 @@ theorem slowEnd_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
     refine Sat.bind (Sat.mono (end_flush T E 1 (by decide) (by decide) F1 hp0 hla hpl hma Ch1
       (fun e => absurd e (by decide))) ?_)
     rintro r H2 q
-    have K := fin 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf') (fun _ => hf') r H2 q
+    have K := fin 1 .finish_done (by decide) (by decide) (.inr rfl) (fun _ => hf') (fun _ => hf') (fun _ => rfl) r H2 q
     cases r with
     | none => exact Sat.pure (K.1 rfl)
     | some v => exact Sat.pure (K.2 v rfl)
@@ -139,7 +147,7 @@ theorem slowEnd_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
         (fun _ => by simpa using hs)) ?_)
       rintro r H2 q
       have K := fin 0 .block_done (by decide) (by decide) (.inl rfl) (fun e => by cases e) (fun e => absurd rfl e)
-        r H2 q
+        (fun e => absurd rfl e) r H2 q
       cases r with
       | none => exact Sat.pure (K.1 rfl)
       | some v => exact Sat.pure (K.2 v rfl)
