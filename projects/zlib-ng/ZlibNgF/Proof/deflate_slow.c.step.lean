@@ -152,6 +152,46 @@ theorem trip_eq (st : StatePtr) (flush : Int32) (longest_match : LongestMatchFn)
           return .brk
       slowA st window longest_match insert_batch level match_discard match_floor) := rfl
 
+/-- The end of `deflate_slow` after the pending literal (`deflate_slow.c:157-166`). -/
+def slowEnd (st : StatePtr) (window : BPtr) (flush : Int32) : M BlockState := do
+  wrD st fun s => { s with insert := if s.strstart < STD_MIN_MATCH - 1 then s.strstart else STD_MIN_MATCH - 1 }
+  if flush == Z_FINISH then
+    match ← FLUSH_BLOCK st window 1 with
+    | some r => return r
+    | none => pure ()
+    return .finish_done
+  if (← rdD st (·.sym_next)) != 0 then
+    match ← FLUSH_BLOCK st window 0 with
+    | some r => return r
+    | none => pure ()
+  return .block_done
+
+/-- The end of `deflate_slow` after its loop (`deflate_slow.c:153-166`). -/
+def slowTail (st : StatePtr) (window : BPtr) (flush : Int32) : M BlockState := do
+  if (← rdD st (·.match_available)) != 0 then
+    -- Z_UNUSED(zng_tr_tally_lit(s, window[s->strstart-1]));
+    let _ ← zng_tr_tally_lit st (← index8 window ((← rdD st (·.strstart)) - 1).toNat)
+    wrD st fun s => { s with match_available := 0 }
+  slowEnd st window flush
+
+/-- `deflate_slow` is its entry, its loop and `slowTail`. -/
+theorem slow_eq (st : StatePtr) (flush : Int32) : deflate_slow st flush = (do
+    let longest_match ← (← rdD st (·.longest_match)).get
+    let insert_batch ← (← rdD st (·.insert_batch)).get
+    let window ← (← rdD st (·.window)).get
+    let level ← rdD st (·.level)
+    let match_discard : UInt32 := if (← rdD st (·.strategy)) == Z_FILTERED then 5 else 0
+    let gm1 : UInt32 := (← rdD st (·.good_match)) - 1
+    let match_floor : UInt32 := if match_discard > gm1 then gm1 else match_discard
+    let c ← cwhile
+      (fun (c : Ctl) => pure (c matches .cont, c))
+      (fun (_ : Ctl) =>
+        deflate_slow_trip st flush longest_match insert_batch window level match_discard match_floor)
+      Ctl.cont
+    if let .ret r := c then
+      return r
+    slowTail st window flush) := rfl
+
 /-! ## The loop invariant -/
 
 open ZlibNgF.Proof.DeflateFacts ZlibNgF.Proof.Strategy ZlibNgF.Proof.DeflateInit
