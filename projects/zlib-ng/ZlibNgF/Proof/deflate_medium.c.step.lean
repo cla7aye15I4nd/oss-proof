@@ -173,20 +173,4 @@ theorem chain_wr {b : Nat} {d d' : Array UInt8} {st : DeflateState} {lo hi : Nat
     obtain ⟨h1, h2⟩ := hl ho po hh hp
     exact ⟨fun j _ hj => W.2 j (Or.inl (by omega)), fun j _ hj => W.2 j (Or.inl (by omega))⟩
 
-/-- The hash chains survive `fill_window` (a fact about the translated `fill_window` and `slide_hash`, still to be
-proved; the medium strategies take it as a premise until then). -/
-def FillChain : Prop :=
-  ∀ (h h' : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (d : Array UInt8), DInv h s → DStateIs h s b st →
-    h.bytes b = some d → st.lookahead.toNat < 262 → ChainOk b d st →
-    C.run (ZlibNg.Deflate.fill_window (some b)) h = .ok ((), h') →
-    ∀ st' d', DStateIs h' s b st' → h'.bytes b = some d' → ChainOk b d' st'
-
-/-- The hash chains survive `FLUSH_BLOCK` (it writes `pending_buf`, after `head`, and keeps `strstart`,
-`lookahead`, `level`, `strategy`, `head`, `prev` and `w_size`; still to be proved from the block emitters). -/
-def FlushChain : Prop :=
-  ∀ (h h' : Heap) (s : StreamPtr) (b wo : Nat) (st : DeflateState) (d : Array UInt8) (last : Int32)
-    (r : Option BlockState), DInv h s → DStateIs h s b st → h.bytes b = some d → ChainOk b d st →
-    C.run (ZlibNg.DeflateP.FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) h = .ok (r, h') →
-    ∀ st' d', DStateIs h' s b st' → h'.bytes b = some d' → ChainOk b d' st'
-
 end ZlibNgF.Proof.MediumStep
