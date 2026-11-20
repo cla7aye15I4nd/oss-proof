@@ -212,6 +212,8 @@ import ZlibNgF.Proof.«gzwrite.c.write»
 import ZlibNgF.Proof.«gzwrite.c.direct»
 import ZlibNgF.Proof.«gzwrite.c.calls»
 import ZlibNgF.Proof.«gzwrite.c.putc»
+import ZlibNgF.Proof.«gzwrite.c.printf»
+import ZlibNgF.Proof.«gzwrite.c.keeps»
 import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
 import ZlibNgF.Proof.«deflate_huff.c.safety»
