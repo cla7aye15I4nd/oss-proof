@@ -292,4 +292,41 @@ theorem tail_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState →
     show z.avail_out - z'.avail_out = 0
     rw [e2]; exact UInt32.sub_self _
 
+/-! ## The head of the loop body -/
+
+theorem gsat_ivget {α : Type} {w : World} {h : Heap} {p : α} {Q : α → World → Heap → Prop} (q : Q p w h) :
+    GSat w h (monadLift (Ival.get (.val p)) : G α) Q := ⟨p, w, h, rfl, q⟩
+
+theorem sat_diffW {H : Heap} {c : Nat} {a : Array UInt8} {o1 o2 : Nat} (hb : H.bytes c = some a)
+    (h1 : o1 ≤ a.size) (h2 : o2 ≤ o1) (h3 : o1 - o2 < 2 ^ 31) :
+    Ptr.diff (Ptr.ref (BRef.heap c) o1) (Ptr.ref (BRef.heap c) o2) H = .ok (Int64.ofInt ((o1 : Int) - o2), H) := by
+  have hr : -(2 ^ 63 : Int) ≤ (o1 : Int) - (o2 : Int) ∧ (o1 : Int) - (o2 : Int) < 2 ^ 63 := by omega
+  have hb' : Space.get H (BRef.heap c) = some a := hb
+  have h2' : o2 ≤ a.size := by omega
+  simp only [Ptr.diff, hb', h1, h2', and_self, ↓reduceIte, hr]
+
+/-- The buffers of a write handle in the state `GzWX` (not direct). -/
+theorem wx_bufs {W : World} {H : Heap} {b : Nat} {s : GzState} {z : ZStream} (hx : GzWX W H b s z)
+    (hd : s.direct = 0) :
+    ∃ c base d ko kx, s.buffers = .val (.ref (.heap c) base) ∧ s.out = .val (.ref (.heap c) (base + inSize s)) ∧
+      H.bytes c = some d ∧ base + inSize s + s.size.toNat ≤ d.size ∧
+      z.next_out = .ref (.heap c) (base + inSize s + ko) ∧ s.next = .val (.ref (.heap c) (base + inSize s + kx)) ∧
+      kx ≤ ko ∧ ko + z.avail_out.toNat = s.size.toNat ∧ s.size.toNat ≤ 2 ^ 30 ∧
+      (∀ c' base', GzBufs (setZ H s.strm (flatZ z)) s c' base' → c' = c ∧ base' = base) := by
+  obtain ⟨hs, hz, hsz, hv, -⟩ := hx
+  have hsF : W.gz (setZ H s.strm (flatZ z)) b = some s := hs
+  have hwm := modeOf hsF hv.2.1
+  obtain ⟨sh, -⟩ := inv_of hsF hv.1
+  obtain ⟨c, base, zF, hB, hzF, WB⟩ := (sh.write hwm).bufs hsz
+  rw [setZ_streams_same] at hzF; cases hzF
+  obtain ⟨ko, kx, eo, ex, hle, hk⟩ := WB.out hd
+  obtain ⟨d, hdc, hds⟩ := hB.fits
+  have hout2 : outSize s = s.want.toNat := by simp [outSize, hwm, hd]
+  have hsw : s.size.toNat = s.want.toNat := by rw [hB.size]
+  refine ⟨c, base, d, ko, kx, hB.buffers, hB.out (by rw [hout2]; have := sh.want_lo; omega), hdc,
+    by rw [hout2] at hds; omega, eo, ex, hle, hk, by rw [hsw]; exact sh.want_hi, fun c' base' hb' => ?_⟩
+  have := hb'.buffers.symm.trans hB.buffers
+  simp only [Ival.val.injEq, Ptr.ref.injEq, BRef.heap.injEq] at this
+  exact ⟨this.1, this.2⟩
+
 end ZlibNgF.Proof.GzWrite
