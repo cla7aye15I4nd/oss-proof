@@ -109,7 +109,7 @@ def OutTail (h H : Heap) (i : Nat) : Prop :=
     z.next_out = .ref (.heap ob) (oo + k) ∧ z.avail_out.toNat + k = z0.avail_out.toNat
 
 /-- What a strategy call with `flush` leaves: the invariant, valid and set buffers, a change of the stream record, the
-stream's block and the output buffer only, the output buffer after a tail of the one before (`OutTail`), no pending bytes after `block_done` / `finish_done`; `SymsOk` again, the
+stream's block and the output buffer only, the output buffer after a tail of the one before (`OutTail`), the stream's state block kept, no pending bytes after `block_done` / `finish_done`; `SymsOk` again, the
 fields of `StratKeeps` unchanged, no symbols after a call with a flush that leaves output room (every such return
 goes through `FLUSH_BLOCK`, or the strategy never tallies; `deflate_slow` returns on a full output right after a
 tally), no symbols after `block_done` (it follows `FLUSH_BLOCK` or an empty symbol buffer), and no symbols and no
@@ -117,7 +117,7 @@ lookahead after `finish_started` / `finish_done`; `LazyOk` kept, and no pending 
 (`deflate_slow` tallies it before it leaves its loop). -/
 def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' : Heap) : Prop :=
   DInv h' s ∧ DStreamIO h' s ∧ DBufsSet h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] (dOutputRanges h s) ∧
-    (∀ i, s = some i → OutTail h h' i) ∧
+    (∀ i, s = some i → OutTail h h' i) ∧ (∀ b, StateBlock h s b → StateBlock h' s b) ∧
     (bs = .block_done ∨ bs = .finish_done → ∃ b st, DStateIs h' s b st ∧ st.pending = 0) ∧
     ∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt h' s z' → z'.avail_out ≠ 0) → st'.sym_next = 0) ∧
