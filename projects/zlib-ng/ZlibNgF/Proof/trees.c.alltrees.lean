@@ -38,7 +38,7 @@ theorem SendPost.cat {pbo e1 e2 : Nat} {np : UInt32} {bb : UInt64} {bv : UInt32}
 most 7. -/
 structure SatPre (b : Nat) (st : DeflateState) (d : Array UInt8) (pbo Lim mL mD nb : Nat) : Prop where
   hpb : st.pending_buf = .val (.ref (.heap b) pbo)
-  hLim : pbo + Lim ≤ d.size
+  hLim : pbo + Lim + 8 ≤ d.size
   hL32 : Lim < 2 ^ 31
   hbl : 19 ≤ st.bl_tree.size
   h7 : ∀ t, t < 19 → (st.bl_tree[t]!).dl.toNat ≤ 7
@@ -64,7 +64,7 @@ noncomputable def satBits (st : DeflateState) (mL mD nb : Nat) : Nat :=
 
 theorem send_all_trees_SH {pbo Lim mL mD nb : Nat} (P : SatPre b st d pbo Lim mL mD nb)
     (lc dc bc : Int32) (hlc : lc.toInt = mL) (hdc : dc.toInt = mD) (hbc : bc.toInt = nb)
-    (hroom : 8 * st.pending.toNat + st.bi_valid.toInt.toNat + satBits st mL mD nb + 64 ≤ 8 * Lim) :
+    (hroom : 8 * st.pending.toNat + st.bi_valid.toInt.toNat + satBits st mL mD nb ≤ 8 * Lim + 7) :
     Sat (SH H i z b st d) (send_all_trees (some b) lc dc bc)
       (fun _ H' => SendPost H i z b st d pbo (satBits st mL mD nb) H') := by
   have hpb := P.hpb; have hLim := P.hLim; have hL32 := P.hL32
@@ -139,7 +139,7 @@ theorem send_all_trees_SH {pbo Lim mL mD nb : Nat} (P : SatPre b st d pbo Lim mL
     (d := d6) hpb (by rw [hsz6]; exact hLim) hL32 P.hbl P.h7 .l_desc mL _ hmc1 P.mL1 P.lsize (by omega) P.lg P.l15
     (by rw [hv6]; omega) (by rw [hv6]; omega) (by
       show 8 * np6.toNat + (bv6.toInt32).toInt.toNat +
-        tokBits st.bl_tree (treeTokens (lenOf st.dyn_ltree) mL) + 64 ≤ 8 * Lim
+        tokBits st.bl_tree (treeTokens (lenOf st.dyn_ltree) mL) ≤ 8 * Lim + 7
       rw [hv6, Int.toNat_natCast]; omega)) ?_)
   rintro _ H7 q7
   have q7' : SendPost H i z b st d pbo (14 + 3 * nb + tokBits st.bl_tree (treeTokens (lenOf st.dyn_ltree) mL)) H7 :=
@@ -152,7 +152,7 @@ theorem send_all_trees_SH {pbo Lim mL mD nb : Nat} (P : SatPre b st d pbo Lim mL
     (d := d7) hpb (by rw [hsz7]; exact hLim) hL32 P.hbl P.h7 .d_desc mD _ hmc2 P.mD1 P.dsize (by omega) P.dg P.d15
     (by rw [hv7]; omega) (by rw [hv7]; omega) (by
       show 8 * np7.toNat + (bv7.toInt32).toInt.toNat +
-        tokBits st.bl_tree (treeTokens (lenOf st.dyn_dtree) mD) + 64 ≤ 8 * Lim
+        tokBits st.bl_tree (treeTokens (lenOf st.dyn_dtree) mD) ≤ 8 * Lim + 7
       rw [hv7, Int.toNat_natCast]; omega)) ?_
   rintro _ H8 q8
   exact SendPost.cat w7 hle7 hacc7 hbv7 q8

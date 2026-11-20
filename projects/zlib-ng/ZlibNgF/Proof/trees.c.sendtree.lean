@@ -8,7 +8,7 @@ On `SH` heaps: `send_tree(s, tree, max_code)` on a tree array whose first `m = m
 15 and whose `tree[m].Len` is the `0xffff` guard of `scan_tree` sends the bit-length symbols of the model's
 `treeTokens` with the codes of `bl_tree` (lengths at most 7) and their extra bits: `8 * pending + bi_valid` grows by
 exactly `(treeTokens …).map (blLen t + blExtra t)` summed, every 8-byte store of `send_bits` ends below `pbo + Lim`
-when that many bits fit below `Lim - 8` bytes (the form of `room_header`), and only the pending count, the bit buffer
+when all its bits fit in `8 * Lim + 7` bits (the form of `room_header`), and only the pending count, the bit buffer
 and the bytes after the pending bytes change.
 -/
 
@@ -113,9 +113,9 @@ def BAcc (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : A
 
 /-- `send_bits` after `E` bits, when the bits after it still fit below `Lim - 8` bytes. -/
 theorem bacc_send_bits {pbo bv0 E Lim : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
-    (hLim : pbo + Lim ≤ d.size) (hL32 : Lim < 2 ^ 31) {bv : UInt32} {H' : Heap}
+    (hLim : pbo + Lim + 8 ≤ d.size) (hL32 : Lim < 2 ^ 31) {bv : UInt32} {H' : Heap}
     (hA : BAcc H i z b st d pbo bv0 E bv H') (val : UInt64) (len : UInt32) (bb : UInt64) (hlen : len.toNat ≤ 64)
-    (hroom : 8 * st.pending.toNat + bv0 + E + len.toNat + 64 ≤ 8 * Lim) :
+    (hroom : 8 * st.pending.toNat + bv0 + E + len.toNat ≤ 8 * Lim + 7) :
     Sat H' (ZlibNg.TreesEmit.send_bits (some b) val len bb bv)
       (fun r H'' => BAcc H i z b st d pbo bv0 (E + len.toNat) r.2 H'') := by
   obtain ⟨np, d', rfl, w, hle, hacc, hbv⟩ := hA
@@ -129,9 +129,9 @@ theorem bacc_send_bits {pbo bv0 E Lim : Nat} (hpb : st.pending_buf = .val (.ref 
 
 /-- `send_code(s, k, s->bl_tree, …)` after `E` bits: `bl_tree[k].Len` bits more. -/
 theorem bacc_send_code {pbo bv0 E Lim : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
-    (hLim : pbo + Lim ≤ d.size) (hL32 : Lim < 2 ^ 31) {bv : UInt32} {H' : Heap}
+    (hLim : pbo + Lim + 8 ≤ d.size) (hL32 : Lim < 2 ^ 31) {bv : UInt32} {H' : Heap}
     (hA : BAcc H i z b st d pbo bv0 E bv H') (k : Nat) (hk : k < st.bl_tree.size) (h7 : (st.bl_tree[k]!).dl.toNat ≤ 7)
-    (bb : UInt64) (hroom : 8 * st.pending.toNat + bv0 + E + (st.bl_tree[k]!).dl.toNat + 64 ≤ 8 * Lim) :
+    (bb : UInt64) (hroom : 8 * st.pending.toNat + bv0 + E + (st.bl_tree[k]!).dl.toNat ≤ 8 * Lim + 7) :
     Sat H' (ZlibNg.TreesEmit.send_code (some b) (k : Int) (.ref (.bl_tree b) 0) bb bv)
       (fun r H'' => BAcc H i z b st d pbo bv0 (E + (st.bl_tree[k]!).dl.toNat) r.2 H'') := by
   obtain ⟨np, d', rfl, hrest⟩ := hA
@@ -157,12 +157,12 @@ theorem ofInt_small (v : Int) (h1 : -1000 ≤ v) (h2 : v ≤ 1000) : (Int32.ofIn
   rw [Int32.toInt_ofInt]; apply Int.bmod_eq_of_le <;> simp [Int32.size] <;> omega
 
 theorem send_group {β : Type} {pbo bv0 E Lim : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
-    (hLim : pbo + Lim ≤ d.size) (hL32 : Lim < 2 ^ 31) (hbl : 19 ≤ st.bl_tree.size)
+    (hLim : pbo + Lim + 8 ≤ d.size) (hL32 : Lim < 2 ^ 31) (hbl : 19 ≤ st.bl_tree.size)
     (h7 : ∀ t, t < 19 → (st.bl_tree[t]!).dl.toNat ≤ 7) {bv : UInt32} {H' : Heap}
     (hA : BAcc H i z b st d pbo bv0 E bv H') (curlen prevlen count min_count : Int32) (nl' cN mnN : Nat) (p' : Int)
     (hc : curlen.toInt = nl') (hnl : nl' ≤ 15) (hp : prevlen.toInt = p') (hcn : count.toInt = cN) (hc1 : 1 ≤ cN)
     (hc2 : cN ≤ 138) (hmn : min_count.toInt = mnN) (hm3 : 3 ≤ mnN) (hm4 : mnN ≤ 4) (bb : UInt64)
-    (hroom : 8 * st.pending.toNat + bv0 + E + tokBits st.bl_tree (groupTokens p' cN mnN nl') + 64 ≤ 8 * Lim)
+    (hroom : 8 * st.pending.toNat + bv0 + E + tokBits st.bl_tree (groupTokens p' cN mnN nl') ≤ 8 * Lim + 7)
     (k : UInt64 × UInt32 → M β) (Q : β → Heap → Prop)
     (hk : ∀ r H'', BAcc H i z b st d pbo bv0 (E + tokBits st.bl_tree (groupTokens p' cN mnN nl')) r.2 H'' →
       Sat H'' (k r) Q) :
@@ -338,11 +338,11 @@ def TInv (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : A
       tokBits st.bl_tree (treeTokens (lenOf (tArr t st)) m)
 
 theorem send_step {pbo bv0 Lim : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
-    (hLim : pbo + Lim ≤ d.size) (hL32 : Lim < 2 ^ 31) (hbl : 19 ≤ st.bl_tree.size)
+    (hLim : pbo + Lim + 8 ≤ d.size) (hL32 : Lim < 2 ^ 31) (hbl : 19 ≤ st.bl_tree.size)
     (h7 : ∀ t, t < 19 → (st.bl_tree[t]!).dl.toNat ≤ 7) (t : DescSel) (m : Nat) (mc : Int32)
     (hmc : mc.toInt + 1 = m) (hm : m < (tArr t st).size) (hm1k : m ≤ 1000) (hA : ((tArr t st)[m]!).dl = 0xffff)
     (hA15 : ∀ n, n < m → lenOf (tArr t st) n ≤ 15)
-    (hroom : 8 * st.pending.toNat + bv0 + tokBits st.bl_tree (treeTokens (lenOf (tArr t st)) m) + 64 ≤ 8 * Lim)
+    (hroom : 8 * st.pending.toNat + bv0 + tokBits st.bl_tree (treeTokens (lenOf (tArr t st)) m) ≤ 8 * Lim + 7)
     (x : TX) (H' : Heap) (hI : TInv H i z b st d pbo bv0 t m x H') (hlt : x.1 ≤ mc) :
     Sat H' (sendBody (some b) (.ref (tRef t b) 0) x)
       (fun x' H2 => TInv H i z b st d pbo bv0 t m x' H2 ∧ m - x'.1.toInt.toNat < m - x.1.toInt.toNat) := by
@@ -418,13 +418,13 @@ def SendPost (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d
     8 * np.toNat + bv.toNat = 8 * st.pending.toNat + st.bi_valid.toInt.toNat + bits ∧ bv.toNat < 64
 
 theorem send_tail {pbo Lim : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
-    (hLim : pbo + Lim ≤ d.size) (hL32 : Lim < 2 ^ 31) (hbl : 19 ≤ st.bl_tree.size)
+    (hLim : pbo + Lim + 8 ≤ d.size) (hL32 : Lim < 2 ^ 31) (hbl : 19 ≤ st.bl_tree.size)
     (h7 : ∀ t, t < 19 → (st.bl_tree[t]!).dl.toNat ≤ 7) (t : DescSel) (m : Nat) (mc : Int32)
     (hmc : mc.toInt + 1 = m) (hm1 : 1 ≤ m) (hm : m < (tArr t st).size) (hm1k : m ≤ 1000)
     (hA : ((tArr t st)[m]!).dl = 0xffff) (hA15 : ∀ n, n < m → lenOf (tArr t st) n ≤ 15)
     (v0 : 0 ≤ st.bi_valid.toInt) (v64 : st.bi_valid.toInt < 64)
     (hroom : 8 * st.pending.toNat + st.bi_valid.toInt.toNat +
-      tokBits st.bl_tree (treeTokens (lenOf (tArr t st)) m) + 64 ≤ 8 * Lim)
+      tokBits st.bl_tree (treeTokens (lenOf (tArr t st)) m) ≤ 8 * Lim + 7)
     (nl : Int32) (hnl : nl.toInt = lenOf (tArr t st) 0) (mx mn : Int32)
     (hmx : mx.toInt = ((if lenOf (tArr t st) 0 = 0 then 138 else 7 : Nat) : Int))
     (hmn : mn.toInt = ((if lenOf (tArr t st) 0 = 0 then 3 else 4 : Nat) : Int)) :
@@ -462,13 +462,13 @@ theorem send_tail {pbo Lim : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) p
 `bl_tree` code lengths at most 7, fewer than 64 bits waiting, and room for every bit of `treeTokens` plus one 8-byte
 store below `pbo + Lim`: no fault, exactly the bits of `treeTokens` sent (`SendPost`). -/
 theorem send_tree_SH {pbo Lim : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
-    (hLim : pbo + Lim ≤ d.size) (hL32 : Lim < 2 ^ 31) (hbl : 19 ≤ st.bl_tree.size)
+    (hLim : pbo + Lim + 8 ≤ d.size) (hL32 : Lim < 2 ^ 31) (hbl : 19 ≤ st.bl_tree.size)
     (h7 : ∀ t, t < 19 → (st.bl_tree[t]!).dl.toNat ≤ 7) (t : DescSel) (m : Nat) (mc : Int32)
     (hmc : mc.toInt + 1 = m) (hm1 : 1 ≤ m) (hm : m < (tArr t st).size) (hm1k : m ≤ 1000)
     (hA : ((tArr t st)[m]!).dl = 0xffff) (hA15 : ∀ n, n < m → lenOf (tArr t st) n ≤ 15)
     (v0 : 0 ≤ st.bi_valid.toInt) (v64 : st.bi_valid.toInt < 64)
     (hroom : 8 * st.pending.toNat + st.bi_valid.toInt.toNat +
-      tokBits st.bl_tree (treeTokens (lenOf (tArr t st)) m) + 64 ≤ 8 * Lim) :
+      tokBits st.bl_tree (treeTokens (lenOf (tArr t st)) m) ≤ 8 * Lim + 7) :
     Sat (SH H i z b st d) (send_tree (some b) (.ref (tRef t b) 0) mc)
       (fun _ H' => SendPost H i z b st d pbo (tokBits st.bl_tree (treeTokens (lenOf (tArr t st)) m)) H') := by
   rw [send_tree_eq]
