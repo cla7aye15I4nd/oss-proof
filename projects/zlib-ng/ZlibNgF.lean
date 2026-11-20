@@ -144,3 +144,4 @@ import ZlibNgF.Proof.«deflate_stored.c.trip»
 import ZlibNgF.Proof.«deflate_stored.c.window»
 import ZlibNgF.Proof.«deflate_stored.c.block»
 import ZlibNgF.Proof.«deflate_stored.c.safety»
+import ZlibNgF.Proof.«deflate_quick.c.tally»
