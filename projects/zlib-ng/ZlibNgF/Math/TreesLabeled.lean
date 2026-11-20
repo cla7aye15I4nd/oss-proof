@@ -269,6 +269,21 @@ theorem labs_perm : ∀ t : NT, t.labs.Perm (t.ints ++ t.lvs)
     simp only [List.append_assoc]
     exact List.Perm.append_left _ List.perm_append_comm
 
+theorem edge_par : ∀ (t : NT) {e : Nat × Nat}, e ∈ t.edges → e.2 ∈ t.ints
+  | leaf _ _, _, h => by simp [edges] at h
+  | node n a b, e, h => by
+    simp only [edges, List.mem_cons, List.mem_append] at h
+    simp only [ints, List.mem_cons, List.mem_append]
+    rcases h with rfl | rfl | h | h
+    · exact Or.inl rfl
+    · exact Or.inl rfl
+    · exact Or.inr (Or.inl (edge_par a h))
+    · exact Or.inr (Or.inr (edge_par b h))
+
+theorem lab_int : ∀ (t : NT), t.ints ≠ [] → t.lab ∈ t.ints
+  | leaf _ _, h => by simp [ints] at h
+  | node _ _ _, _ => by simp [ints, lab]
+
 end NT
 
 /-! ## The merge on numbered trees -/
@@ -546,4 +561,24 @@ theorem good_final {srt : List (Nat × Nat)} {elems S : Nat} {x : MS} (two : 2 �
     exact List.eq_nil_of_length_eq_zero (by omega)
   · rw [hx] at this; simp at this
 
-end ZlibNgF.Math.TreesLabeled
+/-- **The tree of the merge**, from the sorted leaves `srt` (at least two, distinct nodes below `elems`). -/
+theorem final_tree (srt : List (Nat × Nat)) (elems : Nat) (nd : (srt.map Prod.snd).Nodup)
+    (lt : ∀ e ∈ srt, e.2 < elems) (two : 2 ≤ srt.length) :
+    ∃ q, (miter (srt.length - 1) (srt, [], elems)).2.1 = [q] ∧ q.node = elems + srt.length - 2 ∧
+      q.tree.lab = q.node ∧ q.tree.labs.Nodup ∧ q.tree.ints.Perm (List.range' elems (srt.length - 1)) ∧
+      q.tree.lvs.Perm (srt.map Prod.snd) ∧ (∀ e ∈ q.tree.edges, e.1 < e.2) ∧
+      mergeLoop (srt.length - 1) srt [] elems = [eraseQ q] := by
+  have g := good_iter srt elems nd lt (srt.length - 1) (by omega)
+  obtain ⟨h1, q, hq, hn⟩ := good_final two g
+  obtain ⟨ndl, _⟩ := good_labs g nd lt
+  have hr : roots (miter (srt.length - 1) (srt, [], elems)).1 (miter (srt.length - 1) (srt, [], elems)).2.1 = [q] := by
+    rw [h1, hq]; rfl
+  have lv := g.lv
+  have it := g.it
+  rw [hr] at ndl lv it
+  simp only [List.flatMap_cons, List.flatMap_nil, List.append_nil] at ndl lv it
+  refine ⟨q, hq, hn, (g.lab q (by rw [hr]; simp)).symm, ndl, it, lv, fun e he => g.ed q (by rw [hr]; simp) e he, ?_⟩
+  have := mergeLoop_erase (srt.length - 1) srt [] elems
+  simp only [List.map_nil] at this
+  rw [this, hq]; rfl
+
