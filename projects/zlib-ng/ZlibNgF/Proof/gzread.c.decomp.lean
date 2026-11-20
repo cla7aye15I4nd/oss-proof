@@ -218,7 +218,7 @@ def AvailBudget (w : World) (b : Nat) (s : GzState) (z : ZStream) (r : Int32) (W
     rdLeft W.fs s.fd + z'.avail_in.toNat ≤ rdLeft w.fs s.fd + z.avail_in.toNat ∧ (z'.avail_in ≠ 0 ∨ s'.eof ≠ 0)
 
 theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
-    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) {c base : Nat} {z : ZStream}
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hnc : s.how ≠ ZlibNg.Gz.COPY) {c base : Nat} {z : ZStream}
     (hB : GzBufs h s c base) (hz : h.streams s.strm = some z)
     (hai : z.avail_in = 0 ∨ Inside c base 0 (inSize s) z.next_in z.avail_in.toNat)
     {H : Heap} (x : HBuf h H c base (base + inSize s)) :
@@ -306,7 +306,7 @@ theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : Gz
           have sh1' := shape_msg sh1 e s.past s.err s.msg ⟨sh1.msg.1, sh1.msg.2⟩
           have hvE : GzInvR { w with fs := fs', gzs := upd w.gzs b (some { s with eof := e }) } H1 (some b) :=
             (keeps_store hs1 (HLess.refl H1) (fun _ e => e) sh1' hn1 rfl rfl).1 hv1
-          refine invR_strm (s := { s with eof := e }) (z := z) (z' := z') hvE hs2 hsz hz1 rfl fun c' base' hB' => Or.inr ⟨0, ?_, Nat.le_refl _, ?_⟩
+          refine invR_strm (s := { s with eof := e }) (z := z) (z' := z') hvE hs2 hsz hz1 rfl (fun c' base' hB' => Or.inr ⟨0, ?_, Nat.le_refl _, ?_⟩) (fun e => absurd e hnc)
           · have e1 := hB'.buffers; have e2 := hB.buffers
             rw [show ({ s with eof := e } : GzState).buffers = s.buffers from rfl, e2] at e1; cases e1; rfl
           · show 0 + (z.avail_in + lp.hv).toNat ≤ inSize s
@@ -341,7 +341,7 @@ theorem availTail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : Gz
 (`AvailBudget`) only `next_in` and `avail_in` of the stream changed, `rdLeft + avail_in` did not grow, and there is
 input in the buffer or `eof` is set. -/
 theorem gz_avail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
-    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) {z0 : ZStream} (hz0 : h.streams s.strm = some z0) :
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hnc : s.how ≠ ZlibNg.Gz.COPY) {z0 : ZStream} (hz0 : h.streams s.strm = some z0) :
     GSat w h (gz_avail (some b)) (fun r W H => AvailPost w h b s r W H ∧ AvailBudget w b s z0 r W H) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
@@ -361,7 +361,7 @@ theorem gz_avail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzI
       have := gstep_hbuf hs x hcb hown w.fs s rfl rfl rfl rfl
       rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
       exact this
-    exact (availTail_budget hv hs h0 hsz hB hz hai x).mono fun r W H' p => ⟨AvailPost.pre g hs hsH p.1, p.2⟩
+    exact (availTail_budget hv hs h0 hsz hnc hB hz hai x).mono fun r W H' p => ⟨AvailPost.pre g hs hsH p.1, p.2⟩
   unfold gz_avail
   refine GSat.bind (GSat.of_eq (strmOf_app hs) ?_)
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
@@ -505,8 +505,8 @@ open ZlibNg.Inflate in
 read handle (the state of the file is not touched), the call is a step that writes only the target, and the stream
 moved `next_in` and `next_out` by the bytes it consumed and wrote. -/
 theorem inflate_gz (G : InflateGz) (M : InflateMsg) {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvR W H (some b))
-    (hs : W.gz H b = some s) (hsz : s.size ≠ 0) (h0 : s.«have» = 0) {z : ZStream} (hz : H.streams s.strm = some z)
-    (hin : z.avail_in ≠ 0) (hout : z.avail_out ≠ 0) {bo oo n k : Nat} (ht : OutTgt W H b s bo oo n)
+    (hs : W.gz H b = some s) (hsz : s.size ≠ 0) (h0 : s.«have» = 0) (hhow : s.how = GZIP) {z : ZStream}
+    (hz : H.streams s.strm = some z) (hin : z.avail_in ≠ 0) (hout : z.avail_out ≠ 0) {bo oo n k : Nat} (ht : OutTgt W H b s bo oo n)
     (hno : z.next_out = .ref (.heap bo) (oo + k)) (hk : k + z.avail_out.toNat ≤ n) :
     GSat W H (lm (inflate (some s.strm) ZlibNg.Deflate.Z_NO_FLUSH)) (fun r W' H' => W' = W ∧
       GzInvR W H' (some b) ∧ W.gz H' b = some s ∧ GStep W H W H' b [(.ref (.heap bo) oo, n)] ∧
@@ -620,7 +620,7 @@ theorem inflate_gz (G : InflateGz) (M : InflateMsg) {W : World} {H : Heap} {b : 
         obtain ⟨d', e', -⟩ := liveB mc (hpm mc hx).1 d hd
         exact Or.inr ⟨mc, d', em, e'⟩
     · refine ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun hz0 => absurd hz0 hsz, fun hz0 => absurd hz0 hsz,
-        R.pos_have, R.look_pos, R.gzip_direct⟩
+        R.pos_have, R.look_pos, R.gzip_direct, fun e => absurd (e.symm.trans hhow) (by decide)⟩
       obtain ⟨d, hd, hds⟩ := hB.fits
       obtain ⟨d', e', sz'⟩ := liveB c hcsb d hd
       have hsv : H'.savedPtrs c = H.savedPtrs c := hsaved c fun z2 hz2 => by
@@ -919,7 +919,7 @@ open ZlibNg.Inflate in
 /-- The loop body of `gz_decomp` after `gz_avail`, and the loop condition. -/
 theorem rest_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : Nat} {s : GzState} {bo oo had : Nat}
     {P0 : Prop} (hP0 : P0 → InflFresh h s) (hw0 : ∃ s0, w.gz h b = some s0) (hsz : s.size ≠ 0) (h0 : s.«have» = 0)
-    {st : DecompLoop} (hgo : st.ctl = .go) (hret : st.ret ≠ Z_STREAM_END)
+    (hhow : s.how = GZIP) {st : DecompLoop} (hgo : st.ctl = .go) (hret : st.ret ≠ Z_STREAM_END)
     {W : World} {H : Heap} {s' : GzState} {z : ZStream} (m : DMid w h b s bo oo had W H s' z)
     (hout : z.avail_out ≠ 0) (heof : z.avail_in = 0 → s'.eof ≠ 0) {μ1 : Nat} (hμ1 : dmu s W H ≤ μ1)
     (hμ0 : dmu s W H ≤ dmu s w h) (hfr : P0 → dmu s W H < dmu s w h ∨ (W = w ∧ H = h)) :
@@ -962,7 +962,7 @@ theorem rest_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : N
     rw [hdm W3 H3 z hz3, q4]; rw [hdm W H z hz] at hμ0; exact hμ0
   · intro hai0
     have hin : z.avail_in ≠ 0 := by simpa using hai0
-    have I := inflate_gz G M hv hs' hsz' h0' (by rw [hstrm]; exact hz) hin hout ht (k := had - z.avail_out.toNat)
+    have I := inflate_gz G M hv hs' hsz' h0' (by rw [hsh]; exact hhow) (by rw [hstrm]; exact hz) hin hout ht (k := had - z.avail_out.toNat)
       hno (by omega)
     rw [hstrm] at I
     refine GSat.bind (GSat.mono I fun r W1 H1 q => ?_)
@@ -1046,7 +1046,7 @@ open ZlibNg.Inflate in
 /-- One trip of the loop of `gz_decomp`. -/
 theorem body_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : Nat} {s : GzState} {bo oo had : Nat}
     {P0 : Prop} (hP0 : P0 → InflFresh h s) (hP1 : P0 → ∀ z0, h.streams s.strm = some z0 → z0.avail_in ≠ 0)
-    (hw0 : ∃ s0, w.gz h b = some s0) (hsz : s.size ≠ 0) (h0 : s.«have» = 0)
+    (hw0 : ∃ s0, w.gz h b = some s0) (hsz : s.size ≠ 0) (h0 : s.«have» = 0) (hhow : s.how = GZIP)
     {st : DecompLoop} {W : World} {H : Heap} (hI : DInv w h b s bo oo had P0 st W H) :
     GSat W H (decompBody (some b) (some s.strm) st) (fun st1 W1 H1 => GSat W1 H1 (decompCond (some s.strm) st1)
       (fun cs W2 H2 => (cs.1 = true → DInv w h b s bo oo had P0 cs.2 W2 H2 ∧ dmu s W2 H2 < dmu s W H) ∧
@@ -1064,7 +1064,7 @@ theorem body_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : N
   apply GSat.ite
   · intro hai0
     have hai0' : z.avail_in = 0 := by simpa using hai0
-    have A := gz_avail_budget hv hs' h0' hsz' (z0 := z) (by rw [hstrm]; exact hz)
+    have A := gz_avail_budget hv hs' h0' hsz' (by rw [hsh]; show s.how ≠ _; rw [hhow]; decide) (z0 := z) (by rw [hstrm]; exact hz)
     refine GSat.bind (GSat.mono A fun r W1 H1 q => ?_)
     obtain ⟨⟨hr, hv1, g1, hfs1, s1, hs1, hsh1⟩, hB⟩ := q
     have g' : GStep w h W1 H1 b [(.ref (.heap bo) oo, had)] := g.trans (GStep.widen g1 _) hw0 ⟨s', hs'⟩
@@ -1090,7 +1090,7 @@ theorem body_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : N
           OutTgt.step ht g1 hv1 hs1 (by rw [hsh1]) (by rw [hsh1]; rfl) (by rw [hsh1]; rfl) fr (by rw [hsh1]; exact hsz')⟩
       have hle1 : dmu s W1 H1 ≤ dmu s W H := by
         rw [hd1, hd0]; rw [ez1] at hbud ⊢; simp only at hbud ⊢; omega
-      refine rest_spec G M hP0 hw0 hsz h0 hgo hret mid (by rw [ez1]; exact hout)
+      refine rest_spec G M hP0 hw0 hsz h0 hhow hgo hret mid (by rw [ez1]; exact hout)
         (fun e => by rcases hie with h1 | h1; exact absurd e h1; exact h1) hle1 (Nat.le_trans hle1 hμ0) ?_
       intro hp
       rcases hfr hp with hlt | ⟨rfl, rfl⟩
@@ -1098,7 +1098,7 @@ theorem body_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : N
       · exact absurd hai0' (hP1 hp z hz)
   · intro hai0
     have hin : z.avail_in ≠ 0 := by simpa using hai0
-    exact rest_spec G M hP0 hw0 hsz h0 hgo hret m hout (fun e => absurd e hin) (Nat.le_refl _) hμ0 hfr
+    exact rest_spec G M hP0 hw0 hsz h0 hhow hgo hret m hout (fun e => absurd e hin) (Nat.le_refl _) hμ0 hfr
 
 /-- `p - j` for `j` bytes before `p` inside a live heap block. -/
 theorem addNeg {h : Heap} {c off j : Nat} {a : Array UInt8} (ha : h.bytes c = some a) (hoff : off ≤ a.size)
@@ -1109,12 +1109,12 @@ theorem addNeg {h : Heap} {c off j : Nat} {a : Array UInt8} (ha : h.bytes c = so
   · congr; omega
   · next hc => exact absurd ⟨hoff, by omega, by omega⟩ hc
 
-theorem rdLeft_lt {w : World} {h : Heap} (hw : GzWFr w h) (fd : Int32) : rdLeft w.fs fd < 2 ^ 63 := by
+theorem rdLeft_lt {w : World} {h : Heap} (hw : GzWFr w h) (fd : Int32) : rdLeft w.fs fd < 2 ^ 62 := by
   obtain ⟨-, -, -, -, hb, hn, -, -⟩ := hw
   unfold rdLeft
   split
   · next o _ =>
-    have : (w.fs.nodes[o.node]?.getD #[]).size < 2 ^ 62 := by
+    have : (w.fs.nodes[o.node]?.getD #[]).size < 2 ^ 61 := by
       cases e : w.fs.nodes[o.node]? with
       | none => simp
       | some d => simp only [Option.getD_some]; exact hn d (Array.mem_of_getElem? e)
@@ -1193,6 +1193,7 @@ theorem tail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} {z0 : ZStream} 
           (by have := P.1; have := P.2; simp; omega)
           (fun _ hd => absurd ((sh1R.gzip_direct hhow1)) hd)
           (fun _ => sh1R.gzip_direct hhow1)
+          (fun e => absurd e (by rcases hw1 with e1 | e1 <;> rw [e1] <;> (try rw [hhow1]) <;> decide))
         simp only [InflateInv.upd_upd]
         exact hv2
       · exact decompSt_shape hsh1 _ _ _ _
@@ -1268,7 +1269,7 @@ theorem gz_decomp_spec {w : World} {h : Heap} {b : Nat} {s : GzState}
   refine GSat.bind (GSat.mono (gsat_gdoWhile (DInv w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s))
     (fun _ W H => dmu s W H) (DExit w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s))
     (fun st W H hI' => body_spec inflateGz inflateMsg (fun p => p.2) (fun p z1 hz1 => by rw [hz0] at hz1; cases hz1; exact p.1) hw0 hsz
-      h0 hI') hI hfuel) fun lp W H q => ?_)
+      h0 hhow hI') hI hfuel) fun lp W H q => ?_)
   exact tail_spec hhow h0 hsz hw0 hout q
 
 end ZlibNgF.Proof.GzDecomp
