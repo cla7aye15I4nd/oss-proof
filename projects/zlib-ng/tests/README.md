@@ -86,7 +86,7 @@ letter of the standard that misbehaves on no flat-memory target.
 | --- | --- | --- | --- |
 | `inflate-copy-pointer-equality` | 0001 | invalid pointer pair in `inflateCopy` | public API (pointer-pair check) |
 | `gzseek-offset-overflow` | 0002 | signed overflow in `gzseek64`: `offset + skip` with `SEEK_CUR` (run `cur`), `offset - x.pos` after `gzungetc` at position 0 (`set`), `x.pos + offset` in the test of the raw area (`pos`, on `/dev/zero`, its `lseek` answered as Linux's on other hosts); the `lseek` offset `offset - x.have` (run `lseek` of the repro, not run here: with patch 0013 in the build `x.pos + x.have <= GZ_OFF_MAX` rules it out) | public API; the `x.next + 0` that 0002 also removes is letter of the standard and not shown |
-| `gzseek-refusal-state` | 0002 | none: on calls that do not overflow, the results and the state afterwards are the same with and without the patch (a refused `SEEK_CUR` before the start on a reader and on a writer, `SEEK_SET` to a negative offset after two `gzungetc` at position 0 on a gzip file and on a plain file); the first version of 0002 is kept as a guard | public API (no defect: same results) |
+| `gzseek-refusal-state` | 0002 | none (a change of behaviour): with the patch a refused seek leaves the position unchanged, as zlib documents; without it a refused `SEEK_CUR` before the start on a reader and on a writer drops the pending skip, and a `SEEK_SET` to a negative offset after two `gzungetc` at position 0 (gzip file and plain file) is sought instead of refused (each run prints a different line) | public API (no defect: different documented results) |
 | `deflatebound-gzip-extra-length` | 0003 | `deflateBound` too small for a gzip extra field with `extra_len > 0xffff` | public API (wrong result) |
 | `inflate-window-copy` | 0004 | invalid pointer pair (window vs output) in `chunkcopy_safe` | public API (pointer-pair check) |
 | `infback-window-overlap` | 0004 | none: upstream is clean here; the case checks that `inflateBack`, whose output is the window, decodes matches into the previous window pass alike with and without the patch | public API (no defect: same results) |
@@ -107,6 +107,7 @@ letter of the standard that misbehaves on no flat-memory target.
 | `gzgets-pending-skip` | 0018 | `gzseek` to `INT64_MAX` and `gzdirect` on a file of 3 bytes that is not gzip, the file grows, then `gzgets` and `gztell`: signed overflow of `x.pos + skip` in `gztell64` | public API (the file grows between two calls) |
 | `gzwrite-zero-retry` | 0019 | on a transparent writer whose descriptor is a full non-blocking pipe: `gzseek` to `INT64_MAX`, a failed `gzwrite`, `gztell`: signed overflow of `x.pos + skip` in `gztell64` (run `max`); `gzseek` to 10000, a failed `gzwrite`, the pipe drained, `gzclearerr`, `gzwrite` again: 14099 bytes in the file and `gztell` 14099 instead of 10003 (run `retry`) | public API |
 | `gzprintf-failed-write-drift` | 0021 | on a writer (`"wb0"`, 262144-byte buffer) whose descriptor is a non-blocking pipe with the room set before each call: `gzprintf` rounds whose writes fail, with `gzclearerr` between, move `next_in + avail_in` past the input half of the buffer; the last `gzprintf` writes past the buffer block (AddressSanitizer heap buffer overflow, or a wild write at `gzwrite.c:389`, run `oob`); stopping before it and closing, the gzip stream does not inflate (run `corrupt`). On a host that is not Linux, `write()` on that descriptor is answered as a Linux pipe of 1 MiB answers it | public API on Linux |
+| `deflatereset-fixed-block-open` | 0022 | `deflateReset` while a `Z_FIXED` level-1 static block is open: the next stream continues the block without its header, and `inflate` rejects it with `Z_DATA_ERROR` | public API (wrong result) |
 
 `gzbuffer-alloc-null-offset` (0012) shows its defect only with clang: GCC's UndefinedBehaviorSanitizer does not
 report `NULL` plus an offset, so a GCC build without the patch prints the patched result and shows nothing. The case
@@ -144,25 +145,27 @@ source without a sanitizer report): `adler32-null-len-1`, `crc32-combine-negativ
 `g` and `c` runs), `gzbuffer-aligned-alloc-overflow`.
 
 Open defects (defects of the verified source with no patch yet: undefined behaviour, or a wrong result with no
-memory error; each must still show its report or wrong result, and the run fails once it stops reproducing):
-`deflatereset-fixed-block-open` (`deflateReset` while a `Z_FIXED` level-1 static block is open: the next stream
-continues the block without its header, and `inflate` rejects it with `Z_DATA_ERROR`).
+memory error; each must still show its report or wrong result, and the run fails once it stops reproducing): none at
+present.
 
 Guards (an earlier, defective version of one of our patches, built in place of the current one; the case's
 reproduction must still show its defect there): `infback-window-overlap` with `first-0004.patch`, the first
 version of patch 0004, whose `memcpy` copies overlapping ranges when the output is the window
 (`memcpy-param-overlap`); `gzgetc-macro-position` with `first-0013.patch`, the first version of patch 0013, which left
-output buffered past `GZ_OFF_MAX` (the macro overflows in both runs); `gzseek-refusal-state` with `first-0002.patch`, the first version of patch 0002, which
-refused before upstream's own steps and so kept the pending skip of a refused `SEEK_CUR` and refused a negative
-`SEEK_SET` target after `gzungetc` (each run prints a different line).
+output buffered past `GZ_OFF_MAX` (the macro overflows in both runs).
 
 ## Library source across the patch layout change
 
 `patch-source-identity.sh <rev> [expected-diff]` builds the library part of the verified source (everything outside
 `test/`) twice on the pinned submodule: from the flat `patches/*.patch` of an earlier commit `<rev>`, and from the
 current series (`apply-patches.sh --library-only`), and prints `diff -r` of the two. Against the last commit with flat
-patches, the expected difference is `patch-source-identity.expected`: two comments, from the series `0008` and `0015`
-in the form proposed upstream; no statement differs.
+patches, the expected difference is `patch-source-identity.expected`: three comments, from the series `0006`, `0008`
+and `0015` in the form proposed upstream, and the `(z_size_t)` cast that `0003` drops in `deflateBound` (upstream
+review asked for it; the value is the same), the new fix `0022` (`s->block_open = 0;` in `deflateResetKeep`, added
+after the layout change), and the two fixes whose form changed to the one proposed upstream after the layout change:
+`0002` (`gzseek64` around an absolute position, `GZ_OFF_MAX`, the `gzseek` documentation in both headers) and `0007`
+(the exit of `inflate_fast` gives back at most the bytes it loaded, `inffast_tpl.h`; the `bits < 8` test in `LEN` of
+`inflate.c` is gone); no other statement differs.
 
 ## GoogleTest cases of the patches
 
@@ -189,8 +192,9 @@ empty: the translation and the C agree on every generated input.
 
 Round trip: after the `deflate` comparison, `c_deflate roundtrip` inflates, with the real C `inflate`, every
 output of the translation that is one whole stream of its input (a `deflate` call returned `Z_STREAM_END`; no
-`deflatePrime`, reset, second dictionary or late raw dictionary in the script) and checks that it gives back
-exactly the input bytes the stream consumed.
+`deflatePrime`, `deflateResetKeep`, second dictionary or late raw dictionary in the script) and checks that it gives
+back exactly the input bytes the stream consumed. When the script calls `deflateReset`, the stream checked is the one
+after the last reset: the output from `next_out` at the reset, against the input from `next_in` at the reset.
 
 The reference C library is built for the target's gzip `OS_CODE` (3, as on Linux) on every host: `build-zlib-ng.sh`
 removes the `__APPLE__` branch of `zutil.h` in the copy it builds, which the x86_64 Linux target never takes.

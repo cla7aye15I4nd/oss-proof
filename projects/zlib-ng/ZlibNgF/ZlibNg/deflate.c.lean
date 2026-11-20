@@ -213,7 +213,8 @@ def deflateStateCheck (strm : StreamPtr) : M Bool := do
   if s.status < INIT_STATE || s.status > MAX_STATE then return true
   return false
 
-/-- `int32_t Z_EXPORT PREFIX(deflateResetKeep)(PREFIX3(stream) *strm)` (`deflate.c:516-554`). -/
+/-- `int32_t Z_EXPORT PREFIX(deflateResetKeep)(PREFIX3(stream) *strm)` (`deflate.c:516-554`, patch 0022:
+`s->block_open = 0;`). -/
 def deflateResetKeep (strm : StreamPtr) : M Int32 := do
   if ← deflateStateCheck strm then return Z_STREAM_ERROR
   wrZ strm fun z => { z with total_out := 0 }
@@ -234,6 +235,7 @@ def deflateResetKeep (strm : StreamPtr) : M Int32 := do
   else
     wrZ strm fun z => { z with adler := ADLER32_INITIAL_VALUE }
   wrD st fun s => { s with last_flush := -2 }
+  wrD st fun s => { s with block_open := 0 }
   wrD st fun s => { s with gzhead := .val none }
   ZlibNg.Trees.zng_tr_init st
   return Z_OK

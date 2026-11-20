@@ -21,8 +21,8 @@ failures (gz_state, path, buffers, inflate and deflate state, error message), re
 gzdirect while a seek is pending (patch 0017), gzgets while a seek is pending at the end of a file that grows
 (patch 0018), and failed writes of the zeros of a forward seek in write mode followed by gztell, gzclearerr and more
 writes (patch 0019).
-gzseek after gzungetc at the start and refused seeks show patch 0002's results (upstream's on every input that does
-not overflow).
+gzseek after gzungetc at the start and refused seeks show patch 0002's results (madler's form: a refused seek leaves
+the position, the pending skip and the pushback unchanged; a target before the start or past GZ_OFF_MAX is refused).
 Patch 0014 refuses a write past GZ_OFF_MAX before it reads the buffer: gzfwrite lengths above it are generated with
 a one-byte buffer (nothing else can reach that position in a test's time).
 """
@@ -298,9 +298,9 @@ for c in (gz(text(2000)), gz(b"short")):
     line(c, [], ["open:r", "buffer:8", "seek:9223372036854775807:0", "read:5", "tell", "getc", "gets:5", "eof", "error",
                  "close"])
 
-# ---- gzseek64 (patch 0002): refused exactly where upstream's arithmetic overflows; every other seek, refused or not,
-# leaves upstream's result and state (a SEEK_CUR before the start drops the pending skip; after gzungetc at the start a
-# negative target is sought, not refused) ----
+# ---- gzseek64 (patch 0002): a target before the start, past GZ_OFF_MAX, or (at a negative position, after gzungetc
+# at the start) more than GZ_OFF_MAX past the position is refused, and a refused seek changes nothing (the pending
+# skip and the pushback stay) ----
 for c in (gz(text(2000)), text(2000)):
     for b in (8, 64):
         for ops in (["seek:100:0", "seek:-200:1", "tell", "getc", "tell"],
@@ -319,6 +319,31 @@ for m in ("w", "wT"):
                 ["seek:10:0", "seek:9223372036854775798:1", "tell", "seek:9223372036854775797:1", "tell", "seek:-1:0", "tell",
                  "seek:-9223372036854775807:1", "tell", "seek:-9223372036854775797:1", "tell"]):
         line(None, [], ["openg:" + m, "buffer:16"] + ops + ["error", "close"])
+# refused seeks keep the pending skip of a reader and of a writer; the next read, write and close use it
+for c in (gz(text(2000)), text(2000)):
+    for b in (8, 64):
+        for ops in (["seek:100:0", "seek:-200:1", "tell", "seek:9223372036854775807:1", "tell", "read:3", "tell"],
+                    ["read:5", "seek:7:1", "seek:-13:1", "tell", "seek:-12:1", "tell", "getc", "tell"],
+                    ["seek:9223372036854775806:0", "seek:2:1", "tell", "seek:1:1", "tell", "seek:-1:1", "tell"]):
+            line(c, [], ["open:r", "buffer:%d" % b] + ops + ["error", "close"])
+for m in ("w", "wT"):
+    for ops in (["write:61", "seek:100:1", "seek:-200:1", "tell", "write:6263", "tell"],
+                ["seek:9223372036854775806:0", "seek:2:1", "tell", "seek:1:1", "tell", "seek:5:0", "tell"],
+                ["write:616263", "seek:2:0", "tell", "seek:3:0", "tell", "putc:65", "tell"]):
+        line(None, [], ["openg:" + m, "buffer:16"] + ops + ["error", "close"])
+# a negative position (pushback at the start), in copy mode and on a gzip stream: targets at or past GZ_OFF_MAX from
+# it are refused, SEEK_CUR from it works on a negative base, and pushback dropped by a failed push (buffer full,
+# gzclearerr) leaves the position below the bytes left
+for c in (gz(text(300)), text(300)):
+    for b in (8, 64):
+        for ops in (["getc", "ungetc:97", "ungetc:120", "tell", "seek:9223372036854775807:0", "tell",
+                     "seek:9223372036854775806:0", "tell", "seek:0:1", "tell", "seek:2:1", "tell", "getc", "tell"],
+                    ["ungetc:65", "seek:9223372036854775807:1", "tell", "seek:9223372036854775806:1", "tell", "getc"],
+                    ["ungetc:65", "seek:1:1", "tell", "getc", "ungetc:66", "seek:-1:0", "seek:0:0", "tell", "getc"]):
+            line(c, [], ["open:r", "buffer:%d" % b] + ops + ["error", "close"])
+        line(c, [], ["open:r", "buffer:%d" % b] + ["ungetc:%d" % (65 + i % 26) for i in range(2 * b + 3)] +
+             ["error", "clearerr", "tell", "seek:0:1", "seek:3:1", "tell", "seek:9223372036854775807:0",
+              "seek:9223372036854775800:0", "tell", "seek:%d:0" % (2 * b), "tell", "read:4", "tell", "error", "close"])
 # copy mode with output buffered at a high position: the lseek offset of a seek back to the start does not fit, so the
 # seek rewinds instead
 for b in (8, 64):

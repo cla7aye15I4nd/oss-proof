@@ -1,9 +1,152 @@
 diff -r -x test before/deflate.c after/deflate.c
-1274,1275c1274
+546a547
+>     s->block_open = 0;
+737c738
+<                 wraplen += 2 + (z_size_t)(s->gzhead->extra_len & 0xffff);
+---
+>                 wraplen += 2 + (s->gzhead->extra_len & 0xffff);
+1274,1275c1275
 <             /* A static block of deflate_quick (Z_FIXED) stays open across slides: keep block_start
 <              * at or above -(2^30 + 2^16) so that it and strstart - block_start cannot overflow. */
 ---
 >             /* Keep block_start >= -(2^30 + 2^16) so slides and strstart - block_start cannot overflow. */
+diff -r -x test before/gzguts.h after/gzguts.h
+160c160,166
+< #define GZ_OFF_MAX ((z_off64_t)((~(uint64_t)0) >> (65 - sizeof(z_off64_t) * 8)))
+---
+> 
+> /* Largest value representable in z_off64_t. */
+> #ifndef CHAR_BIT
+> #  define CHAR_BIT 8
+> #endif
+> #define GZ_OFF_MAX \
+>     ((((z_off64_t)1 << (sizeof(z_off64_t) * CHAR_BIT - 2)) - 1) * 2 + 1)
+diff -r -x test before/gzlib.c after/gzlib.c
+390c390
+<     z_off64_t ret;
+---
+>     z_off64_t ret, pos;
+408,423c408,415
+<     /* normalize offset to a SEEK_CUR specification, refusing a seek whose
+<        offset or target position does not fit in z_off64_t */
+<     if (whence == SEEK_SET) {
+<         if (state->x.pos < 0 ? offset > GZ_OFF_MAX + state->x.pos :
+<                                offset < state->x.pos - GZ_OFF_MAX - 1)
+<             return -1;
+<         offset -= state->x.pos;
+<     } else {
+<         if (!state->past && offset > GZ_OFF_MAX - state->skip)
+<             return -1;
+<         offset += state->past ? 0 : state->skip;
+<         if (state->x.pos > 0 ? offset > GZ_OFF_MAX - state->x.pos :
+<                                offset < -GZ_OFF_MAX - 1 - state->x.pos)
+<             return -1;
+<         state->skip = 0;
+<     }
+---
+>     /* compute the absolute position */
+>     pos = whence == SEEK_SET ? 0 :
+>           state->x.pos + (state->past ? 0 : state->skip);
+>     if (pos > 0 && offset > GZ_OFF_MAX - pos)
+>         return -1;                          /* would overflow z_off64_t */
+>     if (offset < -pos)
+>         return -1;                          /* before start of file */
+>     pos += offset;
+425,429c417,425
+<     /* if within raw area while reading, just go there (if the lseek()
+<        offset fits) */
+<     if (state->mode == GZ_READ && state->how == COPY && state->x.pos + offset >= 0 &&
+<             !GT_OFF(state->x.have) && offset >= (z_off64_t)state->x.have - GZ_OFF_MAX - 1) {
+<         ret = LSEEK(state->fd, offset - (z_off64_t)state->x.have, SEEK_CUR);
+---
+>     /* the position is negative after gzungetc() at the start: refuse a seek
+>        whose distance from it would overflow z_off64_t */
+>     if (state->x.pos < 0 && pos > GZ_OFF_MAX + state->x.pos)
+>         return -1;
+> 
+>     /* if within raw area while reading, just go there */
+>     if (state->mode == GZ_READ && state->how == COPY) {
+>         ret = LSEEK(state->fd, pos - state->x.pos - (z_off64_t)state->x.have,
+>                     SEEK_CUR);
+438,439c434,435
+<         state->x.pos += offset;
+<         return state->x.pos;
+---
+>         state->x.pos = pos;
+>         return pos;
+442,443c438,439
+<     /* calculate skip amount, rewinding if needed for back seek when reading */
+<     if (offset < 0) {
+---
+>     /* rewind if needed for back seek when reading */
+>     if (pos < state->x.pos) {
+446,447c442
+<         offset += state->x.pos;
+<         if (offset < 0)                     /* before start of file! */
+---
+>         if (PREFIX(gzrewind)(file) == -1)   /* rewind, then skip to pos */
+449,450d443
+<         if (PREFIX(gzrewind)(file) == -1)   /* rewind, then skip to offset */
+<             return -1;
+451a445
+>     offset = pos - state->x.pos;
+453,454c447,450
+<     /* if reading, skip what's in output buffer (one less gzgetc() check) */
+<     if (state->mode == GZ_READ) {
+---
+>     /* if reading, skip what's in output buffer (one less gzgetc() check),
+>        leaving state->x.next alone when there is nothing to skip (it is not
+>        set before the first read) */
+>     if (state->mode == GZ_READ && state->x.have && offset != 0) {
+456,461c452,455
+<         if (n) {
+<             state->x.have -= n;
+<             state->x.next += n;
+<             state->x.pos += n;
+<             offset -= n;
+<         }
+---
+>         state->x.have -= n;
+>         state->x.next += n;
+>         state->x.pos += n;
+>         offset -= n;
+466c460
+<     return state->x.pos + offset;
+---
+>     return pos;
+diff -r -x test before/inffast_tpl.h after/inffast_tpl.h
+27c27
+<         state->bits < 8
+---
+>         state->bits <= 32
+348,349c348,349
+<     /* return unused bytes (on entry, bits < 8, so in won't go too far back) */
+<     len = bits >> 3;
+---
+>     /* return unused bytes, but no more than this call loaded from next_in */
+>     len = MIN((unsigned)(bits >> 3), (unsigned)(in - strm->next_in));
 diff -r -x test before/inflate.c after/inflate.c
 621a622
 >                     /* Guard against shared gz_header state reducing extra_len. */
+935c936
+<             if (have >= INFLATE_FAST_MIN_HAVE && left >= INFLATE_FAST_MIN_SAFE && bits < 8) {
+---
+>             if (have >= INFLATE_FAST_MIN_HAVE && left >= INFLATE_FAST_MIN_SAFE) {
+1250a1252,1254
+>     /* Reject any NULL dictionary, symmetric with deflateSetDictionary(): even
+>        a zero-length one would reach updatewindow() and the DFLTCC hook as a
+>        NULL pointer. */
+diff -r -x test before/zlib-ng.h.in after/zlib-ng.h.in
+1613c1613,1615
+<    would be before the current position.
+---
+>    would be before the current position, or if the resulting position would
+>    not be representable in the offset type. If gzseek returns -1, the stream
+>    position is unchanged.
+diff -r -x test before/zlib.h.in after/zlib.h.in
+1595c1595,1597
+<    would be before the current position.
+---
+>    would be before the current position, or if the resulting position would
+>    not be representable in the offset type. If gzseek returns -1, the stream
+>    position is unchanged.

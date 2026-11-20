@@ -3,7 +3,7 @@ import ZlibNgF.Proof.«gzlib.c.seek»
 /-!
 # `gz_error` with a message (`ZlibNgF`)
 
-`gz_error(state, err, msg)` with a message (`gzlib.c:580-607`): after the part that frees the old message and stores
+`gz_error(state, err, msg)` with a message (`gzlib.c:587-614`): after the part that frees the old message and stores
 `err` (`gz_error_null` covers it), it allocates `strlen(path) + strlen(msg) + 3` bytes and writes
 `path ": " msg` into them with `snprintf`. The new block is fresh, so the heap grows only by blocks from `nextBlk` on
 and by static strings (`HExt`); the message of the state is `NULL` (no allocation for `Z_MEM_ERROR`, or `malloc`
@@ -149,7 +149,7 @@ theorem gzLit_spec (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = 
 /-! ## The part of `gz_error` that makes the message -/
 
 open ZlibNg.Inflate in
-/-- The part of `gz_error` after `state->err = err` (`gzlib.c:594-606`), copied from the translation. -/
+/-- The part of `gz_error` after `state->err = err` (`gzlib.c:601-613`), copied from the translation. -/
 def errTail (state : GzPtr) (err : Int32) (msg : BPtr) : G Unit := do
   if msg == .null then
     return

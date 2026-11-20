@@ -30,7 +30,7 @@ mkdir -p "$work"
 cases=(
   "inflate-copy-pointer-equality|0001||invalid-pointer-pair|inflateCopy 0"
   "gzseek-offset-overflow|0002|cur,set,pos|runtime error: signed integer overflow|seek2 -1;set unget 120 seek -1 tell -1 getc 120;pos getc 0 seek 9223372036854775806 seek -1 tell 9223372036854775806"
-  "gzseek-refusal-state|0002|read,write,unget,raw|none|read seek 100 -1 tell 0 getc 97;write seek 10 -1 tell 0 putc 122 close 0 length 1;unget unget 120 121 tell -2 seek -1 tell -1 getc 120 97;raw unget 120 121 tell -2 seek -1 tell -1 getc 120 97"
+  "gzseek-refusal-state|0002|read,write,unget,raw|^read seek 100 -1 tell 0 getc 97$ OR ^write seek 10 -1 tell 0 putc 122 close 0 length 1$ OR ^unget unget 120 121 tell -2 seek -1 tell -1 getc 120 97$ OR ^raw unget 120 121 tell -2 seek -1 tell -1 getc 120 97$|read seek 100 -1 tell 100 getc 119;write seek 10 -1 tell 10 putc 122 close 0 length 11;unget unget 120 121 tell -2 seek -1 tell -2 getc 121 120;raw unget 120 121 tell -2 seek -1 tell -2 getc 121 120"
   "deflatebound-gzip-extra-length|0003||bound-ok 0|bound-ok 1"
   "inflate-window-copy|0004|300,1|invalid-pointer-pair|inflate 1 1;inflate 1 1"
   "infback-window-overlap|0004|8 100 200 150,8 100 250 100,8 100 256 100,8 100 256 200,8 200 220 100,15 1000 32700 200,15 1000 32768 258,9 10 400 258,8 3 255 10|none|back 1 546 1;back 1 496 1;back 1 496 1;back 1 596 1;back 1 596 1;back 1 34008 1;back 1 34066 1;back 1 820 1;back 1 309 1"
@@ -50,6 +50,7 @@ cases=(
   "gzgets-pending-skip|0018||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 gets null tell 3"
   "gzwrite-zero-retry|0019|max,retry|runtime error: signed integer overflow OR ^retry seek 10000 write 0 tell 14096 write 3 tell 14099 close 0 bytes 14099 bad$|max seek 9223372036854775807 write 0 tell 9223372036854775807;retry seek 10000 write 0 tell 10000 write 3 tell 10003 close 0 bytes 10003 ok"
   "gzprintf-failed-write-drift|0021|oob,corrupt|ERROR: AddressSanitizer: heap-buffer-overflow OR ERROR: AddressSanitizer: SEGV OR ERROR: AddressSanitizer: BUS OR ERROR: AddressSanitizer: unknown-crash OR ^corrupt close 0 inflate 0 bytes [0-9]+ bad$|oob close 0 inflate 1 bytes 786389 ok;corrupt close 0 inflate 1 bytes 733299 ok"
+  "deflatereset-fixed-block-open|0022||^deflate 0 0 1 [0-9]+ inflate -3 0$|deflate 0 0 1 27 inflate 1 1"
 )
 
 # Clang cases: patch reproductions whose defect only clang's UBSan reports (GCC's does not report NULL plus an
@@ -77,7 +78,6 @@ plain=(
 # reproducing (upstream fixed it) fails the run.
 # case | arguments | extended regular expression the report (or the program's output) must match
 open_cases=(
-  "deflatereset-fixed-block-open||^deflate 0 0 1 [0-9]+ inflate -3 0$"
 )
 
 # Guards: an earlier, defective version of one of our patches, kept in the case's directory. The source built
@@ -88,7 +88,6 @@ open_cases=(
 guards=(
   "infback-window-overlap|0004|first-0004.patch|8 100 200 150,8 100 250 100,15 1000 32700 200,9 10 400 258,8 3 255 10|memcpy-param-overlap"
   "gzgetc-macro-position|0013|first-0013.patch|max,near|runtime error: signed integer overflow"
-  "gzseek-refusal-state|0002|first-0002.patch|read,write,unget,raw|^read seek 100 -1 tell 100 getc 119$|^write seek 10 -1 tell 10 putc 122 close 0 length 11$|^(unget|raw) unget 120 121 tell -2 seek -1 tell -2 getc 121 120$"
 )
 
 # 32-bit guards: like the guards, on a build whose size_t is 32 bits and whose file offsets are 64 bits

@@ -17,7 +17,7 @@ set_option autoImplicit false
 namespace ZlibNg.Gz
 open C ZlibNg.Inflate ZlibNg.Deflate
 
-/-- `void Z_INTERNAL PREFIX(gz_error)(gz_state *state, int err, const char *msg)` (`gzlib.c:580-607`). -/
+/-- `void Z_INTERNAL PREFIX(gz_error)(gz_state *state, int err, const char *msg)` (`gzlib.c:587-614`). -/
 def gz_error (state : GzPtr) (err : Int32) (msg : BPtr) : G Unit := do
   if (← (← ldGz state).msg.get) != .null then
     if (← rdG state (·.err)) != Z_MEM_ERROR then
@@ -269,8 +269,10 @@ def gzrewind (file : GzPtr) : G Int32 := do
   gz_reset state
   return 0
 
-/-- `z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence)` (`gzlib.c:388-467` with patch
-0002). The locals `n` and `ret` are written before they are read. -/
+/-- `z_off64_t Z_EXPORT PREFIX4(gzseek)(gzFile file, z_off64_t offset, int whence)` (`gzlib.c:388-461` with patch
+0002). The locals `n` and `ret` are written before they are read. `pos = whence == SEEK_SET ? 0 : state->x.pos +
+(state->past ? 0 : state->skip)` is the `if` that computes `pos`; `(z_off64_t)state->x.have` is the value of
+`x.have`. -/
 def gzseek64 (file : GzPtr) (offset : Int64) (whence : Int32) : G Int64 := do
   if file == none then
     return -1
@@ -282,71 +284,59 @@ def gzseek64 (file : GzPtr) (offset : Int64) (whence : Int32) : G Int64 := do
   if whence != SEEK_SET && whence != SEEK_CUR then
     return -1
   let mut offset := offset
-  if whence == SEEK_SET then
-    let bad : Bool ← if (← rdG state (·.pos)) < 0 then do
-        pure (offset > (← lm (chkI64 (GZ_OFF_MAX.toInt + (← rdG state (·.pos)).toInt))))
-      else do
-        pure (offset < (← lm (chkI64 ((← lm (chkI64 ((← rdG state (·.pos)).toInt - GZ_OFF_MAX.toInt))).toInt - 1))))
-    if bad then
+  let mut pos : Int64 ← if whence == SEEK_SET then pure 0 else do
+      let add : Int64 ← if (← rdG state (·.past)) != 0 then pure 0 else rdG state (·.skip)
+      lm (chkI64 ((← rdG state (·.pos)).toInt + add.toInt))
+  if pos > 0 then
+    if offset > (← lm (chkI64 (GZ_OFF_MAX.toInt - pos.toInt))) then
       return -1
-    offset ← lm (chkI64 (offset.toInt - (← rdG state (·.pos)).toInt))
-  else
-    if (← rdG state (·.past)) == 0 then
-      if offset > (← lm (chkI64 (GZ_OFF_MAX.toInt - (← rdG state (·.skip)).toInt))) then
-        return -1
-    let add : Int64 ← if (← rdG state (·.past)) != 0 then pure 0 else rdG state (·.skip)
-    offset ← lm (chkI64 (offset.toInt + add.toInt))
-    let bad : Bool ← if (← rdG state (·.pos)) > 0 then do
-        pure (offset > (← lm (chkI64 (GZ_OFF_MAX.toInt - (← rdG state (·.pos)).toInt))))
-      else do
-        pure (offset < (← lm (chkI64 ((← lm (chkI64 (-GZ_OFF_MAX.toInt - 1))).toInt - (← rdG state (·.pos)).toInt))))
-    if bad then
+  if offset < (← lm (chkI64 (-pos.toInt))) then
+    return -1
+  pos ← lm (chkI64 (pos.toInt + offset.toInt))
+  if (← rdG state (·.pos)) < 0 then
+    if pos > (← lm (chkI64 (GZ_OFF_MAX.toInt + (← rdG state (·.pos)).toInt))) then
       return -1
-    wrG state fun s => { s with skip := 0 }
   if (← rdG state (·.mode)) == GZ_READ then
     if (← rdG state (·.how)) == COPY then
-      if (← lm (chkI64 ((← rdG state (·.pos)).toInt + offset.toInt))) ≥ 0 then
-        if !GT_OFF (← rdG state (·.«have»)) then
-          if offset ≥ (← lm (chkI64 ((← lm (chkI64 (Int.ofNat (← rdG state (·.«have»)).toNat - GZ_OFF_MAX.toInt))).toInt - 1))) then
-            let ret ← lseekG (← rdG state (·.fd)) (← lm (chkI64 (offset.toInt - Int.ofNat (← rdG state (·.«have»)).toNat))) SEEK_CUR
-            if ret == -1 then
-              return -1
-            wrG state fun s => { s with «have» := 0 }
-            wrG state fun s => { s with eof := 0 }
-            wrG state fun s => { s with past := 0 }
-            wrG state fun s => { s with skip := 0 }
-            gz_error state Z_OK .null
-            lm (wrZ (← strmOf state) fun z => { z with avail_in := 0 })
-            let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + offset.toInt))
-            wrG state fun s => { s with pos := np }
-            return (← rdG state (·.pos))
-  if offset < 0 then
+      let ret ← lseekG (← rdG state (·.fd))
+        (← lm (chkI64 ((← lm (chkI64 (pos.toInt - (← rdG state (·.pos)).toInt))).toInt -
+          Int.ofNat (← rdG state (·.«have»)).toNat))) SEEK_CUR
+      if ret == -1 then
+        return -1
+      wrG state fun s => { s with «have» := 0 }
+      wrG state fun s => { s with eof := 0 }
+      wrG state fun s => { s with past := 0 }
+      wrG state fun s => { s with skip := 0 }
+      gz_error state Z_OK .null
+      lm (wrZ (← strmOf state) fun z => { z with avail_in := 0 })
+      wrG state fun s => { s with pos := pos }
+      return pos
+  if pos < (← rdG state (·.pos)) then
     if (← rdG state (·.mode)) != GZ_READ then
-      return -1
-    offset ← lm (chkI64 (offset.toInt + (← rdG state (·.pos)).toInt))
-    if offset < 0 then
       return -1
     if (← gzrewind file) == -1 then
       return -1
+  offset ← lm (chkI64 (pos.toInt - (← rdG state (·.pos)).toInt))
   if (← rdG state (·.mode)) == GZ_READ then
-    let hv ← rdG state (·.«have»)
-    let n : UInt32 := if GT_OFF hv || (Int64.ofNat hv.toNat) > offset then offset.toUInt64.toUInt32 else hv
-    if n != 0 then
-      wrG state fun s => { s with «have» := s.«have» - n }
-      let nx ← lm ((← (← ldGz state).next.get).add (Int.ofNat n.toNat))
-      wrG state fun s => { s with next := .val nx }
-      let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + n.toNat))
-      wrG state fun s => { s with pos := np }
-      offset ← lm (chkI64 (offset.toInt - n.toNat))
+    if (← rdG state (·.«have»)) != 0 then
+      if offset != 0 then
+        let hv ← rdG state (·.«have»)
+        let n : UInt32 := if GT_OFF hv || (Int64.ofNat hv.toNat) > offset then offset.toUInt64.toUInt32 else hv
+        wrG state fun s => { s with «have» := s.«have» - n }
+        let nx ← lm ((← (← ldGz state).next.get).add (Int.ofNat n.toNat))
+        wrG state fun s => { s with next := .val nx }
+        let np ← lm (chkI64 ((← rdG state (·.pos)).toInt + n.toNat))
+        wrG state fun s => { s with pos := np }
+        offset ← lm (chkI64 (offset.toInt - n.toNat))
   wrG state fun s => { s with skip := offset }
-  lm (chkI64 ((← rdG state (·.pos)).toInt + offset.toInt))
+  return pos
 
-/-- `z_off_t Z_EXPORT PREFIX(gzseek)(gzFile file, z_off_t offset, int whence)` (`gzlib.c:458-463`). -/
+/-- `z_off_t Z_EXPORT PREFIX(gzseek)(gzFile file, z_off_t offset, int whence)` (`gzlib.c:465-470`). -/
 def gzseek (file : GzPtr) (offset : Int64) (whence : Int32) : G Int64 := do
   let ret ← gzseek64 file offset whence
   return ret
 
-/-- `z_off64_t Z_EXPORT PREFIX4(gztell)(gzFile file)` (`gzlib.c:467-479`). -/
+/-- `z_off64_t Z_EXPORT PREFIX4(gztell)(gzFile file)` (`gzlib.c:474-486`). -/
 def gztell64 (file : GzPtr) : G Int64 := do
   if file == none then
     return -1
@@ -356,12 +346,12 @@ def gztell64 (file : GzPtr) : G Int64 := do
   let add : Int64 ← if (← rdG state (·.past)) != 0 then pure 0 else rdG state (·.skip)
   lm (chkI64 ((← rdG state (·.pos)).toInt + add.toInt))
 
-/-- `z_off_t Z_EXPORT PREFIX(gztell)(gzFile file)` (`gzlib.c:483-489`). -/
+/-- `z_off_t Z_EXPORT PREFIX(gztell)(gzFile file)` (`gzlib.c:490-496`). -/
 def gztell (file : GzPtr) : G Int64 := do
   let ret ← gztell64 file
   return ret
 
-/-- `z_off64_t Z_EXPORT PREFIX4(gzoffset)(gzFile file)` (`gzlib.c:493-511`). `offset -= strm.avail_in` converts the
+/-- `z_off64_t Z_EXPORT PREFIX4(gzoffset)(gzFile file)` (`gzlib.c:500-518`). `offset -= strm.avail_in` converts the
 `unsigned` to `long`. -/
 def gzoffset64 (file : GzPtr) : G Int64 := do
   if file == none then
@@ -377,12 +367,12 @@ def gzoffset64 (file : GzPtr) : G Int64 := do
     offset ← lm (chkI64 (offset.toInt - Int.ofNat ai.toNat))
   return offset
 
-/-- `z_off_t Z_EXPORT PREFIX(gzoffset)(gzFile file)` (`gzlib.c:515-520`). -/
+/-- `z_off_t Z_EXPORT PREFIX(gzoffset)(gzFile file)` (`gzlib.c:522-527`). -/
 def gzoffset (file : GzPtr) : G Int64 := do
   let ret ← gzoffset64 file
   return ret
 
-/-- `z_int32_t Z_EXPORT PREFIX(gzeof)(gzFile file)` (`gzlib.c:524-536`). -/
+/-- `z_int32_t Z_EXPORT PREFIX(gzeof)(gzFile file)` (`gzlib.c:531-543`). -/
 def gzeof (file : GzPtr) : G Int32 := do
   if file == none then
     return 0
@@ -391,7 +381,7 @@ def gzeof (file : GzPtr) : G Int32 := do
     return 0
   if (← rdG state (·.mode)) == GZ_READ then rdG state (·.past) else return 0
 
-/-- `const char * Z_EXPORT PREFIX(gzerror)(gzFile file, z_int32_t *errnum)` (`gzlib.c:539-553`). -/
+/-- `const char * Z_EXPORT PREFIX(gzerror)(gzFile file, z_int32_t *errnum)` (`gzlib.c:546-560`). -/
 def gzerror (file : GzPtr) (hasErrnum : Bool) : G (BPtr × Option Int32) := do
   if file == none then
     return (.null, none)
@@ -406,7 +396,7 @@ def gzerror (file : GzPtr) (hasErrnum : Bool) : G (BPtr × Option Int32) := do
     return (← (gzLit ""), en)
   return (← (← ldGz state).msg.get, en)
 
-/-- `void Z_EXPORT PREFIX(gzclearerr)(gzFile file)` (`gzlib.c:556-572`). -/
+/-- `void Z_EXPORT PREFIX(gzclearerr)(gzFile file)` (`gzlib.c:563-579`). -/
 def gzclearerr (file : GzPtr) : G Unit := do
   if file == none then
     return
@@ -418,7 +408,7 @@ def gzclearerr (file : GzPtr) : G Unit := do
     wrG state fun s => { s with past := 0 }
   gz_error state Z_OK .null
 
-/-- `unsigned Z_INTERNAL gz_intmax(void)` (`gzlib.c:610-612`). -/
+/-- `unsigned Z_INTERNAL gz_intmax(void)` (`gzlib.c:617-619`). -/
 def gz_intmax : G UInt32 :=
   return 2147483647
 
