@@ -38,7 +38,7 @@ theorem slf_lv {h H : Heap} {i b : Nat} (F : SLF h i b H) (hl : MedLv h b) {st :
   obtain ⟨st0, h0, hk⟩ := F.keeps
   obtain ⟨-, -, -, -, e, -⟩ := hk st hst
   have := hl st0 h0
-  unfold chainLim; rw [e, if_pos this]
+  unfold chainLim; rw [e, ite_cond_eq_true _ _ (eq_true this)]
 
 /-- `PE` from the loop state. -/
 theorem pe_of_mg {h H : Heap} {i b : Nat} (G : MG h i b H) {st : DeflateState} (hst : H.dstate b = some st) :
@@ -84,48 +84,46 @@ theorem pe_tally_core {h H0 : Heap} {i b A : Nat} {z : ZStream} {st : DeflateSta
       (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + L } d2))) := by
   refine Sat.mono (Sat.and T1 T2) ?_
   rintro r H' ⟨⟨ha, W, Wr, hle, hsli⟩, sn, lt, dt, d', rfl⟩
-  obtain ⟨⟨H1, z1, st1, d1, e1, F, hp, Ch, hs, hA⟩, hSL⟩ := P
+  obtain ⟨⟨H1, z1, st, d1, e1, F, hp, Ch, hs, hA⟩, hSL⟩ := P
   have e2 := congrArg (fun H => H.dstate b) e1
   have e3 := congrArg (fun H => H.bytes b) e1
   simp only [SH_dstate, SH_bytes] at e2 e3
   obtain rfl := Option.some.inj e2
   obtain rfl := Option.some.inj e3
-  have hsle : st1.sym_next ≤ st1.sym_end := hSL st1 (SH_dstate _ _ _ _ _ _)
+  have hsle : st.sym_next ≤ st.sym_end := hSL st (SH_dstate _ _ _ _ _ _)
   obtain ⟨wo, po, ho, Ly, -, w1, w2, hlook, h65, -, -, -, hsb⟩ := slf_lay F
   have hcl := slf_lv F hl (SH_dstate _ _ _ _ _ _)
-  have hLa' : (st1.lookahead - L).toNat = st1.lookahead.toNat - L.toNat := UInt32.toNat_sub_of_le _ _
+  have hLa' : (st.lookahead - L).toNat = st.lookahead.toNat - L.toNat := UInt32.toNat_sub_of_le _ _
     (UInt32.le_iff_toNat_le.mpr hLa)
-  have hss' : (st1.strstart + L).toNat = st1.strstart.toNat + L.toNat := by
-    rw [UInt32.toNat_add]; have := Nat.mod_eq_of_lt (show st1.strstart.toNat + L.toNat < 2 ^ 32 by omega)
+  have hss' : (st.strstart + L).toNat = st.strstart.toNat + L.toNat := by
+    rw [UInt32.toNat_add]; have := Nat.mod_eq_of_lt (show st.strstart.toNat + L.toNat < 2 ^ 32 by omega)
     simpa using this
-  refine ⟨_, d', rfl, rfl, rfl, ⟨H0, z1, _, d', rfl, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
+  refine ⟨_, d', rfl, rfl, rfl, ⟨H0, z, _, d', rfl, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
   · exact (slw_slf (slw_congr W rfl)).1
   · exact (slw_slf (slw_congr W rfl)).2
   · obtain ⟨sbo, hi, da, db, hda, hdb, hsbo, Wi⟩ := Wr
     obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hda)
     obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hdb)
     have hsbo' := hsbo _ (SH_dstate _ _ _ _ _ _)
-    have C1 : ChainOk b db st1 := chain_wr Ch (by omega) (fun ho' po' hh hp' => by
+    have C1 : ChainOk b db st := chain_wr Ch (by omega) (fun ho' po' hh hp' => by
       rw [Ly.head] at hh; rw [Ly.prev] at hp'
       obtain rfl : ho = ho' := by injection hh with e; injection e
       obtain rfl : po = po' := by injection hp' with e; injection e
       exact ⟨hsb sbo hsbo', Ly.ph⟩) Wi
-    refine chain_adv C1 rfl rfl rfl rfl rfl (by show _ ≤ (st1.strstart + L).toNat; omega) ?_
+    refine chain_adv C1 rfl rfl rfl rfl rfl (by show _ ≤ (st.strstart + L).toNat; omega) ?_
     rw [hcl]
-    have hl2 : chainLim { st1 with lookahead := st1.lookahead - L, sym_next := sn, dyn_ltree := lt,
-        dyn_dtree := dt, strstart := st1.strstart + L } = (st1.strstart + L).toNat + (st1.lookahead - L).toNat := by
-      unfold chainLim
-      obtain ⟨st0, h0, hk⟩ := F.keeps
-      obtain ⟨-, -, -, -, ev, -⟩ := hk st1 (SH_dstate _ _ _ _ _ _)
-      rw [if_pos (by show 3 ≤ st1.level ∧ st1.level ≤ 6; rw [ev]; exact hl st0 h0)]
-    rw [hl2]; omega
+    obtain ⟨st0, h0, hk⟩ := F.keeps
+    obtain ⟨-, -, -, -, ev, -⟩ := hk st (SH_dstate _ _ _ _ _ _)
+    have hlv3 : 3 ≤ st.level ∧ st.level ≤ 6 := by rw [ev]; exact hl st0 h0
+    simp only [chainLim, hlv3, and_self, ite_true]
+    omega
   · intro e
     simp only [Bool.or_eq_false_iff] at e
     obtain ⟨rfl, rfl⟩ := e
     have I := hsli (hs rfl) rfl
     exact ((sli_slc (sli_congr I rfl)).2 _ (SH_dstate _ _ _ _ _ _)).2
   · rw [avIn_SH] at ha ⊢; rw [avIn_SH] at hA
-    show z1.avail_in.toNat + (st1.lookahead - L).toNat ≤ A - L.toNat
+    show z.avail_in.toNat + (st.lookahead - L).toNat ≤ A - L.toNat
     rw [hLa']; omega
   · intro e
     subst e
@@ -209,7 +207,7 @@ theorem pf_flush (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {bf : Bool} (P :
       fun st3 h3 => ?_⟩
     · exact Ch2 st2 d2 hst2 (by rw [e2]; exact SH_bytes _ _ _ _ _ _)
     · rw [a1, hl1]; exact hA
-    · obtain rfl := Option.some.inj (hst2.symm.trans h3); rw [hs0]; exact UInt32.zero_le _
+    · obtain rfl := Option.some.inj (hst2.symm.trans h3); rw [hs0]; exact UInt32.zero_le
     · obtain rfl := Option.some.inj (hst2.symm.trans h3); exact ⟨st, SH_dstate _ _ _ _ _ _, hl1, hs2⟩
   · have e := hsome (by rw [hr]; simp)
     rw [hr] at e
