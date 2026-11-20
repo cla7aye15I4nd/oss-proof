@@ -1,10 +1,11 @@
-<!-- source-sha256: c8239647247bea65d7e097375b466f2e615251a889bc5f1f62055438d588713a -->
+<!-- source-sha256: b832ff3fc381cb0c47b9b68ca2d95331211a653c48cc59c7501ed089c49464b5 -->
 # 发现：zlib-ng 中发现的问题
 
-本工作在被验证提交的 zlib-ng `develop` 分支中发现了十五个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
+本工作在被验证提交的 zlib-ng `develop` 分支中发现了十七个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
 有文档的函数触达，并由真实 C 代码的运行（消毒器无法发现时，由经跟踪的运行与 ISO C17 条文）展示。补丁 0003、0004、
-0006、0007、0008、0009、0010、0011、0012、0013、0014、0015、0016 与 0017 修复了它们：每个问题一个补丁，只有补丁 0014
-修复失败的 `gzwrite` 引起的两个问题（两者源于同一个过时指针）。
+0006、0007、0008、0009、0010、0011、0012、0013、0014、0015、0016、0017 与 0018 修复了前十六个：每个问题一个补丁，只有补丁 0014
+修复失败的 `gzwrite` 引起的两个问题（两者源于同一个过时指针）。最后一个问题（静态块打开时调用 `deflateReset`）给出错误结果但没有
+内存错误，未打补丁。
 
 | 问题 | 错在哪里 | 触达的调用 | 证据 | 修复 | 上游 |
 | --- | --- | --- | --- | --- | --- |
@@ -23,11 +24,13 @@
 | `gz_buffer_alloc` 对空指针加偏移 | `gz_buffer_alloc` 在检查分配结果之前计算 `state->out = state->buffers + in_size`：分配失败时，这是 `NULL` 加非零偏移（ISO C17 §6.5.6p8）。 | `gzopen`，`gzbuffer(file, 1 << 30)`，在 3 GiB 分配失败时调用 `gzwrite` 或 `gzread` | UndefinedBehaviorSanitizer，`gzlib.c:90` | 补丁 0015 | 未提交 |
 | gz 位置溢出（读） | 读函数无界地累加 64 位有符号位置 `x.pos`：`gz_read`（以及 `gzgetc` 与 `gzgets`）中的有符号溢出。 | 对 `lseek` 成功但不移动且总有数据的描述符（Linux `/dev/zero`）`gzdopen`，`gzgetc`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzread` | UndefinedBehaviorSanitizer，`gzread.c:356` | 补丁 0016 | 未提交 |
 | gz 位置溢出（写） | 写函数在写出之前无界地把每次写入的长度累加到 64 位有符号位置 `x.pos`：总计 `2^63` 字节之后，`gz_write`（以及 `gzputc` 与 `gzprintf`）中出现有符号溢出。失败的写入保留这次累加，因此无需有数据到达文件；写入 `/dev/null` 同样会触达。 | 对 `write()` 失败的描述符 `gzdopen(fd, "wT")`，`gzbuffer(file, 8)`，然后约 `2^32` 次 `gzwrite(file, buf, INT_MAX)` 与 `gzclearerr(file)` | UndefinedBehaviorSanitizer，`gzwrite.c:210` | 补丁 0017 | 未提交 |
+| `deflate` 在 `2^31` 字节内没有块刷新时 `block_start` 溢出 | `fill_window` 在窗口每次滑动时把 `int` 类型的 `block_start` 减去滑动长度；只有块刷新才把它重新设为 `strstart`。在第 1 级使用策略 `Z_FIXED` 时，`deflate_quick` 把静态树符号写入同一个块，该块一直打开直到刷新或流结束，因此一个没有刷新、超过 `2^31` 个输入字节的流使 `block_start` 越过 `INT_MIN`：有符号溢出（ISO C17 §6.5p5）。 | `deflateInit2(strm, 1, Z_DEFLATED, 15, 8, Z_FIXED)`，然后对超过 `2^31` 字节调用 `deflate(strm, Z_NO_FLUSH)` | UndefinedBehaviorSanitizer，`deflate.c:1274` | 补丁 0018 | 未提交 |
+| `deflateReset` 使第 1 级的静态块保持打开 | 在第 1 级使用策略 `Z_FIXED` 时，`deflate_quick` 打开一个静态块（`block_open = 1`），并保持打开直到刷新或流结束。`block_open` 只由 `deflateInit2` 清零，`deflateReset`（以及它调用的 `lm_init`）都不清零。在块仍打开时调用 `deflateReset` 后，下一个流继续该块：它的符号跟在新的 zlib 头之后，没有块头。`inflate` 拒绝该输出。这是错误的结果，没有内存错误。 | `deflateInit2(strm, 1, Z_DEFLATED, 15, 8, Z_FIXED)`，对 3000 字节调用 `deflate(strm, Z_NO_FLUSH)`，`deflateReset`，对 1000 字节调用 `deflate(strm, Z_FINISH)`，然后对该输出调用 `inflate` | 真实 C 代码的运行：输出 27 字节，`inflate` 以 `Z_DATA_ERROR`（"invalid stored block lengths"）拒绝 | 未打补丁 | 未提交 |
 
 早先 2.3.3 版本中发现的问题（`gzbuffer` 大小溢出、负长度时 `crc32_combine*` 不返回、`adler32` 以 `NULL`
 和长度 1 调用）已在 `develop` 分支修复；它们的复现保留为回归测试。
 
 这些运行在被验证源码按被验证配置（参见[概述](index.html)）的 LP64 构建上进行，应用了除修复该问题的补丁之外的
-所有补丁，而非在 x86_64 Linux 目标本身上。应用全部补丁后，每个调用均无消毒器报告并正常返回（gz 位置溢出是在 `/dev/zero` 行为不同于 Linux 的主机上展示的，其 `lseek` 按 Linux 的方式应答）。
+所有补丁，而非在 x86_64 Linux 目标本身上。应用全部补丁后，每个已打补丁的问题均无消毒器报告并正常返回（gz 位置溢出是在 `/dev/zero` 行为不同于 Linux 的主机上展示的，其 `lseek` 按 Linux 的方式应答）。
 
 消毒器报告或真实 C 代码的运行只是关于那次运行的证据，不是证明。安全性定理针对的是打过补丁的源码。

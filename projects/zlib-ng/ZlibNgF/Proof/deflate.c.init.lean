@@ -92,12 +92,13 @@ theorem ctLoop (mk : Nat → CtRef) (getT : DeflateState → Array Ct) (setT : D
     (hsg : ∀ s, setT s (getT s) = s) (st : DeflateState) (N : Nat) (hN : N < 2 ^ 31) (hsz : N ≤ (getT st).size) :
     Sat (SH H i z b st d) (cwhile (fun (n : Int32) => pure (n < N.toInt32, n))
       (fun n => do ctSetFc (.ref (mk b) 0) n.toInt 0; pure (n + 1)) 0)
-      (fun _ H' => ∃ A, H' = SH H i z b (setT st A) d ∧ A.size = (getT st).size) := by
+      (fun _ H' => ∃ A, H' = SH H i z b (setT st A) d ∧ A.size = (getT st).size ∧ ∀ k, k < N → (A[k]!).fc = 0) := by
   have hNi : (N.toInt32).toInt = N := by
     rw [Nat.toInt32, Int32.toInt_ofNat_of_lt hN]
   refine sat_cwhile (fun (n : Int32) H' => ∃ A, H' = SH H i z b (setT st A) d ∧ A.size = (getT st).size ∧
-      0 ≤ n.toInt ∧ n.toInt ≤ N) (fun n => N - n.toInt.toNat) _ ?_ ⟨(getT st), ?_, rfl, by decide, by simp⟩ ?_
-  · rintro n H' ⟨A, rfl, hA, h0, h1⟩
+      0 ≤ n.toInt ∧ n.toInt ≤ N ∧ ∀ k, k < n.toInt.toNat → (A[k]!).fc = 0) (fun n => N - n.toInt.toNat) _ ?_
+      ⟨(getT st), ?_, rfl, by decide, by simp, fun k hk => by simp at hk⟩ ?_
+  · rintro n H' ⟨A, rfl, hA, h0, h1, hz⟩
     refine ⟨(n < N.toInt32, n), _, rfl, ?_, ?_⟩
     · intro hc
       have hlt : n.toInt < N := by
@@ -111,11 +112,23 @@ theorem ctLoop (mk : Nat → CtRef) (getT : DeflateState → Array Ct) (setT : D
       have hn1 : (n + 1).toInt = n.toInt + 1 := by
         rw [Int32.toInt_add, Int32.toInt_one]; exact Int.bmod_eq_of_le (by omega) (by omega)
       refine ⟨n + 1, _, ?_, ⟨A.set! n.toInt.toNat { (A[n.toInt.toNat]'hk) with fc := 0 }, rfl, by simp [hA], by omega,
-        by omega⟩, by omega⟩
+        by omega, fun k hkk => ?_⟩, by omega⟩
       · simp only [ctSetFc, ctGet, ctSet, Ptr.index, bind_app, e1, Ptr.load, hget, hgs, hk, ↓reduceDIte,
           Ptr.store, hro, Bool.false_eq_true, ↓reduceIte, hmod, hss, pure_app]
+      · rw [Array.set!_eq_setIfInBounds, getElem!_pos (A.setIfInBounds _ _) k (by simp; omega),
+          Array.getElem_setIfInBounds]
+        · by_cases e : n.toInt.toNat = k
+          · simp only [e, ↓reduceIte]
+          · simp only [e, ↓reduceIte]
+            rw [← getElem!_pos A k (by omega)]
+            exact hz k (by omega)
+        · omega
     · intro hc
-      refine ⟨A, rfl, hA⟩
+      have hge : N ≤ n.toInt := by
+        have hnl : ¬ n < N.toInt32 := by simpa using hc
+        have := Int32.not_lt.mp hnl
+        rw [Int32.le_iff_toInt_le, hNi] at this; omega
+      exact ⟨A, rfl, hA, fun k hk => hz k (by omega)⟩
   · rw [hsg]
   · simp [fuel]; omega
 
@@ -174,11 +187,17 @@ def trS (b : Nat) (st : DeflateState) (A B C : Array Ct) : DeflateState :=
     opt_len := 0
     sym_next := 0 }
 
+/-- The frequencies that `init_block` leaves: `dyn_ltree[c].Freq` is 0 except `dyn_ltree[END_BLOCK].Freq = 1`,
+`dyn_dtree[c].Freq` is 0, `bl_tree[c].Freq` is 0. -/
+def TrFreq (A B C : Array Ct) : Prop :=
+  (∀ c, c < 286 → (A[c]!).fc.toNat = if c = 256 then 1 else 0) ∧ (∀ c, c < 30 → (B[c]!).fc.toNat = 0) ∧
+    ∀ c, c < 19 → (C[c]!).fc = 0
+
 /-- `zng_tr_init` on a state whose tree arrays have their C sizes. -/
 theorem tr_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8} (st : DeflateState)
     (h1 : st.dyn_ltree.size = HEAP_SIZE) (h2 : st.dyn_dtree.size = 2 * 30 + 1) (h3 : st.bl_tree.size = 2 * 19 + 1) :
     Sat (SH H i z b st d) (ZlibNg.Trees.zng_tr_init (some b)) (fun _ H' => ∃ A B C, H' = SH H i z b (trS b st A B C) d ∧
-      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1) := by
+      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C) := by
   simp only [ZlibNg.Trees.zng_tr_init, ZlibNg.Trees.init_block, dynLtreeP, dynDtreeP, blTreeP, pure_bind_M]
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
@@ -190,21 +209,30 @@ theorem tr_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8
   refine Sat.bind (Sat.mono (ctLoop CtRef.dyn_ltree (·.dyn_ltree) (fun s A => { s with dyn_ltree := A })
     ctl_get ctl_mod (fun _ => rfl) (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ => rfl) _ L_CODES (by decide)
     (by simp [h1, HEAP_SIZE, L_CODES])) ?_)
-  rintro _ _ ⟨A, rfl, hA⟩
+  rintro _ _ ⟨A, rfl, hA, zA⟩
   refine Sat.bind (Sat.mono (ctLoop CtRef.dyn_dtree (·.dyn_dtree) (fun s A => { s with dyn_dtree := A })
     ctd_get ctd_mod (fun _ => rfl) (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ => rfl) _ D_CODES (by decide)
     (by simp [h2, D_CODES])) ?_)
-  rintro _ _ ⟨B, rfl, hB⟩
+  rintro _ _ ⟨B, rfl, hB, zB⟩
   refine Sat.bind (Sat.mono (ctLoop CtRef.bl_tree (·.bl_tree) (fun s A => { s with bl_tree := A })
     ctb_get ctb_mod (fun _ => rfl) (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ => rfl) _ BL_CODES (by decide)
     (by simp [h3, BL_CODES])) ?_)
-  rintro _ _ ⟨C, rfl, hC⟩
-  simp only at hA hB hC
+  rintro _ _ ⟨C, rfl, hC, zC⟩
+  simp only at hA hB hC zA zB zC
   refine Sat.bind (Sat.of_eq (ctSetFc_l _ END_BLOCK 1 (by simp [hA, h1, END_BLOCK, HEAP_SIZE, L_CODES])) ?_)
   try dsimp only
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
-  refine Sat.of_eq (wrD_SH _) ⟨_, B, C, rfl, ?_, by rw [hB, h2], by rw [hC, h3]⟩
+  refine Sat.of_eq (wrD_SH _) ⟨_, B, C, rfl, ?_, by rw [hB, h2], by rw [hC, h3], fun c hc => ?_, fun c hc => ?_,
+    fun c hc => zC c (by simp [BL_CODES]; omega)⟩
   · simp [hA, h1]
+  · have h256 : 256 < A.size := by rw [hA, h1]; decide
+    by_cases e : c = 256
+    · subst e; simp [Array.set!_eq_setIfInBounds, END_BLOCK, h256]
+    · rw [Array.set!_eq_setIfInBounds, getElem!_pos (A.setIfInBounds _ _) c (by simp [hA, h1, HEAP_SIZE, L_CODES]; omega),
+        Array.getElem_setIfInBounds_ne (by simp [hA, h1, HEAP_SIZE, L_CODES]; omega) (by simpa [END_BLOCK] using Ne.symm e),
+        ← getElem!_pos A c (by simp [hA, h1, HEAP_SIZE, L_CODES]; omega), zA c (by simp [L_CODES]; omega)]
+      simp [e]
+  · rw [zB c (by simp [D_CODES]; omega)]; rfl
   done
 
 /-! ## `deflateResetKeep`, `deflateReset` -/
@@ -250,7 +278,7 @@ theorem resetKeep_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateS
     (h1 : st.dyn_ltree.size = HEAP_SIZE) (h2 : st.dyn_dtree.size = 2 * 30 + 1) (h3 : st.bl_tree.size = 2 * 19 + 1) :
     Sat (SH H i z b st d) (deflateResetKeep (some i)) (fun r H' => r = Z_OK ∧ ∃ A B C,
       H' = SH H i (rkZ z st.wrap) b (trS b (rkS st) A B C) d ∧
-      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1) := by
+      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C) := by
   have hnw : ¬ st.wrap < 0 := by rcases hw with h | h | h <;> rw [h] <;> decide
   unfold deflateResetKeep
   refine Sat.bind (Sat.of_eq (check_SH k) ?_)
@@ -275,16 +303,16 @@ theorem resetKeep_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateS
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.mono (tr_init_SH _ h1 h2 h3) ?_)
-    rintro _ _ ⟨A, B, C, rfl, hA, hB, hC⟩
-    refine Sat.pure ⟨rfl, A, B, C, ?_, hA, hB, hC⟩
+    rintro _ _ ⟨A, B, C, rfl, hA, hB, hC, hF⟩
+    refine Sat.pure ⟨rfl, A, B, C, ?_, hA, hB, hC, hF⟩
     simp [rkZ, rkS, trS, hpb, hw2, k.hb]
   · simp only [hw2, Bool.false_eq_true, ↓reduceIte]
     refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
     refine Sat.bind (Sat.mono (tr_init_SH _ h1 h2 h3) ?_)
-    rintro _ _ ⟨A, B, C, rfl, hA, hB, hC⟩
-    refine Sat.pure ⟨rfl, A, B, C, ?_, hA, hB, hC⟩
+    rintro _ _ ⟨A, B, C, rfl, hA, hB, hC, hF⟩
+    refine Sat.pure ⟨rfl, A, B, C, ?_, hA, hB, hC, hF⟩
     simp [rkZ, rkS, trS, hpb, hw2, k.hb]
 
 
@@ -312,15 +340,12 @@ def lmS (st : DeflateState) (c : Config) (lm : Ival LongestMatchFn) (ib : Ival I
     match_start := 0
     ins_h := 0 }
 
-theorem lmS_view (st : DeflateState) (c : Config) (lm : Ival LongestMatchFn) (ib : Ival InsertBatchFn) :
-    DeflateInv.dview (lmS st c lm ib) = DeflateInv.dview st := rfl
-
 theorem lm_set_level_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
     (level : Int32) (h0 : 0 ≤ level) (h9 : level ≤ 9) :
-    ∃ (c : Config) (lm : Ival LongestMatchFn) (ib : Ival InsertBatchFn), lm_set_level (some b) level (SH H i z b st d) = .ok ((), SH H i z b
+    ∃ (c : Config) (lm : LongestMatchFn) (ib : InsertBatchFn), lm_set_level (some b) level (SH H i z b st d) = .ok ((), SH H i z b
       { st with max_lazy_match := c.max_lazy.toUInt32, good_match := c.good_length.toUInt32,
                 nice_match := c.nice_length.toUInt32.toInt32, max_chain_length := c.max_chain.toUInt32,
-                longest_match := lm, insert_batch := ib, level := level } d) := by
+                longest_match := .val lm, insert_batch := .val ib, level := level } d) := by
   have hc : ∃ c, config level = pure c := by
     unfold config tblGet
     have : ¬ level < 0 := fun h => absurd h0 (Int32.not_le.mpr h)
@@ -336,25 +361,25 @@ theorem lm_set_level_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : Defla
   unfold lm_set_level
   rw [hc]
   by_cases h1 : level ≥ MIN_ROLL_LEVEL
-  · exact ⟨.val .longest_match_slow_roll_c, .val .insert_roll_batch, by simp [bind_app, wrD_SH, h1]⟩
+  · exact ⟨.longest_match_slow_roll_c, .insert_roll_batch, by simp [bind_app, wrD_SH, h1]⟩
   · by_cases h2 : level == 1
-    · exact ⟨.val .longest_match_slow_knuth_c, .val .insert_knuth_batch_head, by simp [bind_app, wrD_SH, h1, h2]⟩
-    · exact ⟨.val .longest_match_slow_knuth_c, .val .insert_knuth_batch, by simp [bind_app, wrD_SH, h1, h2]⟩
+    · exact ⟨.longest_match_slow_knuth_c, .insert_knuth_batch_head, by simp [bind_app, wrD_SH, h1, h2]⟩
+    · exact ⟨.longest_match_slow_knuth_c, .insert_knuth_batch, by simp [bind_app, wrD_SH, h1, h2]⟩
 
 theorem lm_set_level_sat {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
     (level : Int32) (h0 : 0 ≤ level) (h9 : level ≤ 9) :
-    Sat (SH H i z b st d) (lm_set_level (some b) level) (fun _ H' => ∃ (c : Config) (lm : Ival LongestMatchFn)
-      (ib : Ival InsertBatchFn), H' = SH H i z b
+    Sat (SH H i z b st d) (lm_set_level (some b) level) (fun _ H' => ∃ (c : Config) (lm : LongestMatchFn)
+      (ib : InsertBatchFn), H' = SH H i z b
       { st with max_lazy_match := c.max_lazy.toUInt32, good_match := c.good_length.toUInt32,
                 nice_match := c.nice_length.toUInt32.toInt32, max_chain_length := c.max_chain.toUInt32,
-                longest_match := lm, insert_batch := ib, level := level } d) := by
+                longest_match := .val lm, insert_batch := .val ib, level := level } d) := by
   obtain ⟨c, lm, ib, e⟩ := lm_set_level_SH (H := H) (i := i) (z := z) (b := b) (st := st) (d := d) level h0 h9
   exact ⟨(), _, e, c, lm, ib, rfl⟩
 
 /-- `lm_init` on a state whose `head` lies in its block and whose `level` is 0..9. -/
 theorem lm_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8} {ho : Nat}
     (hh : st.head = .val (.ref (.heap b) ho)) (hho : ho + 131072 ≤ d.size) (h0 : 0 ≤ st.level) (h9 : st.level ≤ 9) :
-    Sat (SH H i z b st d) (lm_init (some b)) (fun _ H' => ∃ c lm ib d', H' = SH H i z b (lmS st c lm ib) d' ∧
+    Sat (SH H i z b st d) (lm_init (some b)) (fun _ H' => ∃ c lm ib d', H' = SH H i z b (lmS st c (.val lm) (.val ib)) d' ∧
       d'.size = d.size) := by
   unfold lm_init
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
@@ -379,18 +404,31 @@ theorem lm_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
     refine Sat.of_eq (wrD_SH _) ⟨c, lm, ib, d, ?_, rfl⟩
     simp [lmS]
 
+/-- The layout facts about a state before `deflateReset` (set by `deflateInit2`, kept by every later call) from
+which the layout clauses of the invariant follow after the reset; `D` is the size of the block's bytes. -/
+structure RLay (b : Nat) (st : DeflateState) (D : Nat) : Prop where
+  ws : 512 ≤ st.w_size.toNat ∧ st.w_size.toNat ≤ 32768
+  lb : 128 ≤ st.lit_bufsize.toNat ∧ st.lit_bufsize.toNat ≤ 32768
+  pbs : st.pending_buf_size.toNat = 4 * st.lit_bufsize.toNat
+  se : st.sym_end.toNat = 3 * (st.lit_bufsize.toNat - 1)
+  lay : ∃ wo po ho pbo, st.window = .val (.ref (.heap b) wo) ∧ st.prev = .val (.ref (.heap b) po) ∧
+    st.head = .val (.ref (.heap b) ho) ∧ st.pending_buf = .val (.ref (.heap b) pbo) ∧
+    wo + (W_BUF_SIZE st.w_size).toNat ≤ po ∧ po + 2 * st.w_size.toNat ≤ ho ∧ ho + 131072 ≤ pbo ∧
+    pbo + 4 * st.lit_bufsize.toNat + 64 ≤ D ∧ st.sym_buf = .val (.ref (.heap b) (pbo + st.lit_bufsize.toNat + 8))
+  strat : 0 ≤ st.strategy ∧ st.strategy ≤ 4
+
 /-- `deflateReset` on an accepted stream with the fields that `deflateResetKeep` and `lm_init` read in range. -/
 theorem reset_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
     (k : DOk i z b st) (hw : st.wrap = 0 ∨ st.wrap = 1 ∨ st.wrap = 2) {pb : BPtr} (hpb : st.pending_buf = .val pb)
     (h1 : st.dyn_ltree.size = HEAP_SIZE) (h2 : st.dyn_dtree.size = 2 * 30 + 1) (h3 : st.bl_tree.size = 2 * 19 + 1)
     {ho : Nat} (hh : st.head = .val (.ref (.heap b) ho)) (hho : ho + 131072 ≤ d.size) (l0 : 0 ≤ st.level)
-    (l9 : st.level ≤ 9) :
+    (l9 : st.level ≤ 9) (R : RLay b st d.size) :
     Sat (SH H i z b st d) (deflateReset (some i)) (fun r H' => r = Z_OK ∧ ∃ A B C c lm ib d',
-      H' = SH H i (rkZ z st.wrap) b (lmS (trS b (rkS st) A B C) c lm ib) d' ∧ d'.size = d.size ∧
-      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1) := by
+      H' = SH H i (rkZ z st.wrap) b (lmS (trS b (rkS st) A B C) c (.val lm) (.val ib)) d' ∧ d'.size = d.size ∧
+      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C ∧ RLay b st d.size) := by
   unfold deflateReset
   refine Sat.bind (Sat.mono (resetKeep_SH k hw hpb h1 h2 h3) ?_)
-  rintro _ _ ⟨rfl, A, B, C, rfl, hA, hB, hC⟩
+  rintro _ _ ⟨rfl, A, B, C, rfl, hA, hB, hC, hF⟩
   simp only [show (Z_OK == Z_OK) = true from rfl, ↓reduceIte]
   have hzs : (rkZ z st.wrap).state = some b := k.hb
   refine Sat.bind (Sat.of_eq (by simp only [dstateOf]; exact rdZ_SH _) ?_)
@@ -398,7 +436,36 @@ theorem reset_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
   rw [hzs]
   refine Sat.bind (Sat.mono (lm_init_SH (ho := ho) hh hho l0 l9) ?_)
   rintro _ _ ⟨c, lm, ib, d', rfl, hd'⟩
-  exact Sat.pure ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC⟩
+  exact Sat.pure ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, R⟩
+
+/-- The layout and position clauses of the invariant after `deflateReset`. -/
+theorem RLay.post {b : Nat} {st : DeflateState} {D : Nat} (r : RLay b st D) (H : Heap) (d : Array UInt8)
+    (hd : H.bytes b = some d) (hD : d.size = D) (A B C : Array Ct) (c : Config) (lm : LongestMatchFn)
+    (ib : InsertBatchFn) :
+    let v := DeflateInv.dview (lmS (trS b (rkS st) A B C) c (.val lm) (.val ib))
+    (512 ≤ v.w_size.toNat ∧ v.w_size.toNat ≤ 32768 ∧ v.window_size = W_BUF_SIZE v.w_size ∧
+      128 ≤ v.lit_bufsize.toNat ∧ v.lit_bufsize.toNat ≤ 32768 ∧ v.pending_buf_size.toNat = 4 * v.lit_bufsize.toNat ∧
+      v.sym_end.toNat = 3 * (v.lit_bufsize.toNat - 1)) ∧
+    (∃ d wo po ho pbo, H.bytes b = some d ∧ v.window = .val (.ref (.heap b) wo) ∧
+      v.prev = .val (.ref (.heap b) po) ∧ v.head = .val (.ref (.heap b) ho) ∧
+      v.pending_buf = .val (.ref (.heap b) pbo) ∧ wo + v.window_size.toNat ≤ po ∧ po + 2 * v.w_size.toNat ≤ ho ∧
+      ho + 131072 ≤ pbo ∧ pbo + 4 * v.lit_bufsize.toNat + 64 ≤ d.size ∧
+      v.sym_buf = .val (.ref (.heap b) (pbo + v.lit_bufsize.toNat + 8)) ∧
+      ∃ poo, v.pending_out = .val (.ref (.heap b) poo) ∧ pbo ≤ poo ∧
+        poo - pbo + v.pending.toNat ≤ 4 * v.lit_bufsize.toNat + 9) ∧
+    (v.pending = 0 → v.pending_out = v.pending_buf) ∧
+    (v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0) ∧
+    (0 ≤ v.bi_valid ∧ v.bi_valid < 8) ∧
+    (v.strstart.toNat + v.lookahead.toNat ≤ v.window_size.toNat) ∧
+    (0 ≤ v.strategy ∧ v.strategy ≤ 4) ∧
+    ((∃ f, v.longest_match = .val f) ∧ (∃ f, v.insert_batch = .val f)) := by
+  obtain ⟨wo, po, ho, pbo, hw, hp, hh, hpb, h1, h2, h3, h4, hs⟩ := r.lay
+  refine ⟨⟨r.ws.1, r.ws.2, rfl, r.lb.1, r.lb.2, r.pbs, r.se⟩,
+    ⟨d, wo, po, ho, pbo, hd, hw, hp, hh, hpb, h1, h2, h3, by rw [hD]; exact h4, hs, pbo, hpb, Nat.le_refl _,
+      by simp [DeflateInv.dview, lmS, trS, rkS]⟩, fun _ => by simp [DeflateInv.dview, lmS, trS, rkS],
+    ⟨by simp [DeflateInv.dview, lmS, trS, rkS], by simp [DeflateInv.dview, lmS, trS, rkS]⟩,
+    by simp [DeflateInv.dview, lmS, trS, rkS], by simp [DeflateInv.dview, lmS, trS, rkS], r.strat,
+    ⟨lm, rfl⟩, ⟨ib, rfl⟩⟩
 
 /-! ## `deflateInit2` -/
 
@@ -507,6 +574,10 @@ theorem garbage_sizes (g : Nat → UInt64) : (DeflateState.garbage g).dyn_ltree.
     (DeflateState.garbage g).dyn_dtree.size = 2 * 30 + 1 ∧ (DeflateState.garbage g).bl_tree.size = 2 * 19 + 1 := by
   simp [DeflateState.garbage]
 
+theorem garbage_scratch (g : Nat → UInt64) : (DeflateState.garbage g).pq_leaves.size = 287 ∧
+    (DeflateState.garbage g).pq_scratch.size = 287 ∧ (DeflateState.garbage g).bl_count.size = 16 := by
+  simp [DeflateState.garbage, L_CODES]
+
 theorem AH_SH (h : Heap) (i : Nat) (z1 : ZStream) (d : Array UInt8) (Y : Tbl (Option DeflateAllocs))
     (g : DeflateState) :
     AH { h with streams := upd h.streams i (some z1) } d Y (upd h.dstates h.nextBlk (some g)) =
@@ -555,9 +626,61 @@ theorem SF.mono {α : Type} {P : Prop} {H : Heap} {m : M α} {Q Q' : α → Heap
 theorem SF.sat {α : Type} {P : Prop} {H : Heap} {m : M α} {Q : α → Heap → Prop} (hm : SF P H m Q) (hp : P) :
     Sat H m Q := hm.resolve_right (fun h => h.1 hp)
 
+theorem wsize_toNat (n : Nat) (hn : n ≤ 15) : (Int32.ofNat (2 ^ n)).toUInt32.toNat = 2 ^ n := by
+  have p : 2 ^ n ≤ 2 ^ 15 := Nat.pow_le_pow_right (by omega) hn
+  have hi := i32_ofNat_toInt (k := 2 ^ n) (by omega)
+  have h0 : (0 : Int) ≤ ((2 ^ n : Nat) : Int) := Int.natCast_nonneg _
+  rw [Int32.toNat_toUInt32_of_le (by rw [Int32.le_iff_toInt_le, hi]; exact h0)]
+  show (Int32.ofNat (2 ^ n)).toInt.toNat = 2 ^ n
+  rw [hi]; exact Int.toNat_natCast _
+
+theorem wbuf_toNat (w : UInt32) (hw : w.toNat ≤ 32768) : (W_BUF_SIZE w).toNat = dWS w.toNat := by
+  have h2 : (2 * w).toNat = 2 * w.toNat := by rw [UInt32.toNat_mul]; simp; omega
+  unfold W_BUF_SIZE dWS W_BUF_MIN
+  by_cases c : 2 * w.toNat > 32768
+  · have : (32768 : UInt32) < 2 * w := by rw [UInt32.lt_iff_toNat_lt, h2]; simpa using c
+    simp only [gt_iff_lt, this, ↓reduceIte, h2, c]
+  · have : ¬ (32768 : UInt32) < 2 * w := by rw [UInt32.lt_iff_toNat_lt, h2]; simpa using c
+    simp only [gt_iff_lt, this, ↓reduceIte, c]; rfl
+
+/-- `fill_end = 2 * w_size - MIN_LOOKAHEAD` (`lm_init`): `fill_end + MIN_LOOKAHEAD` is a multiple of `w_size` within
+the window. -/
+theorem lm_fill_end (w : UInt32) (h1 : 512 ≤ w.toNat) (h2 : w.toNat ≤ 32768) :
+    ((2 * w - MIN_LOOKAHEAD).toNat + 262) % w.toNat = 0 ∧
+      (2 * w - MIN_LOOKAHEAD).toNat + 262 ≤ (W_BUF_SIZE w).toNat := by
+  have hm : MIN_LOOKAHEAD.toNat = 262 := rfl
+  have e2 : (2 * w).toNat = 2 * w.toNat := by rw [UInt32.toNat_mul]; simp; omega
+  have hs : (2 * w - MIN_LOOKAHEAD).toNat = 2 * w.toNat - 262 := by
+    rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by rw [hm, e2]; omega)), hm, e2]
+  rw [hs, wbuf_toNat w h2]
+  refine ⟨?_, by unfold dWS; split <;> omega⟩
+  rw [show 2 * w.toNat - 262 + 262 = w.toNat * 2 by omega, Nat.mul_mod_right]
+
+theorem lb_one_le (l : Nat) {x : UInt32} (hx : x.toNat = l) (hl : 1 ≤ l) : 1 ≤ x := by
+  rw [UInt32.le_iff_toNat_le, hx]; simpa using hl
+
+/-- The state that `deflateReset` leaves (through `lm_init`): no symbols, no window positions in use, no flush yet,
+and the first header state (`GZIP_STATE` only for a gzip stream). -/
+def FreshSt (st : DeflateState) : Prop :=
+  st.sym_next = 0 ∧ st.strstart = 0 ∧ st.block_start = 0 ∧ st.lookahead = 0 ∧ st.last_flush = -2 ∧
+    (st.status = GZIP_STATE ∨ st.status = INIT_STATE) ∧ (st.status = GZIP_STATE → st.wrap = 2)
+
+theorem fresh_lmS (b : Nat) (st : DeflateState) (A B C : Array Ct) (c : Config) (lm : Ival LongestMatchFn)
+    (ib : Ival InsertBatchFn) : FreshSt (lmS (trS b (rkS st) A B C) c lm ib) := by
+  by_cases hw : (st.wrap == 2) = true
+  · have e : st.wrap = 2 := by simpa using hw
+    simp [FreshSt, lmS, trS, rkS, e]
+  · simp only [FreshSt, lmS, trS, rkS, hw, Bool.false_eq_true, ↓reduceIte]
+    exact ⟨trivial, trivial, trivial, trivial, trivial, Or.inr trivial, fun e => absurd e (by decide)⟩
+
+/-- The state of stream `s` is a `FreshSt`. -/
+def DFreshOf (h : Heap) (s : StreamPtr) : Prop :=
+  ∃ i z b st, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧ FreshSt st
+
 /-- What a call of `deflateInit2` on stream `i` of `h` guarantees. -/
 def InitPost (h : Heap) (i : Nat) (r : Int32) (h' : Heap) : Prop :=
-  DFrame h h' [i] [] [] [] ∧ (r = Z_OK → DeflateInv.DInv h' (some i))
+  DFrame h h' [i] [] [] [] ∧ (r = Z_OK → DeflateInv.DInv h' (some i) ∧
+    ∃ z b st, h'.streams i = some z ∧ z.state = some b ∧ h'.dstate b = some st ∧ FreshSt st)
 
 theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc) (hzf : z1.zfree = .zcfree)
     (level method wb ml strat wrap : Int32) (hw : wrap = 0 ∨ wrap = 1 ∨ wrap = 2) :
@@ -608,6 +731,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
   have pl3 : 2 ^ (ml.toInt.toNat + 6) % 16 = 0 := by
     have : 2 ^ (ml.toInt.toNat + 6) = 2 ^ (ml.toInt.toNat + 2) * 2 ^ 4 := by rw [← Nat.pow_add]
     rw [this]; simp
+  have pl4 : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ 2 ^ (ml.toInt.toNat + 6) = 2 ^ k := ⟨_, by omega, by omega, rfl⟩
   have hl := i32_ofNat_toInt (k := 2 ^ (ml.toInt.toNat + 6)) (by omega)
   generalize 2 ^ (ml.toInt.toNat + 6) = l at *
   cases hok : h.allocOk h.nalloc
@@ -628,6 +752,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
     hfs hfa hok W (Int32.ofNat l) n l hn hn1 hn2 hl pl1 pl2 pl3) ?_)
   rintro _ _ ⟨rfl, d, rfl, hdsz, hdz⟩
   have ⟨g1, g2, g3⟩ := garbage_sizes (h.garbage (2 ^ 43 + h.nextBlk))
+  have gs := garbage_scratch (h.garbage (2 ^ 43 + h.nextBlk))
   simp only [gState] at *
   generalize DeflateState.garbage (h.garbage (2 ^ 43 + h.nextBlk)) = g0 at *
   rw [AH_SH]
@@ -680,11 +805,27 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
     (ho := (PADSZ (h.baseAddr (BRef.heap h.nextBlk)) 64).toNat + dWS (2 ^ n) + 2 * 2 ^ n)
     ⟨by simp [hza], by simp [hzf], rfl, ⟨_, rfl⟩, rfl, by show INIT_STATE ≤ INIT_STATE; decide,
       by show INIT_STATE ≤ MAX_STATE; decide⟩ (by simpa using hw) rfl
-    (by simpa using g1) (by simpa using g2) (by simpa using g3) rfl (by omega) ?_ ?_) ?_
+    (by simpa using g1) (by simpa using g2) (by simpa using g3) rfl (by omega) ?_ ?_ ?_) ?_
   · exact Int32.not_lt.mp hl0
   · exact Int32.not_lt.mp hl9
-  rintro r H' ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC⟩
-  refine ⟨⟨?_, fun _ => ?_⟩, fun _ _ _ _ _ _ _ => rfl⟩
+  · have p9 : 2 ^ 9 ≤ 2 ^ n := Nat.pow_le_pow_right (by omega) hn1
+    have p15 : 2 ^ n ≤ 2 ^ 15 := Nat.pow_le_pow_right (by omega) hn2
+    have hw32 : (Int32.ofNat (2 ^ n)).toUInt32.toNat = 2 ^ n := wsize_toNat n hn2
+    refine ⟨?_, ?_, ?_, ?_, ⟨_, _, _, _, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
+    · simp only [hw32]; omega
+    · simp only [hl32]; omega
+    · simp only [UInt32.toNat_mul, hl32]; simp; omega
+    · simp only [UInt32.toNat_mul, UInt32.toNat_sub_of_le _ _ (lb_one_le l hl32 (by omega)), hl32]; simp; omega
+    · simp only [wbuf_toNat _ (by rw [hw32]; omega), hw32]; omega
+    · simp only [hw32]; omega
+    · omega
+    · simp only [hl32]; omega
+    · simp only [hl32]
+    · exact ⟨Int32.not_lt.mp hs0, Int32.not_lt.mp hs4⟩
+  rintro r H' ⟨rfl, A, B, C, c, lm, ib, d', rfl, hd', hA, hB, hC, hF, RL⟩
+  obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C c lm ib
+  refine ⟨⟨?_, fun _ => ⟨?_, _, h.nextBlk, _, SH_streams _ _ _ _ _ _, rfl, SH_dstate _ _ _ _ _ _,
+    fresh_lmS _ _ _ _ _ _ _ _⟩⟩, fun _ _ _ _ _ _ _ => rfl⟩
   · refine dframe_of (fun j hj => by simp [SH, AH, upd_ne _ _ _ _ hj]) rfl (fun c hc => ?_) rfl rfl rfl rfl
       (by simp [SH, AH])
     have hne : c ≠ h.nextBlk := Nat.ne_of_lt hc
@@ -695,15 +836,43 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       rw [SH_bytes]
       exact upd_same _ _ _
     · refine ⟨by simp [rkZ, hza], by simp [rkZ, hzf], rfl, rfl, rfl, by simp [dAllocRec, hzf], rfl, ?_, ?_, ?_,
-        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_⟩
+        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
-      · exact hw
+      · rcases hw with e | e | e
+        · exact Or.inl e
+        · exact Or.inr (Or.inl e)
+        · exact Or.inr (Or.inr (Or.inl e))
       · exact wsize_ne n hn2
       · exact ⟨_, rfl⟩
       · exact ⟨_, d', SH_bytes _ _ _ _ _ _, rfl, by rw [hd', hdsz]; omega⟩
       · exact ⟨Int32.not_lt.mp hl0, Int32.not_lt.mp hl9⟩
       · exact ⟨hA, hB, hC⟩
+      · exact q1
+      · exact q2
+      · exact q0
+      · exact q3
+      · exact q4
+      · exact q5
+      · exact q6
+      · exact q7
+      · obtain ⟨d0, _, _, _, pbo0, hd0, -, -, -, -, -, -, -, -, hs, -⟩ := q2
+        exact ⟨d0, _, hd0, hs, by simp only [DeflateInv.dview, lmS, trS, rkS]; exact DeflateInv.SymOk.empty hF.1 hF.2.1⟩
+      · exact fun hn => absurd (by simp [DeflateInv.dview, lmS, trS, rkS]) hn
+      · exact fun _ _ => by simp [DeflateInv.dview, lmS, trS, rkS]
+      · simp [DeflateInv.dview, lmS, trS, rkS]
+      · simp [DeflateInv.dview, lmS, trS, rkS]
+      · exact ⟨n, hn1, hn2, by simp only [DeflateInv.dview, lmS, trS, rkS]; exact wsize_toNat n hn2⟩
+      · have := lm_fill_end _ q1.1 q1.2.1
+        simpa [DeflateInv.dview, lmS, trS, rkS] using this.1
+      · have := lm_fill_end _ q1.1 q1.2.1
+        simpa [DeflateInv.dview, lmS, trS, rkS] using this.2
+      · simp [DeflateInv.dview, lmS, trS, rkS]
+      · simp [DeflateInv.dview, lmS, trS, rkS]
+      · simp only [DeflateInv.dview, lmS, trS, rkS, hl32]; exact pl3
+      · simp only [DeflateInv.dview, lmS, trS, rkS, hl32]; exact pl4
+      · simp only [DeflateInv.dview, lmS, trS, rkS]; exact gs
+      · simp only [DeflateInv.dview, lmS, trS, rkS]; exact ⟨by simp, by simp, hF.2.2⟩
 
 /-- The `windowBits` decoding and the tail, on a stream whose allocator fields are the defaults. -/
 theorem decode_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc) (hzf : z1.zfree = .zcfree)
