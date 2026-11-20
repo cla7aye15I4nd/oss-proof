@@ -757,4 +757,16 @@ theorem gz_fetch_idle_of (LX : LookExtra) : GzFetchIdle := by
   obtain ⟨-, rfl, rfl⟩ := gdet e2 e
   exact q hi
 
+/-- **What `gz_fetch` needs of `gz_look`** (`gz_look_specX`). -/
+theorem gz_look_extra : LookExtra :=
+  ⟨fun _ _ _ _ hv hs h0 hl => (gz_look_specX hv hs h0 hl).mono fun _ _ _ q s' hs' =>
+    have x := q.2 s' hs'
+    ⟨x.1, x.2.1, x.2.2.1⟩⟩
+
+/-- **`gz_fetch`** on a read handle with `x.have == 0`. -/
+theorem gz_fetch_spec : GzFetchSpec := gz_fetch_spec_of gz_look_extra
+
+/-- **`gz_fetch` keeps `LookIdle`.** -/
+theorem gz_fetch_idle : GzFetchIdle := gz_fetch_idle_of gz_look_extra
+
 end ZlibNgF.Proof.GzMode
