@@ -109,6 +109,7 @@ theorem reset_inv_nn {h : Heap} {s : StreamPtr} (hv : DInv h s)
       ins := by simp [dview, lmS, trS, rkS]
       wpow := c.wpow
       lmod := c.lmod
+      lpow := c.lpow
       scratch := c.scratch
       blk := by simp only [dview, lmS, trS, rkS]; exact ⟨by simp, by simp, hF.2.2⟩
       fe_mod := by
@@ -177,6 +178,7 @@ theorem resetKeep_inv_nn {h : Heap} {s : StreamPtr} (hv : DInv h s)
       ins := c.ins
       wpow := c.wpow
       lmod := c.lmod
+      lpow := c.lpow
       scratch := c.scratch
       blk := by simp only [dview, trS, rkS]; exact ⟨by simp, by simp, hF.2.2⟩
       fe_mod := c.fe_mod

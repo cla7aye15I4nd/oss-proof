@@ -226,6 +226,8 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
   /-- `lit_bufsize = 1 << (memLevel + 6)` is a multiple of 16 (`alloc_deflate` of `deflateCopy` aligns the state that
   follows `pending_buf` with it) -/
   lmod : v.lit_bufsize.toNat % 16 = 0
+  /-- `lit_bufsize = 1 << (memLevel + 6)` is a power of two (`memLevel` 1..9) -/
+  lpow : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ v.lit_bufsize.toNat = 2 ^ k
   /-- the scratch arrays of `build_tree` / `gen_bitlen` have their C sizes: `pq_leaves` and `pq_scratch` `L_CODES + 1`
   entries, `bl_count` `MAX_BITS + 1` -/
   scratch : v.pqlsize = 287 ∧ v.pqssize = 287 ∧ v.blcsize = 16

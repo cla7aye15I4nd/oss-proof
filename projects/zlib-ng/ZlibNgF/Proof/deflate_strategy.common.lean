@@ -166,6 +166,7 @@ theorem dcore_set {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView}
   bs_lo := hlo
   descs := c.descs
   lmod := c.lmod
+  lpow := c.lpow
   scratch := c.scratch
   blk := c.blk
 
