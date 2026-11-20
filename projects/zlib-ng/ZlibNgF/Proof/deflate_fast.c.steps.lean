@@ -1,5 +1,6 @@
 import ZlibNgF.Proof.«deflate_fast.c.frame»
 import ZlibNgF.Proof.«deflate_fast.c.chain»
+import ZlibNgF.Proof.«deflate_medium.c.step»
 
 /-!
 # Steps of `deflate_fast` (`ZlibNgF`)

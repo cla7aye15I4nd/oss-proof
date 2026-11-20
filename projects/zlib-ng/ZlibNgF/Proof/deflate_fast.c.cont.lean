@@ -23,7 +23,6 @@ open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInit
 open ZlibNgF.Proof.DeflateInv ZlibNgF.Proof.DeflateFacts ZlibNgF.Proof.Strategy
 open ZlibNgF.Proof.InsertGrow ZlibNgF.Proof.InsertLoop ZlibNgF.Proof.InsertLoopW
 open ZlibNgF.Proof.FastSteps ZlibNgF.Proof.FastFrame
-open ZlibNgF.Proof.MediumStep (Sat.and)
 open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNg.DeflateP ZlibNg.DeflateFast
 
@@ -97,7 +96,7 @@ theorem flush0_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} 
       st1.window = .val (.ref (.heap b) wo) := fun st1 h1 => by
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
     exact ⟨hp0, slf_win F0 hw0 _ (SH_dstate _ _ _ _ _ _)⟩
-  refine Sat.mono (Sat.and (slf_flush T 0 (by decide) (by decide) F0 hp)
+  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T 0 (by decide) (by decide) F0 hp)
     (ZlibNgF.Proof.StrategyChain.slf_flush_chain T 0 (by decide) (by decide) F0 hp)) ?_
   rintro r H2 ⟨⟨hav, F2, hs2, hn2, hsm⟩, hck⟩
   refine ⟨hav, fun st2 d2 h2 hd2 => hck st d st2 d2 (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _) h2 hd2
@@ -173,8 +172,8 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
     ((fun s : DeflateState => { s with strstart := s.strstart + cl }) st) = st2
   have hf : FS st2 st.lookahead st.strstart = FS st st.lookahead st.strstart := by rw [← hst2]
   have k2 : st2.lookahead = st.lookahead - cl ∧ st2.strstart = st.strstart + cl ∧ CF st st2 ∧
-      st2.sym_next = st.sym_next ∧ st2.window = st.window := by
-    rw [← hst2]; exact ⟨rfl, rfl, CF.refl _, rfl, rfl⟩
+      st2.sym_next = st.sym_next ∧ st2.window = st.window ∧ st2.sym_end = st.sym_end := by
+    rw [← hst2]; exact ⟨rfl, rfl, CF.refl _, rfl, rfl, rfl⟩
   have G2 := cg_st G1 k2.2.2.1
   have W2 : SLW h i b st.lookahead st.strstart (SH H0 i z b st2 d1) := slw_wr (hW1 _ _ W) hf
   have hla2 : (st.lookahead - cl).toNat = st.lookahead.toNat - cl.toNat :=
@@ -203,7 +202,7 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
     have Ck3 : CK b (SH H0 i z b st3 d3) := ck_of_cg C0 G3 hlev fun st4 h4 => by
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h4)
       rw [K3.2.1, k2.2.1, hss2]
-      exact ⟨by omega, fun q hq _ => by rcases hq with hq | hq; · exact absurd hq id; · omega⟩
+      exact ⟨by omega, fun q hq _ => hq.elim (fun f => f.elim) (fun h' => by omega)⟩
     have hav3' : avIn (SH H0 i z b st3 d3) i = avIn (SH H0 i z b st d) i := by
       rw [hav3, avIn_SH, avIn_SH]
     -- the end of the trip, after `FLUSH_BLOCK` or none
@@ -226,7 +225,7 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
         have hl2' : 262 ≤ (st.lookahead - cl).toNat := by
           have := UInt32.le_iff_toNat_le.mp (UInt32.not_lt.mp hl2)
           simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using this
-        refine Sat.pure ⟨⟨_, _, sli_slw hIa, hH4, fun _ => hIa, fun e => by cases e, hl2', by omega, Ck4, hav5⟩, ?_⟩
+        refine Sat.pure ⟨⟨_, _, sli_slw hIa, hH4, fun _ => hIa, fun e => by simp at e, hl2', by omega, Ck4, hav5⟩, ?_⟩
         simp only [CM, LaS_SH]; rw [e5]; omega
     cases bfl with
     | false =>
@@ -255,15 +254,15 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
       obtain ⟨H5, z5, st5, d5, e, C⟩ := I2
       obtain ⟨rfl, rfl, rfl⟩ := SH_inj e
       exact UInt32.le_of_lt (C.2 _ (SH_dstate _ _ _ _ _ _)).2
-    refine Sat.bind (Sat.mono (Sat.and (sli_tally_dist_le I2 cd (cl - STD_MIN_MATCH) cl (by omega) hd1 hd2
+    refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (sli_tally_dist_le I2 cd (cl - STD_MIN_MATCH) cl (by omega) hd1 hd2
       (by omega) hcl (by omega)) (tally_dist_K W2 hlt cd (cl - STD_MIN_MATCH) (by omega) hd1 hd2)) ?_)
     rintro r H3 ⟨⟨hav3, W3, -, -, I3⟩, K3⟩
     exact post (false || r) H3 W3 (fun e => I3 (by simpa using e)) hav3 K3
   | true =>
     have hle2 : SymLe b (SH H0 i z b st2 d1) := fun st4 h4 => by
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h4)
-      rw [k2.2.2.2.1]; exact hle rfl st (SH_dstate _ _ _ _ _ _)
-    refine Sat.bind (Sat.mono (Sat.and (slw_tally_dist W2 hle2 cd (cl - STD_MIN_MATCH) cl (by omega) hd1 hd2
+      rw [k2.2.2.2.1, k2.2.2.2.2.2]; exact hle rfl st (SH_dstate _ _ _ _ _ _)
+    refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slw_tally_dist W2 hle2 cd (cl - STD_MIN_MATCH) cl (by omega) hd1 hd2
       (by omega) hcl (by omega)) (tally_dist_K W2 (hle2 _ (SH_dstate _ _ _ _ _ _)) cd (cl - STD_MIN_MATCH)
         (by omega) hd1 hd2)) ?_)
     rintro r H3 ⟨⟨hav3, W3, -⟩, K3⟩
