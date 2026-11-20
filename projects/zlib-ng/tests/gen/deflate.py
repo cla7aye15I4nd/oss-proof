@@ -116,6 +116,21 @@ for case in range(200 if QUICK else 500):
     script += finish(rng.choice((1 << 30, 777)), rng.choice((1 << 30, 333)))
     d(level, wb, rng.randint(1, 9), rng.choice((0, 0, 1, 2, 3, 4)), data(rng.choice(KINDS), n), n, script)
 
+# 5b. deflateReset in the middle of a level-1 Z_FIXED static block (patch 0022), then the next stream: alone, after
+# deflateCopy, with deflateSetDictionary, through deflateParams to another level and back, with deflatePrime; the
+# round trip inflates the stream after the reset.
+for case in range(40 if QUICK else 100):
+    wb = rng.choice((15, 31, -15, 9))
+    n = rng.choice((300, 3000, 9000))
+    first = rng.choice((1, 50, n // 2, n - 1))
+    pre = ["i%d" % first, "o%d" % rng.choice((1 << 30, 7)), "f0"] + rng.choice(([], ["f0"], ["p"], ["C"]))
+    post = rng.choice(([], ["D"], ["Q6/0", "i%d" % rng.choice((1, 100)), "f0", "Q1/4"], ["P10/2"], ["Q1/4"],
+                       ["R"], ["H"]))
+    d(1, wb, rng.choice((1, 8, 9)), 4, data(rng.choice("tpr"), n), n,
+      pre + ["o%d" % (1 << 30), "R"] + post + finish(rng.choice((1 << 30, 500)), rng.choice((1 << 30, 64))),
+      dic=data("t", 200) if "D" in post else "-",
+      hdr="0/0/0/3/10/4/-1/1" if "H" in post else "-")
+
 # 6. Dictionaries (set before data, too late, NULL, larger than the window), deflateGetDictionary.
 for case in range(80 if QUICK else 200):
     level = rng.randint(0, 9)
@@ -139,6 +154,15 @@ for case in range(100 if QUICK else 250):
     script = ["H", "B%d" % n, "b%d" % n] + finish(rng.choice((1, 1 << 30)), rng.choice((1, 7, 100, 1 << 30)))
     d(rng.randint(0, 9), rng.choice((31, 25, 15)), mem, 0, data("t", n), n, script, hdr=hdr,
       outcap=n + max(ex, 0) + max(nm, 0) + max(cm, 0) + 200)
+
+# 7b. extra_len beyond 16 bits (patch 0003): deflate writes only the low 16 bits, deflateBound counts the same; the
+# buffer always holds 65535 bytes, so every value's low 16 bits stay inside it.
+for el in (0, 1, 0xffff, 0x10000, 0x10001, 0xfffffffe, 0xffffffff):
+    for wb in (31, 25):
+        n = rng.choice((0, 5, 400))
+        hdr = "0/0/0/3/65535/-1/-1/0/%d" % el
+        d(rng.choice((1, 6)), wb, 8, 0, data("t", n), n, ["H", "B0", "b0", "B%d" % n, "b%d" % n] + finish(),
+          hdr=hdr, outcap=n + 65535 + 300)
 
 # 8. Invalid arguments, calls after end and after errors, tiny avail_out.
 for args in ((10, 8, 15, 8, 0), (-2, 8, 15, 8, 0), (6, 7, 15, 8, 0), (6, 8, 7, 8, 0), (6, 8, 16, 8, 0),

@@ -213,7 +213,8 @@ def deflateStateCheck (strm : StreamPtr) : M Bool := do
   if s.status < INIT_STATE || s.status > MAX_STATE then return true
   return false
 
-/-- `int32_t Z_EXPORT PREFIX(deflateResetKeep)(PREFIX3(stream) *strm)` (`deflate.c:516-554`). -/
+/-- `int32_t Z_EXPORT PREFIX(deflateResetKeep)(PREFIX3(stream) *strm)` (`deflate.c:516-554`, patch 0022:
+`s->block_open = 0;`). -/
 def deflateResetKeep (strm : StreamPtr) : M Int32 := do
   if ← deflateStateCheck strm then return Z_STREAM_ERROR
   wrZ strm fun z => { z with total_out := 0 }
@@ -234,6 +235,7 @@ def deflateResetKeep (strm : StreamPtr) : M Int32 := do
   else
     wrZ strm fun z => { z with adler := ADLER32_INITIAL_VALUE }
   wrD st fun s => { s with last_flush := -2 }
+  wrD st fun s => { s with block_open := 0 }
   wrD st fun s => { s with gzhead := .val none }
   ZlibNg.Trees.zng_tr_init st
   return Z_OK
@@ -463,7 +465,7 @@ def countStr (str : BPtr) (wraplen : UInt64) : M UInt64 := do
   return wraplen
 
 /-- `z_size_t Z_EXPORT PREFIX(deflateBound_z)(PREFIX3(stream) *strm, z_size_t sourceLen)` (`deflate.c:707-787`,
-patch 0003: `2 + (extra_len & 0xffff)` in `z_size_t`). -/
+patch 0003: `2 + (extra_len & 0xffff)` in 32-bit `unsigned`, then widened by `+=`). -/
 def deflateBound_z (strm : StreamPtr) (sourceLen : UInt64) : M UInt64 := do
   let complen : UInt64 := sourceLen + ((sourceLen + 7) >>> 3) + ((sourceLen + 63) >>> 6) + 5
   if ← deflateStateCheck strm then
@@ -480,7 +482,7 @@ def deflateBound_z (strm : StreamPtr) (sourceLen : UInt64) : M UInt64 := do
       if gh != none then
         let g ← ldHeader gh
         let wraplen := GZIP_WRAPLEN
-        let wraplen := if g.extra != .null then wraplen + (2 + (g.extra_len &&& 0xffff).toUInt64) else wraplen
+        let wraplen := if g.extra != .null then wraplen + (2 + (g.extra_len &&& 0xffff)).toUInt64 else wraplen
         let g ← ldHeader gh
         let wraplen ← if g.name != .null then countStr g.name wraplen else pure wraplen
         let g ← ldHeader gh

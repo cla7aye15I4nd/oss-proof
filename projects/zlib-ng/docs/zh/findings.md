@@ -1,11 +1,10 @@
-<!-- source-sha256: aec0a95d477c8c47ec1fc0b936f6302f1b905845c6fa2ab915ed003dc4c118b0 -->
+<!-- source-sha256: 5068d12f83e82ed805eab217395c3102f6f26055e2cd54f6f74afabd5ecd6009 -->
 # 发现：zlib-ng 中发现的问题
 
 本工作在被验证提交的 zlib-ng `develop` 分支中发现了二十三个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
 有文档的函数触达，并由真实 C 代码的运行（消毒器无法发现时，由经跟踪的运行与 ISO C17 条文）展示。补丁 0001 至
-0021 修复了前二十二个：每个问题一个补丁，只有补丁 0011
-修复失败的 `gzwrite` 引起的两个问题（两者源于同一个过时指针）。最后一个问题（静态块打开时调用 `deflateReset`）给出错误结果但没有
-内存错误，未打补丁。
+0022 修复了它们：每个问题一个补丁，只有补丁 0011
+修复失败的 `gzwrite` 引起的两个问题（两者源于同一个过时指针）。
 
 证据一栏标明每个问题的展示方式。**公开 API**：只调用有文档的函数的程序（失败与设备来自普通的描述符），并在运行中看到缺陷：
 消毒器报告或错误结果。**标准条文**：调用同样是有文档的函数，但没有消毒器报告该未定义行为，也没有任何异常表现；证据是把
@@ -36,7 +35,7 @@ ISO C17 的条文应用于经跟踪的运行。**白盒** 指由测试自行设�
 | 定位待处理时 `gzgets` 越过文件末尾读取 | 读取时待处理的定位（`skip != 0`）由 `gz_skip` 在下一次读取之前完成。若输入先结束，`gz_skip` 停下而跳过量仍待处理（已置文件末尾，没有缓冲的输入或输出）。`gzread`、`gzfread` 以及 `gzgetc` 函数（经由 `gz_read`）随后也在文件末尾检查处停下。`gzgets` 却调用 `gz_fetch`，后者在复制模式（非 gzip 输入）下即使已置文件末尾仍再次读取。若文件此后增长（另一个写入者追加了数据，或是终端），`gzgets` 返回这些新字节——它们位于所定位位置之前——并在跳过量仍待处理时把它们累加到 `x.pos`：`x.pos + skip` 超过 `GZ_OFF_MAX`，`gztell`（`past` 为 0 时计算 `x.pos + skip`）溢出：有符号溢出（ISO C17 §6.5p5）。`gzungetc` 先做跳过、退回字符时不读取；`gzdirect`（有补丁 0017）只经由 `gz_look` 读取，而 `gz_look` 在文件末尾之后不读取：二者都不受影响。 | 对 3 字节的非 gzip 文件 `gzopen(path, "rb")`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzdirect`；文件增长 3 字节；`gzgets(file, buf, 16)`，`gztell`。只用有文档的调用；程序之外的条件是文件在两次调用之间增长 | **公开 API**：UndefinedBehaviorSanitizer，`gzlib.c:496`；程序之外的条件是文件在两次调用之间增长 | 补丁 0018 | 未提交 |
 | `gzungetc` 无界地降低读取位置 | `gzungetc` 每退回一个字节就把有符号 64 位位置 `x.pos` 减一（`gzopen` 之后 `gztell` 为负是文档所述的设计：退回的字节先被读出，位于位置 -1）。输出缓冲区满时，退回以 `gz_error(Z_DATA_ERROR, "out of room to push characters")` 失败，它清零 `x.have`（丢弃退回的字节），却保留已降低的 `x.pos`。`gzclearerr` 之后，下一次 `gzungetc` 又从空缓冲区开始，因此"退回直到满、失败的退回、`gzclearerr`"这一循环每次把 `x.pos` 降低缓冲区大小的两倍，没有下界：约 `2^63` 次退回之后 `x.pos--` 溢出（ISO C17 §6.5p5）。补丁的界是 `-GZ_OFF_MAX` 而不是最小值，因为 `SEEK_CUR` 的 `gzseek64` 会对负位置取负（补丁 0002）。 | 对空文件 `gzopen(path, "rb")`，`gzbuffer(file, 8)`，然后反复：`gzungetc('a', file)` 直到返回 -1（16 次退回），`gzclearerr(file)` | 机制为**公开 API**：未打补丁的真实 C 代码的运行显示 `gztell` 依次为 -16、-32、……，`2 * 10^7` 次循环（9 秒）后为 -320000000；补丁在其界之上不改变任何行为。溢出本身为**标准条文**：它需要约 `2^59` 次循环，未运行 | 补丁 0020 | 未提交 |
 | 写入失败后 `gzprintf` 格式化到缓冲区之外 | `gzvprintf` 在输入缓冲区的 `next_in + avail_in` 处格式化，输入达到缓冲区大小时，从 `next_in` 起置 `avail_in = size` 并压缩。它依赖 `next_in + avail_in <= in + size`（输入缓冲区“正是为这个函数”开成 `2 * size` 字节）。`write()` 失败的 `gz_comp` 返回时，`next_in` 已按 `deflate` 消耗的输入前移，且仍有输入剩余。`gzclearerr` 之后，下一次 `gzprintf` 从前移后的 `next_in` 起计 `size` 字节，于是 `next_in + avail_in` 越过 `in + size`，此后每一轮失败再前移至多 `size`。格式化的文本随即落入输出缓冲区（覆盖尚未写出的压缩数据：gzip 流损坏），再过一轮便越过缓冲区所在块的末尾：`vsnprintf` 与存储 `next[size - 1] = 0` 写到分配之外（ISO C17 §7.22.3、§6.5.6p8）。 | 对非阻塞管道的写端 `gzdopen(fd, "wb0")`，程序在每次调用前设定管道的空余容量（管道满时 `write()` 以 `EAGAIN` 失败），`gzbuffer(file, 262144)`，然后以长度为 75605 字节的字符串调用 `gzprintf(file, "%s", s)`，`gzflush(file, Z_SYNC_FLUSH)`，188859，102132（其写入失败），`gzclearerr`，233532（一次写入成功，下一次失败），`gzclearerr`，176283 与 200000 字节 | **公开 API**：AddressSanitizer，`gzvprintf` 调用的 `vsnprintf` 中的堆缓冲区溢出（随堆布局不同，也可能是 `gzwrite.c:389` 处的野写）；在最后一次调用之前停下并关闭，gzip 流无法解压 | 补丁 0021 | 未提交（上游 zlib 于 2026 年在其 `develop` 分支修复了同一段代码） |
-| `deflateReset` 使第 1 级的静态块保持打开 | 在第 1 级使用策略 `Z_FIXED` 时，`deflate_quick` 打开一个静态块（`block_open = 1`），并保持打开直到刷新或流结束。`block_open` 只由 `deflateInit2` 清零，`deflateReset`（以及它调用的 `lm_init`）都不清零。在块仍打开时调用 `deflateReset` 后，下一个流继续该块：它的符号跟在新的 zlib 头之后，没有块头。`inflate` 拒绝该输出。这是错误的结果，没有内存错误。 | `deflateInit2(strm, 1, Z_DEFLATED, 15, 8, Z_FIXED)`，对 3000 字节调用 `deflate(strm, Z_NO_FLUSH)`，`deflateReset`，对 1000 字节调用 `deflate(strm, Z_FINISH)`，然后对该输出调用 `inflate` | **公开 API**：真实 C 代码的运行：输出 27 字节，`inflate` 以 `Z_DATA_ERROR`（"invalid stored block lengths"）拒绝 | 未打补丁 | 未提交 |
+| `deflateReset` 使第 1 级的静态块保持打开 | 在第 1 级使用策略 `Z_FIXED` 时，`deflate_quick` 打开一个静态块（`block_open = 1`），并保持打开直到刷新或流结束。`block_open` 只由 `deflateInit2` 清零，`deflateReset`（以及它调用的 `lm_init`）都不清零。在块仍打开时调用 `deflateReset` 后，下一个流继续该块：它的符号跟在新的 zlib 头之后，没有块头。`inflate` 拒绝该输出。这是错误的结果，没有内存错误。 | `deflateInit2(strm, 1, Z_DEFLATED, 15, 8, Z_FIXED)`，对 3000 字节调用 `deflate(strm, Z_NO_FLUSH)`，`deflateReset`，对 1000 字节调用 `deflate(strm, Z_FINISH)`，然后对该输出调用 `inflate` | **公开 API**：真实 C 代码的运行：输出 27 字节，`inflate` 以 `Z_DATA_ERROR`（"invalid stored block lengths"）拒绝 | 补丁 0022 | 未提交 |
 
 早先 2.3.3 版本中发现的问题（`gzbuffer` 大小溢出、负长度时 `crc32_combine*` 不返回、`adler32` 以 `NULL`
 和长度 1 调用）已在 `develop` 分支修复；它们的复现保留为回归测试。

@@ -28,7 +28,8 @@
  * <data>, <dict>: "-" (empty), "null" (NULL pointer, no bytes), "hex:<digits>" or "gen:<kind>:<len>:<seed>" (see
  * gen_data). <hdr>: "-" (no header object) or "<text>/<time>/<xflags>/<os>/<extra>/<name>/<comment>/<hcrc>" where
  * <extra>, <name>, <comment> are -1 (NULL) or a length (extra: extra_len bytes; name, comment: that many non-zero
- * characters and a NUL). */
+ * characters and a NUL), optionally followed by "/<extra_len>": the value stored in extra_len instead of <extra>
+ * (the buffer keeps <extra> bytes; extra_max stays <extra>). */
 #include "common.h"
 #include <stdint.h>
 #include "zlib.h"
@@ -95,13 +96,13 @@ static void run_def(char **tok, int nt) {
     unsigned char *hx = NULL, *hn = NULL, *hc = NULL;
     int havehdr = strcmp(tok[8], "-") != 0;
     if (havehdr) {
-        long long t, tm, xf, os, ex, nm, cm, hc_;
-        if (sscanf(tok[8], "%lld/%lld/%lld/%lld/%lld/%lld/%lld/%lld", &t, &tm, &xf, &os, &ex, &nm, &cm, &hc_) != 8) {
-            printf("BADINPUT\n"); return;
-        }
+        long long t, tm, xf, os, ex, nm, cm, hc_, el;
+        int nf = sscanf(tok[8], "%lld/%lld/%lld/%lld/%lld/%lld/%lld/%lld/%lld", &t, &tm, &xf, &os, &ex, &nm, &cm, &hc_, &el);
+        if (nf != 8 && nf != 9) { printf("BADINPUT\n"); return; }
+        if (nf == 8) el = ex;
         hdr.text = (int)t; hdr.time = (uLong)tm; hdr.xflags = (int)xf; hdr.os = (int)os; hdr.hcrc = (int)hc_;
         if (ex >= 0) { hx = malloc(ex ? (size_t)ex : 1); for (long long i = 0; i < ex; i++) hx[i] = (unsigned char)(i * 7 + 1);
-                       hdr.extra = hx; hdr.extra_len = (uInt)ex; hdr.extra_max = (uInt)ex; }
+                       hdr.extra = hx; hdr.extra_len = (uInt)el; hdr.extra_max = (uInt)ex; }
         if (nm >= 0) { hn = malloc((size_t)nm + 1); for (long long i = 0; i < nm; i++) hn[i] = (unsigned char)('a' + i % 26);
                        hn[nm] = 0; hdr.name = hn; hdr.name_max = (uInt)nm + 1; }
         if (cm >= 0) { hc = malloc((size_t)cm + 1); for (long long i = 0; i < cm; i++) hc[i] = (unsigned char)('A' + i % 26);
@@ -242,47 +243,71 @@ static void run_cmp(char **tok, int nt) {
 }
 
 /* Round trip (c_deflate roundtrip <lean.out> < <in>): each "def" input line is paired with the Lean driver's output
- * line for it. When the script ends a whole stream (a deflate call returned Z_STREAM_END) and does nothing that
- * makes the output not one stream of the input (deflatePrime, deflateReset, deflateResetKeep, more than one
- * deflateSetDictionary, a raw-stream dictionary set after data), the output bytes the TRANSLATION printed are
- * inflated by the real C inflate (zlib, gzip or raw by the windowBits, with the dictionary when it asks for one)
- * and must give back exactly the input bytes the stream consumed (next_in's offset; total_in also counts the
- * dictionary), the start of the input data, with every output byte read. Prints the counts; exits 1 on the first failure. */
+ * line for it. The stream checked is the whole script, or, when the script calls deflateReset (R), the stream after
+ * the last deflateReset that returned Z_OK: its output starts at next_out's offset and its input at next_in's offset
+ * printed by that call (the reset drops the pending output of the stream before). When that stream ends (a deflate
+ * call returned Z_STREAM_END) and does nothing that makes the output not one stream of its input (deflatePrime,
+ * deflateResetKeep, more than one deflateSetDictionary, a raw-stream dictionary set after data), the output bytes
+ * the TRANSLATION printed are inflated by the real C inflate (zlib, gzip or raw by the windowBits, with the
+ * dictionary when it asks for one) and must give back exactly the input bytes the stream consumed (from next_in's
+ * offset at its start to next_in's offset at Z_STREAM_END; total_in also counts the dictionary), with every output
+ * byte read. Prints the counts; exits 1 on the first failure. */
 static int roundtrip_line(char *inl, char *leanl) {
     char *tok[12]; int nt = 0; char *save;
     for (char *t = strtok_r(inl, " \t\r\n", &save); t && nt < 12; t = strtok_r(NULL, " \t\r\n", &save)) tok[nt++] = t;
     if (nt != 11 || strcmp(tok[0], "def") != 0) return 0;
     int wb = (int)parse_i(tok[3]);
     const char *script = tok[10];
-    int ndict = 0, data_seen = 0, late_dict = 0;
+    int ndict = 0, data_seen = 0, late_dict = 0, nreset = 0;
     for (const char *c = script; *c; c++) {
         if (c != script && c[-1] != ',') continue;
-        if (*c == 'P' || *c == 'R' || *c == 'K') return 0;
+        if (*c == 'R') { nreset++; ndict = data_seen = late_dict = 0; continue; }
+        if (*c == 'P' || *c == 'K') return 0;
         if (*c == 'D') { ndict++; if (data_seen) late_dict = 1; }
         if (*c == 'L' || *c == 'f') data_seen = 1;
     }
     if (ndict > 1 || (wb < 0 && late_dict)) return 0;
+    /* The output of the last deflateReset (" R<ret>" and its fields), when the script has one. */
+    char *start = leanl;
+    unsigned long long base_in = 0, base_out = 0;
+    if (nreset > 0) {
+        char *rp = NULL;
+        int seen = 0;
+        for (char *q = leanl; (q = strstr(q, " R")) != NULL; q++)
+            if (q[2] == '-' || (q[2] >= '0' && q[2] <= '9')) { rp = q; seen++; }
+        if (seen != nreset) return 0; /* the script stopped before its last reset */
+        if (strncmp(rp, " R0:", 4) != 0) return 0;
+        if (sscanf(rp + 4, "%llu:%*u:%llu:", &base_in, &base_out) != 2) return -1;
+        start = rp + 4;
+    }
     /* The last deflate call that returned Z_STREAM_END: " f1:" or " 1:" inside a loop, then its fields. */
     char *end = NULL;
-    for (char *q = leanl; (q = strstr(q, " 1:")) != NULL; q++) end = q + 3;
-    for (char *q = leanl; (q = strstr(q, " f1:")) != NULL; q++) if (q + 4 > end) end = q + 4;
+    for (char *q = start; (q = strstr(q, " 1:")) != NULL; q++) end = q + 3;
+    for (char *q = start; (q = strstr(q, " f1:")) != NULL; q++) if (q + 4 > end) end = q + 4;
     char *outp = strstr(leanl, " out:");
     if (!end || !outp || end > outp) return 0;
     unsigned long long in_off;
     if (sscanf(end, "%llu:", &in_off) != 1) return -1;
+    if (in_off < base_in) return -1;
     outp += 5;
     size_t hl = strcspn(outp, " \n");
     size_t clen = strcmp(outp, "-") == 0 || (hl == 1 && outp[0] == '-') ? 0 : hl / 2;
+    if (base_out > clen) return -1;
+    clen -= (size_t)base_out;
+    outp += 2 * base_out;
     unsigned char *comp = malloc(clen ? clen : 1);
     for (size_t i = 0; i < clen; i++) comp[i] = (unsigned char)(hexval(outp[2 * i]) * 16 + hexval(outp[2 * i + 1]));
     size_t inlen, dictlen; int innull, dictnull;
-    unsigned char *in = gen_data(tok[6], &inlen, &innull);
+    unsigned char *in0 = gen_data(tok[6], &inlen, &innull);
     unsigned char *dict = gen_data(tok[7], &dictlen, &dictnull);
+    unsigned char *in = in0 + base_in;
+    in_off -= base_in;
+    inlen = inlen >= base_in ? inlen - (size_t)base_in : 0;
     size_t cap = (size_t)in_off + 1;
     unsigned char *res = malloc(cap);
     z_stream s; memset(&s, 0, sizeof s);
     int ok = inflateInit2(&s, wb < 0 ? -15 : wb > 15 ? 31 : 15) == Z_OK;
-    if (ok && wb < 0 && strstr(leanl, " D0") != NULL) ok = inflateSetDictionary(&s, dict, (uInt)dictlen) == Z_OK;
+    if (ok && wb < 0 && strstr(start, " D0") != NULL) ok = inflateSetDictionary(&s, dict, (uInt)dictlen) == Z_OK;
     s.next_in = comp; s.avail_in = (uInt)clen; s.next_out = res; s.avail_out = (uInt)cap;
     int r = Z_OK;
     while (ok) {
@@ -296,7 +321,7 @@ static int roundtrip_line(char *inl, char *leanl) {
     if (!good) printf("ROUNDTRIP FAILED: inflate %d, %zu of %llu bytes back, %u of %zu output bytes left\n", r, got,
                       in_off, s.avail_in, clen);
     inflateEnd(&s);
-    free(comp); free(in); free(dict); free(res);
+    free(comp); free(in0); free(dict); free(res);
     return good ? 1 : -1;
 }
 
