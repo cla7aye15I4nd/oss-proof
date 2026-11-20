@@ -74,13 +74,21 @@ theorem dcore_pend {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' : 
     bstart := hbs
     bs_lo := hlo }
 
+/-- What the stored block through `pending_buf` and `flush_pending` do to the stream: `avail_in` kept, `avail_out`
+not grown, emptied when it held at most the `len + header` bytes of the block, lowered when it was not empty. -/
+def BlkIO (H H' : Heap) (i b : Nat) (len : UInt32) : Prop :=
+  ∀ z st z', H.streams i = some z → H.dstate b = some st → H'.streams i = some z' →
+    z'.avail_in = z.avail_in ∧ z'.avail_out.toNat ≤ z.avail_out.toNat ∧
+    (z.avail_out.toNat ≤ len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 → z'.avail_out = 0) ∧
+    (z.avail_out ≠ 0 → z'.avail_out.toNat < z.avail_out.toNat)
+
 /-- The stored block of `len` window bytes from `block_start` through `pending_buf`, then `block_start += len` and
-`flush_pending`: `SF` after. -/
+`flush_pending`: `SF` after, and `BlkIO`. -/
 theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dstate b = some st → st.pending = 0)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (len : UInt32) (last : Int32)
     (hl : ∀ st, H.dstate b = some st → (len.toNat : Int) ≤ st.strstart.toNat - st.block_start.toInt ∧
       len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 ≤ st.pending_buf_size.toNat)
-    {α : Type} (k : M α) (Q : α → Heap → Prop) (hk : ∀ H', SF h i b H' → Sat H' k Q) :
+    {α : Type} (k : M α) (Q : α → Heap → Prop) (hk : ∀ H', SF h i b H' → BlkIO H H' i b len → Sat H' k Q) :
     Sat H (blk_part (some b) (.ref (.heap b) wo) len last k) Q := by
   obtain ⟨z, st, d, ob, oo, X, pbo, S⟩ := F.facts hw0
   have e0 : SH (setB H ob X) i z b st d = H := by
@@ -100,9 +108,11 @@ theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
   rw [show st.block_start.toInt = ((st.block_start.toInt.toNat : Nat) : Int) by omega]
   refine Sat.bind (Sat.of_eq (add_SH (st.block_start.toInt.toNat) (by omega)) ?_)
-  refine Sat.bind (Sat.mono (ZlibNgF.Proof.TreesEmitP.stored_block_X_SH S.hpb hv0 (by omega) _ len
+  refine Sat.bind (Sat.mono (ZlibNgF.Proof.TreesEmitP.stored_block_XE_SH S.hpb hv0 (by omega) _ len
     (.inr ⟨_, rfl, by omega⟩) (by omega) (by omega) last) ?_)
-  rintro _ H1 ⟨np2, pend, bu, d1, rfl, hpe, -, hb2, w1⟩
+  rintro _ H1 ⟨np2, pend, bu, d1, rfl, hpe, -, hb2, w1, hx2⟩
+  have hpend0 : pend.toNat = len.toNat + (st.bi_valid.toInt.toNat + 42) / 8 := by omega
+  clear hx2
   have hd1 : d1.size = d.size := w1.1
   clear w1
   refine sat_gen (fun st3 => st3 = { st with
@@ -168,8 +178,21 @@ theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   have hLA : L ≤ z.avail_out.toNat := by omega
   refine hk _ (sf_next F S.hz S.hst S.hno S.hX (L := L) hX4 hXo hLA rfl (Or.inl ⟨rfl, rfl⟩) (Nat.le_refl _) hno' hav'
     (fun al _ c => dcore_mv (dcore_pend c he S.hpb hpo' hle' hroom' hpz' hb0' hb8' hbs1 hbs2 S.sym)
-      S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_)
-  · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl⟩
+      S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_) ?_
+  rotate_left 2
+  · intro z1 st1 z2 h1 h2 h3
+    rw [S.hz] at h1; cases h1
+    rw [S.hst] at h2; cases h2
+    rw [SH_streams] at h3; cases h3
+    simp only [] at hav'
+    have hL' : L = min pend.toNat z.avail_out.toNat := by rw [hL, hnp']
+    refine ⟨rfl, ?_, fun hle => ?_, fun hne => ?_⟩
+    · show ao.toNat ≤ _; omega
+    · show ao = 0; exact UInt32.toNat_inj.mp (by rw [hav']; simp; omega)
+    · show ao.toNat < _
+      have : z.avail_out.toNat ≠ 0 := fun e => hne (UInt32.toNat_inj.mp (by rw [e]; rfl))
+      omega
+  · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl, rfl⟩
   · refine ⟨Int32.le_iff_toInt_le.mpr (by rw [hbs', hnb]; show (0 : Int) ≤ _; omega), ?_, hb8'⟩
     rw [he]; exact S.sym
 

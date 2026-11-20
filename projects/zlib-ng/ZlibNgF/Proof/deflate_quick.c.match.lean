@@ -234,7 +234,7 @@ theorem cloop_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {l
 def QI (h : Heap) (i b : Nat) (flush : Int32) (v : UInt32 × UInt32 × QuickExit) (H : Heap) : Prop :=
   match v.2.2 with
   | .cont => SLI h i b v.2.1 v.1 H
-  | .brk => SLI h i b v.2.1 v.1 H ∧ v.2.1 = 0
+  | .brk => SLI h i b v.2.1 v.1 H ∧ v.2.1 = 0 ∧ avIn H i = 0
   | .ret r => StratPost h (some i) flush r H
 
 /-- The measure of the main loop. -/

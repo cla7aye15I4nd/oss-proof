@@ -11,7 +11,7 @@ symbol buffer flushes the block.
 
 * `SLF h i b H`: the frame of a strategy call on stream `i` (block `b`) from its entry heap `h` to the heap `H`: the
   invariant, valid and set buffers, the CRC tables, a change of the stream record, the block and the output buffer
-  only, the output of `H` a tail of the output at entry (`OutTail`), the fields of `StratKeeps` unchanged, and the
+  only, the output of `H` a tail of the output at entry (`OutTail`), the input a tail of the input at entry (`InTail`), the fields of `StratKeeps` unchanged, and the
   state at a level above 0, past its header, with no symbols when `block_start` is at `strstart` (`GapOk`).
 * `SLC h i b H`: `SLF` with no pending bytes.
 * `SLI h i b la ss H`: the loop invariant. The heap `H` is an `SH` heap whose state has the stale
@@ -58,6 +58,7 @@ structure SLF (h : Heap) (i b : Nat) (H : Heap) : Prop where
   blk0 : ∃ z, h.streams i = some z ∧ z.state = some b
   frame : DFrame h H [i] [b] [] (dOutputRanges h (some i))
   out : OutTail h H i
+  inp : InTail h H i
   win : ∃ st0, h.dstate b = some st0 ∧ ∀ st, H.dstate b = some st → st.window = st0.window
   keeps : ∃ st0, h.dstate b = some st0 ∧ ∀ st, H.dstate b = some st → StratKeeps st0 st
   st : ∀ st, H.dstate b = some st → 0 < st.level ∧ (st.status = BUSY_STATE ∨ st.status = FINISH_STATE) ∧ GapOk st
@@ -202,7 +203,8 @@ theorem slf_SH {h H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflate
       (SH_streams _ _ _ _ _ _) rfl (Nat.le_refl _) (Or.inl ⟨rfl, rfl⟩) hrd (by rw [hno]; rfl) (by simp) (SH_dstate _ _ _ _ _ _)
       hgz,
     ⟨z, ⟨i, rfl, SH_streams _ _ _ _ _ _⟩, hnn, hni⟩, ?_, ⟨z, SH_streams _ _ _ _ _ _, hb⟩, F.blk0,
-    dframe_trans F.frame (dframe_nil _ fr), ?_, ?_, ?_, fun st2 hst2 => ?_⟩
+    dframe_trans F.frame (dframe_nil _ fr), ?_, F.inp.keep (SH_streams _ _ _ _ _ _) (SH_streams _ _ _ _ _ _) rfl rfl,
+    ?_, ?_, fun st2 hst2 => ?_⟩
   · exact F.crc
   · obtain ⟨z0, z4, ob4, oo4, k, h0, h4, e0, e4, ek⟩ := F.out
     obtain rfl : z = z4 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h4)
@@ -241,6 +243,71 @@ def ExitOk (flush : Int32) (bs : BlockState) (st : DeflateState) : Prop :=
     (bs = .finish_started ∨ bs = .finish_done → st.sym_next = 0 ∧ st.lookahead = 0) ∧
     (bs = .block_done → st.sym_next = 0)
 
+/-- All the input of stream `i` consumed, or its output full. -/
+def CF (H : Heap) (i : Nat) : Prop := ∀ z', StreamAt H (some i) z' → z'.avail_in = 0 ∨ z'.avail_out = 0
+
+theorem cf_of_avIn {H : Heap} {i : Nat} (h0 : avIn H i = 0) : CF H i := fun z' ⟨i', e, hz⟩ => by
+  obtain rfl := Option.some.inj e
+  simp only [avIn, hz] at h0
+  exact .inl (UInt32.toNat_inj.mp (by rw [h0]; rfl))
+
+/-- The output of stream `i` full. -/
+def O0 (H : Heap) (i : Nat) : Prop := ∀ z', StreamAt H (some i) z' → z'.avail_out = 0
+
+theorem o0_of {H : Heap} {i : Nat} (h0 : ∀ z, H.streams i = some z → z.avail_out = 0) : O0 H i :=
+  fun z' ⟨i', e, hz⟩ => by obtain rfl := Option.some.inj e; exact h0 z' hz
+
+theorem cf_of_o0 {H : Heap} {i : Nat} (h0 : O0 H i) : CF H i := fun z' hz => .inr (h0 z' hz)
+
+/-- The exit facts of a strategy call with `flush` that returns `bs`, on the stream: all input consumed or the output
+full after `need_more` / `block_done`; `finish_started` / `finish_done` only for `Z_FINISH`; the output full after
+`need_more` / `finish_started` under `Z_FINISH` (each follows `FLUSH_BLOCK` or a test of `avail_out == 0`). -/
+def ExitIO (H : Heap) (i : Nat) (flush : Int32) (bs : BlockState) : Prop :=
+  (bs = .need_more ∨ bs = .block_done → CF H i) ∧ (bs = .finish_started ∨ bs = .finish_done → flush = Z_FINISH) ∧
+    (flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → O0 H i)
+
+/-- `ExitIO` for `need_more` with a full output. -/
+theorem exitIO_nm {H : Heap} {i : Nat} {flush : Int32} (ho : O0 H i) : ExitIO H i flush .need_more :=
+  ⟨fun _ => cf_of_o0 ho, fun e => (by rcases e with e | e <;> cases e), fun _ _ => ho⟩
+
+/-- `ExitIO` for `need_more` without a flush. -/
+theorem exitIO_nmNF {H : Heap} {i : Nat} (hc : CF H i) : ExitIO H i Z_NO_FLUSH .need_more :=
+  ⟨fun _ => hc, fun e => (by rcases e with e | e <;> cases e), fun e => absurd e (by decide)⟩
+
+/-- `ExitIO` for `block_done`. -/
+theorem exitIO_bd {H : Heap} {i : Nat} {flush : Int32} (hc : CF H i) : ExitIO H i flush .block_done :=
+  ⟨fun _ => hc, fun e => (by rcases e with e | e <;> cases e), fun _ e => (by rcases e with e | e <;> cases e)⟩
+
+/-- `ExitIO` for `finish_started` (with a full output) / `finish_done` under `Z_FINISH`. -/
+theorem exitIO_fin {H : Heap} {i : Nat} {bs : BlockState} (hb : bs = .finish_started ∨ bs = .finish_done)
+    (ho : bs = .finish_started → O0 H i) : ExitIO H i Z_FINISH bs :=
+  ⟨fun e => (by
+    rcases hb with h1 | h1 <;> rcases e with h2 | h2 <;> rw [h1] at h2 <;> exact absurd h2 (by decide)), fun _ => rfl,
+    fun _ e => by
+      rcases e with e | e
+      · rcases hb with h1 | h1 <;> rw [h1] at e <;> exact absurd e (by decide)
+      · exact ho e⟩
+
+/-- `ExitIO` for `block_done` / `finish_done` at the end of a strategy. -/
+theorem exitIO_tail {H : Heap} {i : Nat} {flush : Int32} {bs : BlockState} (hbs : bs = .block_done ∨ bs = .finish_done)
+    (hc : CF H i) (hF : bs = .finish_done → flush = Z_FINISH) : ExitIO H i flush bs := by
+  rcases hbs with rfl | rfl
+  · exact exitIO_bd hc
+  · rw [hF rfl]; exact exitIO_fin (.inr rfl) (fun e => by cases e)
+
+/-- `ExitIO` for the return of `FLUSH_BLOCK(s, window, last)` (`last` only under `Z_FINISH`). -/
+theorem exitIO_flush {H : Heap} {i : Nat} {flush last : Int32} (ho : O0 H i) (hL : last ≠ 0 → flush = Z_FINISH) :
+    ExitIO H i flush (if last != 0 then .finish_started else .need_more) := by
+  by_cases hl : last = 0
+  · subst hl; exact exitIO_nm ho
+  · have : (last != 0) = true := by simpa using hl
+    rw [this]; simp only [ite_true]; rw [hL hl]; exact exitIO_fin (.inl rfl) (fun _ => ho)
+
+theorem lt_of_out0 {a b : UInt32} (ha : a = 0) (hb : b ≠ 0) : a < b := by
+  subst ha; apply UInt32.lt_iff_toNat_lt.mpr
+  have : b.toNat ≠ 0 := fun e => hb (UInt32.toNat_inj.mp (by rw [e]; rfl))
+  simp; omega
+
 /-- The stream `i` keeps its state block `b` from `h` to `H`. -/
 theorem stateBlock_keep {h H : Heap} {i b : Nat} (h0 : ∃ z, h.streams i = some z ∧ z.state = some b)
     (h1 : ∃ z, H.streams i = some z ∧ z.state = some b) : ∀ b', StateBlock h (some i) b' → StateBlock H (some i) b' := by
@@ -255,7 +322,7 @@ theorem stateBlock_keep {h H : Heap} {i b : Nat} (h0 : ∃ z, h.streams i = some
 /-- `StratPost` from `SLF`, the exit facts, and `LazyOk` after from `LazyOk` at entry, for a strategy entered at a
 level other than 1 or with a strategy other than `Z_FIXED`. -/
 theorem slf_postL {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 1 → st0.strategy ≠ Z_FIXED)
+    (hx : ExitIO H i flush bs) (hn : ∀ st0, h.dstate b = some st0 → st0.level = 1 → st0.strategy ≠ Z_FIXED)
     (hL : ∀ st0, h.dstate b = some st0 → LazyOk st0 → ∀ st, H.dstate b = some st →
       LazyOk st ∧ (bs = .block_done → st.match_available = 0))
     (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
@@ -263,7 +330,8 @@ theorem slf_postL {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
-    stateBlock_keep F.blk0 F.blk, fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
+    stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
+    fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0), fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
@@ -289,8 +357,9 @@ def NotSlow (h : Heap) (b : Nat) : Prop :=
 /-- `StratPost` from `SLF` and the exit facts, for a strategy other than `deflate_slow` entered with a strategy
 other than `Z_FIXED` (`LazyOk` is kept by `StratKeeps`). -/
 theorem slf_post {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState) (hn : NotSlow h b)
+    (hx : ExitIO H i flush bs)
     (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
-  refine slf_postL F flush bs (fun st0 h0 _ => (hn st0 h0).1) (fun st0 h0 L st hst => ?_) hs
+  refine slf_postL F flush bs hx (fun st0 h0 _ => (hn st0 h0).1) (fun st0 h0 L st hst => ?_) hs
   obtain ⟨st1, h1, hk⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
   obtain ⟨L', hm⟩ := (hk st hst).lazy L (hn st0 h0).2
@@ -307,7 +376,8 @@ theorem slf_flush (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (h
         ∃ st, H.dstate b = some st ∧ st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
           st2.window = st.window) ∧
       (r = none → ∀ st2, H2.dstate b = some st2 → st2.pending = 0) ∧
-      (r ≠ none → r = some (if last != 0 then .finish_started else .need_more))) := by
+      (r ≠ none → r = some (if last != 0 then .finish_started else .need_more)) ∧
+      (r ≠ none → O0 H2 i)) := by
   obtain ⟨z, st, al, hz, hb, hst, hal, c⟩ := F.live
   obtain ⟨hp0, hwin⟩ := hp st hst
   obtain ⟨hlv, -, -, h8⟩ := F.st st hst
@@ -335,8 +405,8 @@ theorem slf_flush (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (h
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans h4)
   have hdo : dOutputRanges h (some i) = [(z0.next_out, z0.avail_out.toNat)] := by simp [dOutputRanges, h0]
   refine ⟨by simp only [avIn, hz', hz]; rw [hze], ⟨P.inv, P.io, P.set, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_,
-    ?_, ?_, ?_⟩,
-    fun st3 hst3 => ?_, fun hn st3 hst3 => ?_, fun hn => ?_⟩
+    F.inp.keep hz hz' (by rw [hze]) (by rw [hze]), ?_, ?_, ?_⟩,
+    fun st3 hst3 => ?_, fun hn st3 hst3 => ?_, fun hn => ?_, fun hn => ?_⟩
   · obtain ⟨⟨-, -, -, -, -, -, ec, ex, -, -⟩, -⟩ := P.frame
     exact ⟨by rw [ec]; exact F.crc.1, by rw [ex]; exact F.crc.2⟩
   · refine dframe_trans F.frame (dframe_wmono P.frame ?_)
@@ -372,6 +442,9 @@ theorem slf_flush (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (h
   · rcases hr with ⟨rfl, -⟩ | ⟨-, e'⟩
     · exact absurd rfl hn
     · exact e'
+  · rcases hr with ⟨rfl, -⟩ | ⟨e', -⟩
+    · exact absurd rfl hn
+    · exact o0_of fun z3 h3 => by obtain rfl := Option.some.inj (hz'.symm.trans h3); exact e'
 
 theorem FS_self (st : DeflateState) : FS st st.lookahead st.strstart = st := rfl
 
@@ -402,7 +475,7 @@ theorem sli_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Stra
   obtain ⟨hs1, ⟨hsym, -, -, hg2, hg8⟩, -⟩ := hs1
   have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hfx (hg8 e8).2.1⟩
   refine ⟨st1, hst1, sli_of_slc ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
-    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
+    InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩,
     fun st h1 => ?_⟩ hst1⟩
   · have hio0 := hio
@@ -427,7 +500,7 @@ theorem sli_flush (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} 
     Sat H (wrD (some b) fun s => { s with lookahead := la, strstart := ss }) (fun _ H1 =>
       Sat H1 (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H2 => avIn H2 i = avIn H i ∧
         (r = none → SLI h i b la ss H2) ∧
-        (r ≠ none → r = some (if last != 0 then .finish_started else .need_more) ∧ SLF h i b H2 ∧
+        (r ≠ none → r = some (if last != 0 then .finish_started else .need_more) ∧ SLF h i b H2 ∧ O0 H2 i ∧
           ∀ st, H2.dstate b = some st → st.sym_next = 0 ∧ st.sym_next < st.sym_end))) := by
   obtain ⟨H0, z, st, d, rfl, F, hp0⟩ := I
   refine Sat.of_eq (wrD_SH _) ?_
@@ -437,8 +510,9 @@ theorem sli_flush (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} 
   refine Sat.mono (slf_flush T last hl0 hl1 F fun st1 h1 => ?_) ?_
   · obtain rfl : FS st la ss = st1 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
     exact ⟨hp0, hwin⟩
-  rintro r H2 ⟨hav, F2, hs2, hn, hsm⟩
-  refine ⟨by rw [hav, avIn_SH, avIn_SH], fun e => ?_, fun e => ⟨hsm e, F2, fun st2 h2 => ⟨(hs2 st2 h2).1, (hs2 st2 h2).2.1⟩⟩⟩
+  rintro r H2 ⟨hav, F2, hs2, hn, hsm, hcf⟩
+  refine ⟨by rw [hav, avIn_SH, avIn_SH], fun e => ?_, fun e => ⟨hsm e, F2, hcf e,
+    fun st2 h2 => ⟨(hs2 st2 h2).1, (hs2 st2 h2).2.1⟩⟩⟩
   obtain ⟨z2, st2, -, hz2, -, hst2, -, -⟩ := F2.live
   obtain ⟨-, hsl, st3, hst3, hla, hss, -⟩ := hs2 st2 hst2
   obtain rfl : FS st la ss = st3 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst3)
@@ -492,6 +566,7 @@ theorem sli_fill {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss 
   obtain rfl : FS st la ss = st6 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst6)
   obtain rfl : st' = st7 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst7)
   have hzs := ZlibNgF.Proof.FillWindow.ZR.state zr
+  have zr0 := zr
   obtain ⟨-, ⟨ni, ai, ti, ad, hze⟩, -⟩ := zr
   obtain ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩ := fws
   have hk : st'.window = st.window ∧ st'.level = st.level ∧ st'.status = st.status ∧ st'.sym_next = st.sym_next ∧
@@ -504,10 +579,11 @@ theorem sli_fill {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss 
   obtain ⟨hlv, hstat, hg⟩ := F.st _ (SH_dstate _ _ _ _ _ _)
   have C : SLC h i b (SH (SH H0 i z b (FS st la ss) d) i z' b st' d') := by
     refine ⟨⟨FI.inv, FI.io, FI.set, FI.crc, ⟨_, SH_streams _ _ _ _ _ _, hzs.trans hb⟩, F.blk0,
-      dframe_trans F.frame (dframe_nil _ FI.frame), ?_, ?_, ?_, fun st2 h2 => ?_⟩, fun st2 h2 => ?_⟩
+      dframe_trans F.frame (dframe_nil _ FI.frame), ?_, ?_, ?_, ?_, fun st2 h2 => ?_⟩, fun st2 h2 => ?_⟩
     · obtain ⟨z0, z4, ob, oo, k, h0, h4, e0, e4, ek⟩ := F.out
       obtain rfl : z = z4 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h4)
       exact ⟨z0, _, ob, oo, k, h0, SH_streams _ _ _ _ _ _, e0, by rw [hze]; exact e4, by rw [hze]; exact ek⟩
+    · exact F.inp.trans (ZlibNgF.Proof.FillFacts.inTail_of_zr (SH_streams _ _ _ _ _ _) (SH_streams _ _ _ _ _ _) zr0)
     · obtain ⟨st0, h0, hw⟩ := F.win
       refine ⟨st0, h0, fun st2 h2 => ?_⟩
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
@@ -831,37 +907,45 @@ def strat_tail (st : StatePtr) (window : BPtr) (flush : Int32) : M BlockState :=
 theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C : SLC h i b H)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
     (hn : NotSlow h b)
-    (hla : ∀ st, H.dstate b = some st → st.lookahead = 0) :
+    (hla : ∀ st, H.dstate b = some st → st.lookahead = 0) (hin : avIn H i = 0) :
     Sat H (strat_tail (some b) (.ref (.heap b) wo) flush) (fun r H' => StratPost h (some i) flush r H') := by
   have hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo) := by
     intro st hst
     obtain ⟨st0, h0, hw⟩ := C.1.win
     exact ⟨(C.2 st hst).1, (hw st hst).trans (hw0 st0 h0)⟩
   have fl : ∀ (last : Int32) (bs : BlockState), 0 ≤ last → last ≤ 1 →
-      (bs = .block_done ∨ bs = .finish_done) → Sat H (do
+      (bs = .block_done ∨ bs = .finish_done) → ExitIO H i flush bs → (last ≠ 0 → flush = Z_FINISH) → Sat H (do
         if let some r ← FLUSH_BLOCK (some b) (.ref (.heap b) wo) last then return r
         return bs) (fun r H' => StratPost h (some i) flush r H') := by
-    intro last bs hl0 hl1 hbs
+    intro last bs hl0 hl1 hbs hxio hlf
     refine Sat.bind (Sat.mono (slf_flush T last hl0 hl1 C.1 hp) ?_)
-    rintro r H2 ⟨-, F2, hs2, hn2, hsm⟩
+    rintro r H2 ⟨hav2, F2, hs2, hn2, hsm, hcf⟩
     have hx : ∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧ st2.lookahead = 0 :=
       fun st2 h2 => by
         obtain ⟨e1, e2, st, hst, e3, -⟩ := hs2 st2 h2
         exact ⟨e1, e2, by rw [e3]; exact hla st hst⟩
     cases r with
     | none =>
-      exact Sat.pure (slf_post F2 _ _ hn fun st2 h2 =>
+      refine Sat.pure (slf_post F2 _ _ hn ⟨fun e => cf_of_avIn (by rw [hav2]; exact hin), hxio.2.1,
+        fun _ e => by rcases hbs with rfl | rfl <;> rcases e with e | e <;> cases e⟩ fun st2 h2 =>
         ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1, fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩,
           fun _ => (hx st2 h2).1⟩)
     | some v =>
       obtain ⟨rfl⟩ := Option.some.inj (hsm (by simp))
-      refine Sat.pure (slf_post F2 _ _ hn fun st2 h2 => ⟨(hx st2 h2).2.1, fun e => ?_, fun _ => (hx st2 h2).1,
+      have hx2 : ExitIO H2 i flush (if last != 0 then .finish_started else .need_more) := by
+        by_cases hl : last = 0
+        · subst hl; exact exitIO_nm (hcf (by simp))
+        · have : (last != 0) = true := by simpa using hl
+          rw [this]; simp only [ite_true]; rw [hlf hl]; exact exitIO_fin (.inl rfl) (fun _ => hcf (by simp))
+      refine Sat.pure (slf_post F2 _ _ hn hx2 fun st2 h2 => ⟨(hx st2 h2).2.1, fun e => ?_, fun _ => (hx st2 h2).1,
         fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩, fun _ => (hx st2 h2).1⟩)
       split at e <;> rcases e with e | e <;> cases e
   unfold strat_tail
   by_cases hf : flush == Z_FINISH
   · simp only [hf, ↓reduceIte]
-    exact fl 1 .finish_done (by decide) (by decide) (.inr rfl)
+    have hf' : flush = Z_FINISH := by simpa using hf
+    exact fl 1 .finish_done (by decide) (by decide) (.inr rfl) (by rw [hf']; exact exitIO_fin (.inr rfl) (fun e => by cases e))
+      (fun _ => hf')
   · simp only [hf, Bool.false_eq_true, ↓reduceIte]
     obtain ⟨z, st, -, hz, hb, hst, -, -⟩ := C.1.live
     obtain ⟨i', z', b', st', al, e, L, -, -⟩ := live C.1.inv
@@ -872,10 +956,10 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
     refine Sat.bind (Sat.of_eq (rdD_app L _) ?_)
     by_cases hs : (st.sym_next != 0) = true
     · simp only [hs, ↓reduceIte]
-      exact fl 0 .block_done (by decide) (by decide) (.inl rfl)
+      exact fl 0 .block_done (by decide) (by decide) (.inl rfl) (exitIO_bd (cf_of_avIn hin)) (fun e => absurd rfl e)
     · simp only [hs, Bool.false_eq_true, ↓reduceIte]
       have h0 : st.sym_next = 0 := by simpa using hs
-      refine Sat.pure (slf_post C.1 _ _ hn fun st2 h2 => ?_)
+      refine Sat.pure (slf_post C.1 _ _ hn (exitIO_bd (cf_of_avIn hin)) fun st2 h2 => ?_)
       obtain rfl := Option.some.inj (hst.symm.trans h2)
       exact ⟨(C.2 st hst).2, fun _ => (C.2 st hst).1, fun _ => h0, fun e => (by rcases e with e | e <;> cases e),
         fun _ => h0⟩
@@ -893,12 +977,25 @@ theorem sli_slc {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
   exact C
 
 /-- `StratPost` from `SLC` for `need_more` after a call without a flush. -/
-theorem slc_post {h H : Heap} {i b : Nat} (C : SLC h i b H) (hn : NotSlow h b) :
+theorem slc_post {h H : Heap} {i b : Nat} (C : SLC h i b H) (hn : NotSlow h b) (hc : CF H i) :
     StratPost h (some i) Z_NO_FLUSH .need_more H := by
-  refine slf_post C.1 _ _ hn fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
+  refine slf_post C.1 _ _ hn (exitIO_nmNF hc) fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
   · intro e; rcases e with e | e <;> cases e
   · intro e; exact absurd rfl e
   · intro e; rcases e with e | e <;> cases e
   · intro e; cases e
+
+/-- After `fill_window` with the lookahead short of `MIN_LOOKAHEAD` the input is consumed (`sli_fill`). -/
+theorem avIn_fill {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    (hf : 262 ≤ st.lookahead.toNat ∨ z.avail_in = 0) (hl : st.lookahead.toNat < 262) : avIn (SH H0 i z b st d) i = 0 := by
+  rw [avIn_SH]
+  rcases hf with x | x
+  · omega
+  · rw [x]; rfl
+
+/-- `avIn_fill` as `CF`. -/
+theorem cf_fill {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    (hf : 262 ≤ st.lookahead.toNat ∨ z.avail_in = 0) (hl : st.lookahead.toNat < 262) : CF (SH H0 i z b st d) i :=
+  cf_of_avIn (avIn_fill hf hl)
 
 end ZlibNgF.Proof.Strategy

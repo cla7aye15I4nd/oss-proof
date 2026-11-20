@@ -383,7 +383,7 @@ theorem tail_ok {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
     (hst : h.dstate b = some st) (l0 : 0 ≤ level) (l9 : level ≤ 9) (s0 : 0 ≤ strategy) (s4 : strategy ≤ 4)
     (sw : SwitchOk st level strategy) :
     ∃ h', paramsTail (some b) level strategy h = .ok (Z_OK, h') ∧ DFrame h h' [i] [b] [] [] ∧ DInv h' (some i) ∧
-      DSide h' (some i) := by
+      DSide h' (some i) ∧ h'.streams i = h.streams i := by
   have S := hs b st ⟨i, z, rfl, hz, hb, hst⟩
   obtain ⟨i0, z0, b0, st0, al, e0, hz0, hb0, hst0, hal, c⟩ := hv
   obtain rfl : i = i0 := Option.some.inj e0
@@ -399,7 +399,8 @@ theorem tail_ok {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
     level strategy hh hho l0 l9
   rw [e] at run
   refine ⟨_, run, by rw [← e]; exact dframe_SH _ _ _ _ _ _, ⟨i, z, b, st', al, rfl, SH_streams _ _ _ _ _ _, hb,
-    SH_dstate _ _ _ _ _ _, by simp [Heap.dallocsOf, SH, hda], tail_dcore c hd hh l0 l9 s0 s4 T⟩, ?_⟩
+    SH_dstate _ _ _ _ _ _, by simp [Heap.dallocsOf, SH, hda], tail_dcore c hd hh l0 l9 s0 s4 T⟩, ?_,
+    by rw [SH_streams, hz]⟩
   intro b2 st2 ⟨i2, z2, e2, hz2, hzb2, hst2⟩
   obtain rfl := Option.some.inj e2
   rw [SH_streams] at hz2
@@ -503,7 +504,7 @@ theorem params_ok (D : DeflateOk) {h : Heap} {s : StreamPtr} {level strategy : I
     have hz' : (Int32.ofInt ((st1.strstart.toNat : Int) - st1.block_start.toInt)).toUInt32 + st1.lookahead = 0 := by
       simpa using hz
     obtain ⟨q1, q2⟩ := sum_zero _ (by omega) (by omega) _ (by omega) hz'
-    obtain ⟨h', e2, f2, hv2, hs2⟩ := tail_ok hv1 hs1 L1.hz L1.hb L1.dstate l0 l9 s0 s4 (Or.inr ⟨q2, by omega⟩)
+    obtain ⟨h', e2, f2, hv2, hs2, -⟩ := tail_ok hv1 hs1 L1.hz L1.hb L1.dstate l0 l9 s0 s4 (Or.inr ⟨q2, by omega⟩)
     refine Sat.of_eq e2 ⟨?_, hv2, hs2⟩
     have f1' := f1
     rw [hsi, hsi'] at f1'
@@ -521,7 +522,7 @@ theorem params_ok (D : DeflateOk) {h : Heap} {s : StreamPtr} {level strategy : I
         refine Or.inl ⟨?_, ?_⟩
         · exact Classical.byContradiction fun hn => this (Or.inl (Ne.symm hn))
         · exact Classical.byContradiction fun hn => this (Or.inr hn)
-    obtain ⟨h', e2, f2, hv2, hs2⟩ := tail_ok hv hs L.hz L.hb L.dstate l0 l9 s0 s4 sw
+    obtain ⟨h', e2, f2, hv2, hs2, -⟩ := tail_ok hv hs L.hz L.hb L.dstate l0 l9 s0 s4 sw
     exact Sat.of_eq e2 ⟨fr0 _ f2, hv2, hs2⟩
 
 end ZlibNgF.Proof.DeflateParams

@@ -39,13 +39,13 @@ theorem qeb_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st :
     (ss : UInt32) (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1)
     (F : SLF h i b (SH H0 i z b st d)) (hp : st.pending = 0) (hw : st.window = .val (.ref (.heap b) wo)) :
     Sat (SH H0 i z b st d) (quick_end_block (some b) ss last 0) (fun r H2 => avIn H2 i = z.avail_in.toNat ∧
-      SLF h i b H2 ∧ ∀ st2, H2.dstate b = some st2 → st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
-        st2.sym_next < st2.sym_end ∧ (r = false → st2.pending = 0) ∧ st2.sym_next = 0) := by
+      SLF h i b H2 ∧ (∀ st2, H2.dstate b = some st2 → st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
+        st2.sym_next < st2.sym_end ∧ (r = false → st2.pending = 0) ∧ st2.sym_next = 0) ∧ (r = true → O0 H2 i)) := by
   have fl : Sat (SH H0 i z b st d) (do
       FLUSH_BLOCK_ONLY (some b) (do (← rdD (some b) (·.window)).get) last
       return (← rdZ (← strmOf (some b)) (·.avail_out)) == 0) (fun r H2 => avIn H2 i = z.avail_in.toNat ∧
-      SLF h i b H2 ∧ ∀ st2, H2.dstate b = some st2 → st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
-        st2.sym_next < st2.sym_end ∧ (r = false → st2.pending = 0) ∧ st2.sym_next = 0) := by
+      SLF h i b H2 ∧ (∀ st2, H2.dstate b = some st2 → st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
+        st2.sym_next < st2.sym_end ∧ (r = false → st2.pending = 0) ∧ st2.sym_next = 0) ∧ (r = true → O0 H2 i)) := by
     refine Sat.bind (Sat.mono (slf_flush_only T (wo := wo) _ last hl0 hl1 F (fun st1 h1 => ?_) ?_) ?_)
     · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
       exact ⟨hp, hw⟩
@@ -53,7 +53,9 @@ theorem qeb_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st :
     rintro _ H2 ⟨hav, F2, hs2, hpz⟩
     obtain ⟨z2, st2, -, hz2, -, hst2, -, -⟩ := F2.live
     refine Sat.bind (Sat.of_eq (strmOf_slf F2) (Sat.bind (Sat.of_eq (rdZ_app hz2 _) (Sat.pure ?_))))
-    refine ⟨by rw [hav, avIn_SH], F2, fun st3 h3 => ?_⟩
+    refine ⟨by rw [hav, avIn_SH], F2, fun st3 h3 => ?_, fun hr => o0_of fun z4 h4 => ?_⟩
+    rotate_left
+    · obtain rfl := Option.some.inj (hz2.symm.trans h4); simpa using hr
     obtain rfl := Option.some.inj (hst2.symm.trans h3)
     obtain ⟨e0, e1, st1, h1, e2, e3, -⟩ := hs2 st2 hst2
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
@@ -72,7 +74,7 @@ theorem qeb_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {st :
     · simp only [hs]
       have h0 : st.sym_next = 0 := by simpa using hs
       have hl' : last = 0 := by simpa using hl
-      refine Sat.pure ⟨avIn_SH _ _ _ _ _ _, F, fun st2 h2 => ?_⟩
+      refine Sat.pure ⟨avIn_SH _ _ _ _ _ _, F, fun st2 h2 => ?_, fun e => by cases e⟩
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
       have := symend_pos F (SH_dstate _ _ _ _ _ _)
       refine ⟨rfl, rfl, ?_, fun _ => hp, h0⟩
@@ -85,7 +87,7 @@ def QE (h : Heap) (i b : Nat) (flush : Int32) (v : Bool × UInt32 × UInt32) (H 
 
 /-- `QE` from the facts after `quick_end_block(s, strstart, 0, 0)`. -/
 theorem qe_of {h H2 : Heap} {i b : Nat} {flush : Int32} {r : Bool} {la ss : UInt32}
-    (hn : NotSlow h b) (F2 : SLF h i b H2)
+    (hn : NotSlow h b) (F2 : SLF h i b H2) (hcf : r = true → O0 H2 i)
     (hs : ∀ st2, H2.dstate b = some st2 → st2.lookahead = la ∧ st2.strstart = ss ∧ st2.sym_next < st2.sym_end ∧
       (r = false → st2.pending = 0) ∧ (r = true → st2.sym_next = 0)) : QE h i b flush (r, ss, la) H2 := by
   obtain ⟨z2, st2, -, hz2, -, hst2, -, -⟩ := F2.live
@@ -97,7 +99,7 @@ theorem qe_of {h H2 : Heap} {i b : Nat} {flush : Int32} {r : Bool} {la ss : UInt
     have := sli_of_slc C hst2
     rw [e1, e2] at this
     exact this
-  · refine slf_post F2 _ _ hn fun st4 h4 => ?_
+  · refine slf_post F2 _ _ hn (exitIO_nm (hcf hr)) fun st4 h4 => ?_
     obtain rfl := Option.some.inj (hst2.symm.trans h4)
     unfold ExitOk
     exact ⟨e3, fun e => (by rcases e with e | e <;> cases e), fun _ => e5 hr,
@@ -117,8 +119,8 @@ theorem slw_end (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la
   have hwin : (FS st la ss).window = .val (.ref (.heap b) wo) := by
     rw [hw _ (SH_dstate _ _ _ _ _ _)]; exact hw0 st0 hst0
   refine Sat.bind (Sat.mono (qeb_ok T ss 0 (by decide) (by decide) F hp0 hwin) ?_)
-  rintro r H2 ⟨hav, F2, hs2⟩
-  refine Sat.pure ⟨qe_of hn F2 fun st2 h2 => ?_, rfl, rfl, by rw [hav, avIn_SH]⟩
+  rintro r H2 ⟨hav, F2, hs2, hcf2⟩
+  refine Sat.pure ⟨qe_of hn F2 hcf2 fun st2 h2 => ?_, rfl, rfl, by rw [hav, avIn_SH]⟩
   obtain ⟨e1, e2, e3, e4, e5⟩ := hs2 st2 h2
   exact ⟨e1, e2, e3, e4, fun _ => e5⟩
 

@@ -443,7 +443,7 @@ theorem slc_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d 
       hb, SH_dstate _ _ _ _ _ _⟩ (SH_bytes _ _ _ _ _ _) (slf_input C.1) (fun _ => C.1.crc) hla Ch e2 st' d'
       ⟨i, z', rfl, SH_streams _ _ _ _ _ _, hb6, SH_dstate _ _ _ _ _ _⟩ (SH_bytes _ _ _ _ _ _)
   · obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, -, hb6, hst6, hst7, -, -, -, -, -, hgap0, -, -, -, -,
-      hlv, hsg, -, -, -, -, hlf, -, hpl3, hle, hma, hla', hs1⟩ := FI.post
+      hlv, hsg, -, -, -, -, hlf, -, hpl3, hle, hma, hla', hs1, -⟩ := FI.post
     obtain rfl : i = i6 := Option.some.inj e6
     obtain rfl : z = z6 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz6)
     obtain rfl : b = b6 := Option.some.inj (hb.symm.trans hb6)
@@ -514,7 +514,7 @@ theorem slf_table {h H : Heap} {i b : Nat} (F : SLF h i b H)
 /-- `StratPost` from `SLF` and the exit facts, for a strategy entered at a level other than 1, with `LazyOk` after
 from `LazyOk` at entry; the symbols need to be gone after a flush only when the output has room. -/
 theorem slf_postW {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState)
-    (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
+    (hx : ExitIO H i flush bs) (hn : ∀ st0, h.dstate b = some st0 → st0.level ≠ 1)
     (hL : ∀ st0, h.dstate b = some st0 → LazyOk st0 → ∀ st, H.dstate b = some st →
       LazyOk st ∧ (bs = .block_done → st.match_available = 0))
     (hs : ∀ st, H.dstate b = some st → st.sym_next < st.sym_end ∧
@@ -526,7 +526,9 @@ theorem slf_postW {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
-    stateBlock_keep F.blk0 F.blk, fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
+    stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
+    fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0),
+    fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
@@ -558,7 +560,7 @@ theorem slow_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Str
   obtain ⟨hlv, hn1, -⟩ := tab_lv hT1
   have hgap : GapOk st1 := ⟨hg2, Int32.not_le.mp fun e8 => hn1 (hg8 e8).1⟩
   refine ⟨st1, hst1, ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
-    ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
+    InTail.refl hz hz rfl rfl, ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩,
     fun st h1 => ?_⟩, hL, hlf, hT1⟩
   · have hio0 := hio

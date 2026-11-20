@@ -98,7 +98,7 @@ theorem flush0_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} 
     exact ⟨hp0, slf_win F0 hw0 _ (SH_dstate _ _ _ _ _ _)⟩
   refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T 0 (by decide) (by decide) F0 hp)
     (ZlibNgF.Proof.StrategyChain.slf_flush_chain T 0 (by decide) (by decide) F0 hp)) ?_
-  rintro r H2 ⟨⟨hav, F2, hs2, hn2, hsm⟩, hck⟩
+  rintro r H2 ⟨⟨hav, F2, hs2, hn2, hsm, hcf⟩, hck⟩
   refine ⟨hav, fun st2 d2 h2 hd2 => hck st d st2 d2 (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _) h2 hd2
     (Ck st d (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _)), fun e => ⟨⟨F2, fun st2 h2 =>
       ⟨hn2 e st2 h2, (hs2 st2 h2).2.1⟩⟩, fun st2 h2 => ?_⟩, fun e => ⟨?_, fun flush => ?_⟩⟩
@@ -106,7 +106,7 @@ theorem flush0_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} 
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
     exact ⟨e3, e4⟩
   · rw [hsm e]; rfl
-  · refine slf_post_l F2 _ _ hn fun st2 h2 => ⟨(hs2 st2 h2).2.1, ?_, fun _ => (hs2 st2 h2).1, ?_, ?_⟩
+  · refine slf_post_l F2 _ _ hn (exitIO_nm (hcf e)) fun st2 h2 => ⟨(hs2 st2 h2).2.1, ?_, fun _ => (hs2 st2 h2).1, ?_, ?_⟩
     · intro e; rcases e with e | e <;> cases e
     · intro e; rcases e with e | e <;> cases e
     · intro e; cases e

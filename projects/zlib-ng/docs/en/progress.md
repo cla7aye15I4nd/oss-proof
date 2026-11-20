@@ -19,7 +19,7 @@ Overall library status: **not done**.
 | `inflate`, `inflateEnd`, `inflateReset`, `inflateReset2`, `inflateResetKeep`, `inflatePrime`, `inflateSetDictionary`, `inflateGetDictionary`, `inflateGetHeader`, `inflateSync`, `inflateSyncPoint`, `inflateCopy`, `inflateValidate`, `inflateMark`, `inflateCodesUsed`: safety | Public C API | done |
 | `inflateBackInit_`: safety | Public C API | done |
 | `inflateBack`, `inflateBackEnd`: safety | Public C API | done |
-| `compress`, `compress2`, `compress_z`, `compress2_z` safety | Public C API | not done |
+| `compress`, `compress2`, `compress_z`, `compress2_z`: safety | Public C API | done |
 | `uncompress`, `uncompress2`, `uncompress_z`, `uncompress2_z` safety | Public C API | done |
 | `gzopen`, `gzopen64`, `gzdopen`: safety; some `gzopen` call returns a reachable file in each mode | Public C API | done |
 | Other `gz*` file functions: safety | Public C API | not done |

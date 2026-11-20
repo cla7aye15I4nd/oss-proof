@@ -56,7 +56,7 @@ theorem run_post {h H H' : Heap} {i b : Nat} {flush : Int32} {bs : BlockState} {
       (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0) ∧
       (bs = .block_done → st'.sym_next = 0 ∧ st'.match_available = 0) ∧
       (bs = .block_done ∨ bs = .finish_done → st'.pending = 0) := by
-  obtain ⟨Pinv, Pio, Pset, Pfr, Pout, Pblk, Ppend, Pst⟩ := P
+  obtain ⟨Pinv, Pio, Pset, Pfr, Pout, Pblk, Pinp, -, -, -, Ppend, Pst⟩ := P
   obtain ⟨z, hz, hb⟩ := R.blk
   obtain ⟨z', ⟨i', e', hz'⟩, hb'⟩ := Pblk b ⟨z, ⟨i, rfl, hz⟩, hb⟩
   obtain rfl := Option.some.inj e'
@@ -67,7 +67,7 @@ theorem run_post {h H H' : Heap} {i b : Nat} {flush : Int32} {bs : BlockState} {
     have := Pfr; rw [hsi, hdo] at this; exact this
   obtain ⟨-, -, -, ⟨f1, f2, -⟩, -, L⟩ := R.side st hst
   refine ⟨⟨Pinv, Pio, Pset, crc_frame Pfr R.crc, ⟨z', hz', hb'⟩, R.blk0, out_frame R.frame R.out hz F (Nat.le_refl _),
-    out_trans R.out (Pout i rfl), fun st' hst' => ?_⟩, fun st' hst' => ?_⟩
+    out_trans R.out (Pout i rfl), R.inp.trans (Pinp i rfl), fun st' hst' => ?_⟩, fun st' hst' => ?_⟩
   · obtain ⟨s1, s2, -, -, -, s6⟩ := Pst b st st' hD ⟨i, z', rfl, hz', hb', hst'⟩
     obtain ⟨k1, -, -, -, -, -, k7, -⟩ := s2
     have hb2 : st'.status = BUSY_STATE := k1.trans hbusy
@@ -131,7 +131,8 @@ theorem runW_SH {h H : Heap} {i b : Nat} {z z' : ZStream} {st st' : DeflateState
   refine ⟨hW, streamIO_out R.io hz hb hst hno (Nat.zero_le _) O (SH_streams _ _ _ _ _ _) hzs h1 h2
       (by rw [h3, hno]; rfl) (by rw [h4]; rfl) (SH_dstate _ _ _ _ _ _) hgz,
     ⟨z', ⟨i, rfl, SH_streams _ _ _ _ _ _⟩, by rw [h3]; exact hnn, fun ha => by rw [h1]; exact hni (by rw [← h2]; exact ha)⟩,
-    crc_frame fr R.crc, ⟨z', SH_streams _ _ _ _ _ _, hb'⟩, R.blk0, ?_, ?_, fun st2 hst2 => ?_⟩
+    crc_frame fr R.crc, ⟨z', SH_streams _ _ _ _ _ _, hb'⟩, R.blk0, ?_, ?_,
+    R.inp.keep hz (SH_streams _ _ _ _ _ _) h1 h2, fun st2 hst2 => ?_⟩
   · exact out_frame R.frame R.out hz (dframe_nil _ fr) (Nat.zero_le _)
   · exact out_tail R.out hz (SH_streams _ _ _ _ _ _) (Nat.zero_le _) (fun _ _ e => by rw [h3, e]; rfl) (by rw [h4]; rfl)
   · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst2)
@@ -151,7 +152,8 @@ theorem runW_emit {h H : Heap} {i b : Nat} {st : DeflateState} {pre : DeflateSta
     {room grow : DeflateState → Nat} {m : M Unit} (R : RunW h i b H) (E : EmitOk (some i) b pre room grow m)
     (hst : H.dstate b = some st) (hpre : pre st) (hr : PendRoom b st (room st) (4 * st.lit_bufsize.toNat + 9))
     (hs0 : st.sym_next = 0) (hbusy : st.status = BUSY_STATE) :
-    ∃ H', C.run m H = .ok ((), H') ∧ RunW h i b H' ∧ ∀ st', H'.dstate b = some st' → EmitKeeps st st' ∧
+    ∃ H', C.run m H = .ok ((), H') ∧ RunW h i b H' ∧ aIn H' i = aIn H i ∧ aOut H' i = aOut H i ∧
+      ∀ st', H'.dstate b = some st' → EmitKeeps st st' ∧
       st'.pending.toNat ≤ st.pending.toNat + grow st ∧ st'.sym_next = 0 := by
   obtain ⟨z, hz, hb⟩ := R.blk
   obtain ⟨H', e, W', -, -, PO, K, shape⟩ := E H st R.work ⟨i, z, rfl, hz, hb, hst⟩ hpre hr (fun hn => absurd hs0 hn)
@@ -173,6 +175,7 @@ theorem runW_emit {h H : Heap} {i b : Nat} {st : DeflateState} {pre : DeflateSta
   refine ⟨_, e, runW_SH R hz hst W' rfl rfl rfl rfl rfl f9 ⟨⟨?_, fun hl => ?_, fun _ _ => hs2, fun _ => hs2,
       fun e8 => absurd e8 (by show ¬ (8 : Int32) ≤ 0; decide)⟩, fun hf => absurd (hb2.symm.trans hf) (by decide),
       hdrOk_busy (.inl hb2), ?_, fun d2 hd2 => ?_, LazyOk.of_eq s6 f14 f5 f15 f6 f13 f16 f4 f2 f3 f8⟩,
+    by rw [aIn_of (SH_streams _ _ _ _ _ _), aIn_of hz], by rw [aOut_of (SH_streams _ _ _ _ _ _), aOut_of hz],
     fun st2 hst2 => ?_⟩
   · show st'.sym_next < st'.sym_end
     have a1' : st.sym_next < st.sym_end := a1
@@ -219,6 +222,7 @@ theorem dcore_clear {H H' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : D
 theorem runW_clear {h H : Heap} {i b : Nat} {st : DeflateState} (R : RunW h i b H) (hst : H.dstate b = some st)
     (hbusy : st.status = BUSY_STATE) :
     Sat H (CLEAR_HASH (some b)) (fun _ H' => RunW h i b H' ∧ H'.dstate b = some st ∧
+      aIn H' i = aIn H i ∧ aOut H' i = aOut H i ∧
       ∃ ho po d, st.head = .val (.ref (.heap b) ho) ∧ st.prev = .val (.ref (.heap b) po) ∧ H'.bytes b = some d ∧
         HeadClear d st ho) := by
   obtain ⟨z, hz, hb⟩ := R.blk
@@ -243,8 +247,9 @@ theorem runW_clear {h H : Heap} {i b : Nat} {st : DeflateState} (R : RunW h i b 
       simp only [List.mem_range'_1]; exact ⟨Nat.zero_le _, by show j - ho < 0 + 65536 * 2; omega⟩, by omega⟩
       (by omega)
   rw [← e]
-  refine Sat.of_eq (DeflateSetDict.clear_hash_SH hh' (by omega)) ⟨?_, SH_dstate _ _ _ _ _ _, ho, po, _, hh', hp',
-    SH_bytes _ _ _ _ _ _, hc⟩
+  refine Sat.of_eq (DeflateSetDict.clear_hash_SH hh' (by omega)) ⟨?_, SH_dstate _ _ _ _ _ _,
+    aIn_congr (by rw [SH_streams, SH_streams]), aOut_congr (by rw [SH_streams, SH_streams]),
+    ho, po, _, hh', hp', SH_bytes _ _ _ _ _ _, hc⟩
   have W : DWork (SH H i z b st (fillFold 0 ho (List.range' 0 (HASH_SIZE.toNat * 2)) d)) (some i) :=
     ⟨i, z, b, st, al, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _, by simpa [Heap.dallocsOf, SH, hd] using hal,
       v0, v64, dcore_clear c hd (SH_bytes _ _ _ _ _ _) hh sz keep, pr1, pr2⟩
@@ -260,7 +265,7 @@ theorem runW_zero {h H : Heap} {i b : Nat} {st : DeflateState} (R : RunW h i b H
     {ho po : Nat} {d : Array UInt8} (hh : st.head = .val (.ref (.heap b) ho)) (hp : st.prev = .val (.ref (.heap b) po))
     (hd : H.bytes b = some d) (hc : HeadClear d st ho) {β : Type} {k : M β} {Q : β → Heap → Prop}
     (hk : ∀ H', RunW h i b H' → H'.dstate b = some { st with strstart := 0, block_start := 0, insert := 0 } →
-      Sat H' k Q) :
+      aIn H' i = aIn H i → aOut H' i = aOut H i → Sat H' k Q) :
     Sat H (do
         wrD (some b) fun s => { s with strstart := 0 }
         wrD (some b) fun s => { s with block_start := 0 }
@@ -285,7 +290,8 @@ theorem runW_zero {h H : Heap} {i b : Nat} {st : DeflateState} (R : RunW h i b H
   rw [← e]
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-  refine Sat.bind (Sat.of_eq (wrD_SH _) (hk _ ?_ (SH_dstate _ _ _ _ _ _)))
+  refine Sat.bind (Sat.of_eq (wrD_SH _) (hk _ ?_ (SH_dstate _ _ _ _ _ _)
+    (aIn_congr (by rw [SH_streams, hz])) (aOut_congr (by rw [SH_streams, hz]))))
   have c1 := Strategy.dcore_set c 0 0 0 0 (by simp) (by decide) (UInt32.le_refl _) (by decide)
   have ev : dview { st with strstart := 0, block_start := 0, insert := 0, bi_valid := 0 } =
       { dview { st with bi_valid := 0 } with strstart := 0, lookahead := 0, block_start := 0, insert := 0 } := by
@@ -361,28 +367,40 @@ theorem pendRoom0 {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H)
 /-- `bdTail`: the flush, then the trailer, from `RunW` in `BUSY_STATE` with no symbols. -/
 theorem bdTail_ok {h H : Heap} {i b : Nat} {st : DeflateState} {flush : Int32} (W : RunW h i b H)
     (hst : H.dstate b = some st) (hbusy : st.status = BUSY_STATE) (hlf : st.last_flush = flush)
-    (hs0 : st.sym_next = 0) :
-    Sat H (bdTail (some b) (some i) flush) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
+    (hs0 : st.sym_next = 0) (hcf : flush ≠ Z_FINISH → aIn H i = 0 ∨ aOut H i = 0) :
+    Sat H (bdTail (some b) (some i) flush) (fun r H' => Run h i b H' ∧ LFok H' b ∧ DIO h H' i flush r) := by
   obtain ⟨H1, e1, R1, k⟩ := run_flush W
   obtain ⟨z, hz, -⟩ := W.blk
-  obtain ⟨z1, st1, hz1, hst1, hse, -, hpz, -⟩ := k z st hz hst
+  obtain ⟨z1, st1, hz1, hst1, hse, hze, hpz, -, -, hav⟩ := k z st hz hst
   unfold bdTail
   refine Sat.bind ⟨(), H1, e1, ?_⟩
   refine Sat.bind (Sat.of_eq (rdZ_app hz1 _) ?_)
   by_cases ha : (z1.avail_out == 0) = true
   · rw [ite_t ha]
-    exact Sat.bind (Sat.mono (run_lf R1) fun _ H2 q => Sat.pure ⟨q.1, fun st2 h2 hl => by
-      rw [q.2 st2 h2] at hl; exact absurd hl (by decide)⟩)
+    have ha0 : z1.avail_out = 0 := by simpa using ha
+    exact Sat.bind (Sat.mono (run_lf R1 fun z' hz' => by obtain rfl := Option.some.inj (hz1.symm.trans hz'); exact ha0)
+      fun _ H2 q => Sat.pure ⟨q.1, lfok_m1 q.2, DIO.o0 (by
+        obtain ⟨z2, -, -, -, hz2, -⟩ := q.1.live; rw [aOut_of hz2, q.2.2 z2 hz2]; rfl)⟩)
   · rw [ite_f ha]
     have ha' : z1.avail_out ≠ 0 := by simpa using ha
-    exact trailer_ok R1 hst1 (.inl (by rw [hse]; exact hbusy)) (by rw [hse]; exact hlf)
-      (fun _ => by rw [hse]; exact hs0) (fun _ => hpz ha')
+    refine trailer_ok R1 hst1 (.inl (by rw [hse]; exact hbusy)) (by rw [hse]; exact hlf)
+      (fun _ => by rw [hse]; exact hs0) (fun _ => hpz ha') fun hf => .inl ?_
+    have h1 : aIn H1 i = aIn H i := by rw [aIn_of hz1, aIn_of hz, hze]
+    rcases hcf hf with h0 | h0
+    · rw [h1, h0]
+    · exfalso
+      rw [aOut_of hz] at h0
+      have : z1.avail_out.toNat ≠ 0 := fun e => ha' (UInt32.toNat_inj.mp (by rw [e]; rfl))
+      have p0 := hpz ha'
+      rw [p0] at hav
+      simp at hav; omega
 
 /-- **`block_done`** (`afterBD`), from `Run` in `BUSY_STATE` with no pending bytes, no symbols, no pending literal. -/
 theorem afterBD_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {st : DeflateState} {flush : Int32} (R : Run h i b H)
     (hst : H.dstate b = some st) (hbusy : st.status = BUSY_STATE) (hlf : st.last_flush = flush)
-    (hs0 : st.sym_next = 0) (hm : st.match_available = 0) (hp0 : st.pending = 0) :
-    Sat H (afterBD (some b) (some i) flush) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
+    (hs0 : st.sym_next = 0) (hm : st.match_available = 0) (hp0 : st.pending = 0)
+    (hcf : flush ≠ Z_FINISH → aIn H i = 0 ∨ aOut H i = 0) :
+    Sat H (afterBD (some b) (some i) flush) (fun r H' => Run h i b H' ∧ LFok H' b ∧ DIO h H' i flush r) := by
   obtain ⟨z, st1, al, d, -, -, hst1, -, -, -, c⟩ := R.live
   obtain rfl := Option.some.inj (hst.symm.trans hst1)
   have hb64 : st.bi_valid.toInt.toNat ≤ 63 := by
@@ -390,30 +408,30 @@ theorem afterBD_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {st : DeflateState}
     have := Int32.lt_iff_toInt_lt.mp this.2; simp at this; omega
   -- after an emitter: the tail
   have tl : ∀ H2, RunW h i b H2 → (∀ st2, H2.dstate b = some st2 → st2.status = BUSY_STATE ∧
-      st2.last_flush = flush ∧ st2.sym_next = 0) →
-      Sat H2 (bdTail (some b) (some i) flush) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
-    intro H2 W2 K2
+      st2.last_flush = flush ∧ st2.sym_next = 0) → aIn H2 i = aIn H i → aOut H2 i = aOut H i →
+      Sat H2 (bdTail (some b) (some i) flush) (fun r H' => Run h i b H' ∧ LFok H' b ∧ DIO h H' i flush r) := by
+    intro H2 W2 K2 ea eo
     obtain ⟨z2, hz2, hb2⟩ := W2.blk
     obtain ⟨i2, z3, b3, st2, al2, e2, hz3, hb3, hst2, -⟩ := W2.work
     obtain rfl := Option.some.inj e2
     obtain rfl := Option.some.inj (hz2.symm.trans hz3)
     obtain rfl := Option.some.inj (hb2.symm.trans hb3)
     obtain ⟨k1, k2, k3⟩ := K2 st2 hst2
-    exact bdTail_ok W2 hst2 k1 k2 k3
+    exact bdTail_ok W2 hst2 k1 k2 k3 fun hf => by rw [ea, eo]; exact hcf hf
   unfold afterBD
   by_cases h1 : (flush == Z_PARTIAL_FLUSH) = true
   · rw [ite_t h1]
-    obtain ⟨H2, e2, W2, K2⟩ := runW_emit R.w (T.align (some i) b) hst trivial (pendRoom0 R hst hp0 16 (by omega))
-      hs0 hbusy
-    exact Sat.bind ⟨(), H2, e2, tl H2 W2 fun st2 h2 => by
+    obtain ⟨H2, e2, W2, ea2, eo2, K2⟩ := runW_emit R.w (T.align (some i) b) hst trivial
+      (pendRoom0 R hst hp0 16 (by omega)) hs0 hbusy
+    exact Sat.bind ⟨(), H2, e2, tl H2 W2 (fun st2 h2 => by
       obtain ⟨f1, -, -, -, -, -, -, f8, -⟩ := emit_fields (K2 st2 h2).1
-      exact ⟨f1.trans hbusy, f8.trans hlf, (K2 st2 h2).2.2⟩⟩
+      exact ⟨f1.trans hbusy, f8.trans hlf, (K2 st2 h2).2.2⟩) ea2 eo2⟩
   rw [ite_f h1]
   by_cases h5 : (flush != Z_BLOCK) = true
   · rw [ite_t h5]
     have hroom : storedRoom st 0 ≤ 64 := by
       unfold storedRoom; have : (0 : UInt32).toNat = 0 := rfl; omega
-    obtain ⟨H2, e2, W2, K2⟩ := runW_emit R.w (T.stored_block (some i) b .null 0 0) hst (.inl ⟨rfl, rfl⟩)
+    obtain ⟨H2, e2, W2, ea2, eo2, K2⟩ := runW_emit R.w (T.stored_block (some i) b .null 0 0) hst (.inl ⟨rfl, rfl⟩)
       (pendRoom0 R hst hp0 _ hroom) hs0 hbusy
     refine Sat.bind ⟨(), H2, e2, ?_⟩
     obtain ⟨z2, hz2, hb2⟩ := W2.blk
@@ -427,54 +445,82 @@ theorem afterBD_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {st : DeflateState}
     by_cases h3 : (flush == Z_FULL_FLUSH) = true
     · rw [ite_t h3]
       refine Sat.bind (Sat.mono (runW_clear W2 hst2 hb2') ?_)
-      rintro _ H3 ⟨W3, hst3, ho, po, d3, hh, hp, hd3, hc⟩
+      rintro _ H3 ⟨W3, hst3, ea3, eo3, ho, po, d3, hh, hp, hd3, hc⟩
       refine Sat.bind (Sat.of_eq (rdD_dst hst3 _) ?_)
       by_cases hl : (st2.lookahead == 0) = true
       · rw [ite_t hl]
-        refine runW_zero W3 hst3 hb2' (by simpa using hl) k3 (f16.trans hm) hh hp hd3 hc fun H4 W4 h4 => ?_
-        exact tl H4 W4 fun st4 h4' => by
-          obtain rfl := Option.some.inj (h4.symm.trans h4'); exact ⟨hb2', f8.trans hlf, k3⟩
+        refine runW_zero W3 hst3 hb2' (by simpa using hl) k3 (f16.trans hm) hh hp hd3 hc fun H4 W4 h4 ea4 eo4 => ?_
+        exact tl H4 W4 (fun st4 h4' => by
+          obtain rfl := Option.some.inj (h4.symm.trans h4'); exact ⟨hb2', f8.trans hlf, k3⟩)
+          (ea4.trans (ea3.trans ea2)) (eo4.trans (eo3.trans eo2))
       · rw [ite_f hl]
-        exact tl H3 W3 fun st4 h4 => by obtain rfl := Option.some.inj (hst3.symm.trans h4); exact ⟨hb2', f8.trans hlf, k3⟩
+        exact tl H3 W3 (fun st4 h4 => by obtain rfl := Option.some.inj (hst3.symm.trans h4); exact ⟨hb2', f8.trans hlf, k3⟩)
+          (ea3.trans ea2) (eo3.trans eo2)
     · rw [ite_f h3]
-      exact tl H2 W2 fun st4 h4 => by obtain rfl := Option.some.inj (hst2.symm.trans h4); exact ⟨hb2', f8.trans hlf, k3⟩
+      exact tl H2 W2 (fun st4 h4 => by obtain rfl := Option.some.inj (hst2.symm.trans h4); exact ⟨hb2', f8.trans hlf, k3⟩)
+        ea2 eo2
   · rw [ite_f h5]
-    exact tl H R.w fun st4 h4 => by
+    exact tl H R.w (fun st4 h4 => by
       obtain rfl := Option.some.inj (hst.symm.trans h4)
-      exact ⟨hbusy, hlf, hs0⟩
+      exact ⟨hbusy, hlf, hs0⟩) rfl rfl
 
 /-- `afterNM`. -/
 theorem afterNM_ok {h H : Heap} {i b : Nat} {flush : Int32} (R : Run h i b H)
     (K : ∀ st, H.dstate b = some st → st.last_flush = flush ∧
-      (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt H (some i) z' → z'.avail_out ≠ 0) → st.sym_next = 0)) :
-    Sat H (afterNM (some b) (some i)) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
+      (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt H (some i) z' → z'.avail_out ≠ 0) → st.sym_next = 0))
+    (hio : DIO h H i flush Z_OK) :
+    Sat H (afterNM (some b) (some i)) (fun r H' => Run h i b H' ∧ LFok H' b ∧ DIO h H' i flush r) := by
   obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, e, c⟩ := R.live
   obtain ⟨k1, k2⟩ := K st hst
   unfold afterNM
   refine Sat.bind (Sat.of_eq (rdZ_app hz _) ?_)
   by_cases ha : (z.avail_out == 0) = true
   · rw [ite_t ha]
-    exact Sat.bind (Sat.mono (run_lf R) fun _ H2 q => Sat.pure ⟨q.1, fun st2 h2 hl => by
-      rw [q.2 st2 h2] at hl; exact absurd hl (by decide)⟩)
+    have ha0 : z.avail_out = 0 := by simpa using ha
+    exact Sat.bind (Sat.mono (run_lf R fun z' hz' => by obtain rfl := Option.some.inj (hz.symm.trans hz'); exact ha0)
+      fun _ H2 q => Sat.pure ⟨q.1, lfok_m1 q.2, DIO.o0 (by
+        obtain ⟨z2, -, -, -, hz2, -⟩ := q.1.live; rw [aOut_of hz2, q.2.2 z2 hz2]; rfl)⟩)
   · rw [ite_f ha]
     have ha' : z.avail_out ≠ 0 := by simpa using ha
-    refine Sat.pure ⟨R, fun st2 h2 hl => ?_⟩
+    refine Sat.pure ⟨R, fun st2 h2 hl => ?_, hio⟩
     obtain rfl := Option.some.inj (hst.symm.trans h2)
     refine k2 (fun e0 => by rw [k1, e0] at hl; exact absurd hl (by decide)) fun z' ⟨i', e', hz'⟩ => ?_
     obtain rfl := Option.some.inj e'
     obtain rfl := Option.some.inj (hz.symm.trans hz')
     exact ha'
 
-/-- **What follows the strategy** (`afterStrat`), from `Run` with the strategy's exit facts. -/
+/-- **What follows the strategy** (`afterStrat`), from `Run` with the strategy's exit facts: on the state, and on the
+stream (`A1`: all input consumed or the output full after `need_more` / `block_done`; `A2`: `finish_started` /
+`finish_done` only under `Z_FINISH`; `A3`: progress since the entry of `deflate` after `need_more` /
+`finish_started` under `Z_FINISH`). -/
 theorem after_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {flush : Int32} {bs : BlockState} (R : Run h i b H)
     (K : ∀ st, H.dstate b = some st → st.status = BUSY_STATE ∧ st.last_flush = flush ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt H (some i) z' → z'.avail_out ≠ 0) → st.sym_next = 0) ∧
       (bs = .finish_started ∨ bs = .finish_done → st.sym_next = 0 ∧ st.lookahead = 0) ∧
       (bs = .block_done → st.sym_next = 0 ∧ st.match_available = 0) ∧
-      (bs = .block_done ∨ bs = .finish_done → st.pending = 0)) :
-    Sat H (afterStrat bs (some b) (some i) flush) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
+      (bs = .block_done ∨ bs = .finish_done → st.pending = 0))
+    (A1 : bs = .need_more ∨ bs = .block_done → aIn H i = 0 ∨ aOut H i = 0)
+    (A2 : bs = .finish_started ∨ bs = .finish_done → flush = Z_FINISH)
+    (A3 : flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → aOut h i ≠ 0 →
+      aIn H i < aIn h i ∨ aOut H i < aOut h i) :
+    Sat H (afterStrat bs (some b) (some i) flush) (fun r H' => Run h i b H' ∧ LFok H' b ∧ DIO h H' i flush r) := by
   obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, e, c⟩ := R.live
   obtain ⟨k1, k2, k3, k4, k5, k6⟩ := K st hst
+  have dioNM : ∀ H1, H1.streams i = H.streams i → (bs = .need_more ∨ bs = .finish_started) →
+      DIO h H1 i flush Z_OK := by
+    intro H1 hz1 hb'
+    refine DIO.congr ?_ hz1
+    refine ⟨fun hf _ => ?_, fun _ ef hne => ?_⟩
+    · rcases hb' with rfl | rfl
+      · exact A1 (.inl rfl)
+      · exact absurd (A2 (.inl rfl)) hf
+    · rcases ef with ef | ⟨en, hin⟩
+      · exact A3 ef hb' hne
+      · rcases hb' with rfl | rfl
+        · rcases A1 (.inl rfl) with x | x
+          · left; omega
+          · right; omega
+        · exact absurd ((A2 (.inl rfl)).symm.trans en) (by decide)
   have tr : ∀ H1, H1.streams i = H.streams i → ∀ z', StreamAt H (some i) z' → StreamAt H1 (some i) z' :=
     fun H1 e1 z' ⟨i', e', hz'⟩ => ⟨i', e', by obtain rfl := Option.some.inj e'; rw [e1]; exact hz'⟩
   have rest : ∀ H1 st1, Run h i b H1 → H1.streams i = H.streams i → H1.dstate b = some st1 →
@@ -482,7 +528,7 @@ theorem after_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {flush : Int32} {bs :
       (st1.status = BUSY_STATE ∨ st1.status = FINISH_STATE) →
       (st1.status = FINISH_STATE → bs = .finish_started ∨ bs = .finish_done) →
       st1.match_available = st.match_available →
-      Sat H1 (afterR bs (some b) (some i) flush) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
+      Sat H1 (afterR bs (some b) (some i) flush) (fun r H' => Run h i b H' ∧ LFok H' b ∧ DIO h H' i flush r) := by
     intro H1 st1 R1 hz1 hst1 e1 e2 e3 hs hsf e4
     have K1 : ∀ st2, H1.dstate b = some st2 → st2.last_flush = flush ∧
         (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt H1 (some i) z' → z'.avail_out ≠ 0) → st2.sym_next = 0) :=
@@ -491,8 +537,8 @@ theorem after_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {flush : Int32} {bs :
         exact ⟨e2, fun hf hav => e1.trans (k3 hf fun z' hz' => hav z' (tr H1 hz1 z' hz'))⟩
     unfold afterR
     cases bs with
-    | need_more => rw [ite_t (by decide)]; exact afterNM_ok R1 K1
-    | finish_started => rw [ite_t (by decide)]; exact afterNM_ok R1 K1
+    | need_more => rw [ite_t (by decide)]; exact afterNM_ok R1 K1 (dioNM H1 hz1 (.inl rfl))
+    | finish_started => rw [ite_t (by decide)]; exact afterNM_ok R1 K1 (dioNM H1 hz1 (.inr rfl))
     | block_done =>
       rw [ite_f (by decide), ite_t (by decide)]
       obtain ⟨m1, m2⟩ := k5 rfl
@@ -500,10 +546,12 @@ theorem after_ok (T : TreesFacts) {h H : Heap} {i b : Nat} {flush : Int32} {bs :
         rcases hs with x | x
         · exact x
         · rcases hsf x with x | x <;> cases x
-      exact afterBD_ok T R1 hst1 hs1 e2 (e1.trans m1) (e4.trans m2) (e3.trans (k6 (.inl rfl)))
+      exact afterBD_ok T R1 hst1 hs1 e2 (e1.trans m1) (e4.trans m2) (e3.trans (k6 (.inl rfl))) fun _ => by
+        rw [aIn_congr hz1, aOut_congr hz1]; exact A1 (.inr rfl)
     | finish_done =>
       rw [ite_f (by decide), ite_f (by decide)]
       exact trailer_ok R1 hst1 hs e2 (fun _ => e1.trans (k4 (.inr rfl)).1) (fun _ => e3.trans (k6 (.inr rfl)))
+        fun hf => absurd (A2 (.inr rfl)) hf
   rw [after_eq]
   dsimp only
   by_cases hfin : bs = .finish_started ∨ bs = .finish_done

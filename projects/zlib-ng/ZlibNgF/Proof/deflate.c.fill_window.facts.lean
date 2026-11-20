@@ -135,6 +135,20 @@ theorem insertBatchOf_ne {l : Int32} (h : l ≠ 1) :
     · rename_i h1; exact absurd (by simpa using h1) h
     · exact fun e => by cases e
 
+/-- A tail of the input (`WinInv.InTail`, `avail_in` not grown) of stream `i` is `DeflateFacts.InTail`. -/
+theorem inTail_of_win {h H : Heap} {i : Nat} {z z' : ZStream} (hz : h.streams i = some z)
+    (hz' : H.streams i = some z') (hle : z'.avail_in.toNat ≤ z.avail_in.toNat) (ht : InTail z z') :
+    DeflateFacts.InTail h H i := by
+  rcases ht with ⟨e1, e2⟩ | ⟨r, os, e1, e2⟩
+  · exact DeflateFacts.InTail.refl hz hz' e1 e2
+  · refine ⟨z, z', z.avail_in.toNat - z'.avail_in.toNat, hz, hz', by omega, ?_⟩
+    rw [e1]; exact e2
+
+/-- A tail of the input (`ZR`) of stream `i` is `DeflateFacts.InTail`. -/
+theorem inTail_of_zr {h H : Heap} {i : Nat} {z z' : ZStream} (hz : h.streams i = some z)
+    (hz' : H.streams i = some z') (zr : ZR z z') : DeflateFacts.InTail h H i :=
+  inTail_of_win hz hz' zr.1 zr.2.2
+
 /-- `fill_window` on an invariant stream: `FillPost`, and the heap after is an `SH` heap whose stream record has
 only the input fields changed, the input a tail of the input before (`ZR`), and the state changed in
 `fill_window`'s fields only (`FWS`). -/
@@ -217,7 +231,8 @@ theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState)
     refine ⟨i, z, _, b, st, _, rfl, hz0, SH_streams _ _ _ _ _ _, hb0, hst0, SH_dstate _ _ _ _ _ _, rfl, hle,
       fun hne => ?_, show la.toNat + ai.toNat ≤ st.lookahead.toNat + z.avail_in.toNat by omega, df.1, df.2, hend,
       rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, lz.1, lz.2.1, rfl,
-      show st.lookahead.toNat ≤ la.toNat by omega, lz.2.2⟩
+      show st.lookahead.toNat ≤ la.toNat by omega, lz.2.2,
+      fun i' e' => by obtain rfl := Option.some.inj e'; exact inTail_of_zr hz0 (SH_streams _ _ _ _ _ _) zr0⟩
     have hne' : la ≠ st.lookahead := hne
     have : ¬ la.toNat = st.lookahead.toNat := fun e' => hne' (UInt32.toNat_inj.mp e')
     show ai.toNat < z.avail_in.toNat

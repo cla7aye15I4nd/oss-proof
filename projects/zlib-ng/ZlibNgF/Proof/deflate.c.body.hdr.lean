@@ -68,7 +68,7 @@ theorem headers_eq (st : StatePtr) (strm : StreamPtr) :
 
 /-- What `deflateHeaders` leaves. -/
 def DHP (h : Heap) (i b : Nat) (L : Int32) (r : Int32) (H : Heap) : Prop :=
-  Run h i b H ∧ (r = Z_OK → LastM1 H b) ∧
+  Run h i b H ∧ (r = Z_OK → LastM1 H i b) ∧
     (r ≠ Z_OK → ∀ st, H.dstate b = some st → st.status = BUSY_STATE ∧ st.pending = 0 ∧ st.sym_next = 0 ∧
       st.last_flush = L)
 

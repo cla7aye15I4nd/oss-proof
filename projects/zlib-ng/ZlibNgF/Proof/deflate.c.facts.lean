@@ -108,8 +108,63 @@ def OutTail (h H : Heap) (i : Nat) : Prop :=
   ∃ z0 z ob oo k, h.streams i = some z0 ∧ H.streams i = some z ∧ z0.next_out = .ref (.heap ob) oo ∧
     z.next_out = .ref (.heap ob) (oo + k) ∧ z.avail_out.toNat + k = z0.avail_out.toNat
 
+/-- The input of stream `i` in `H` is a tail of its input in `h`: `next_in` advanced by the `k` bytes taken (a `NULL`
+`next_in` stays, with none taken). -/
+def InTail (h H : Heap) (i : Nat) : Prop :=
+  ∃ z0 z k, h.streams i = some z0 ∧ H.streams i = some z ∧ z.avail_in.toNat + k = z0.avail_in.toNat ∧
+    (match z0.next_in with
+     | .null => k = 0 ∧ z.next_in = .null
+     | .ref r o => z.next_in = .ref r (o + k))
+
+/-- `InTail` of a heap whose stream record has the input fields of `h`'s. -/
+theorem InTail.refl {h H : Heap} {i : Nat} {z z' : ZStream} (hz : h.streams i = some z) (hz' : H.streams i = some z')
+    (e1 : z'.next_in = z.next_in) (e2 : z'.avail_in = z.avail_in) : InTail h H i := by
+  refine ⟨z, z', 0, hz, hz', by rw [e2]; rfl, ?_⟩
+  cases hn : z.next_in with
+  | null => exact ⟨rfl, by rw [e1, hn]⟩
+  | ref r o => rw [e1, hn]; rfl
+
+/-- `InTail` composes. -/
+theorem InTail.trans {h H H' : Heap} {i : Nat} (A : InTail h H i) (B : InTail H H' i) : InTail h H' i := by
+  obtain ⟨z0, z1, k, h0, h1, ek, m1⟩ := A
+  obtain ⟨z1', z2, k', h1', h2, ek', m2⟩ := B
+  obtain rfl := Option.some.inj (h1.symm.trans h1')
+  refine ⟨z0, z2, k + k', h0, h2, by omega, ?_⟩
+  revert m1
+  cases z0.next_in with
+  | null =>
+    rintro ⟨rfl, e1⟩
+    rw [e1] at m2
+    obtain ⟨rfl, e2⟩ := m2
+    exact ⟨rfl, e2⟩
+  | ref r o =>
+    intro e1
+    rw [e1] at m2
+    simp only [] at m2 ⊢
+    rw [m2, Nat.add_assoc]
+
+/-- `InTail` after a step that keeps the input fields of the stream. -/
+theorem InTail.keep {h H H' : Heap} {i : Nat} {z z' : ZStream} (A : InTail h H i) (hz : H.streams i = some z)
+    (hz' : H'.streams i = some z') (e1 : z'.next_in = z.next_in) (e2 : z'.avail_in = z.avail_in) : InTail h H' i :=
+  A.trans (InTail.refl hz hz' e1 e2)
+
+/-- The input fields of `H` are those of a tail of `h`'s: `avail_in` does not grow. -/
+theorem InTail.le {h H : Heap} {i : Nat} (A : InTail h H i) {z0 z : ZStream} (h0 : h.streams i = some z0)
+    (h1 : H.streams i = some z) : z.avail_in.toNat ≤ z0.avail_in.toNat := by
+  obtain ⟨z0', z', k, h0', h1', ek, -⟩ := A
+  obtain rfl := Option.some.inj (h0.symm.trans h0')
+  obtain rfl := Option.some.inj (h1.symm.trans h1')
+  omega
+
 /-- What a strategy call with `flush` leaves: the invariant, valid and set buffers, a change of the stream record, the
-stream's block and the output buffer only, the output buffer after a tail of the one before (`OutTail`), the stream's state block kept, no pending bytes after `block_done` / `finish_done`; `SymsOk` again, the
+stream's block and the output buffer only, the output buffer after a tail of the one before (`OutTail`), the stream's
+state block kept, the input a tail of the one before (`InTail`), all input consumed or the output full after
+`need_more` / `block_done` (each `need_more` follows `fill_window` under `Z_NO_FLUSH`, which leaves a full lookahead
+or no input, or a full output; each `block_done` follows an empty lookahead after `fill_window`, or, in
+`deflate_stored`, a test of `avail_in == 0`), `finish_started` / `finish_done` only for `Z_FINISH`, progress after
+`need_more` / `finish_started` under `Z_FINISH` from an output with room (input consumed or output produced: each
+such return follows a full output, or in `deflate_stored` a stored block through `pending_buf`), no pending bytes
+after `block_done` / `finish_done`; `SymsOk` again, the
 fields of `StratKeeps` unchanged, no symbols after a call with a flush that leaves output room (every such return
 goes through `FLUSH_BLOCK`, or the strategy never tallies; `deflate_slow` returns on a full output right after a
 tally), no symbols after `block_done` (it follows `FLUSH_BLOCK` or an empty symbol buffer), and no symbols and no
@@ -118,6 +173,11 @@ lookahead after `finish_started` / `finish_done`; `LazyOk` kept, and no pending 
 def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' : Heap) : Prop :=
   DInv h' s ∧ DStreamIO h' s ∧ DBufsSet h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] (dOutputRanges h s) ∧
     (∀ i, s = some i → OutTail h h' i) ∧ (∀ b, StateBlock h s b → StateBlock h' s b) ∧
+    (∀ i, s = some i → InTail h h' i) ∧
+    (bs = .need_more ∨ bs = .block_done → ∀ z', StreamAt h' s z' → z'.avail_in = 0 ∨ z'.avail_out = 0) ∧
+    (bs = .finish_started ∨ bs = .finish_done → flush = Z_FINISH) ∧
+    (flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → ∀ z z', StreamAt h s z → StreamAt h' s z' →
+      z.avail_out ≠ 0 → z'.avail_in < z.avail_in ∨ z'.avail_out < z.avail_out) ∧
     (bs = .block_done ∨ bs = .finish_done → ∃ b st, DStateIs h' s b st ∧ st.pending = 0) ∧
     ∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt h' s z' → z'.avail_out ≠ 0) → st'.sym_next = 0) ∧
@@ -305,7 +365,8 @@ callers read back (`wrap`, `status`, `gzhead`, `level`, `strategy`, the function
 `last_flush`, `bi_valid`) kept; the lazy-match fields: a `prev_length` of 3 or more after is the one before, with the
 same distance `strstart - match_start` and a `match_start` not above the one before (a slide lowers `strstart` and
 `match_start` together, or sets `match_start` and `prev_length` to 0), `prev_length` does not grow, `match_available`
-kept; the lookahead does not drop, and a `strstart` of 1 or more stays so (a slide leaves at least `MAX_DIST`). -/
+kept; the lookahead does not drop, and a `strstart` of 1 or more stays so (a slide leaves at least `MAX_DIST`); the input
+after a tail of the one before (`read_buf`: `next_in += len; avail_in -= len`). -/
 def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
   DInvW h' s ∧ DInput h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
   ∃ i z z' b st st', s = some i ∧ h.streams i = some z ∧ h'.streams i = some z' ∧ z.state = some b ∧
@@ -329,7 +390,8 @@ def FillPost (h h' : Heap) (s : StreamPtr) : Prop :=
       (st.strstart.toNat : Int) - st.match_start.toNat = (st'.strstart.toNat : Int) - st'.match_start.toNat ∧
       st'.match_start ≤ st.match_start) ∧
     st'.prev_length ≤ st.prev_length ∧ st'.match_available = st.match_available ∧
-    st.lookahead.toNat ≤ st'.lookahead.toNat ∧ (1 ≤ st.strstart.toNat → 1 ≤ st'.strstart.toNat)
+    st.lookahead.toNat ≤ st'.lookahead.toNat ∧ (1 ≤ st.strstart.toNat → 1 ≤ st'.strstart.toNat) ∧
+    (∀ i, s = some i → InTail h h' i)
 
 /-- The window functions that `deflateSetDictionary` (and the strategies) call, one field each, to be proved about
 the translated C code: `fill_window` from `DInvW` (the invariant, or the state inside `deflateSetDictionary`'s

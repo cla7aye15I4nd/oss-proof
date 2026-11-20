@@ -196,9 +196,11 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {level : Int32} (fl
     refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
     refine sat_ite (fun hc => ?_) (fun _ => ?_)
     · simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hc
-      obtain ⟨-, hf⟩ := hc
+      obtain ⟨hlt3, hf⟩ := hc
       obtain ⟨-, hT', -, -⟩ := env_st E C'.1
-      refine Sat.pure ⟨⟨slf_postW C'.1 flush .need_more (fun st0 h0 => (tab_lv (E.tab st0 h0).1).2.1)
+      have hlt3' : st'.lookahead.toNat < 262 := by
+        have := UInt32.lt_iff_toNat_lt.mp hlt3; simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using this
+      refine Sat.pure ⟨⟨slf_postW C'.1 flush .need_more (by rw [hf]; exact exitIO_nmNF (cf_fill hend hlt3')) (fun st0 h0 => (tab_lv (E.tab st0 h0).1).2.1)
         (fun _ _ _ s3 hs3 => ?_) (fun s3 hs3 => ?_), fun s3 d3 hs3 hd3 => ?_⟩, by simp [RM]⟩
       · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hs3)
         exact ⟨L', fun e => by cases e⟩
@@ -213,7 +215,8 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {level : Int32} (fl
     · refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       refine sat_ite (fun hz => ?_) (fun hz => ?_)
       · have hz' : st'.lookahead = 0 := by simpa using hz
-        refine Sat.pure ⟨⟨C', fun s3 d3 hs3 hd3 => ?_, fun s3 hs3 => ?_⟩, by simp [RM]⟩
+        refine Sat.pure ⟨⟨C', fun s3 d3 hs3 hd3 => ?_, fun s3 hs3 => ?_, avIn_fill hend (by rw [hz']; decide)⟩,
+          by simp [RM]⟩
         · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hs3)
           obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd3)
           exact ⟨Ch', L'⟩

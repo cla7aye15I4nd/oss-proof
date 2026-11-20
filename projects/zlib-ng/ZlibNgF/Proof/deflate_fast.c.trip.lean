@@ -27,7 +27,7 @@ open ZlibNg.DeflateP ZlibNg.DeflateFast
 def OI (h : Heap) (i b : Nat) (flush : Int32) (v : Ctl × Bool × UInt32) (H : Heap) : Prop :=
   match v.1 with
   | .cont => SLC h i b H ∧ CK b H ∧ v.2.2.toNat < 4
-  | .brk => SLC h i b H ∧ CK b H ∧ ∀ st, H.dstate b = some st → st.lookahead = 0
+  | .brk => SLC h i b H ∧ CK b H ∧ (∀ st, H.dstate b = some st → st.lookahead = 0) ∧ avIn H i = 0
   | .ret r => StratPost h (some i) flush r H ∧ CK b H
 
 /-- The measure of the outer loop. -/
@@ -341,7 +341,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
     obtain ⟨_, H1, e1, hfill⟩ := sli_fill I0 hla'
     rw [wrD_eq _ st rfl] at e1
     obtain rfl : SH H i z b st d = H1 := by injection e1 with e; injection e
-    obtain ⟨u, H2, e2, ⟨H0', z', st', d', rfl, I2, hsum, -, -⟩⟩ := hfill
+    obtain ⟨u, H2, e2, ⟨H0', z', st', d', rfl, I2, hsum, -, hfull⟩⟩ := hfill
     cases u
     have C0 : ChainOk b d st := Ck st d (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _)
     have Ck2 : CK b (SH H0' i z' b st' d') := by
@@ -357,12 +357,16 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
     · simp -zeta only [hx, ↓reduceIte]
       have hf : flush = Z_NO_FLUSH := by simp at hx; exact hx.2
       subst hf
-      exact Sat.pure ⟨⟨slc_post_l (sli_slc I2) hn, Ck2⟩, by simp only [OM]; omega⟩
+      have hx2 : st'.lookahead.toNat < 262 := by
+        simp at hx; have hx' : st'.lookahead < 262 := by simpa [MIN_LOOKAHEAD, STD_MAX_MATCH, STD_MIN_MATCH] using hx
+        exact UInt32.lt_iff_toNat_lt.mp hx'
+      exact Sat.pure ⟨⟨slc_post_l (sli_slc I2) hn (cf_fill hfull hx2), Ck2⟩, by simp only [OM]; omega⟩
     · simp -zeta only [hx, Bool.false_eq_true, ↓reduceIte]
       refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
       by_cases hz0 : (st'.lookahead == 0) = true
       · simp -zeta only [hz0, ↓reduceIte]
-        refine Sat.pure ⟨⟨sli_slc I2, Ck2, fun st5 h5 => ?_⟩, by simp only [OM]; omega⟩
+        refine Sat.pure ⟨⟨sli_slc I2, Ck2, fun st5 h5 => ?_,
+          avIn_fill hfull (by rw [show st'.lookahead = 0 by simpa using hz0]; decide)⟩, by simp only [OM]; omega⟩
         obtain rfl : st5 = st' := Option.some.inj (h5.symm.trans (SH_dstate _ _ _ _ _ _))
         simpa using hz0
       · simp -zeta only [hz0, Bool.false_eq_true, ↓reduceIte]
