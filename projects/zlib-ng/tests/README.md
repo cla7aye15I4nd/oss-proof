@@ -189,8 +189,9 @@ empty: the translation and the C agree on every generated input.
 
 Round trip: after the `deflate` comparison, `c_deflate roundtrip` inflates, with the real C `inflate`, every
 output of the translation that is one whole stream of its input (a `deflate` call returned `Z_STREAM_END`; no
-`deflatePrime`, reset, second dictionary or late raw dictionary in the script) and checks that it gives back
-exactly the input bytes the stream consumed.
+`deflatePrime`, `deflateResetKeep`, second dictionary or late raw dictionary in the script) and checks that it gives
+back exactly the input bytes the stream consumed. When the script calls `deflateReset`, the stream checked is the one
+after the last reset: the output from `next_out` at the reset, against the input from `next_in` at the reset.
 
 The reference C library is built for the target's gzip `OS_CODE` (3, as on Linux) on every host: `build-zlib-ng.sh`
 removes the `__APPLE__` branch of `zutil.h` in the copy it builds, which the x86_64 Linux target never takes.
