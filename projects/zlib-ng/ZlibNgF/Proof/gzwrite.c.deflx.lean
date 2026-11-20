@@ -115,6 +115,21 @@ theorem invWS_gen {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvWS w
     (fun x hx _ => ?_)
   simp only [GzOwned, hsW, hs, hz', hz, hst] at hx ⊢; exact hx
 
+/-- Input inside the `in` region stays there when the buffer fields move (`BufAdv`). -/
+theorem inpW_adv {s : GzState} {c base : Nat} {z z' : ZStream} (hd : s.direct = 0)
+    (hi : InpW s c base z.next_in z.avail_in) (ha : BufAdv z z') : InpW s c base z'.next_in z'.avail_in := by
+  obtain ⟨h1, -, h3, -, -⟩ := ha
+  have l1 := UInt32.le_iff_toNat_le.mp h1
+  rcases hi with ⟨k, ek, -, hk⟩ | ⟨e1, e2⟩
+  · rw [ek] at h3; simp only [Adv] at h3
+    exact Or.inl ⟨k + (z.avail_in.toNat - z'.avail_in.toNat), by rw [h3]; congr 1; omega, by omega, by omega⟩
+  · rcases e2 with e2 | e2
+    · exact absurd hd e2
+    · rw [e2] at h3; simp only [Adv] at h3
+      refine Or.inr ⟨?_, Or.inr h3.2⟩
+      have : z'.avail_in.toNat = 0 := by rw [e1] at l1; simp at l1; omega
+      exact UInt32.toNat_inj.mp (by simpa using this)
+
 /-- **`deflate`** on the stream of a write handle in the state `GzWX` (not direct). -/
 theorem deflate_stepX (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → Nat} {G : Nat}
     (hD : DeflateClause ψ G) {W : World} {H : Heap} {b : Nat} {s : GzState} {z : ZStream} (hx : GzWX W H b s z)
@@ -164,7 +179,8 @@ theorem deflate_stepX (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState
     rcases hin with ⟨c1, base1, eb, hi⟩ | ⟨hr, ho⟩
     · rw [hB.buffers] at eb; cases eb
       rcases hi with ⟨k, ek, -, hk⟩ | ⟨e1, e2⟩
-      · refine ⟨Or.inr ⟨.heap c, base + k, d, ek, hdc, by rw [hin2, hout2] at hds; omega⟩, ?_, ?_⟩
+      · rw [hin2] at hk
+        refine ⟨Or.inr ⟨.heap c, base + k, d, ek, hdc, by rw [hin2, hout2] at hds; omega⟩, ?_, ?_⟩
         · rw [eo', ek]; simp only [Disjoint]; right; right; rw [hin2]; omega
         · intro off e; rw [ek] at e; cases e; exact hcs rfl
       · rcases e2 with e2 | e2
@@ -219,7 +235,7 @@ theorem deflate_stepX (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState
   rcases hin with ⟨c1, base1, eb, hi⟩ | hc
   · refine Or.inl ⟨c1, base1, eb, ?_⟩
     rw [hB.buffers] at eb; cases eb
-    exact ((wbuf_adv hd hi (WB.out hd) hadv).1).imp_right fun ⟨e1, e2⟩ => ⟨e1, Or.inr e2⟩
+    exact inpW_adv hd hi hadv
   · refine Or.inr (callerIn_step g hv.2.2.2.1.1 (gzOwned_setZ W H b hs hz rfl)
       (gzOwned_setZ W H' b hsH' hz' rfl) hc ?_ ?_)
     · obtain ⟨⟨r0, o0, d0, ep, -, -⟩, -⟩ := hc

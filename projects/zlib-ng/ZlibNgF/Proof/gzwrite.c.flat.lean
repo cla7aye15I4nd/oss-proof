@@ -143,10 +143,23 @@ theorem invWS_unflat {w : World} {h : Heap} {b : Nat} {s : GzState} {z : ZStream
 def CallerIn (w : World) (h : Heap) (b : Nat) (z : ZStream) : Prop :=
   ReadSlice h z.next_in z.avail_in.toNat ∧ OutsideGz w h (some b) z.next_in
 
-/-- Where the input of the stream `z` of a write handle `s` with buffers may be: where `GzWBuf.inp` allows, or a
-caller range. -/
+/-- Input fields `p`, `n` anywhere inside the `in` region (`2 size` bytes, which `gzvprintf` fills), or no input as
+`GzWBuf.inp` allows it. -/
+def InpW (s : GzState) (c base : Nat) (p : BPtr) (n : UInt32) : Prop :=
+  Inside c base 0 (inSize s) p n.toNat ∨ (n = 0 ∧ (s.direct ≠ 0 ∨ p = .null))
+
+/-- Where the input of the stream `z` of a write handle `s` with buffers may be: inside the `in` region, or a caller
+range. -/
 def InX (w : World) (h : Heap) (b : Nat) (s : GzState) (z : ZStream) : Prop :=
-  (∃ c base, s.buffers = .val (.ref (.heap c) base) ∧ InpOk s c base z.next_in z.avail_in) ∨ CallerIn w h b z
+  (∃ c base, s.buffers = .val (.ref (.heap c) base) ∧ InpW s c base z.next_in z.avail_in) ∨ CallerIn w h b z
+
+/-- The input that `GzWBuf.inp` allows is inside the `in` region. -/
+theorem inpW_of_ok {s : GzState} {c base : Nat} (hw : s.mode = GZ_WRITE) (hsz : s.size = s.want) {p : BPtr}
+    {n : UInt32} (hi : InpOk s c base p n) : InpW s c base p n := by
+  have : inSize s = 2 * s.want.toNat := by simp [inSize, hw]
+  rcases hi with ⟨k, e, h1, h2⟩ | e
+  · exact Or.inl ⟨k, e, h1, by rw [this]; rw [hsz] at h2; omega⟩
+  · exact Or.inr e
 
 /-- **A write handle with buffers whose input is in `in` or in a caller range**: the invariant holds of the flat
 heap (`flatZ`), and the input is described by `InX`. -/
@@ -167,7 +180,7 @@ theorem wx_of_inv {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvWS w
   obtain ⟨sh, -⟩ := inv_of hs hv.1
   obtain ⟨c, base, z, hB, hz, WB⟩ := (sh.write hwm).bufs hsz
   obtain ⟨v, g⟩ := invWS_flat hv hs hsz hz
-  refine ⟨z, ⟨hs, hz, hsz, v, Or.inl ⟨c, base, hB.buffers, ?_⟩⟩, g⟩
+  refine ⟨z, ⟨hs, hz, hsz, v, Or.inl ⟨c, base, hB.buffers, inpW_of_ok hwm hB.size ?_⟩⟩, g⟩
   rcases WB.inp with e | ⟨e1, e2⟩
   · exact Or.inl e
   · exact Or.inr ⟨e1, e2⟩
