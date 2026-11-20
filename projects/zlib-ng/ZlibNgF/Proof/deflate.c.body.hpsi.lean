@@ -55,6 +55,31 @@ theorem flush_ret_psi {h H : Heap} {i b : Nat} {f : Int32} {P e : Nat} (R : Run 
   · rw [ite_f hp]
     refine Sat.pure ⟨B1, by rw [eH, hai], fun s0 s2 h0 h2 => hs1 s0 s2 h0 (by rw [← eH]; exact h2)⟩
 
+/-- `last_flush = x` keeps the stream record and every budget. -/
+theorem lf_bud {h H : Heap} {i b : Nat} (R : Run h i b H) (x : Int32) :
+    Sat H (wrD (some b) fun s => { s with last_flush := x }) (fun _ H' => H'.streams i = H.streams i ∧
+      ∀ f P e d, Bud f P e d h i b H → Bud f P e d h i b H') := by
+  obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, eH, c⟩ := R.live
+  rw [← eH]
+  refine Sat.of_eq (wrD_SH _) ⟨by rw [SH_streams, SH_streams], fun f P e d' B => ?_⟩
+  refine B.step ⟨st, SH_dstate _ _ _ _ _ _⟩ (aIn_congr (by rw [SH_streams, SH_streams]))
+    (aOut_congr (by rw [SH_streams, SH_streams])) fun s1 s2 h1 h2 => ?_
+  rw [SH_dstate] at h1 h2
+  have e1 := Option.some.inj h1
+  have e2 := Option.some.inj h2
+  subst e1; subst e2
+  rw [psiS_lf]; omega
+
+/-- `last_flush = -1` with a full output: `Run`, `LastM1`, and the end of the call from any budget. -/
+theorem run_lfE {h H : Heap} {i b : Nat} {f : Int32} {P e : Nat} (R : Run h i b H)
+    (hao : ∀ z, H.streams i = some z → z.avail_out = 0) (B : Bud f P e 0 h i b H) :
+    Sat H (wrD (some b) fun s => { s with last_flush := -1 })
+      (fun _ H' => Run h i b H' ∧ LastM1 H' i b ∧ EndOk f P h i b H') :=
+  Sat.mono (sat_and (run_lf R hao) (lf_bud R (-1))) fun _ H' ⟨⟨R', L'⟩, es, bb⟩ => ⟨R', L', by
+    refine endOk_full (bb f P e 0 B) ?_
+    obtain ⟨z', -, -, -, hz', -⟩ := R'.live
+    rw [aOut_of hz', L'.2 z' hz']; rfl⟩
+
 /-- The header bytes: `q <= 10` bytes pending from none, `BUSY_STATE` from `INIT_STATE` / `GZIP_STATE`: 6 more in the
 budget. -/
 theorem bud_hdr {f : Int32} {P e : Nat} {h H0 : Heap} {i b : Nat} {z z' : ZStream} {st : DeflateState}

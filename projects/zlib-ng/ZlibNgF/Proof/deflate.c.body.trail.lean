@@ -106,7 +106,7 @@ theorem trEnd_ok {h H : Heap} {i b : Nat} {st : DeflateState} {f : Int32} {P q :
         rcases c.wrap with x | x | x | x | x <;> simp only [dview] at x <;> rw [x] at hw0 ⊢ <;>
           first | exact absurd hw0 (by decide) | decide
       have := psiS_wrap f st2 hw0 _ hwn
-      rw [hw2] at this
+      have hq' : q ≤ 4 * st2.wrap.toInt.toNat := by rw [hw2]; exact hq
       omega
     refine fin H3 R3 (fun st' h' => (k3 st' h').2.1.trans h02) (fun z3 st3 g1 g2 hne => ?_) B3
     obtain ⟨-, -, kp, ks⟩ := k3 st3 g2

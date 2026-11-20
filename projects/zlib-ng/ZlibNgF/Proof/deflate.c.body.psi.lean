@@ -110,6 +110,48 @@ theorem Bud.strat {f : Int32} {P e d : Nat} {h H H' : Heap} {i b : Nat} (B : Bud
   generalize G * (aIn H i - aIn H' i) = Y at *
   omega
 
+/-- The flushes after which `deflate` may see `block_done`. -/
+theorem flush_cases {f : Int32} (h0 : 0 ≤ f) (h5 : f ≤ 5) (hn : f ≠ Z_NO_FLUSH) (hF : f ≠ Z_FINISH) :
+    f = Z_PARTIAL_FLUSH ∨ f = Z_SYNC_FLUSH ∨ f = Z_FULL_FLUSH ∨ f = Z_BLOCK := by
+  have a := Int32.le_iff_toInt_le.mp h0
+  have c := Int32.le_iff_toInt_le.mp h5
+  have z0 : (0 : Int32).toInt = 0 := rfl
+  have z5 : (5 : Int32).toInt = 5 := rfl
+  rw [z0] at a; rw [z5] at c
+  have t : ∀ x : Int32, f ≠ x → f.toInt ≠ x.toInt := fun x hx e => hx (Int32.toInt_inj.mp e)
+  have n0 := t _ hn; have n4 := t _ hF
+  have e0 : Z_NO_FLUSH.toInt = 0 := rfl
+  have e4 : Z_FINISH.toInt = 4 := rfl
+  rw [e0] at n0; rw [e4] at n4
+  rcases (by omega : f.toInt = 1 ∨ f.toInt = 2 ∨ f.toInt = 3 ∨ f.toInt = 5) with x | x | x | x
+  · exact .inl (Int32.toInt_inj.mp (x.trans rfl))
+  · exact .inr (.inl (Int32.toInt_inj.mp (x.trans rfl)))
+  · exact .inr (.inr (.inl (Int32.toInt_inj.mp (x.trans rfl))))
+  · exact .inr (.inr (.inr (Int32.toInt_inj.mp (x.trans rfl))))
+
+/-- The marker from the budget, or from the input consumed (`G` per byte). -/
+theorem markK_le_of {f : Int32} {e n : Nat} (hE : markK f ≤ e ∨ n ≠ 0) : markK f ≤ e + G * n := by
+  rcases hE with x | x
+  · omega
+  · have := markK_le_G f
+    have : G * 1 ≤ G * n := Nat.mul_le_mul_left G (by omega)
+    omega
+
+/-- The counts do not grow from `H` to `H'` when the buffers of `H'` are tails of those of `H`. -/
+theorem tails_mono {H H' : Heap} {i : Nat} (O : OutTail H H' i) (I : InTail H H' i) :
+    aIn H' i ≤ aIn H i ∧ aOut H' i ≤ aOut H i := by
+  obtain ⟨z0, z, ob, oo, k, h0, h1, -, -, ek⟩ := O
+  obtain ⟨z0', z', k', h0', h1', ek', -⟩ := I
+  obtain rfl := Option.some.inj (h0.symm.trans h0')
+  obtain rfl := Option.some.inj (h1.symm.trans h1')
+  rw [aIn_of h0, aIn_of h1, aOut_of h0, aOut_of h1]; omega
+
+/-- A budget that holds: `P` the potential of the state plus what was produced and `e`. -/
+theorem bud_any (f : Int32) {h H : Heap} {i b : Nat} {st : DeflateState} (hst : H.dstate b = some st) (e : Nat) :
+    Bud f (psiS f st + (aOut h i - aOut H i) + e) e 0 h i b H := fun st' h' => by
+  obtain rfl := Option.some.inj (hst.symm.trans h')
+  rw [Nat.add_zero]; exact Nat.le_add_right _ _
+
 /-! ## The end -/
 
 /-- The end from a budget that covers the marker owed (or the output is full). -/
@@ -190,6 +232,16 @@ theorem psiS_pend (f : Int32) (st : DeflateState) (q : UInt32) (hp : st.pending 
   have x4 : owed st = st.pending.toNat + (st.bi_valid.toInt.toNat + 7) / 8 := rfl
   have x5 : st.pending.toNat = 0 := by rw [hp]; rfl
   unfold psiS; rw [x1, x2, x3]; omega
+
+/-- `strstart = block_start = insert = 0` (`Z_FULL_FLUSH` with no lookahead): the window span is dropped. -/
+theorem psiS_zero (f : Int32) (st : DeflateState) :
+    psiS f { st with strstart := 0, block_start := 0, insert := 0 } ≤ psiS f st := by
+  have h0 : span { st with strstart := 0, block_start := 0, insert := 0 } = 0 := by unfold span; simp
+  have h1 : content { st with strstart := 0, block_start := 0, insert := 0 } + 6 * span st = content st := by
+    unfold content; rw [h0]; dsimp only; omega
+  have h2 : quickB f { st with strstart := 0, block_start := 0, insert := 0 } = quickB f st := rfl
+  have h3 : owed { st with strstart := 0, block_start := 0, insert := 0 } = owed st := rfl
+  unfold psiS; rw [h2, h3]; omega
 
 /-- A change of the bytes owed only (`flush_pending`, the trailer bytes): `psiS` moves with `owed`. -/
 theorem psiS_owed (f : Int32) {st st' : DeflateState}
