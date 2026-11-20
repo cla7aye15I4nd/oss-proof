@@ -10,6 +10,7 @@ import ZlibNgF.ZlibNg.«uncompr.c»
 import ZlibNgF.ZlibNg.«compress.c»
 import ZlibNgF.Spec.Safety.Deflate
 import ZlibNgF.Proof.«deflate.c.copy»
+import ZlibNgF.Proof.«deflate.c.params»
 import ZlibNgF.Proof.«deflate.c.reach»
 import ZlibNgF.Proof.«trees_emit.h.emit»
 import ZlibNgF.Proof.«trees_emit.h.static»
