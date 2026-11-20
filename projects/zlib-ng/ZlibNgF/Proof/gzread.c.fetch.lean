@@ -81,18 +81,13 @@ theorem gz_fetch_eq (state : GzPtr) : gz_fetch state = (do
 
 /-! ## What `gz_fetch` needs of `gz_look` -/
 
-/-- What `gz_fetch` needs of `gz_look` beyond `LookPost`: the descriptor and the buffers kept; on `0`, the read measure
-`rdLeft + avail_in` did not grow, a switch to `GZIP` comes with a just reset state and input in the buffer or from a
-`direct == -1` request, and `gz_look` stays in `LOOK` only at the end of the input. -/
+/-- What `gz_fetch` needs of `gz_look` beyond `LookPost`: the descriptor kept, the buffers kept on every return, and
+on `0` `gz_look` stays in `LOOK` only at the end of the input. -/
 structure LookExtra : Prop where
   ext : ∀ (w : World) (h : Heap) (b : Nat) (s : GzState), GzInvR w h (some b) → w.gz h b = some s →
     s.«have» = 0 → s.how = LOOK →
     GSat w h (gz_look (some b)) (fun r W H => ∀ s', W.gz H b = some s' → s'.fd = s.fd ∧
-      (s.size ≠ 0 → s'.size ≠ 0) ∧
-      (r = 0 → (∀ z z', h.streams s.strm = some z → H.streams s.strm = some z' →
-          rdLeft W.fs s.fd + z'.avail_in.toNat ≤ rdLeft w.fs s.fd + z.avail_in.toNat) ∧
-        (s'.how = GZIP → HeadState H s' ∧ ((∀ z', H.streams s.strm = some z' → z'.avail_in ≠ 0) ∨ s.direct = -1)) ∧
-        (s'.how = LOOK → AtEnd H s')))
+      (s.size ≠ 0 → s'.size ≠ 0) ∧ (r = 0 → s'.how = LOOK → AtEnd H s'))
 
 /-! ## Steps that write only blocks of the file -/
 
@@ -441,8 +436,8 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
     -- `LOOK`: `gz_look`
     refine GSat.bind (GSat.mono (GSat.and (gz_look_spec hv hs1 h0 hlook) (LX.ext W H b s1 hv hs1 h0 hlook))
       fun r W1 H1 q => ?_)
-    obtain ⟨⟨hr1, g1, hf1, s', hs', hp', hk', -, -, hv0, hout, hph⟩, X⟩ := q
-    obtain ⟨hfd', hsz', X0⟩ := X s' hs'
+    obtain ⟨⟨hr1, g1, hf1, s', hs', hp', hk', -, hgz0, hv0, hout, hph, hrd0⟩, X⟩ := q
+    obtain ⟨hfd', hsz', hat0⟩ := X s' hs'
     have hm : GzMid W1 H1 b s' := ⟨hs', hv0, hout, hph⟩
     have g' : GStep w h W1 H1 b [] := g.trans g1 ⟨s, hs0⟩ ⟨s1, hs1⟩
     have hf' := hf.trans hf1
@@ -453,7 +448,11 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
         (fun e => absurd e (by decide)))
     · intro e
       have hr0 : r = 0 := hr1.resolve_left (by simpa using e)
-      obtain ⟨hrd, hgz, hat⟩ := X0 hr0
+      have hrd := hrd0 hr0
+      have hgz : s'.how = GZIP → HeadState H1 s' ∧
+          ((∀ z', H1.streams s1.strm = some z' → z'.avail_in ≠ 0) ∨ s1.direct = -1) :=
+        fun e => (hgz0 hr0 e).resolve_left (by rw [hlook]; decide)
+      have hat := hat0 hr0
       refine GSat.bind (GSat.of_eq (rdG_app' hs' _) ?_)
       apply GSat.ite
       · intro hl'
