@@ -20,7 +20,7 @@ costs under the code lengths zlib-ng assigns (`treeLengths`, the model of `build
   `ltree[257 + lc].Len + extra_lbits[lc] + dtree[dc].Len + extra_dbits[dc]`.
 
 `dynamic_budget_ge_1024`: for every `1024 ≤ B ≤ 32768` (`lit_bufsize` of memLevel 4 to 9) and every block of at
-most `B - 1` valid symbols, the budget holds, whatever the block choice: the header has at most 2283 bits
+most `B` valid symbols, the budget holds, whatever the block choice: the header has at most 2283 bits
 (`header_le`) and the excess is at most `5.315` bits per symbol (`W < 2584`, no length overflow) or
 `6.257` bits per symbol (with the overflow repair) plus a constant.
 
@@ -156,7 +156,7 @@ theorem block_excess (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) :
 
 /-- **The dynamic-block overlay budget for `1024 ≤ B ≤ 32768`.** -/
 theorem dynamic_budget_ge_1024 {B b0 : Nat} (xs : List Symbol) (hB : 1024 ≤ B) (hB2 : B ≤ 32768) (hb0 : b0 ≤ 7)
-    (hn : xs.length + 1 ≤ B) (valid : ∀ s ∈ xs, s.Valid) :
+    (hn : xs.length ≤ B) (valid : ∀ s ∈ xs, s.Valid) :
     Budget B (b0 + 3 + blockHeader xs) (blockCosts xs) := by
   have hH := header_bound xs
   obtain ⟨wL, wD, big, small⟩ := block_excess xs valid

@@ -136,11 +136,13 @@ import ZlibNgF.Proof.«insert_string_p.h.safety»
 import ZlibNgF.Proof.«insert_string_p.h.chain»
 import ZlibNgF.Proof.«insert_string_p.h.grow»
 import ZlibNgF.Proof.«insert_string_p.h.sli»
+import ZlibNgF.Proof.«insert_string_p.h.tail»
 import ZlibNgF.Proof.«compare256_c.c.safety»
 import ZlibNgF.Proof.«match_tpl.h.bits»
 import ZlibNgF.Proof.«match_tpl.h.safety»
 import ZlibNgF.Proof.«match_tpl.h.accept»
 import ZlibNgF.Proof.«match_tpl.h.top»
+import ZlibNgF.Proof.«deflate_fast.c.chain»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.find»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.insert»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.fizzle»
@@ -161,6 +163,7 @@ import ZlibNgF.Proof.«public-gzopen»
 import ZlibNgF.Proof.«public-gzopen-nonvacuous»
 import ZlibNgF.Proof.«gzlib.c.mode»
 import ZlibNgF.Proof.«gzlib.c.seek»
+import ZlibNgF.Proof.«gzlib.c.seek64»
 import ZlibNgF.Proof.«gzlib.c.error»
 import ZlibNgF.Proof.«gzread.c.close»
 import ZlibNgF.Proof.«gzread.c.facts»
@@ -179,3 +182,5 @@ import ZlibNgF.Proof.«deflate_quick.c.tally»
 import ZlibNgF.Proof.«deflate_quick.c.emit»
 import ZlibNgF.Proof.«deflate_quick.c.match»
 import ZlibNgF.Proof.«deflate_quick.c.safety»
+import ZlibNgF.Proof.«deflate_quick.c.frame»
+import ZlibNgF.Proof.«deflate_quick.c.static»

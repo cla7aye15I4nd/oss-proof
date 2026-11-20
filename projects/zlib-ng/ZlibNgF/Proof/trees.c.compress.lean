@@ -364,7 +364,7 @@ def UsedLe15 (LT DT : Array Ct) (d : Array UInt8) (sbo n : Nat) : Prop :=
     (symDist d sbo j ≠ 0 → (DT[dCodeOf (symDist d sbo j - 1)]!).dl.toNat ≤ 15)
 
 /-- The setting of `compress_block` on `SH H i z b st d`: `pending_buf` at `pbo`, `n` whole symbols at
-`sbo = pbo + lit_bufsize + 8`, at most `lit_bufsize - 1` of them, the trees `lp` / `dp` read as `LT` / `DT` with the
+`sbo = pbo + lit_bufsize + 8`, at most `lit_bufsize` of them, the trees `lp` / `dp` read as `LT` / `DT` with the
 code lengths that `compress_block` reads at most 15 (`UsedLe15`), tallied distances at most 32768, fewer than 64 bits waiting, and the overlay budget. -/
 structure CBCtx (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState) (d : Array UInt8)
     (lp dp : CtPtr) (LT DT : Array Ct) (pbo sbo n : Nat) : Prop where
@@ -373,7 +373,7 @@ structure CBCtx (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st : DeflateState)
   hsn : st.sym_next.toNat = 3 * n
   hsbo : sbo = pbo + st.lit_bufsize.toNat + 8
   hend : pbo + 4 * st.lit_bufsize.toNat + 9 ≤ d.size
-  hn : n + 1 ≤ st.lit_bufsize.toNat
+  hn : n ≤ st.lit_bufsize.toNat
   hlb : st.lit_bufsize.toNat ≤ 32768
   hl : TreeRd (Fam H i z b st) lp LT 286
   hd : TreeRd (Fam H i z b st) dp DT 30
@@ -775,8 +775,8 @@ theorem static_symCost (d : Array UInt8) (sbo j : Nat) (hd : symDist d sbo j ≤
     exact TreesOverlayP.staticMatchCost_le _ _ hlc (dCodeOf_lt _ (by omega))
 
 /-- The overlay budget of a static block: at most 66 bits before the first symbol (up to 63 waiting bits and the 3
-header bits), at most `lit_bufsize - 1` symbols, `lit_bufsize ≥ 52`. -/
-theorem static_cb_budget (d : Array UInt8) (sbo n B t0 : Nat) (hB : 52 ≤ B) (hn : n + 1 ≤ B) (ht : t0 ≤ 66)
+header bits), at most `lit_bufsize` symbols, `lit_bufsize ≥ 66`. -/
+theorem static_cb_budget (d : Array UInt8) (sbo n B t0 : Nat) (hB : 66 ≤ B) (hn : n ≤ B) (ht : t0 ≤ 66)
     (hd : ∀ j, j < n → symDist d sbo j ≤ 32768) : Budget B t0 (blockCosts static_ltree static_dtree d sbo n) := by
   have h := bitExcess_le 7 (blockCosts static_ltree static_dtree d sbo n) (fun c hc => by
     simp only [blockCosts, List.mem_map, List.mem_range] at hc
@@ -792,7 +792,7 @@ variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : A
 theorem compress_static_SH {pbo sbo n : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
     (hsb : st.sym_buf = .val (.ref (.heap b) sbo)) (hsn : st.sym_next.toNat = 3 * n)
     (hsbo : sbo = pbo + st.lit_bufsize.toNat + 8) (hend : pbo + 4 * st.lit_bufsize.toNat + 9 ≤ d.size)
-    (hn : n + 1 ≤ st.lit_bufsize.toNat) (hB : 52 ≤ st.lit_bufsize.toNat) (hlb : st.lit_bufsize.toNat ≤ 32768)
+    (hn : n ≤ st.lit_bufsize.toNat) (hB : 66 ≤ st.lit_bufsize.toNat) (hlb : st.lit_bufsize.toNat ≤ 32768)
     (hdist : ∀ j, j < n → symDist d sbo j ≤ 32768) (v0 : 0 ≤ st.bi_valid.toInt) (v64 : st.bi_valid.toInt < 64)
     (ht : 8 * st.pending.toNat + st.bi_valid.toInt.toNat ≤ 66) :
     Sat (SH H i z b st d) (ZlibNg.Trees.compress_block (some b) (.ref .static_ltree 0) (.ref .static_dtree 0))

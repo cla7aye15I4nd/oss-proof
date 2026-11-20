@@ -33,7 +33,7 @@ of `static_len`. -/
 theorem static_branch_SH {pbo sbo n : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
     (hsb : st.sym_buf = .val (.ref (.heap b) sbo)) (hsn : st.sym_next.toNat = 3 * n)
     (hsbo : sbo = pbo + st.lit_bufsize.toNat + 8) (hend : pbo + 4 * st.lit_bufsize.toNat + 64 ≤ d.size)
-    (hn : n + 1 ≤ st.lit_bufsize.toNat) (hB : 128 ≤ st.lit_bufsize.toNat) (hlb : st.lit_bufsize.toNat ≤ 32768)
+    (hn : n ≤ st.lit_bufsize.toNat) (hB : 128 ≤ st.lit_bufsize.toNat) (hlb : st.lit_bufsize.toNat ≤ 32768)
     (hdist : ∀ j, j < n → symDist d sbo j ≤ 32768) (v0 : 0 ≤ st.bi_valid.toInt) (v8 : st.bi_valid.toInt < 8)
     (hp0 : st.pending.toNat = 0) (last : Int32) (hl0 : 0 ≤ last.toInt) (hl1 : last.toInt ≤ 1) :
     Sat (SH H i z b st d) (do

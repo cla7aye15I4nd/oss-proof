@@ -12,11 +12,11 @@ Re-proved from the sibling project (`ZlibF.Math.DeflateOverlaySmall`, `DeflateOv
   Fibonacci bound `f * F(l + 1) + F(l) ≤ W` (`fibPlus_of_merges`).
 * `symbol_excess_le_mass`: the block excess is at most the per-occurrence excess of the length codes over 9 bits
   and of the distance codes over 15 bits (a literal never exceeds the 24 bits it frees).
-* `length_cap514`, `distance_cap514`: for a weight at most 514 one code with `e` extra bits contributes at most a
-  constant to the excess, whatever its frequency; the constants sum to `749 + 1028 = 1777`.
+* `length_cap515`, `distance_cap515`: for a weight at most 515 one code with `e` extra bits contributes at most a
+  constant to the excess, whatever its frequency; the constants sum to `757 + 1032 = 1789`.
 
-`dynamic_budget_512`: with at most 511 symbols both trees weigh at most 514, so the excess is at most 1777 bits,
-and with the header bound of 2283 bits the budget `8 * 512 + 7` holds for every block (no block-choice fact is
+`dynamic_budget_512`: with at most 512 symbols both trees weigh at most 515, so the excess is at most 1789 bits,
+and with the header bound of 2283 bits the budget `8 * 512` holds for every block (no block-choice fact is
 needed).
 -/
 
@@ -183,45 +183,45 @@ theorem symbol_excess_le_mass (xs : List Symbol)
   rw [literalCosts, distanceCosts]
   exact summed
 
-/-! ## Per-code caps for a weight of at most 514 -/
+/-! ## Per-code caps for a weight of at most 515 -/
 
 theorem fib_values : fib 0 = 0 ∧ fib 1 = 1 ∧ fib 2 = 1 ∧ fib 3 = 2 ∧ fib 4 = 3 ∧ fib 5 = 5 ∧
     fib 6 = 8 ∧ fib 7 = 13 ∧ fib 8 = 21 ∧ fib 9 = 34 ∧ fib 10 = 55 ∧ fib 11 = 89 ∧ fib 12 = 144 ∧
     fib 13 = 233 ∧ fib 14 = 377 ∧ fib 15 = 610 ∧ fib 16 = 987 ∧ fib 17 = 1597 := by decide
 
-/-- Per-code excess cap of a length code with `e` extra bits, tree weight at most 514. -/
-def lengthCap514 : Nat → Nat
-  | 0 => 5 | 1 => 10 | 2 => 16 | 3 => 28 | 4 => 46 | _ => 76
+/-- Per-code excess cap of a length code with `e` extra bits, tree weight at most 515. -/
+def lengthCap515 : Nat → Nat
+  | 0 => 5 | 1 => 10 | 2 => 16 | 3 => 28 | 4 => 46 | _ => 78
 
-/-- Per-code excess cap of a distance code with `e` extra bits, tree weight at most 514. -/
-def distanceCap514 : Nat → Nat
+/-- Per-code excess cap of a distance code with `e` extra bits, tree weight at most 515. -/
+def distanceCap515 : Nat → Nat
   | 0 => 0 | 1 => 0 | 2 => 0 | 3 => 0 | 4 => 1 | 5 => 2 | 6 => 5 | 7 => 10 | 8 => 16 | 9 => 28
-  | 10 => 46 | 11 => 76 | 12 => 126 | _ => 204
+  | 10 => 46 | 11 => 78 | 12 => 126 | _ => 204
 
-theorem length_cap514 (f l e : Nat) (length : l ≤ 15) (extra : e < 6)
-    (weight : f * fib (l + 1) + fib l ≤ 514) : f * (l + e - 9) ≤ lengthCap514 e := by
+theorem length_cap515 (f l e : Nat) (length : l ≤ 15) (extra : e < 6)
+    (weight : f * fib (l + 1) + fib l ≤ 515) : f * (l + e - 9) ≤ lengthCap515 e := by
   obtain ⟨f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _⟩ := fib_values
   rcases e with _ | _ | _ | _ | _ | _ | e <;>
   rcases l with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | l <;>
-  simp only [lengthCap514, Nat.reduceAdd, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13,
+  simp only [lengthCap515, Nat.reduceAdd, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13,
     f14, f15, f16] at weight ⊢ <;> omega
 
-theorem distance_cap514 (f l e : Nat) (length : l ≤ 15) (extra : e < 14)
-    (weight : f * fib (l + 1) + fib l ≤ 514) : f * (l + e - 15) ≤ distanceCap514 e := by
+theorem distance_cap515 (f l e : Nat) (length : l ≤ 15) (extra : e < 14)
+    (weight : f * fib (l + 1) + fib l ≤ 515) : f * (l + e - 15) ≤ distanceCap515 e := by
   obtain ⟨f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _⟩ := fib_values
   rcases e with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | e <;>
   rcases l with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | l <;>
-  simp only [distanceCap514, Nat.reduceAdd, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13,
+  simp only [distanceCap515, Nat.reduceAdd, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13,
     f14, f15, f16] at weight ⊢ <;> omega
 
 set_option maxRecDepth 10000 in
-theorem cap_sums_514 :
-    mass (fun v => if v < 257 then 0 else lengthCap514 (lengthExtra (v - 257))) 286 = 749 ∧
-    mass (fun v => distanceCap514 (distanceExtra v)) 30 = 1028 := by decide +kernel
+theorem cap_sums_515 :
+    mass (fun v => if v < 257 then 0 else lengthCap515 (lengthExtra (v - 257))) 286 = 757 ∧
+    mass (fun v => distanceCap515 (distanceExtra v)) 30 = 1032 := by decide +kernel
 
-/-- **The excess of a block of at most 511 symbols**: at most `749 + 1028` bits. -/
-theorem excess_le_511 (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) (hn : xs.length ≤ 511) :
-    bitExcess (blockCosts xs) ≤ 1777 := by
+/-- **The excess of a block of at most 512 symbols**: at most `757 + 1032` bits. -/
+theorem excess_le_512 (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) (hn : xs.length ≤ 512) :
+    bitExcess (blockCosts xs) ≤ 1789 := by
   have literalKeys : ∀ s ∈ xs, s.literalKey lengthCode < 286 := by
     intro s hs
     have := (valid s hs).2
@@ -242,8 +242,8 @@ theorem excess_le_511 (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) (hn : x
   have data := table_data
   have base := symbol_excess_le_mass xs (litLens xs) (distLens xs) lengthExtra distanceExtra lengthCode
     distanceCode valid literalKeys distanceKeys (fun v _ _ => litLens_le xs v)
-  have bL : mass (fun v => litFreq xs v * literalExcess (litLens xs) lengthExtra v) 286 ≤ 749 := by
-    rw [← cap_sums_514.1]
+  have bL : mass (fun v => litFreq xs v * literalExcess (litLens xs) lengthExtra v) 286 ≤ 757 := by
+    rw [← cap_sums_515.1]
     apply mass_mono
     intro v hv
     by_cases z : litFreq xs v = 0
@@ -251,17 +251,17 @@ theorem excess_le_511 (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) (hn : x
     · by_cases low : v < 257
       · simp [literalExcess, low]
       · have fp := (fib_plus_of_no_overflow (by omega) oL v hv z).2
-        have c := length_cap514 (litFreq xs v) (litLens xs v) (lengthExtra (v - 257)) (litLens_le xs v)
+        have c := length_cap515 (litFreq xs v) (litLens xs v) (lengthExtra (v - 257)) (litLens_le xs v)
           (data.1 ⟨v - 257, by omega⟩) (by unfold litLens treeLengths; omega)
         simpa [literalExcess, low] using c
-  have bD : mass (fun v => distFreq xs v * distanceExcess (distLens xs) distanceExtra v) 30 ≤ 1028 := by
-    rw [← cap_sums_514.2]
+  have bD : mass (fun v => distFreq xs v * distanceExcess (distLens xs) distanceExtra v) 30 ≤ 1032 := by
+    rw [← cap_sums_515.2]
     apply mass_mono
     intro v hv
     by_cases z : distFreq xs v = 0
     · simp [z]
     · have fp := (fib_plus_of_no_overflow (by omega) oD v hv z).2
-      exact distance_cap514 (distFreq xs v) (distLens xs v) (distanceExtra v) (distLens_le xs v)
+      exact distance_cap515 (distFreq xs v) (distLens xs v) (distanceExtra v) (distLens_le xs v)
         (data.2.1 ⟨v, hv⟩) (by unfold distLens treeLengths; omega)
   unfold blockCosts
   unfold litFreq at bL
@@ -269,10 +269,10 @@ theorem excess_le_511 (xs : List Symbol) (valid : ∀ s ∈ xs, s.Valid) (hn : x
   omega
 
 /-- **The dynamic-block overlay budget for `lit_bufsize = 512`** (`memLevel` 3), for every block. -/
-theorem dynamic_budget_512 {b0 : Nat} (xs : List Symbol) (hb0 : b0 ≤ 7) (hn : xs.length + 1 ≤ 512)
+theorem dynamic_budget_512 {b0 : Nat} (xs : List Symbol) (hb0 : b0 ≤ 7) (hn : xs.length ≤ 512)
     (valid : ∀ s ∈ xs, s.Valid) : Budget 512 (b0 + 3 + blockHeader xs) (blockCosts xs) := by
   have hH := header_bound xs
-  have hE := excess_le_511 xs valid (by omega)
+  have hE := excess_le_512 xs valid (by omega)
   unfold Budget
   omega
 

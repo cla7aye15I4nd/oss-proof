@@ -45,12 +45,12 @@ open ZlibNgF.Math.TreesOverlay (Budget)
 open ZlibNgF.Math.OverlayDynamic (blockHeader blockCosts Chosen dynamic_budget)
 
 /-- **The dynamic-block budget.** For every `lit_bufsize` `B` that `deflateInit2` can set (`1 << (memLevel + 6)`,
-`DCore.lpow`), at most 7 bits waiting before the block (`FlushBlockPre`), and every block of at most `B - 1` valid
+`DCore.lpow`), at most 7 bits waiting before the block (`FlushBlockPre`), and every block of at most `B` valid
 symbols that `zng_tr_flush_block` sends with dynamic trees (`Chosen xs`: `opt_lenb < static_lenb`, with `opt_len` and
 `static_len` the model sums `optLen xs` / `staticLen xs`), the bits before the first symbol (the waiting bits, the 3
 block-type bits and the tree header `blockHeader xs`) and the excess of the symbol costs fit the `sym_buf` overlay. -/
 def DynBudget : Prop :=
-  ∀ (B b0 : Nat) (xs : List Symbol), (∃ k, 7 ≤ k ∧ k ≤ 15 ∧ B = 2 ^ k) → b0 ≤ 7 → xs.length + 1 ≤ B →
+  ∀ (B b0 : Nat) (xs : List Symbol), (∃ k, 7 ≤ k ∧ k ≤ 15 ∧ B = 2 ^ k) → b0 ≤ 7 → xs.length ≤ B →
     (∀ s ∈ xs, s.Valid) → Chosen xs → Budget B (b0 + 3 + blockHeader xs) (blockCosts xs)
 
 /-- `DynBudget` holds: `dynamic_budget` (`Math/OverlayTinyBudget.lean`) for each power of two. -/
@@ -78,7 +78,7 @@ theorem dynBudget : DynBudget := by
 structure TCtx (b : Nat) (st : DeflateState) (d : Array UInt8) (sbo n : Nat) : Prop where
   sym : SymOk d sbo st.sym_next st.dyn_ltree st.dyn_dtree
   hsn : st.sym_next.toNat = 3 * n
-  hn : n < 32768
+  hn : n ≤ 32768
   lsize : st.dyn_ltree.size = HEAP_SIZE
   dsize : st.dyn_dtree.size = 2 * 30 + 1
   bsize : st.bl_tree.size = 2 * 19 + 1
@@ -615,7 +615,7 @@ pending bytes, fewer than 8 bits waiting, and the block choice `Chosen` of the m
 theorem dyn_then {pbo sbo n : Nat} {r : Int32} (TP : TPost st0 d sbo n r s)
     (hpb : s.pending_buf = .val (.ref (.heap b) pbo)) (hsb : s.sym_buf = .val (.ref (.heap b) sbo))
     (hsn : s.sym_next.toNat = 3 * n) (hsbo : sbo = pbo + s.lit_bufsize.toNat + 8)
-    (hend : pbo + 4 * s.lit_bufsize.toNat + 64 ≤ d.size) (hn : n + 1 ≤ s.lit_bufsize.toNat)
+    (hend : pbo + 4 * s.lit_bufsize.toNat + 64 ≤ d.size) (hn : n ≤ s.lit_bufsize.toNat)
     (hpow : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ s.lit_bufsize.toNat = 2 ^ k)
     (hdist : ∀ j, j < n → symDist d sbo j ≤ 32768) (v0 : 0 ≤ s.bi_valid.toInt) (v8 : s.bi_valid.toInt < 8)
     (hp0 : s.pending.toNat = 0) (last : Int32) (hl0 : 0 ≤ last.toInt) (hl1 : last.toInt ≤ 1)
@@ -868,7 +868,7 @@ variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8} {st : De
 theorem static_then {pbo sbo n : Nat} (hpb : st.pending_buf = .val (.ref (.heap b) pbo))
     (hsb : st.sym_buf = .val (.ref (.heap b) sbo)) (hsn : st.sym_next.toNat = 3 * n)
     (hsbo : sbo = pbo + st.lit_bufsize.toNat + 8) (hend : pbo + 4 * st.lit_bufsize.toNat + 64 ≤ d.size)
-    (hn : n + 1 ≤ st.lit_bufsize.toNat) (hB : 128 ≤ st.lit_bufsize.toNat) (hlb : st.lit_bufsize.toNat ≤ 32768)
+    (hn : n ≤ st.lit_bufsize.toNat) (hB : 128 ≤ st.lit_bufsize.toNat) (hlb : st.lit_bufsize.toNat ≤ 32768)
     (hdist : ∀ j, j < n → symDist d sbo j ≤ 32768) (v0 : 0 ≤ st.bi_valid.toInt) (v8 : st.bi_valid.toInt < 8)
     (hp0 : st.pending.toNat = 0) (last : Int32) (hl0 : 0 ≤ last.toInt) (hl1 : last.toInt ≤ 1) {β : Type} (k : M β)
     (Q : β → Heap → Prop) (hk : ∀ H', BlkPost H i z b st d pbo H' → Sat H' k Q) :
@@ -929,7 +929,7 @@ theorem outer_SH {z0 z : ZStream} {st0 s : DeflateState} {pbo sbo n : Nat}
     (hz : z = { z0 with data_type := z.data_type }) (R : Rel st0 s) (hlb : s.lit_bufsize = st0.lit_bufsize)
     (hpb : s.pending_buf = .val (.ref (.heap b) pbo)) (hsb : s.sym_buf = .val (.ref (.heap b) sbo))
     (hsn : s.sym_next.toNat = 3 * n) (hsbo : sbo = pbo + s.lit_bufsize.toNat + 8)
-    (hend : pbo + 4 * s.lit_bufsize.toNat + 64 ≤ d.size) (hn : n + 1 ≤ s.lit_bufsize.toNat)
+    (hend : pbo + 4 * s.lit_bufsize.toNat + 64 ≤ d.size) (hn : n ≤ s.lit_bufsize.toNat)
     (hpow : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ s.lit_bufsize.toNat = 2 ^ k)
     (hdist : ∀ j, j < n → symDist d sbo j ≤ 32768) (v0 : 0 ≤ s.bi_valid.toInt) (v8 : s.bi_valid.toInt < 8)
     (hp0 : s.pending.toNat = 0) (buf : BPtr) (len : UInt32)
@@ -983,7 +983,7 @@ structure FCtx (i b : Nat) (st : DeflateState) (d : Array UInt8) (pbo sbo n : Na
   hsb : st.sym_buf = .val (.ref (.heap b) sbo)
   hsbo : sbo = pbo + st.lit_bufsize.toNat + 8
   hend : pbo + 4 * st.lit_bufsize.toNat + 64 ≤ d.size
-  hn : n + 1 ≤ st.lit_bufsize.toNat
+  hn : n ≤ st.lit_bufsize.toNat
   hpow : ∃ k, 7 ≤ k ∧ k ≤ 15 ∧ st.lit_bufsize.toNat = 2 ^ k
   hp0 : st.pending.toNat = 0
   v0 : 0 ≤ st.bi_valid.toInt
@@ -1020,6 +1020,9 @@ theorem inner_SH (hbt : BuildTreeSpec) (F : FCtx i b st d pbo sbo n buf len) {z0
   have hsb : s3.sym_buf = st.sym_buf := by rw [k]
   have hn := F.T.hn
   have hn1 := F.hn
+  have hB128 : 128 ≤ st.lit_bufsize.toNat := by
+    obtain ⟨kp, hk7, -, hB⟩ := F.hpow
+    rw [hB]; exact Nat.le_trans (by decide) (Nat.pow_le_pow_right (by decide) hk7)
   have hBC := blockCosts_sum_le (symsOf d sbo n)
   rw [symsOf_length] at hBC
   have h256 := litLens_le (symsOf d sbo n) 256

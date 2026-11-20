@@ -7,7 +7,7 @@ import ZlibNgF.Math.TreesOverlay
 The bit cost of one symbol of `compress_block` with the static trees, read off the tables of `trees_tbl.h`: a literal
 costs `static_ltree[lc].Len ≤ 9` bits; a match costs the length code (`static_ltree[257 + code].Len ≤ 8`) and its
 extra bits (`≤ 5`, at most 13 together), the distance code (`static_dtree[d].Len = 5`) and its extra bits (`≤ 13`):
-at most 31 bits. With `Math/TreesOverlay.lean` (`static_budget`) a static block of at most `lit_bufsize - 1`
+at most 31 bits. With `Math/TreesOverlay.lean` (`static_budget`) a static block of at most `lit_bufsize`
 symbols never overtakes its unread symbols.
 -/
 
@@ -45,10 +45,10 @@ theorem staticMatchCost_le (lc d : Nat) (hlc : lc < 256) (hd : d < 30) : staticM
   unfold staticMatchCost
   omega
 
-/-- A static block of at most `B - 1` symbols whose costs are static literal or match costs fits the overlay
+/-- A static block of at most `B` symbols whose costs are static literal or match costs fits the overlay
 budget, with up to 63 bits waiting before it, for every `lit_bufsize = B ≥ 52`. -/
-theorem static_block_budget {B b0 : Nat} {costs : List Nat} (hB : 52 ≤ B) (hb0 : b0 < 64)
-    (hn : costs.length + 1 ≤ B)
+theorem static_block_budget {B b0 : Nat} {costs : List Nat} (hB : 66 ≤ B) (hb0 : b0 < 64)
+    (hn : costs.length ≤ B)
     (hc : ∀ c ∈ costs, (∃ lc, lc < 256 ∧ c = (static_ltree[lc]!).dl.toNat) ∨
       (∃ lc d, lc < 256 ∧ d < 30 ∧ c = staticMatchCost lc d)) :
     Budget B (b0 + 3) costs := by
