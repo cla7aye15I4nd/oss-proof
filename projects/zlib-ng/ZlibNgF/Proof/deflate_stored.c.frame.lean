@@ -224,7 +224,8 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
-  refine ⟨F.inv, F.io, F.set, by rw [hsi]; exact F.frame, fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, hp e st hst⟩,
+  refine ⟨F.inv, F.io, F.set, by rw [hsi]; exact F.frame, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
+    fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, hp e st hst⟩,
     ?_⟩
   rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i2, z2, e2, hz2, hb2, hst2⟩
   obtain rfl : i = i1 := Option.some.inj e1

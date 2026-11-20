@@ -92,8 +92,8 @@ theorem reset_inv_nn {h : Heap} {s : StreamPtr} (hv : DInv h s)
   rw [← SH_self L.hz L.hst hd]
   refine Sat.mono (reset_SH ⟨L.za, L.zf, L.hb, L.ab, L.sm, L.lo, L.hi⟩ (hw b st ⟨z, ⟨i, rfl, L.hz⟩, L.hb⟩ L.dstate) hpb c.trees.1 c.trees.2.1 c.trees.2.2
     hh hho c.level.1 c.level.2 (rlay_of c hd)) ?_
-  rintro r h' ⟨rfl, A, B, C, cf, lm, ib, d', rfl, hd', hA, hB, hC, hF, RL, hz⟩
-  obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C cf lm ib
+  rintro r h' ⟨rfl, A, B, C, cf, lm, ib, hib, d', rfl, hd', hA, hB, hC, hF, RL, hz⟩
+  obtain ⟨q1, q2, q0, q3, q4, q5, q6, q7⟩ := RL.post _ d' (SH_bytes _ _ _ _ _ _) hd' A B C cf lm ib hib
   refine ⟨rfl, ⟨i, rkZ z st.wrap, b, lmS (trS b (rkS st) A B C) cf (.val lm) (.val ib), al, rfl, by simp [SH], L.hb,
     by simp [Heap.dstate, SH], ?_, ?_⟩, ?_, i, rkZ z st.wrap, b, lmS (trS b (rkS st) A B C) cf (.val lm) (.val ib), rfl, by simp [SH], L.hb,
     by simp [Heap.dstate, SH], fresh_lmS _ _ _ _ _ _ _ _, ho, d', SH_bytes _ _ _ _ _ _,

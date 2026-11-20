@@ -58,8 +58,13 @@ def deflate_slow_trip (st : StatePtr) (flush : Int32) (longest_match : LongestMa
     wrD st fun s => { s with prev_length := if prev_length < match_floor then match_floor else prev_length }
     match_len ← call_longest_match longest_match st hash_head
     wrD st fun s => { s with prev_length := prev_length }
+    -- if (match_len <= match_discard || s->match_start >= s->strstart)  (patch 0019; `||` short-circuits)
     if match_len ≤ match_discard then
       match_len := STD_MIN_MATCH - 1
+    else
+      let s ← ldDState st
+      if s.match_start ≥ s.strstart then
+        match_len := STD_MIN_MATCH - 1
   let s ← ldDState st
   if s.prev_length ≥ STD_MIN_MATCH && match_len ≤ s.prev_length then
     -- unsigned int max_insert = s->strstart + s->lookahead - STD_MIN_MATCH;

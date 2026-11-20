@@ -48,11 +48,6 @@ def GapOk (st : DeflateState) : Prop :=
 /-- The state with the locals `lookahead` / `strstart` written back. -/
 abbrev FS (st : DeflateState) (la ss : UInt32) : DeflateState := { st with lookahead := la, strstart := ss }
 
-/-- The output buffer of stream `i` in `H` is a tail of its output buffer in `h`. -/
-def OutTail (h H : Heap) (i : Nat) : Prop :=
-  ∃ z0 z ob oo k, h.streams i = some z0 ∧ H.streams i = some z ∧ z0.next_out = .ref (.heap ob) oo ∧
-    z.next_out = .ref (.heap ob) (oo + k) ∧ z.avail_out.toNat + k = z0.avail_out.toNat
-
 /-- The frame of a strategy call from its entry heap `h` (see the module comment). -/
 structure SLF (h : Heap) (i b : Nat) (H : Heap) : Prop where
   inv : DInv H (some i)
@@ -249,7 +244,7 @@ theorem slf_post {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs 
   obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
-  refine ⟨F.inv, F.io, F.set, ?_, fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
+  refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out, fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
