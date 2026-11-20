@@ -17,7 +17,8 @@ The mode of an open file never changes, so the reachable files split by mode:
 
 `greach (W : GWriteSteps) (R : GReadPending) : GzReachable w h f → GzInvR w h f ∨ GzInvWS w h f`. `GWriteSteps`
 holds what the write side owes: the write-side calls (`gzwrite.c`) keep `GzInvWS` on a write handle (the caller
-steps keep it: `caller_keepsW`). `GReadPending` holds the read-side calls on read handles not proved yet.
+steps keep it: `caller_keepsW`). `GReadPending` holds the read-side calls on read handles that are proved in their
+own files. Both are theorems (`GzPublic.gwriteSteps`, `GzPublic.greadPending`).
 -/
 
 set_option autoImplicit false

@@ -6,8 +6,9 @@ import ZlibNgF.Proof.«gzread.c.lookspec»
 # The induction over reachable files, and the goals proved on every handle (`ZlibNgF`)
 
 `greachI (W : GWriteSteps) (R : GReadPending) : GzReachable w h f → (GzInvR w h f ∧ LookIdle w h f) ∨ GzInvWS w h f`
-(`LookIdle` is a between-call fact carried next to the read invariant). Each goal of a read-side call follows from `GWriteSteps` (what the write side owes) and `GReadPending` (the read-side calls whose
-preservation of the read invariant is not proved yet).
+(`LookIdle` is a between-call fact carried next to the read invariant). Each goal here follows from `GWriteSteps`
+(the write-side calls keep the write invariant) and `GReadPending` (the read-side calls whose preservation of the read
+invariant is proved in their own files); both are theorems in `public-gz-handles` (`gwriteSteps`, `greadPending`).
 -/
 
 set_option autoImplicit false
@@ -17,7 +18,7 @@ open C ZlibNgF.Spec ZlibNgF.Spec.Safety ZlibNg.Gz ZlibNgF.Proof.GzInv ZlibNgF.Pr
 
 /-! ## The induction -/
 
-/-- The read-side calls whose preservation of the invariant (with `LookIdle`) is not proved yet. -/
+/-- The read-side calls that keep the read invariant with `LookIdle` (proved: `GzPublic.greadPending`). -/
 structure GReadPending : Prop where
   read : KeepsRI SRead
   fread : KeepsRI SFread

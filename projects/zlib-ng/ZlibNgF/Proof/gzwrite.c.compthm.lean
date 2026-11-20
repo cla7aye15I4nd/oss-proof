@@ -3,7 +3,8 @@ import ZlibNgF.Proof.«gzwrite.c.compok»
 /-!
 # `gz_comp` meets its specification (`ZlibNgF`)
 
-`gz_comp_spec_of`: `GzCompSpec` from the pending obligations of the deflate side. The proof follows `gz_comp`:
+`gz_comp_spec_of`: `GzCompSpec` from the obligations of the deflate side (`DPending`, proved as
+`DeflatePublic.dpending`). The proof follows `gz_comp`:
 `gz_write_init` when there are no buffers yet (`init_strm` adds what it does to the stream and `reset`), then on a
 handle in the state `GzWX` (`compRest`): the direct `write`, or the `deflateReset` of a pending reset
 (`reset_stepX`), the loop (`loop_spec`) and the store of `reset` for `Z_FINISH`. `Trk` collects the facts these
@@ -569,7 +570,7 @@ theorem post_init {ψ : Int32 → C.DeflateState → Nat} {flush : Int32} {w W1 
     fun e => ⟨by rw [fx.size]; exact hx1.2.2.1, (h0 e).1, fun hd => (h0 e).2 (by rw [fx1.direct]; exact hd)⟩,
     fun hf => by rw [← hre1]; exact hrs hf, fun _ _ h => absurd hsz h⟩
 
-/-- **`gz_comp` meets `GzCompSpec`**, given the pending obligations of the deflate side. -/
+/-- **`gz_comp` meets `GzCompSpec`**, given the obligations of the deflate side (`DPending`). -/
 theorem gz_comp_spec_of (P : DeflateReach.DPending) : GzCompSpec := by
   intro G ψ Gr hP w h b flush s z hs hz hin
   rw [gz_comp_eq, compAll_eq]

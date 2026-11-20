@@ -1,4 +1,4 @@
-<!-- source-sha256: 36d22302f64cc2b6f321690b9abb5493bfa0a06d4fba9b4619428fae21664fae -->
+<!-- source-sha256: 25dd6c6fa2e5ab4e50414b7c7afef013492763b4fc2da779871cac661fdbe5e9 -->
 # 结论的状态
 
 整体库验证状态：**未完成**。
@@ -14,6 +14,7 @@
 | `get_crc_table`、`crc32`、`crc32_z`：安全性 | 公开 C 接口 | 完成 |
 | `crc32_combine`、`crc32_combine64`、`crc32_combine_gen`、`crc32_combine_gen64`、`crc32_combine_op`：安全性与拒绝值 | 公开 C 接口 | 完成 |
 | `compressBound`：安全性与精确值 | 公开 C 接口 | 完成 |
+| `compressBound_z`：安全性 | 公开 C 接口 | 未完成 |
 | `deflateInit_`、`deflateInit2_`：安全性 | 公开 C 接口 | 完成 |
 | `deflate`、`deflateEnd`、`deflateParams`、`deflateTune`、`deflatePrime`、`deflateSetDictionary`、`deflateGetDictionary`、`deflateSetHeader`、`deflatePending`、`deflateUsed`、`deflateBound`、`deflateBound_z`、`deflateReset`、`deflateResetKeep`、`deflateCopy`：安全性 | 公开 C 接口 | 完成 |
 | `inflateInit_`、`inflateInit2_`、`inflateUndermine`：安全性 | 公开 C 接口 | 完成 |
@@ -23,5 +24,5 @@
 | `compress`、`compress2`、`compress_z`、`compress2_z`：安全性 | 公开 C 接口 | 完成 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` 安全性 | 公开 C 接口 | 完成 |
 | `gzopen`、`gzopen64`、`gzdopen`：安全性；某次 `gzopen` 调用在每种模式下都返回可达的文件 | 公开 C 接口 | 完成 |
-| 其他 `gz*` 文件函数安全性 | 公开 C 接口 | 未完成 |
+| `gzbuffer`、`gzrewind`、`gzseek`、`gzseek64`、`gztell`、`gztell64`、`gzoffset`、`gzoffset64`、`gzeof`、`gzerror`、`gzclearerr`、`gzclose`、`gzread`、`gzfread`、`gzgetc`、`gzgetc_`、`gzungetc`、`gzgets`、`gzdirect`、`gzclose_r`、`gzwrite`、`gzfwrite`、`gzputc`、`gzputs`、`gzprintf`、`gzvprintf`、`gzflush`、`gzsetparams`、`gzclose_w`：安全性 | 公开 C 接口 | 完成 |
 | `deflate` / `inflate` 往返性质 | 功能 | 未完成 |

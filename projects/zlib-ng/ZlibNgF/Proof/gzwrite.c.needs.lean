@@ -7,8 +7,8 @@ import ZlibNgF.Proof.«gzlib.c.mode»
 `next_out + avail_out` at the end of `out`, `x.next` before `next_out`. `DeflateParams.DeflateOk` (the field of
 `DeflateReach.DPending`) says that `deflate` keeps the invariant and `DSide` and writes only the output range, but
 not where it leaves the four buffer fields, nor that the loops of `gz_comp` and `gzsetparams` end. `DeflateGz`
-lists these facts about the translated deflate calls; they are obligations of the deflate side, taken as a
-hypothesis here (as `DPending`) until they are theorems.
+lists these facts about the translated deflate calls; they are obligations of the deflate side, proved about the
+translated C code in `deflate.c.gzneeds` (`deflateGz`).
 
 * `init`: `deflateInit2_` leaves the four buffer fields, and when it fails also the `state` field, with the
   allocator fields ready for another call (`gz_write_init` keeps `avail_in`; a failed call is retried by the next

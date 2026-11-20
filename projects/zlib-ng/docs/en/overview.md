@@ -44,9 +44,11 @@ The verified library is built with these options (all other options keep their d
   `zng_alloc_aligned` / `zng_free_aligned`) are safe, and `zng_alloc_aligned` returns aligned
   memory.
 - The streaming `inflate*` and `inflateBack*` functions, `uncompress*`, the streaming `deflate*`
-  functions, and `gzopen`, `gzopen64`, `gzdopen` are safe.
+  functions, the one-shot `compress*` functions, and every `gz*` file function (`gzopen`, `gzdopen`,
+  reading, writing, `gzprintf`, seeking, `gzclose` and the others) are safe.
 
-One-shot `compress*`, the other `gz*` functions and the round trip are not done. Every public function of `zlib.h` is listed as done or not done.
+`compressBound_z` and the round trip are not done; `gzopen_w` is Windows only and not part of this
+build. Every public function of `zlib.h` is listed as done or not done.
 
 The translation of each function above is also compared with the real C library, built with the
 configuration above, on generated inputs. Such tests are evidence that the translation matches the C,

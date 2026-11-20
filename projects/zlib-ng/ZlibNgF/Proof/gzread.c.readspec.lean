@@ -4,7 +4,8 @@ import ZlibNgF.Proof.«gzread.c.lookspec»
 /-!
 # The specifications of `gz_fetch`, `gz_skip` and `gz_read` (`ZlibNgF`)
 
-Statements only; the proofs follow in their own files. They are shaped for the callers: `gz_skip` and `gz_read` call
+Statements only; the proofs are in `gzread.c.fetch` (`gz_fetch_spec`), `gzread.c.skip` (`gz_skip_spec`) and
+`gzread.c.read` (`gz_read_spec`). They are shaped for the callers: `gz_skip` and `gz_read` call
 `gz_fetch`; `gzungetc`, `gzgetc`, `gzgets` and `gz_read` call `gz_skip` when a seek is pending; `gzread`, `gzfread` and
 `gzgetc` call `gz_read`.
 
