@@ -60,7 +60,7 @@ def HM (i : Nat) (v : UInt32 × UInt32 × HuffExit) (H : Heap) : Nat :=
 /-- One trip of the loop. -/
 theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (flush : Int32)
     (I : SLI h i b la ss H) (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hfx : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED) :
+    (hfx : NotSlow h b) :
     Sat H (huff_trip (some b) (.ref (.heap b) wo) flush la ss) (fun v H2 =>
       HI h i b flush v H2 ∧ HM i v H2 < avIn H i + la.toNat + 1) := by
   unfold huff_trip
@@ -140,8 +140,8 @@ theorem huff_ok (T : TreesFacts) :
   have hE' : ∀ b' st, DStateIs h (some i) b' st → 0 < st.level ∧ st.strategy ≠ Z_FIXED := fun b' st hd => by
     obtain ⟨h1, h2⟩ := hE b' st hd; exact ⟨h1, by rw [h2]; decide⟩
   obtain ⟨st, hst, I0⟩ := sli_entry P hz hb hE'
-  have hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED := fun st0 h0 =>
-    (hE' b st0 ⟨i, z, rfl, hz, hb, h0⟩).2
+  have hn : NotSlow h b := fun st0 h0 =>
+    ⟨(hE' b st0 ⟨i, z, rfl, hz, hb, h0⟩).2, fun ht => ht.2.2.1 (hE b st0 ⟨i, z, rfl, hz, hb, h0⟩).2⟩
   obtain ⟨i', z', b', st', al, e, L, -, c⟩ := live P.1
   obtain rfl : i = i' := Option.some.inj e
   obtain rfl : z = z' := Option.some.inj (hz.symm.trans L.hz)

@@ -159,7 +159,7 @@ theorem ne0 {x : UInt32} (hx : (x == 0) = false) : x.toNat ≠ 0 := fun e => by
 theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss ml : UInt32} (flush : Int32)
     (I : SLI h i b la ss H) (hml : ml.toNat < 3)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hfx : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED) :
+    (hfx : NotSlow h b) :
     Sat H (rle_trip (some b) (.ref (.heap b) wo) flush la ss ml) (fun v H2 =>
       RI h i b flush v H2 ∧ RM i v H2 < avIn H i + la.toNat + 1) := by
   unfold rle_trip
@@ -296,8 +296,8 @@ theorem rle_ok (T : TreesFacts) :
   have hE' : ∀ b' st, DStateIs h (some i) b' st → 0 < st.level ∧ st.strategy ≠ Z_FIXED := fun b' st hd => by
     obtain ⟨h1, h2⟩ := hE b' st hd; exact ⟨h1, by rw [h2]; decide⟩
   obtain ⟨st, hst, I0⟩ := sli_entry P hz hb hE'
-  have hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED := fun st0 h0 =>
-    (hE' b st0 ⟨i, z, rfl, hz, hb, h0⟩).2
+  have hn : NotSlow h b := fun st0 h0 =>
+    ⟨(hE' b st0 ⟨i, z, rfl, hz, hb, h0⟩).2, fun ht => ht.2.2.2 (hE b st0 ⟨i, z, rfl, hz, hb, h0⟩).2⟩
   obtain ⟨i', z', b', st', al, e, L, -, c⟩ := live P.1
   obtain rfl : i = i' := Option.some.inj e
   obtain rfl : z = z' := Option.some.inj (hz.symm.trans L.hz)

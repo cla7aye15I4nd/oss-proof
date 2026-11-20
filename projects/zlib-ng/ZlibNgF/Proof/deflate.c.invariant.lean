@@ -294,9 +294,13 @@ structure SideEq (st st' : DeflateState) : Prop where
   last_flush : st'.last_flush = st.last_flush
   /-- `bi_buf` holds 8 or more bits only if it did before -/
   bits : 8 ≤ st'.bi_valid → 8 ≤ st.bi_valid
+  prev_length : st'.prev_length = st.prev_length
+  match_start : st'.match_start = st.match_start
+  match_available : st'.match_available = st.match_available
+  w_size : st'.w_size = st.w_size
 
 theorem SideEq.refl (st : DeflateState) : SideEq st st :=
-  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, id⟩
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, id, rfl, rfl, rfl, rfl⟩
 
 /-! ## Interface lemmas -/
 
