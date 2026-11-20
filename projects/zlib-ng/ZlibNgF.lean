@@ -89,3 +89,12 @@ import ZlibNgF.Proof.«infback.c.initshape»
 import ZlibNgF.Proof.«public-infback»
 import ZlibNgF.Proof.«gzlib.c.invariant»
 import ZlibNgF.Proof.«gzlib.c.reach»
+import ZlibNgF.Proof.«gzlib.c.gsat»
+import ZlibNgF.Proof.«gzlib.c.open»
+import ZlibNgF.Proof.«public-gzopen»
+import ZlibNgF.Proof.«public-gzopen-nonvacuous»
+import ZlibNgF.Proof.«gzlib.c.mode»
+import ZlibNgF.Proof.«gzlib.c.seek»
+import ZlibNgF.Proof.«gzread.c.close»
+import ZlibNgF.Proof.«gzread.c.facts»
+import ZlibNgF.Proof.«gzlib.c.handles»
