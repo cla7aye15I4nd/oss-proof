@@ -75,6 +75,7 @@ import ZlibNgF.Proof.«insert_string_p.h.base»
 import ZlibNgF.Proof.«insert_string_p.h.safety»
 import ZlibNgF.Proof.«compare256_c.c.safety»
 import ZlibNgF.Proof.«match_tpl.h.bits»
+import ZlibNgF.Proof.«match_tpl.h.safety»
 import ZlibNgF.Proof.«slide_hash_c.c.safety»
 import ZlibNgF.Proof.«deflate_p.h.readbuf»
 import ZlibNgF.Math.WinMask
