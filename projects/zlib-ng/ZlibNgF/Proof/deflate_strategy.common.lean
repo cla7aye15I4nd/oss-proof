@@ -1207,6 +1207,12 @@ theorem nz_SH {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} 
 theorem nz_of_SH {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
     (h : NZ b (SH H0 i z b st d)) : st.sym_next ≠ 0 := h st (SH_dstate _ _ _ _ _ _)
 
+/-- `SymLe` of an `SH` heap. -/
+theorem symLe_SH {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    (h : st.sym_next ≤ st.sym_end) : SymLe b (SH H0 i z b st d) := fun st1 h1 => by
+  obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
+  exact h
+
 open ZlibNgF.Proof.Tally (tally_lit_SH) in
 /-- After a tally from `SLW` with `sym_next ≤ sym_end`, symbols wait (`zng_tr_tally_lit`). -/
 theorem slw_tally_lit_nz {h H : Heap} {i b : Nat} {la ss : UInt32} (W : SLW h i b la ss H) (hle : SymLe b H)

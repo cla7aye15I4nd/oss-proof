@@ -67,7 +67,7 @@ theorem sat_ite {α : Type} {H : Heap} {c : Prop} [Decidable c] {a e : M α} {Q 
 
 theorem pf_om {h H : Heap} {i b A : Nat} {W : UInt32} {bf : Bool} (P : PF h i b W A bf H) :
     2 * avIn H i + laOf b H ≤ A ∧ WS b W H := by
-  obtain ⟨H0, z, st, d, rfl, -, -, -, -, hA, hW⟩ := P
+  obtain ⟨H0, z, st, d, rfl, -, -, -, -, -, hA, hW⟩ := P
   refine ⟨by rw [laOf_SH]; exact hA, fun st2 h2 => ?_⟩
   obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2); exact hW
 
@@ -167,7 +167,7 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
     intro c n H0 z st d G hW hcs hL1 hLa hLk hN h258 hfz hμ1
     have P := pe_of_mg G (SH_dstate _ _ _ _ _ _)
     rw [hW, avIn_SH] at P
-    obtain ⟨F, -, -, -, -, -, -⟩ := pe_st P
+    obtain ⟨F, -, -, -, -, -, -, -⟩ := pe_st P
     obtain ⟨wo', po, ho, Ly, -, w1, w2, hlook, h65, hwp, hbig, -, -⟩ := slf_lay F
     have hwin : st.window = .val (.ref (.heap b) wo) := by
       obtain ⟨st0, h0, hw⟩ := F.win
@@ -287,7 +287,7 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
     have hz2' : nz2 = { n with match_length := 0 } := rfl
     clear_value nz2
     have P := pe_of_mg G (SH_dstate _ _ _ _ _ _)
-    obtain ⟨F, -, -, -, -, -, -⟩ := pe_st P
+    obtain ⟨F, -, -, -, -, -, -, -⟩ := pe_st P
     obtain ⟨wo', po, ho, Ly, -, w1, w2, hlook, h65, hwp, hbig, -, -⟩ := slf_lay F
     have hwin : st.window = .val (.ref (.heap b) wo) := by
       obtain ⟨st0, h0, hw⟩ := F.win
@@ -469,7 +469,7 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
         (fun hh H' => ∃ d', H' = SH H0 i z b st d' ∧ MG h i b H' ∧ hh.toNat < 65536) := by
     intro H0 z st d G hW h4
     have P := pe_of_mg G (SH_dstate _ _ _ _ _ _)
-    obtain ⟨F, -, -, -, -, -, -⟩ := pe_st P
+    obtain ⟨F, -, -, -, -, -, -, -⟩ := pe_st P
     obtain ⟨wo', po, ho, Ly, -, w1, w2, hlook, h65, hwp, hbig, -, -⟩ := slf_lay F
     have hwin : st.window = .val (.ref (.heap b) wo) := by
       obtain ⟨st0, h0, hw⟩ := F.win
@@ -558,7 +558,7 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
           have := UInt32.lt_iff_toNat_lt.mp hgt
           rw [UInt32.toNat_add] at this; simp [WANT_MIN_MATCH] at this; omega
         have P := pe_of_mg G2 (SH_dstate _ _ _ _ _ _)
-        obtain ⟨F, -, -, -, -, -, -⟩ := pe_st P
+        obtain ⟨F, -, -, -, -, -, -, -⟩ := pe_st P
         obtain ⟨wo', po, ho, Ly, -, w1, w2, hlook, h65, hwp, hbig, -, -⟩ := slf_lay F
         have hwin : st.window = .val (.ref (.heap b) wo) := by
           obtain ⟨st0, h0, hw⟩ := F.win

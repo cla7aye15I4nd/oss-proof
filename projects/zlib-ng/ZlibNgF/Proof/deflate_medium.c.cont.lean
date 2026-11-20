@@ -63,7 +63,7 @@ theorem cont_trip_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32}
   have P0 := P
   obtain ⟨⟨H0, z, st, d, rfl, -⟩, -⟩ := P0
   obtain ⟨hla, hds⟩ := hc st (SH_dstate _ _ _ _ _ _)
-  obtain ⟨F, hp, hle, Ch, hs, hA, hW⟩ := pe_st P
+  obtain ⟨F, hp, hle, Ch, hs, -, hA, hW⟩ := pe_st P
   obtain ⟨wo', po, ho, Ly, -, w1, w2, hlook, h65, hwp, hbig, -, -⟩ := slf_lay F
   have hwin : st.window = .val (.ref (.heap b) wo) := by
     obtain ⟨st0, h0, hw⟩ := F.win
@@ -108,7 +108,7 @@ theorem cont_trip_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32}
   have hss3 : (st2.strstart + cl).toNat = st.strstart.toNat + cl.toNat := by rw [hss2]; exact hss
   by_cases hb : (bf || r) = true
   · simp only [hb, ite_true]
-    refine Sat.bind (Sat.mono (pf_flush T PF3 flush hw0 hl) ?_)
+    refine Sat.bind (Sat.mono (pf_flush T (hb ▸ PF3) flush hw0 hl) ?_)
     rintro r2 H4 ⟨hnone, hsome⟩
     cases r2 with
     | some r' =>
