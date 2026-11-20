@@ -210,10 +210,22 @@ theorem streamIO_W {H : Heap} {s : GzState} {c base : Nat} {z : ZStream} (hB : G
           · rw [e2] at e; cases e
     · cases e
 
+/-- No `gz_header` is registered on the deflate state of a write handle with buffers. -/
+theorem regNone {H : Heap} {s : GzState} {c base : Nat} {z : ZStream} (hz : H.streams s.strm = some z)
+    (WB : GzWBuf H s c base z) (hdi : DeflateInv.DInv H (some s.strm)) : DRegisteredHeader H (some s.strm) none := by
+  obtain ⟨i, z0, sb, st, al, e0, hz0, hsb, hst, -, core⟩ := hdi
+  cases e0; rw [hz] at hz0; cases hz0
+  obtain ⟨hp, hhp⟩ := core.gzhead
+  have hhp' : st.gzhead = .val hp := hhp
+  refine ⟨sb, st, ⟨⟨z, ⟨_, rfl, hz⟩, hsb⟩, hst⟩, ?_⟩
+  cases hp with
+  | none => exact hhp'
+  | some k => exact absurd hhp' (WB.nohdr sb st k hsb hst)
+
 /-- The `deflate` clause of `DeflateGz` for a potential `ψ` and growth `G`. -/
 def DeflateClause (ψ : Int32 → C.DeflateState → Nat) (G : Nat) : Prop :=
   ∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), DeflateInv.DInv h s → DeflateSide.DSide h s → CrcGlobals h →
-    DStreamIO h s → C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') →
+    DStreamIO h s → DRegisteredHeader h s none → C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h') →
     CallOk (ψ flush) G 5 h h' s ∧ DKeep h h' s ∧ (flush ≠ ZlibNg.Inflate.Z_FINISH → r ≠ ZlibNg.Inflate.Z_STREAM_ERROR →
       ∀ z', StreamAt h' s z' → z'.avail_in = 0 ∨ z'.avail_out = 0)
 
@@ -270,7 +282,7 @@ theorem deflate_stepW (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState
     simp at this; exact this
   have hio := streamIO_W hB hz hwm hd WB hsb hcs hdi
   obtain ⟨r, H', e, f, -, hdi', hside'⟩ := P.deflate H (some s.strm) flush hdi hside hv.2.2.1 hio
-  obtain ⟨hco, hk, hdone⟩ := hD H H' (some s.strm) flush r hdi hside hv.2.2.1 hio e
+  obtain ⟨hco, hk, hdone⟩ := hD H H' (some s.strm) flush r hdi hside hv.2.2.1 hio (regNone hz WB hdi) e
   obtain ⟨z', ⟨i', e1, hz'⟩, hadv, hmu⟩ := hco z ⟨_, rfl, hz⟩
   cases e1
   have hsi : stateIds H (some s.strm) = [sb] := by simp [stateIds, hz, hsb]

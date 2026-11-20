@@ -174,20 +174,22 @@ theorem deflate_stepX (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState
       obtain ⟨r, off, d1, ep, -, -⟩ := hr
       rw [eo', ep]; simp only [Disjoint]
       left; intro e; subst e; exact ho c hcO off ep
+  have hreg : DRegisteredHeader H (some s.strm) none := by
+    refine ⟨sb, st, ⟨⟨z, ⟨_, rfl, hz⟩, hsb'⟩, hst⟩, ?_⟩
+    obtain ⟨hp, hhp⟩ := core.gzhead
+    have hhp' : st.gzhead = .val hp := hhp
+    cases hp with
+    | none => exact hhp'
+    | some k => exact absurd hhp' (WB.nohdr sb st k hsb hst)
   have hio : DStreamIO H (some s.strm) := by
-    refine ⟨z, sb, none, ⟨_, rfl, hz⟩, hsb', ⟨sb, st, ⟨⟨z, ⟨_, rfl, hz⟩, hsb'⟩, hst⟩, ?_⟩, fun k e => absurd e (by simp),
+    refine ⟨z, sb, none, ⟨_, rfl, hz⟩, hsb', hreg, fun k e => absurd e (by simp),
       hinR.1, Or.inr ⟨c, _, d, eo', hdc, by rw [hin2, hout2] at hds; omega⟩, fun off e => by
         rw [eo'] at e; cases e; exact hcs rfl, fun r hr => ?_⟩
-    · obtain ⟨hp, hhp⟩ := core.gzhead
-      have hhp' : st.gzhead = .val hp := hhp
-      cases hp with
-      | none => exact hhp'
-      | some k => exact absurd hhp' (WB.nohdr sb st k hsb hst)
-    · rcases hr with rfl | ⟨k, e, -⟩
-      · exact ⟨hinR.2.1, hinR.2.2⟩
-      · cases e
+    rcases hr with rfl | ⟨k, e, -⟩
+    · exact ⟨hinR.2.1, hinR.2.2⟩
+    · cases e
   obtain ⟨r, H', e, f, -, hdi', hside'⟩ := P.deflate H (some s.strm) flush hdi hside hv.2.2.1 hio
-  obtain ⟨hco, hk, hdone⟩ := hD H H' (some s.strm) flush r hdi hside hv.2.2.1 hio e
+  obtain ⟨hco, hk, hdone⟩ := hD H H' (some s.strm) flush r hdi hside hv.2.2.1 hio hreg e
   obtain ⟨z', ⟨i', e1, hz'⟩, hadv, hmu⟩ := hco z ⟨_, rfl, hz⟩
   cases e1
   have hsi : stateIds H (some s.strm) = [sb] := by simp [stateIds, hz, hsb']
