@@ -7,7 +7,7 @@ A match of length `L` (1 is a literal) is emitted by `s->lookahead -= L`, the ta
 (`deflate_medium_tpl.h:269-276`, and `:303-308` in the continuation loop). Between the tally and `FLUSH_BLOCK` the
 state is `PF bf` (the frame with no pending bytes, the chains, and room for one more symbol unless `bf`, the
 accumulated `bflush`), and `PE bf` adds `sym_next ≤ sym_end` (one more tally may follow: the first continuation of
-a match of length `STD_MAX_MATCH`). `A` bounds `avail_in + lookahead`.
+a match of length `STD_MAX_MATCH`). `A` bounds `2 * avail_in + lookahead`.
 
 * `pe_tally_lit` / `pe_tally_dist`: the tally after `s->lookahead -= L`, with the state after `s->strstart += L`;
 * `pf_flush`: `FLUSH_BLOCK(s, window, 0)` from `PF`;
@@ -25,7 +25,7 @@ open ZlibNg.DeflateP
 /-- The state between a tally and `FLUSH_BLOCK` (see the module comment). -/
 def PF (h : Heap) (i b : Nat) (W : UInt32) (A : Nat) (bf : Bool) (H : Heap) : Prop :=
   ∃ H0 z st d, H = SH H0 i z b st d ∧ SLF h i b H ∧ st.pending = 0 ∧ ChainOk b d st ∧
-    (bf = false → st.sym_next < st.sym_end) ∧ avIn H i + st.lookahead.toNat ≤ A ∧ st.w_size = W
+    (bf = false → st.sym_next < st.sym_end) ∧ 2 * avIn H i + st.lookahead.toNat ≤ A ∧ st.w_size = W
 
 /-- `PF` with room for one more tally. -/
 def PE (h : Heap) (i b : Nat) (W : UInt32) (A : Nat) (bf : Bool) (H : Heap) : Prop := PF h i b W A bf H ∧ SymLe b H
@@ -42,7 +42,7 @@ theorem slf_lv {h H : Heap} {i b : Nat} (F : SLF h i b H) (hl : MedLv h b) {st :
 
 /-- `PE` from the loop state. -/
 theorem pe_of_mg {h H : Heap} {i b : Nat} (G : MG h i b H) {st : DeflateState} (hst : H.dstate b = some st) :
-    PE h i b st.w_size (avIn H i + st.lookahead.toNat) false H := by
+    PE h i b st.w_size (2 * avIn H i + st.lookahead.toNat) false H := by
   obtain ⟨C, Ch⟩ := G
   obtain ⟨z, st1, -, hz, -, hst1, -, -⟩ := C.1.live
   obtain rfl := Option.some.inj (hst1.symm.trans hst)
@@ -68,7 +68,7 @@ theorem pf_mono {h H : Heap} {i b A A' : Nat} {W : UInt32} {bf : Bool} (P : PF h
 theorem pe_st {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st : DeflateState} {d : Array UInt8} {bf : Bool}
     (P : PE h i b W A bf (SH H0 i z b st d)) :
     SLF h i b (SH H0 i z b st d) ∧ st.pending = 0 ∧ st.sym_next ≤ st.sym_end ∧ ChainOk b d st ∧
-      (bf = false → st.sym_next < st.sym_end) ∧ z.avail_in.toNat + st.lookahead.toNat ≤ A ∧ st.w_size = W := by
+      (bf = false → st.sym_next < st.sym_end) ∧ 2 * z.avail_in.toNat + st.lookahead.toNat ≤ A ∧ st.w_size = W := by
   obtain ⟨⟨H1, z1, st1, d1, e1, F, hp, Ch, hs, hA, hW⟩, hSL⟩ := P
   have e2 := congrArg (fun H => H.dstate b) e1
   have e3 := congrArg (fun H => H.bytes b) e1
@@ -134,7 +134,7 @@ theorem pe_post {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st st2 :
         subst e1 e2; exact w) _ _ hla2.symm (by rw [hss2]) (sli_congr (st' := { st2 with strstart := st2.strstart + L }) I rfl)
     exact ((sli_slc (st := { st2 with strstart := st2.strstart + L }) I3).2 _ (SH_dstate _ _ _ _ _ _)).2
   · rw [avIn_SH]
-    show z.avail_in.toNat + st2.lookahead.toNat ≤ A - L.toNat
+    show 2 * z.avail_in.toNat + st2.lookahead.toNat ≤ A - L.toNat
     rw [hla2, hLa']; omega
   · intro e
     subst e
