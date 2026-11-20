@@ -2,6 +2,7 @@ import ZlibNgF.Proof.«public-inflate-control»
 import ZlibNgF.Proof.«public-inflate-init»
 import ZlibNgF.Proof.«inflate.c.copy»
 import ZlibNgF.Proof.«adler32_c.c.safety»
+import ZlibNgF.Proof.«inflate.c.keep»
 
 /-!
 # Reachable inflate streams have the structural invariant (`ZlibNgF`)
@@ -175,6 +176,7 @@ theorem inflateCodesUsed_safety_of (P : Pending) : Goal.inflateCodesUsed_safety 
 
 theorem inflateReset_safety_of (P : Pending) : Goal.inflateReset_safety := by
   intro h s _ hh
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateReset _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateControl.inflateReset_noState (Or.inl hn), InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateControl.inflateReset_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩
@@ -183,6 +185,7 @@ theorem inflateReset_safety_of (P : Pending) : Goal.inflateReset_safety := by
 
 theorem inflateResetKeep_safety_of (P : Pending) : Goal.inflateResetKeep_safety := by
   intro h s _ hh
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateResetKeep _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateControl.inflateResetKeep_noState (Or.inl hn), InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateControl.inflateResetKeep_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩
@@ -191,6 +194,7 @@ theorem inflateResetKeep_safety_of (P : Pending) : Goal.inflateResetKeep_safety 
 
 theorem inflateReset2_safety_of (P : Pending) : Goal.inflateReset2_safety := by
   intro h s w _ hh
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateReset2 _ _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateControl.inflateReset2_noState (Or.inl hn) w, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateControl.inflateReset2_noState (Or.inr hn) w, InflateInit.frame_refl h _ _ _ _⟩
@@ -201,6 +205,7 @@ theorem inflateReset2_safety_of (P : Pending) : Goal.inflateReset2_safety := by
 
 theorem inflateGetDictionary_safety_of (P : Pending) : Goal.inflateGetDictionary_safety := by
   intro h s d hasLen _ hh hd hnb
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateGetDictionary _ _ _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateDict.getDict_noState (Or.inl hn) d hasLen, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateDict.getDict_noState (Or.inr hn) d hasLen, InflateInit.frame_refl h _ _ _ _⟩
@@ -209,6 +214,7 @@ theorem inflateGetDictionary_safety_of (P : Pending) : Goal.inflateGetDictionary
 
 theorem inflateSetDictionary_safety_of (P : Pending) : Goal.inflateSetDictionary_safety := by
   intro h s d n _ hh hd hnb
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateSetDictionary _ _ _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateWindow.setDict_noState (Or.inl hn) d n, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateWindow.setDict_noState (Or.inr hn) d n, InflateInit.frame_refl h _ _ _ _⟩
@@ -217,6 +223,7 @@ theorem inflateSetDictionary_safety_of (P : Pending) : Goal.inflateSetDictionary
 
 theorem inflateSync_safety_of (P : Pending) : Goal.inflateSync_safety := by
   intro h s _ hh hio
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateSync _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateSync.sync_noState (Or.inl hn), InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateSync.sync_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩
@@ -225,6 +232,7 @@ theorem inflateSync_safety_of (P : Pending) : Goal.inflateSync_safety := by
 
 theorem inflateCopy_safety_of (P : Pending) : Goal.inflateCopy_safety := by
   intro h dst src _ hfr hh hdst hne
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateCopy _ _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateCopy.copy_noState (Or.inl hn) dst, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateCopy.copy_noState (Or.inr hn) dst, InflateInit.frame_refl h _ _ _ _⟩
@@ -241,6 +249,7 @@ theorem frame_of {h h' : Heap} {S B G : List Nat} (hs : ∀ i, i ∉ S → h'.st
 
 theorem inflatePrime_safety_of (P : Pending) : Goal.inflatePrime_safety := by
   intro h s bits value _ hh
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflatePrime _ _ _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateControl.inflatePrime_noState (Or.inl hn) bits value, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateControl.inflatePrime_noState (Or.inr hn) bits value, InflateInit.frame_refl h _ _ _ _⟩
@@ -254,6 +263,7 @@ theorem inflatePrime_safety_of (P : Pending) : Goal.inflatePrime_safety := by
 
 theorem inflateValidate_safety_of (P : Pending) : Goal.inflateValidate_safety := by
   intro h s check _ hh
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateValidate _ _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateControl.inflateValidate_noState (Or.inl hn) check, InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateControl.inflateValidate_noState (Or.inr hn) check, InflateInit.frame_refl h _ _ _ _⟩
@@ -268,6 +278,7 @@ theorem inflateValidate_safety_of (P : Pending) : Goal.inflateValidate_safety :=
 
 theorem inflateGetHeader_safety_of (P : Pending) : Goal.inflateGetHeader_safety := by
   intro h s hp _ hh hpn hok
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateGetHeader _ _) ?_
   rcases hok with hn | ⟨k, g, rfl, hg, -⟩
   · exact absurd hn hpn
   rcases hh with hn | hn | hr
@@ -283,6 +294,7 @@ theorem inflateGetHeader_safety_of (P : Pending) : Goal.inflateGetHeader_safety 
 
 theorem inflateEnd_safety_of (P : Pending) : Goal.inflateEnd_safety := by
   intro h s _ hh
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateEnd _) ?_
   rcases hh with hn | hn | hr
   · exact ⟨_, _, InflateControl.inflateEnd_noState (Or.inl hn), InflateInit.frame_refl h _ _ _ _⟩
   · exact ⟨_, _, InflateControl.inflateEnd_noState (Or.inr hn), InflateInit.frame_refl h _ _ _ _⟩

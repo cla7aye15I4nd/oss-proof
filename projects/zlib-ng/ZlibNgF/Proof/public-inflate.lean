@@ -322,6 +322,7 @@ open ZlibNgF.Spec.Safety in
 library's block, the registered header and the output and header buffers change. -/
 theorem inflate_safety : Goal.inflate_safety := by
   intro h s flush hcg hh hio
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflate _ _) ?_
   rcases hh with rfl | ⟨z, hz, hs⟩ | hr
   · exact ⟨_, _, inflate_rejected flush (InflateInv.stateCheck_none h), frame_refl ..⟩
   · exact ⟨_, _, inflate_rejected flush (InflateInv.stateCheck_closed h s z hz hs), frame_refl ..⟩
