@@ -807,3 +807,462 @@ theorem p2_SH (t : DescSel) (Y : DeflateState) (qS : Bool) (srt : List (Nat × N
 end
 
 end ZlibNgF.Proof.TreesBitlen
+
+/-! # The overflow repair and the length re-assignment -/
+
+namespace ZlibNgF.Proof.TreesBitlen
+open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNg.Trees ZlibNgF.Proof.DeflateInit ZlibNgF.Proof.TreesPrims
+open ZlibNgF.Proof.TreesScan ZlibNgF.Proof.TreesSort ZlibNgF.Proof.TreesBuild ZlibNgF.Proof.TreesMerge
+open ZlibNgF.Proof.TreesForce (sdl)
+open ZlibNgF.Proof.TreesBuildSpec (tElems tMaxLen xb)
+open ZlibNgF.Math.TreesLabeled
+open ZlibNgF.Math.Huff (repairStep repairIter deepest updC cumC lenOfRank)
+open ZlibNgF.Math.TreesRank (RInv rstep)
+open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono sat_cwhile)
+open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f u32_toInt32_toInt)
+
+/-! # The overflow repair -/
+
+/-- `do body while (cond)` over a changing heap, with a decreasing measure. -/
+theorem sat_doW {σ : Type} {body : σ → M σ} {cond : σ → M (Bool × σ)} (I : σ → Heap → Prop) (μ : σ → Nat)
+    (Q : σ → Heap → Prop)
+    (hstep : ∀ s H, I s H → Sat H (body s) (fun s1 H1 => Sat H1 (cond s1) (fun cs H2 =>
+      (cs.1 = true → I cs.2 H2 ∧ μ cs.2 < μ s) ∧ (cs.1 = false → Q cs.2 H2))))
+    {s : σ} {H : Heap} (hI : I s H) (hμ : μ s < fuel) : Sat H (cdoWhile body cond s) Q := by
+  unfold cdoWhile
+  suffices ∀ n s H, I s H → μ s < n → Sat H (cdoWhile.go body cond n s) Q from this _ s H hI hμ
+  intro n
+  induction n with
+  | zero => intro s _ _ hlt; omega
+  | succ n ih =>
+    intro s H hI hlt
+    obtain ⟨s1, H1, eb, ⟨⟨c, s2⟩, H2, ec, ht, hf⟩⟩ := hstep s H hI
+    cases c with
+    | false => exact ⟨s2, H2, by simp [cdoWhile.go, bind_app, eb, ec], hf rfl⟩
+    | true =>
+      obtain ⟨hI2, hμ2⟩ := ht rfl
+      simp only at hI2 hμ2
+      obtain ⟨s', H', eg, q⟩ := ih s2 H2 hI2 (by omega)
+      exact ⟨s', H', by simp [cdoWhile.go, bind_app, eb, ec, eg], q⟩
+
+/-- `bl_count` holds the counts `c` at `0 .. 15`. -/
+def BC (blc : Array UInt16) (c : Nat → Nat) : Prop := blc.size = 16 ∧ ∀ j, j < 16 → (blc[j]!).toNat = c j
+
+theorem u16_beq0 (x : UInt16) : (x == 0) = decide (x.toNat = 0) := by
+  by_cases h : x.toNat = 0
+  · have : x = 0 := UInt16.toNat_inj.mp (by simpa using h)
+    simp [this]
+  · have : x ≠ 0 := fun e => h (by rw [e]; rfl)
+    simp [this, h]
+
+section
+variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8}
+
+/-- The scan `while (bl_count[bits] == 0) bits--` from `max_length - 1` stops at the deepest nonempty level `bb`. -/
+theorem scanBits_SH (X : DeflateState) (c : Nat → Nat) (Lm : Nat) (L : UInt32) (hL : L.toNat = Lm) (hLm : Lm ≤ 15)
+    (hbc : BC X.bl_count c) (bb : Nat) (hb1 : 1 ≤ bb) (hb2 : bb ≤ Lm - 1) (hcb : c bb ≠ 0)
+    (hz : ∀ j, bb < j → j ≤ Lm - 1 → c j = 0) :
+    Sat (SH H i z b X d)
+      (cwhile (fun (bits : UInt32) => do pure ((← blCountGet (some b) bits.toNat) == 0, bits))
+        (fun (bits : UInt32) => pure (bits - 1)) (L - 1))
+      (fun r H' => H' = SH H i z b X d ∧ r.toNat = bb) := by
+  have hL1 : (L - 1).toNat = Lm - 1 := by
+    rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; simp; omega)]; simp [hL]
+  refine sat_cwhile (I := fun (bits : UInt32) H' => H' = SH H i z b X d ∧ bb ≤ bits.toNat ∧ bits.toNat ≤ Lm - 1 ∧
+      ∀ j, bits.toNat < j → j ≤ Lm - 1 → c j = 0)
+    (μ := fun bits => bits.toNat) _ ?_ ⟨rfl, by omega, by omega, fun j h1 h2 => by omega⟩
+    (by simp only [fuel]; have := (L - 1).toNat_lt; omega)
+  rintro bits _ ⟨rfl, h1, h2, h3⟩
+  refine Sat.bind (Sat.of_eq (blCountGet_SH X bits.toNat (by rw [hbc.1]; omega)) ?_)
+  have hcb' := hbc.2 bits.toNat (by omega)
+  refine Sat.pure ⟨fun hc => ?_, fun hc => ?_⟩
+  · dsimp only at hc ⊢
+    simp only [u16_beq0, decide_eq_true_eq, hcb'] at hc
+    have hne : bits.toNat ≠ bb := fun e => hcb (e ▸ hc)
+    have hbs : (bits - 1).toNat = bits.toNat - 1 := by
+      rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; simp; omega)]; simp
+    refine Sat.pure ⟨⟨rfl, by omega, by omega, fun j hj1 hj2 => ?_⟩, by omega⟩
+    by_cases hj : j = bits.toNat
+    · rw [hj]; exact hc
+    · exact h3 j (by omega) hj2
+  · dsimp only at hc ⊢
+    simp only [u16_beq0, decide_eq_false_iff_not, hcb'] at hc
+    refine ⟨rfl, ?_⟩
+    refine Nat.le_antisymm (Nat.le_of_not_lt fun hlt => hc (hz _ hlt h2)) h1
+
+
+theorem BC_set (blc : Array UInt16) (c : Nat → Nat) (h : BC blc c) (k : Nat) (hk : k < 16) (v : UInt16) (w : Nat)
+    (hv : v.toNat = w) : BC (blc.set! k v) (updC c k w) := by
+  refine ⟨by simp [h.1], fun j hj => ?_⟩
+  by_cases e : j = k
+  · subst e; rw [set!_get_eq _ _ _ (by rw [h.1]; omega)]; simp [updC, hv]
+  · rw [set!_get_ne _ _ _ _ e, h.2 j hj]; simp [updC, e]
+
+/-- **One trip of the repair loop**: the counts become `repairStep max_length c`, `overflow` drops by 2. -/
+theorem rpBody_SH (t : DescSel) (Y : DeflateState) (A2 : Array Ct) (o sl : UInt32) (blc : Array UInt16)
+    (c : Nat → Nat) (Lm N m : Nat) (L : UInt32) (hL : L.toNat = Lm) (hLm : Lm ≤ 15) (hN : N ≤ 2 ^ Lm)
+    (hR : RInv Lm N (m + 1) c) (hbc : BC blc c) (ov : Int32) (hov : ov.toInt = 2 * (m + 1)) (hm : m ≤ 1000) :
+    Sat (SH H i z b (LS t Y A2 blc o sl) d) (rpBody (some b) L ov)
+      (fun r H' => ∃ blc', H' = SH H i z b (LS t Y A2 blc' o sl) d ∧ BC blc' (repairStep Lm c) ∧
+        r.toInt = 2 * m) := by
+  obtain ⟨b1, b2, b3, b4, b5, _⟩ := rstep Lm N m c hN hR
+  have hcle : ∀ j, j ≤ Lm → c j ≤ N := fun j hj => hR.tot ▸ ZlibNgF.Math.TreesRank.le_cumC c Lm j hj
+  have hNb : N ≤ 2 ^ 15 := Nat.le_trans hN (Nat.pow_le_pow_right (by omega) hLm)
+  have hst : repairStep Lm c = updC (updC (updC c (deepest c (Lm - 1)) (c (deepest c (Lm - 1)) - 1))
+      (deepest c (Lm - 1) + 1) (updC c (deepest c (Lm - 1)) (c (deepest c (Lm - 1)) - 1) (deepest c (Lm - 1) + 1) + 2))
+      Lm (updC (updC c (deepest c (Lm - 1)) (c (deepest c (Lm - 1)) - 1)) (deepest c (Lm - 1) + 1)
+        (updC c (deepest c (Lm - 1)) (c (deepest c (Lm - 1)) - 1) (deepest c (Lm - 1) + 1) + 2) Lm - 1) := rfl
+  rw [hst]
+  generalize hbb : deepest c (Lm - 1) = bb at b1 b2 b3 b4
+  unfold rpBody
+  refine Sat.bind (Sat.mono (scanBits_SH (LS t Y A2 blc o sl) c Lm L hL hLm (by simpa using hbc) bb b1 b2 b3 b4) ?_)
+  rintro bits _ ⟨rfl, hbits⟩
+  rw [hbits]
+  have hb1 : (bits + 1).toNat = bb + 1 := by rw [UInt32.toNat_add, hbits]; simp; omega
+  refine Sat.bind (Sat.of_eq (blCountGet_SH _ bb (by simp [hbc.1]; omega)) ?_)
+  refine Sat.bind (Sat.of_eq (blCountSet_SH _ bb (by simp [hbc.1]; omega) _) ?_)
+  simp only [LS_bc, LS_set_bc]
+  have bc1 := BC_set blc c hbc bb (by omega) (blc[bb]! - 1) (c bb - 1) (by
+    rw [UInt16.toNat_sub_of_le _ _ (by rw [UInt16.le_iff_toNat_le, hbc.2 bb (by omega)]; simp; omega),
+      hbc.2 bb (by omega)]; simp)
+  have c1b : updC c bb (c bb - 1) (bb + 1) = c (bb + 1) := by simp [updC]
+  have c1L : updC c bb (c bb - 1) Lm = c Lm := by simp only [updC, show ¬ (Lm = bb) by omega, ↓reduceIte]
+  generalize updC c bb (c bb - 1) = c1 at bc1 c1b c1L ⊢
+  generalize blc.set! bb (blc[bb]! - 1) = blc1 at bc1 ⊢
+  rw [hb1]
+  refine Sat.bind (Sat.of_eq (blCountGet_SH _ (bb + 1) (by simp [bc1.1]; omega)) ?_)
+  refine Sat.bind (Sat.of_eq (blCountSet_SH _ (bb + 1) (by simp [bc1.1]; omega) _) ?_)
+  simp only [LS_bc, LS_set_bc]
+  have hx := bc1.2 (bb + 1) (by omega)
+  have hcb1 := hcle (bb + 1) (by omega)
+  have bc2 := BC_set blc1 c1 bc1 (bb + 1) (by omega) ((blc1[bb + 1]!.toUInt32 + 2).toUInt16) (c1 (bb + 1) + 2) (by
+    rw [UInt32.toNat_toUInt16, UInt32.toNat_add, UInt16.toNat_toUInt32, hx]; simp; omega)
+  have c2L : 2 ≤ updC c1 (bb + 1) (c1 (bb + 1) + 2) Lm := by
+    simp only [updC]; split <;> (try subst_vars) <;> omega
+  generalize updC c1 (bb + 1) (c1 (bb + 1) + 2) = c2 at bc2 c2L ⊢
+  generalize blc1.set! (bb + 1) ((blc1[bb + 1]!.toUInt32 + 2).toUInt16) = blc2 at bc2 ⊢
+  rw [hL]
+  refine Sat.bind (Sat.of_eq (blCountGet_SH _ Lm (by simp [bc2.1]; omega)) ?_)
+  refine Sat.bind (Sat.of_eq (blCountSet_SH _ Lm (by simp [bc2.1]; omega) _) ?_)
+  simp only [LS_bc, LS_set_bc]
+  have hy := bc2.2 Lm (by omega)
+  have bc3 := BC_set blc2 c2 bc2 Lm (by omega) (blc2[Lm]! - 1) (c2 Lm - 1) (by
+    rw [UInt16.toNat_sub_of_le _ _ (by rw [UInt16.le_iff_toNat_le, hy]; simp; omega), hy]; simp)
+  rw [chkI32_ok (v := ov.toInt - 2) (by omega) (by omega)]
+  exact Sat.pure ⟨_, rfl, bc3, by rw [i32_ofInt (ov.toInt - 2) (by omega) (by omega)]; omega⟩
+
+
+/-- **The repair loop** runs `M = overflow / 2` trips: the counts become `repairIter max_length M c0`. -/
+theorem rp_SH (t : DescSel) (Y : DeflateState) (A2 : Array Ct) (o sl : UInt32) (blc : Array UInt16)
+    (c0 : Nat → Nat) (Lm N M : Nat) (L : UInt32) (hL : L.toNat = Lm) (hLm : Lm ≤ 15) (hN : N ≤ 2 ^ Lm)
+    (hM : 1 ≤ M) (hMb : M ≤ 1000) (hR : RInv Lm N M c0) (hbc : BC blc c0) (ov : Int32) (hov : ov.toInt = 2 * M) :
+    Sat (SH H i z b (LS t Y A2 blc o sl) d) (cdoWhile (rpBody (some b) L) rpCond ov)
+      (fun _ H' => ∃ blc', H' = SH H i z b (LS t Y A2 blc' o sl) d ∧ BC blc' (repairIter Lm M c0)) := by
+  refine sat_doW (I := fun (ov : Int32) H' => ∃ (m : Nat) (blc : Array UInt16), 1 ≤ m ∧ m ≤ M ∧
+      ov.toInt = 2 * m ∧ H' = SH H i z b (LS t Y A2 blc o sl) d ∧ BC blc (repairIter Lm (M - m) c0) ∧
+      RInv Lm N m (repairIter Lm (M - m) c0))
+    (μ := fun ov => ov.toInt.toNat) _ ?_ ⟨M, blc, hM, Nat.le_refl _, hov, rfl, by rw [Nat.sub_self]; exact hbc,
+      by rw [Nat.sub_self]; exact hR⟩ (by simp only [fuel]; omega)
+  rintro ov _ ⟨m, blc, hm1, hm2, hov, rfl, hbc, hR⟩
+  obtain ⟨m', rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
+  have hR' := (rstep Lm N m' _ hN hR).2.2.2.2.2
+  refine Sat.mono (rpBody_SH t Y A2 o sl blc _ Lm N m' L hL hLm hN hR hbc ov hov (by omega)) ?_
+  rintro r _ ⟨blc', rfl, hbc', hr⟩
+  have hit : repairIter Lm (M - m') c0 = repairStep Lm (repairIter Lm (M - (m' + 1)) c0) := by
+    rw [show M - m' = (M - (m' + 1)) + 1 by omega, ZlibNgF.Math.TreesRank.repairIter_succ']
+  simp only [rpCond]
+  refine Sat.pure ⟨fun hc => ?_, fun hc => ?_⟩
+  · have hc' : 0 < r.toInt := by have := Int32.lt_iff_toInt_lt.mp (show (0 : Int32) < r by simpa using hc); simpa using this
+    refine ⟨⟨m', blc', by omega, by omega, hr, rfl, by rw [hit]; exact hbc', by rw [hit]; exact hR'⟩, ?_⟩
+    dsimp only; omega
+  · have hc' : ¬ (0 < r.toInt) := fun h => by
+      have : (0 : Int32) < r := Int32.lt_iff_toInt_lt.mpr (by simpa using h)
+      simp [this] at hc
+    have hm0 : m' = 0 := by omega
+    subst hm0
+    refine ⟨blc', rfl, ?_⟩
+    rw [show M = (M - (0 + 1)) + 1 by omega, ZlibNgF.Math.TreesRank.repairIter_succ']
+    exact hbc'
+
+end
+
+
+/-! # The length re-assignment -/
+
+/-- `Σ_{e ∈ srt} f(e) * (Len(e) + extra(e))` over the tree `A`. -/
+def sumF (t : DescSel) (srt : List (Nat × Nat)) (A : Array Ct) : Nat :=
+  (srt.map (fun e => e.1 * ((A[e.2]!).dl.toNat + xb t e.2))).sum
+
+theorem sum_upd (g g' : Nat × Nat → Nat) (e : Nat × Nat) :
+    ∀ (l : List (Nat × Nat)), (l.map Prod.snd).Nodup → e ∈ l → (∀ x ∈ l, x.2 ≠ e.2 → g' x = g x) →
+      (l.map g').sum + g e = (l.map g).sum + g' e
+  | [], _, he, _ => by simp at he
+  | x :: l, hnd, he, hg => by
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    simp only [List.map_cons, List.sum_cons]
+    rcases List.mem_cons.mp he with rfl | he'
+    · have : l.map g' = l.map g := List.map_congr_left (fun y hy => hg y (List.mem_cons_of_mem _ hy)
+        (fun eq => hnd.1 ⟨y, hy, eq⟩))
+      rw [this]; omega
+    · have hx : x.2 ≠ e.2 := fun eq => hnd.1 ⟨e, he', eq.symm⟩
+      have ih := sum_upd g g' e l (by simpa using hnd.2) he' (fun y hy => hg y (List.mem_cons_of_mem _ hy))
+      rw [hg x (by simp) hx]; omega
+
+theorem u32_upd (O : UInt32) (S S' B f len : Nat) (h : S' + f * len = S + f * B) (bits : UInt32) (fr : UInt16)
+    (p : Int32) (hb : bits.toNat = B) (hf : fr.toNat = f) (hp : p.toInt = (len * f : Nat)) :
+    O + S.toUInt32 + bits * fr.toUInt32 - p.toUInt32 = O + S'.toUInt32 := by
+  apply UInt32.toNat_inj.mp
+  have h1 := i32_u32 p (by omega)
+  have hpl : f * len < 2 ^ 31 := by have := Int32.toInt_lt p; rw [Nat.mul_comm]; omega
+  rw [hp] at h1
+  simp only [Int.toNat_natCast] at h1
+  simp only [UInt32.toNat_sub, UInt32.toNat_add, UInt32.toNat_mul, h1, Nat.toUInt32_eq, UInt32.toNat_ofNat',
+    UInt16.toNat_toUInt32, hb, hf]
+  rw [Nat.mul_comm len f, Nat.mul_comm B f]
+  omega
+
+
+/-- The rest of a trip of the inner re-assignment loop after reading `sorted[i]` (copied from `riBody`). -/
+def riRest (st : StatePtr) (tree : CtPtr) (bits : UInt32) (n ii : Int32) (x : UInt32) : M (Int32 × Int32) := do
+  let m := pq_node x
+  let i ← chkI32 (ii.toInt + 1)
+  let len ← ctDl tree m.toInt
+  if len.toUInt32 != bits then
+    let fr ← ctFc tree m.toInt
+    wrD st fun s => { s with opt_len := s.opt_len + bits * fr.toUInt32 }
+    let len ← ctDl tree m.toInt
+    let fr ← ctFc tree m.toInt
+    let p ← chkI32 (len.toNat * fr.toNat)
+    wrD st fun s => { s with opt_len := s.opt_len - p.toUInt32 }
+    ctSetDl tree m.toInt bits.toUInt16
+  pure (← chkI32 (n.toInt - 1), i)
+
+theorem riBody_bind {st : StatePtr} {tree : CtPtr} {sorted : DWPtr} {bits : UInt32} {n ii : Int32} {H : Heap}
+    {Q : Int32 × Int32 → Heap → Prop}
+    (h : Sat H (dwGet sorted ii.toInt) (fun x H' => Sat H' (riRest st tree bits n ii x) Q)) :
+    Sat H (riBody st tree sorted bits (n, ii)) Q := by
+  delta riBody
+  exact Sat.bind h
+
+theorem nd_idx (srt : List (Nat × Nat)) (hnd : (srt.map Prod.snd).Nodup) (j k : Nat) (hj : j < srt.length)
+    (hk : k < srt.length) (hjk : j ≠ k) : (srt[j]!).2 ≠ (srt[k]!).2 := by
+  rw [getElem!_pos srt j hj, getElem!_pos srt k hk]
+  intro e
+  have e' : (srt.map Prod.snd)[j]'(by simpa using hj) = (srt.map Prod.snd)[k]'(by simpa using hk) := by simpa using e
+  exact hjk ((List.Nodup.getElem_inj hnd).mp e')
+
+theorem mul_bnd (a c : Nat) (ha : a ≤ 15) (hc : c < 65536) :
+    -2147483648 ≤ (a : Int) * (c : Int) ∧ (a : Int) * (c : Int) < 2147483648 := by
+  rw [← Int.natCast_mul]
+  have := Nat.mul_le_mul ha (Nat.le_of_lt_succ hc)
+  omega
+
+/-- The re-assignment has handled the leaves at sorted positions `< k`: they have length `lenOfRank L c (N - j)`;
+everything else is the tree `A2` of the leaf pass. -/
+def RA (A2 : Array Ct) (srt : List (Nat × Nat)) (Lm : Nat) (c : Nat → Nat) (A3 : Array Ct) (k : Nat) : Prop :=
+  A3.size = A2.size ∧ (∀ m : Nat, (A3[m]!).fc = (A2[m]!).fc) ∧ (∀ m : Nat, m ∉ srt.map Prod.snd → A3[m]! = A2[m]!) ∧
+  (∀ j, j < k → j < srt.length → (A3[(srt[j]!).2]!).dl.toNat = lenOfRank Lm c (srt.length - j)) ∧
+  (∀ j, k ≤ j → j < srt.length → A3[(srt[j]!).2]! = A2[(srt[j]!).2]!)
+
+section
+variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8}
+
+/-- **The inner re-assignment loop** for `bits = B ≥ 1`: the next `c B` leaves in sorted order get length `B`, with
+the `opt_len` correction `(B - Len) * Freq` (modulo `2^32`). -/
+theorem ri_SH (t : DescSel) (Y : DeflateState) (blc : Array UInt16) (sl O : UInt32) (A2 : Array Ct)
+    (srt : List (Nat × Nat)) (Lm B : Nat) (c : Nat → Nat) (qS : Bool) (bits : UInt32) (hB : bits.toNat = B)
+    (hB1 : 1 ≤ B) (hBL : B ≤ Lm) (hLm : Lm ≤ 15) (hN' : srt.length ≤ 286) (htot : cumC c Lm = srt.length)
+    (hS : (qArr qS Y).size = 287) (hsrt : ∀ p, p < srt.length → (qArr qS Y)[p]! = pk srt[p]!)
+    (hb : ∀ e ∈ srt, e.1 < 65536 ∧ e.2 < tElems t) (hnd : (srt.map Prod.snd).Nodup)
+    (hA2fc : ∀ e ∈ srt, ((A2[e.2]!).fc).toNat = e.1) (hA2dl : ∀ e ∈ srt, ((A2[e.2]!).dl).toNat ≤ 15)
+    (hAs : tElems t ≤ A2.size)
+    (A3 : Array Ct) (n ii : Int32) (hn : n.toInt = c B) (hii : ii.toInt = ((srt.length - cumC c B : Nat) : Int))
+    (hRA : RA A2 srt Lm c A3 (srt.length - cumC c B)) :
+    Sat (SH H i z b (LS t Y A3 blc (O + (sumF t srt A3).toUInt32) sl) d)
+      (cwhile riCond (riBody (some b) (.ref (tRef t b) 0) (.ref (qRef qS b) 0) bits) (n, ii))
+      (fun x H' => ∃ A4, H' = SH H i z b (LS t Y A4 blc (O + (sumF t srt A4).toUInt32) sl) d ∧
+        x.2.toInt = ((srt.length - cumC c (B - 1) : Nat) : Int) ∧ RA A2 srt Lm c A4 (srt.length - cumC c (B - 1))) := by
+  have hE := tSize_ge t
+  have hcB := ZlibNgF.Math.TreesRank.cumC_pred c B hB1
+  have hmono := ZlibNgF.Math.Huff.cumC_mono c hBL
+  generalize hN : srt.length = N at *
+  refine sat_cwhile (I := fun (x : Int32 × Int32) H' => ∃ (jj : Nat) (A4 : Array Ct), jj ≤ c B ∧
+      x.1.toInt = (c B : Int) - jj ∧ x.2.toInt = ((N - cumC c B + jj : Nat) : Int) ∧
+      H' = SH H i z b (LS t Y A4 blc (O + (sumF t srt A4).toUInt32) sl) d ∧ RA A2 srt Lm c A4 (N - cumC c B + jj))
+    (μ := fun x => x.1.toInt.toNat) _ ?_ ⟨0, A3, Nat.zero_le _, by dsimp only; omega, by simpa using hii, rfl,
+      by simpa using hRA⟩
+    (by simp only [fuel]; omega)
+  rintro ⟨n, ii⟩ _ ⟨jj, A4, hjj, hn1, hii1, rfl, hR⟩
+  dsimp only at hn1 hii1
+  simp only [riCond]
+  refine Sat.pure ⟨fun hc => ?_, fun hc => ?_⟩
+  · have hc' : jj < c B := by
+      have : n ≠ 0 := by simpa using hc
+      have : n.toInt ≠ 0 := fun h => this (Int32.toInt_inj.mp (by simpa using h))
+      omega
+    obtain ⟨hRs, hRfc, hRo, hRl, hRu⟩ := hR
+    generalize hk : N - cumC c B + jj = k at *
+    have hkN : k < N := by omega
+    generalize he : srt[k]! = e
+    have hmem : e ∈ srt := he ▸ mem_of_idx' srt k (by omega)
+    obtain ⟨he1, he2⟩ := hb e hmem
+    have hA4e : A4[e.2]! = A2[e.2]! := by rw [← he]; exact hRu k (Nat.le_refl _) (by omega)
+    have hlen0 := hA2dl e hmem
+    have hfr := hA2fc e hmem
+    refine riBody_bind ?_
+    rw [hii1]
+    refine Sat.of_eq (dwGet_Q qS _ k (by simp; omega)) ?_
+    delta riRest
+    rw [hii1]
+    simp only [qArr_LS]
+    rw [hsrt k (by omega), he]
+    rw [chkI32_ok (v := (k : Int) + 1) (by omega) (by omega)]
+    refine Sat.bind (Sat.pure ?_)
+    rw [pk_node e (by omega) (by omega)]
+    refine Sat.bind (Sat.of_eq (ctDl_T t _ e.2 (by simp; omega)) ?_)
+    simp only [tArr_LS]
+    rw [hA4e]
+    -- the leaf of rank `N - k` has length `B`
+    have hrank : lenOfRank Lm c (N - k) = B :=
+      ZlibNgF.Math.TreesRank.lenOfRank_band Lm c B (N - k) hB1 hBL (by omega) (by omega)
+    have hRA' : ∀ (A5 : Array Ct), A5.size = A4.size → (∀ m : Nat, (A5[m]!).fc = (A4[m]!).fc) →
+        (∀ m : Nat, m ≠ e.2 → A5[m]! = A4[m]!) → (A5[e.2]!).dl.toNat = B →
+        RA A2 srt Lm c A5 (N - cumC c B + (jj + 1)) := by
+      intro A5 h1 h2 h3 h4
+      have hk1 : N - cumC c B + (jj + 1) = k + 1 := by omega
+      rw [hk1]
+      refine ⟨by omega, fun m => by rw [h2, hRfc], fun m hm => ?_, fun j hj hjN => ?_, fun j hj hjN => ?_⟩
+      · rw [h3 m (fun eq => hm (eq ▸ List.mem_map_of_mem hmem)), hRo m hm]
+      · by_cases hjk : j = k
+        · subst hjk; rw [he, h4, hN, hrank]
+        · have hne := nd_idx srt hnd j k (by omega) (by omega) hjk
+          rw [he] at hne
+          rw [h3 _ hne]; exact hRl j (by omega) hjN
+      · have hne := nd_idx srt hnd j k (by omega) (by omega) (by omega)
+        rw [he] at hne
+        rw [h3 _ hne]; exact hRu j (by omega) hjN
+    by_cases hneq : ((A2[e.2]!).dl.toUInt32 != bits) = true
+    · simp only [hneq, ↓reduceIte]
+      refine Sat.bind (Sat.of_eq (ctFc_T t _ e.2 (by simp; omega)) ?_)
+      simp only [tArr_LS]
+      refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+      simp only [LS_opt, LS_set_opt]
+      refine Sat.bind (Sat.of_eq (ctDl_T t _ e.2 (by simp; omega)) ?_)
+      refine Sat.bind (Sat.of_eq (ctFc_T t _ e.2 (by simp; omega)) ?_)
+      simp only [tArr_LS]
+      rw [hA4e]
+      have hmb := mul_bnd _ _ hlen0 (show (A2[e.2]!).fc.toNat < 65536 by omega)
+      rw [chkI32_ok (v := ((A2[e.2]!).dl.toNat : Int) * ((A2[e.2]!).fc.toNat : Int)) hmb.1 hmb.2]
+      refine Sat.bind (Sat.pure ?_)
+      refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+      simp only [LS_opt, LS_set_opt]
+      refine Sat.bind (Sat.of_eq (ctSetDl_T t _ e.2 (by simp; omega) _) ?_)
+      simp only [tArr_LS, tPut_LS]
+      rw [chkI32_ok (v := n.toInt - 1) (by omega) (by omega)]
+      have hA5e : ((A4.set! e.2 { A4[e.2]! with dl := bits.toUInt16 })[e.2]!).dl.toNat = B := by
+        rw [set!_get_eq _ _ _ (by omega)]; simp only [UInt32.toNat_toUInt16]; omega
+      have hA5o : ∀ m : Nat, m ≠ e.2 → (A4.set! e.2 { A4[e.2]! with dl := bits.toUInt16 })[m]! = A4[m]! :=
+        fun m hm => set!_get_ne _ _ _ _ hm
+      have hsum := sum_upd (fun x => x.1 * ((A4[x.2]!).dl.toNat + xb t x.2))
+        (fun x => x.1 * (((A4.set! e.2 { A4[e.2]! with dl := bits.toUInt16 })[x.2]!).dl.toNat + xb t x.2)) e srt hnd hmem
+        (fun x _ hx => by simp only [hA5o x.2 hx])
+      dsimp only at hsum
+      have hd4 : (A4[e.2]!).dl.toNat = (A2[e.2]!).dl.toNat := by rw [hA4e]
+      rw [hA5e, hd4, Nat.mul_add, Nat.mul_add] at hsum
+      have hopt : O + (sumF t srt A4).toUInt32 + bits * (A2[e.2]!).fc.toUInt32 -
+          (Int32.ofInt (((A2[e.2]!).dl.toNat : Int) * ((A2[e.2]!).fc.toNat : Int))).toUInt32 =
+          O + (sumF t srt (A4.set! e.2 { A4[e.2]! with dl := bits.toUInt16 })).toUInt32 := by
+        refine u32_upd O _ _ B e.1 (A2[e.2]!).dl.toNat ?_ bits _ _ hB hfr ?_
+        · unfold sumF; dsimp only; omega
+        · rw [i32_ofInt _ hmb.1 hmb.2, hfr, Int.natCast_mul]
+      rw [hopt]
+      refine Sat.bind (Sat.pure (Sat.pure ⟨⟨jj + 1, A4.set! e.2 { A4[e.2]! with dl := bits.toUInt16 }, by omega, ?_, ?_,
+        rfl, hRA' _ (by simp) ?_ hA5o hA5e⟩, ?_⟩))
+      · rw [i32_ofInt _ (by omega) (by omega)]; omega
+      · rw [i32_ofInt _ (by omega) (by omega)]; omega
+      · intro m; by_cases hm : m = e.2
+        · subst hm; rw [set!_get_eq _ _ _ (by omega)]
+        · rw [set!_get_ne _ _ _ _ hm]
+      · dsimp only; rw [i32_ofInt _ (by omega) (by omega)]; omega
+    · simp only [hneq, Bool.false_eq_true, ↓reduceIte]
+      have hBeq : (A2[e.2]!).dl.toNat = B := by
+        simp only [bne_iff_ne, ne_eq, Decidable.not_not] at hneq
+        rw [← hB, ← hneq]; simp
+      rw [chkI32_ok (v := n.toInt - 1) (by omega) (by omega)]
+      refine Sat.bind (Sat.pure (Sat.pure ⟨⟨jj + 1, A4, by omega, ?_, ?_, rfl, hRA' _ rfl (fun _ => rfl)
+        (fun _ _ => rfl) (by rw [hA4e]; exact hBeq)⟩, ?_⟩))
+      · rw [i32_ofInt _ (by omega) (by omega)]; omega
+      · rw [i32_ofInt _ (by omega) (by omega)]; omega
+      · dsimp only; rw [i32_ofInt _ (by omega) (by omega)]; omega
+  · have hn0 : n = 0 := by simpa using hc
+    have hjj' : jj = c B := by have : n.toInt = 0 := by rw [hn0]; rfl
+                               omega
+    subst hjj'
+    have hk1 : N - cumC c B + c B = N - cumC c (B - 1) := by omega
+    rw [hk1] at hii1 hR
+    exact ⟨A4, rfl, hii1, hR⟩
+
+
+theorem raBody_bind {st : StatePtr} {tree : CtPtr} {sorted : DWPtr} {bits : UInt32} {ii : Int32} {H : Heap}
+    {Q : UInt32 × Int32 → Heap → Prop}
+    (h : Sat H (blCountGet st bits.toNat) (fun x H' => Sat H' (cwhile riCond (riBody st tree sorted bits)
+      (x.toUInt32.toInt32, ii)) (fun r H'' => Q (bits - 1, r.2) H''))) :
+    Sat H (raBody st tree sorted (bits, ii)) Q := by
+  delta raBody
+  refine Sat.bind (Sat.mono h fun x H' hx => Sat.bind (Sat.mono hx fun r H'' hr => ?_))
+  obtain ⟨r1, r2⟩ := r
+  exact Sat.pure hr
+
+/-- **The re-assignment.** For `bits` from `max_length` down to 1, the next `bl_count[bits]` leaves in sorted order
+(from the least frequent) get length `bits`: the leaf at position `j` gets `lenOfRank max_length c (N - j)`; `opt_len`
+follows the lengths. -/
+theorem ra_SH (t : DescSel) (Y : DeflateState) (blc : Array UInt16) (sl O : UInt32) (A2 : Array Ct)
+    (srt : List (Nat × Nat)) (Lm : Nat) (c : Nat → Nat) (qS : Bool) (L : UInt32) (hL : L.toNat = Lm)
+    (hLm : Lm ≤ 15) (hN' : srt.length ≤ 286) (hR : RInv Lm srt.length 0 c) (hbc : BC blc c)
+    (hS : (qArr qS Y).size = 287) (hsrt : ∀ p, p < srt.length → (qArr qS Y)[p]! = pk srt[p]!)
+    (hb : ∀ e ∈ srt, e.1 < 65536 ∧ e.2 < tElems t) (hnd : (srt.map Prod.snd).Nodup)
+    (hA2fc : ∀ e ∈ srt, ((A2[e.2]!).fc).toNat = e.1) (hA2dl : ∀ e ∈ srt, ((A2[e.2]!).dl).toNat ≤ 15)
+    (hAs : tElems t ≤ A2.size) :
+    Sat (SH H i z b (LS t Y A2 blc (O + (sumF t srt A2).toUInt32) sl) d)
+      (cwhile raCond (raBody (some b) (.ref (tRef t b) 0) (.ref (qRef qS b) 0)) (L, 0))
+      (fun _ H' => ∃ A4, H' = SH H i z b (LS t Y A4 blc (O + (sumF t srt A4).toUInt32) sl) d ∧
+        RA A2 srt Lm c A4 srt.length) := by
+  have htot := hR.tot
+  have hz := hR.z
+  refine sat_cwhile (I := fun (x : UInt32 × Int32) H' => ∃ (B : Nat) (A3 : Array Ct), B ≤ Lm ∧ x.1.toNat = B ∧
+      x.2.toInt = ((srt.length - cumC c B : Nat) : Int) ∧
+      H' = SH H i z b (LS t Y A3 blc (O + (sumF t srt A3).toUInt32) sl) d ∧ RA A2 srt Lm c A3 (srt.length - cumC c B))
+    (μ := fun x => x.1.toNat) _ ?_ ⟨Lm, A2, Nat.le_refl _, hL, by simp [htot], rfl,
+      ⟨rfl, fun _ => rfl, fun _ _ => rfl, fun j hj _ => by omega, fun _ _ _ => rfl⟩⟩
+    (by simp only [fuel]; have := L.toNat_lt; omega)
+  rintro ⟨bits, ii⟩ _ ⟨B, A3, hBL, hB, hii, rfl, hRA⟩
+  dsimp only at hB hii
+  simp only [raCond]
+  refine Sat.pure ⟨fun hc => ?_, fun hc => ?_⟩
+  · have hB1 : 1 ≤ B := by
+      have : bits ≠ 0 := by simpa using hc
+      have : bits.toNat ≠ 0 := fun h => this (UInt32.toNat_inj.mp (by simpa using h))
+      omega
+    refine raBody_bind ?_
+    rw [hB]
+    refine Sat.of_eq (blCountGet_SH _ B (by simp [hbc.1]; omega)) ?_
+    simp only [LS_bc]
+    have hcB := hbc.2 B (by omega)
+    have hcN : c B ≤ srt.length := htot ▸ ZlibNgF.Math.TreesRank.le_cumC c Lm B hBL
+    refine Sat.mono (ri_SH t Y blc sl O A2 srt Lm B c qS bits hB hB1 hBL hLm hN' htot hS hsrt hb hnd hA2fc hA2dl hAs
+      A3 _ ii (by rw [u32_toInt32_toInt _ (by simp; omega)]; simp [hcB]) hii hRA) ?_
+    rintro r _ ⟨A4, rfl, hr2, hRA4⟩
+    have hb1 : (bits - 1).toNat = B - 1 := by
+      rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; simp; omega)]; simp [hB]
+    exact ⟨⟨B - 1, A4, by omega, hb1, hr2, rfl, hRA4⟩, by omega⟩
+  · have hB0 : B = 0 := by
+      have : bits = 0 := by simpa using hc
+      rw [← hB, this]; rfl
+    subst hB0
+    have hc0 : cumC c 0 = 0 := by simp [cumC, hz]
+    rw [hc0, Nat.sub_zero] at hRA
+    exact ⟨A3, rfl, hRA⟩
+
+end
+
+end ZlibNgF.Proof.TreesBitlen
