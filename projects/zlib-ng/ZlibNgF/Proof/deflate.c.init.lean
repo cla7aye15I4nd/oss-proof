@@ -188,15 +188,16 @@ def trS (b : Nat) (st : DeflateState) (A B C : Array Ct) : DeflateState :=
     sym_next := 0 }
 
 /-- The frequencies that `init_block` leaves: `dyn_ltree[c].Freq` is 0 except `dyn_ltree[END_BLOCK].Freq = 1`,
-`dyn_dtree[c].Freq` is 0. -/
-def TrFreq (A B : Array Ct) : Prop :=
-  (∀ c, c < 286 → (A[c]!).fc.toNat = if c = 256 then 1 else 0) ∧ ∀ c, c < 30 → (B[c]!).fc.toNat = 0
+`dyn_dtree[c].Freq` is 0, `bl_tree[c].Freq` is 0. -/
+def TrFreq (A B C : Array Ct) : Prop :=
+  (∀ c, c < 286 → (A[c]!).fc.toNat = if c = 256 then 1 else 0) ∧ (∀ c, c < 30 → (B[c]!).fc.toNat = 0) ∧
+    ∀ c, c < 19 → (C[c]!).fc = 0
 
 /-- `zng_tr_init` on a state whose tree arrays have their C sizes. -/
 theorem tr_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8} (st : DeflateState)
     (h1 : st.dyn_ltree.size = HEAP_SIZE) (h2 : st.dyn_dtree.size = 2 * 30 + 1) (h3 : st.bl_tree.size = 2 * 19 + 1) :
     Sat (SH H i z b st d) (ZlibNg.Trees.zng_tr_init (some b)) (fun _ H' => ∃ A B C, H' = SH H i z b (trS b st A B C) d ∧
-      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B) := by
+      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C) := by
   simp only [ZlibNg.Trees.zng_tr_init, ZlibNg.Trees.init_block, dynLtreeP, dynDtreeP, blTreeP, pure_bind_M]
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
@@ -216,12 +217,13 @@ theorem tr_init_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8
   refine Sat.bind (Sat.mono (ctLoop CtRef.bl_tree (·.bl_tree) (fun s A => { s with bl_tree := A })
     ctb_get ctb_mod (fun _ => rfl) (fun _ _ => rfl) (fun _ _ _ => rfl) (fun _ => rfl) _ BL_CODES (by decide)
     (by simp [h3, BL_CODES])) ?_)
-  rintro _ _ ⟨C, rfl, hC, -⟩
-  simp only at hA hB hC zA zB
+  rintro _ _ ⟨C, rfl, hC, zC⟩
+  simp only at hA hB hC zA zB zC
   refine Sat.bind (Sat.of_eq (ctSetFc_l _ END_BLOCK 1 (by simp [hA, h1, END_BLOCK, HEAP_SIZE, L_CODES])) ?_)
   try dsimp only
   refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
-  refine Sat.of_eq (wrD_SH _) ⟨_, B, C, rfl, ?_, by rw [hB, h2], by rw [hC, h3], fun c hc => ?_, fun c hc => ?_⟩
+  refine Sat.of_eq (wrD_SH _) ⟨_, B, C, rfl, ?_, by rw [hB, h2], by rw [hC, h3], fun c hc => ?_, fun c hc => ?_,
+    fun c hc => zC c (by simp [BL_CODES]; omega)⟩
   · simp [hA, h1]
   · have h256 : 256 < A.size := by rw [hA, h1]; decide
     by_cases e : c = 256
@@ -276,7 +278,7 @@ theorem resetKeep_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateS
     (h1 : st.dyn_ltree.size = HEAP_SIZE) (h2 : st.dyn_dtree.size = 2 * 30 + 1) (h3 : st.bl_tree.size = 2 * 19 + 1) :
     Sat (SH H i z b st d) (deflateResetKeep (some i)) (fun r H' => r = Z_OK ∧ ∃ A B C,
       H' = SH H i (rkZ z st.wrap) b (trS b (rkS st) A B C) d ∧
-      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B) := by
+      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C) := by
   have hnw : ¬ st.wrap < 0 := by rcases hw with h | h | h <;> rw [h] <;> decide
   unfold deflateResetKeep
   refine Sat.bind (Sat.of_eq (check_SH k) ?_)
@@ -423,7 +425,7 @@ theorem reset_SH {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
     (l9 : st.level ≤ 9) (R : RLay b st d.size) :
     Sat (SH H i z b st d) (deflateReset (some i)) (fun r H' => r = Z_OK ∧ ∃ A B C c lm ib d',
       H' = SH H i (rkZ z st.wrap) b (lmS (trS b (rkS st) A B C) c (.val lm) (.val ib)) d' ∧ d'.size = d.size ∧
-      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B ∧ RLay b st d.size) := by
+      A.size = HEAP_SIZE ∧ B.size = 2 * 30 + 1 ∧ C.size = 2 * 19 + 1 ∧ TrFreq A B C ∧ RLay b st d.size) := by
   unfold deflateReset
   refine Sat.bind (Sat.mono (resetKeep_SH k hw hpb h1 h2 h3) ?_)
   rintro _ _ ⟨rfl, A, B, C, rfl, hA, hB, hC, hF⟩
@@ -813,10 +815,13 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       rw [SH_bytes]
       exact upd_same _ _ _
     · refine ⟨by simp [rkZ, hza], by simp [rkZ, hzf], rfl, rfl, rfl, by simp [dAllocRec, hzf], rfl, ?_, ?_, ?_,
-        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ⟨_, rfl⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · exact st_lo wrap
       · exact st_hi wrap
-      · exact hw
+      · rcases hw with e | e | e
+        · exact Or.inl e
+        · exact Or.inr (Or.inl e)
+        · exact Or.inr (Or.inr (Or.inl e))
       · exact wsize_ne n hn2
       · exact ⟨_, rfl⟩
       · exact ⟨_, d', SH_bytes _ _ _ _ _ _, rfl, by rw [hd', hdsz]; omega⟩
@@ -831,7 +836,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       · exact q6
       · exact q7
       · obtain ⟨d0, _, _, _, pbo0, hd0, -, -, -, -, -, -, -, -, hs, -⟩ := q2
-        exact ⟨d0, _, hd0, hs, by simp only [DeflateInv.dview, lmS, trS, rkS]; exact DeflateInv.SymOk.empty hF.1 hF.2⟩
+        exact ⟨d0, _, hd0, hs, by simp only [DeflateInv.dview, lmS, trS, rkS]; exact DeflateInv.SymOk.empty hF.1 hF.2.1⟩
       · exact fun hn => absurd (by simp [DeflateInv.dview, lmS, trS, rkS]) hn
       · exact fun _ _ => by simp [DeflateInv.dview, lmS, trS, rkS]
       · simp [DeflateInv.dview, lmS, trS, rkS]
@@ -845,6 +850,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       · simp [DeflateInv.dview, lmS, trS, rkS]
       · simp only [DeflateInv.dview, lmS, trS, rkS, hl32]; exact pl3
       · simp only [DeflateInv.dview, lmS, trS, rkS]; exact gs
+      · simp only [DeflateInv.dview, lmS, trS, rkS]; exact ⟨by simp, by simp, hF.2.2⟩
 
 /-- The `windowBits` decoding and the tail, on a stream whose allocator fields are the defaults. -/
 theorem decode_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc) (hzf : z1.zfree = .zcfree)
