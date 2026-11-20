@@ -10,14 +10,15 @@ of symbols `0 .. k - 1`). The store leaves symbol `k` intact exactly when `pendi
 Each consumed symbol frees 3 bytes (24 bits), so a prefix costs at most 24 bits per symbol plus the positive excess
 of the whole block (`bitExcess`): no bound on single symbols and no order of the symbols is needed. The block then
 fits when `Budget B t0 costs` holds: the bits before the first symbol (`t0`) and the block's excess fit in
-`8 * B + 7` bits.
+`8 * B` bits.
 
 * `room_before` and `room_header`: the 8-byte stores before each symbol and during the header stay below the
   unread symbols.
-* `room_end`: with at most `B - 1` symbols (`sym_end = 3 * (B - 1)`), the end-of-block code and its 8-byte store stay
-  inside `pending_buf` (`4 * B + 9` bytes).
+* `room_end`: with at most `B` symbols (`sym_end = 3 * (B - 1)`, and the one extra symbol that `deflate_fast` /
+  `deflate_medium` tally at `sym_next == sym_end` before their `FLUSH_BLOCK`), the end-of-block code and its 8-byte
+  store stay inside `pending_buf` (`4 * B + 9` bytes).
 * `static_budget`: with static trees every symbol costs at most 31 bits (a match: 8 + 5 + 5 + 13), so the budget
-  holds for every `B ≥ 52` with up to 63 waiting bits, whatever the order of the symbols.
+  holds for every `B ≥ 66` with up to 63 waiting bits and at most `B` symbols, whatever the order of the symbols.
 
 For a dynamic block `t0` also counts the tree header, and the budget is the inequality the block choice of
 `zng_tr_flush_block` has to provide (header and excess bounded through the code lengths `gen_bitlen` assigns).
@@ -66,9 +67,9 @@ theorem bitExcess_le (e : Nat) : ∀ costs : List Nat, (∀ c ∈ costs, c ≤ 2
     omega
 
 /-- The overlay budget of a block with `B = lit_bufsize`: the bits before the first symbol (`t0`) and the excess
-of the symbol costs fit in `8 * B + 7` bits. -/
+of the symbol costs fit in `8 * B` bits. -/
 def Budget (B t0 : Nat) (costs : List Nat) : Prop :=
-  t0 + bitExcess costs ≤ 8 * B + 7
+  t0 + bitExcess costs ≤ 8 * B
 
 /-- Before symbol `k` is read, an 8-byte store at `pending = p` (with `8 * p` at most the bits emitted before it)
 ends at or before symbol `k` (offset `B + 8 + 3k`). -/
@@ -84,18 +85,18 @@ theorem room_header {B t0 : Nat} {costs : List Nat} (hb : Budget B t0 costs) (p 
   unfold Budget at hb
   omega
 
-/-- After the last of at most `B - 1` symbols, an 8-byte store at `p` with `8 * p` at most every bit of the block
+/-- After the last of at most `B` symbols, an 8-byte store at `p` with `8 * p` at most every bit of the block
 (the end-of-block code included, at most 15 bits) ends inside `pending_buf` (`4 * B + 9` bytes). -/
-theorem room_end {B t0 : Nat} {costs : List Nat} (hb : Budget B t0 costs) (hn : costs.length + 1 ≤ B) (p : Nat)
+theorem room_end {B t0 : Nat} {costs : List Nat} (hb : Budget B t0 costs) (hn : costs.length ≤ B) (p : Nat)
     (hp : 8 * p ≤ t0 + costs.sum + 15) : p + 8 ≤ 4 * B + 9 := by
   have h := sum_le costs
   unfold Budget at hb
   omega
 
-/-- Static trees: every symbol costs at most 31 bits, so with at most `B - 1` symbols, up to 63 bits waiting
-before the block and its 3 header bits, the budget holds for every `B ≥ 52` (`lit_bufsize ≥ 128` in zlib-ng). -/
-theorem static_budget {B b0 : Nat} {costs : List Nat} (hB : 52 ≤ B) (hb0 : b0 < 64)
-    (hn : costs.length + 1 ≤ B) (h31 : ∀ c ∈ costs, c ≤ 31) : Budget B (b0 + 3) costs := by
+/-- Static trees: every symbol costs at most 31 bits, so with at most `B` symbols, up to 63 bits waiting
+before the block and its 3 header bits, the budget holds for every `B ≥ 66` (`lit_bufsize ≥ 128` in zlib-ng). -/
+theorem static_budget {B b0 : Nat} {costs : List Nat} (hB : 66 ≤ B) (hb0 : b0 < 64)
+    (hn : costs.length ≤ B) (h31 : ∀ c ∈ costs, c ≤ 31) : Budget B (b0 + 3) costs := by
   have h := bitExcess_le 7 costs (fun c hc => by have := h31 c hc; omega)
   unfold Budget
   omega

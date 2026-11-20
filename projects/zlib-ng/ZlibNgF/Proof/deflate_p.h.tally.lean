@@ -208,7 +208,7 @@ open ZlibNgF.Proof.DeflateInv in
 /-- The symbols after `zng_tr_tally_lit(s, c)`. -/
 theorem symok_lit {d : Array UInt8} {sbo : Nat} {n : UInt32} {lt dt : Array Ct} (hs : SymOk d sbo n lt dt)
     (hn3 : n.toNat % 3 = 0) (hn' : (n + 3).toNat = n.toNat + 3) (hk : sbo + n.toNat + 4 ≤ d.size) (c : UInt8)
-    (hlt : lt.size = HEAP_SIZE) (hb : n.toNat / 3 < 32767) :
+    (hlt : lt.size = HEAP_SIZE) (hb : n.toNat / 3 < 32768) :
     SymOk (W4 d (sbo + n.toNat) (c.toUInt32 <<< 16)) sbo (n + 3) (incF lt c.toNat) dt := by
   have hW := W4_wr d (sbo + n.toNat) (c.toUInt32 <<< 16)
   have ei : sbo + 3 * (n.toNat / 3) = sbo + n.toNat := by omega
@@ -232,7 +232,7 @@ open ZlibNgF.Proof.DeflateInv in
 theorem symok_dist {d : Array UInt8} {sbo : Nat} {n : UInt32} {lt dt : Array Ct} (hs : SymOk d sbo n lt dt)
     (hn3 : n.toNat % 3 = 0) (hn' : (n + 3).toNat = n.toNat + 3) (hk : sbo + n.toNat + 4 ≤ d.size)
     (dist len : UInt32) (hlen : len.toNat < 256) (hd1 : 1 ≤ dist.toNat) (hd2 : dist.toNat ≤ 32768)
-    (hlt : lt.size = HEAP_SIZE) (hdt : dt.size = 2 * 30 + 1) (hb : n.toNat / 3 < 32767) :
+    (hlt : lt.size = HEAP_SIZE) (hdt : dt.size = 2 * 30 + 1) (hb : n.toNat / 3 < 32768) :
     SymOk (W4 d (sbo + n.toNat) (dist ||| (len <<< 16))) sbo (n + 3)
       (incF lt (zng_length_code[len.toNat]!.toNat + 257)) (incF dt (dCodeOf (dist.toNat - 1))) := by
   have hW := W4_wr d (sbo + n.toNat) (dist ||| (len <<< 16))
@@ -403,19 +403,21 @@ theorem tally_dist_SH (dist len : UInt32) (hlen : len.toNat < 256) (hd1 : 1 ≤ 
 end
 
 open ZlibNgF.Proof.DeflateInv in
-/-- The invariant's clauses after a tally: the view changes in `sym_next` only (`+ 3`, from below `sym_end`), the
-symbol's distance bytes are at most 32768, the pending bytes and the complete bytes of `bi_buf` end before
-`sym_buf`, and the stream is past its header
-(`BUSY_STATE` or `FINISH_STATE`). -/
-theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateState} {al : DeflateAllocs}
+/-- The invariant's clauses after a tally from `sym_next ≤ sym_end` (the continuation match of `deflate_fast` /
+`deflate_medium` is tallied at `sym_next == sym_end`): the view changes in `sym_next` only (`+ 3`, to at most
+`sym_end + 3 = 3 * lit_bufsize`), the symbol's distance bytes are at most 32768, the pending bytes and the complete
+bytes of `bi_buf` end before `sym_buf`, and the stream is past its header (`BUSY_STATE` or `FINISH_STATE`). The
+4-byte store at `sym_buf + sym_next` ends at most at `pending_buf + 4 * lit_bufsize + 9`, the end of
+`PENDING_BUF_SIZE`. -/
+theorem dcore_tally_le {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateState} {al : DeflateAllocs}
     {d : Array UInt8} {sbo : Nat} (v : UInt32) (c : DCore h (some i) z b (dview st) al) (hd : h.bytes b = some d)
     (hsb : st.sym_buf = .val (.ref (.heap b) sbo))
     (hv : dview st' = { dview st with
       sym_next := st.sym_next + 3
       ltree := st'.dyn_ltree
-      dtree := st'.dyn_dtree }) (hlt : st.sym_next < st.sym_end)
+      dtree := st'.dyn_dtree }) (hlt : st.sym_next ≤ st.sym_end)
     (hsy : ∀ sbo, sbo + st.sym_next.toNat + 4 ≤ d.size → SymOk d sbo st.sym_next st.dyn_ltree st.dyn_dtree →
-      st.sym_next.toNat % 3 = 0 → (st.sym_next + 3).toNat = st.sym_next.toNat + 3 → st.sym_next.toNat / 3 < 32767 →
+      st.sym_next.toNat % 3 = 0 → (st.sym_next + 3).toNat = st.sym_next.toNat + 3 → st.sym_next.toNat / 3 < 32768 →
       SymOk (W4 d (sbo + st.sym_next.toNat) v) sbo (st.sym_next + 3) st'.dyn_ltree st'.dyn_dtree)
     (hroom : ∃ pbo poo, st.pending_buf = .val (.ref (.heap b) pbo) ∧ st.pending_out = .val (.ref (.heap b) poo) ∧
       poo - pbo + st.pending.toNat + st.bi_valid.toInt.toNat / 8 ≤ st.lit_bufsize.toNat + 8)
@@ -431,9 +433,11 @@ theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Def
   simp only [dview] at hsn hsm
   obtain ⟨-, -, -, -, hl2, -, hse⟩ := c.sizes
   simp only [dview] at hse hl2
-  have hlt' : st.sym_next.toNat < st.sym_end.toNat := UInt32.lt_iff_toNat_lt.mp hlt
+  have hlt' : st.sym_next.toNat ≤ st.sym_end.toNat := UInt32.le_iff_toNat_le.mp hlt
+  have hse3 : (st.sym_end + 3).toNat = st.sym_end.toNat + 3 := c.sym_end3
   have hsn3 : (st.sym_next + 3).toNat = st.sym_next.toNat + 3 := by rw [UInt32.toNat_add]; simp; omega
-  have hk : pbo + st.lit_bufsize.toNat + 8 + st.sym_next.toNat + 4 ≤ d.size := by omega
+  have hk9 : pbo + st.lit_bufsize.toNat + 8 + st.sym_next.toNat + 4 ≤ pbo + 4 * st.lit_bufsize.toNat + 9 := by omega
+  have hk : pbo + st.lit_bufsize.toNat + 8 + st.sym_next.toNat + 4 ≤ d.size := Nat.le_trans hk9 (by omega)
   have hW := W4_wr d (pbo + st.lit_bufsize.toNat + 8 + st.sym_next.toNat) v
   have hWs : (W4 d (pbo + st.lit_bufsize.toNat + 8 + st.sym_next.toNat) v).size = d.size := hW.1
   obtain ⟨d2, sbo2, hd2, hsb2, hsym⟩ := c.symv
@@ -464,7 +468,8 @@ theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Def
     lay := ⟨_, wo, po, ho, pbo, SH_bytes _ _ _ _ _ _, hwo, hp, hh, hpb, h1, h2, h3, by rw [hWs]; exact h4,
       by simp only [dview]; rw [hsb], poo, hpo, hpoo, hpe⟩
     pout := c.pout
-    syms := ⟨UInt32.le_iff_toNat_le.mpr (show (st.sym_next + 3).toNat ≤ st.sym_end.toNat by rw [hsn3]; omega),
+    syms := ⟨UInt32.le_iff_toNat_le.mpr (show (st.sym_next + 3).toNat ≤ (st.sym_end + 3).toNat by
+        rw [hsn3, hse3]; omega),
       show (st.sym_next + 3).toNat % 3 = 0 by rw [hsn3]; omega⟩
     bits := c.bits
     look := c.look
@@ -488,6 +493,24 @@ theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Def
     fe_hi := c.fe_hi
     bs_lo := c.bs_lo
     descs := c.descs }
+
+open ZlibNgF.Proof.DeflateInv in
+/-- The invariant's clauses after a tally from below `sym_end` (`dcore_tally_le`). -/
+theorem dcore_tally {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateState} {al : DeflateAllocs}
+    {d : Array UInt8} {sbo : Nat} (v : UInt32) (c : DCore h (some i) z b (dview st) al) (hd : h.bytes b = some d)
+    (hsb : st.sym_buf = .val (.ref (.heap b) sbo))
+    (hv : dview st' = { dview st with
+      sym_next := st.sym_next + 3
+      ltree := st'.dyn_ltree
+      dtree := st'.dyn_dtree }) (hlt : st.sym_next < st.sym_end)
+    (hsy : ∀ sbo, sbo + st.sym_next.toNat + 4 ≤ d.size → SymOk d sbo st.sym_next st.dyn_ltree st.dyn_dtree →
+      st.sym_next.toNat % 3 = 0 → (st.sym_next + 3).toNat = st.sym_next.toNat + 3 → st.sym_next.toNat / 3 < 32768 →
+      SymOk (W4 d (sbo + st.sym_next.toNat) v) sbo (st.sym_next + 3) st'.dyn_ltree st'.dyn_dtree)
+    (hroom : ∃ pbo poo, st.pending_buf = .val (.ref (.heap b) pbo) ∧ st.pending_out = .val (.ref (.heap b) poo) ∧
+      poo - pbo + st.pending.toNat + st.bi_valid.toInt.toNat / 8 ≤ st.lit_bufsize.toNat + 8)
+    (hstat : st.status = ZlibNg.Deflate.BUSY_STATE ∨ st.status = ZlibNg.Deflate.FINISH_STATE) :
+    DCore (SH H i z b st' (W4 d (sbo + st.sym_next.toNat) v)) (some i) z b (dview st') al :=
+  dcore_tally_le v c hd hsb hv (UInt32.le_of_lt hlt) hsy hroom hstat
 
 open ZlibNgF.Proof.DeflateInv in
 /-- `block_start = strstart` (the store of `FLUSH_BLOCK_ONLY` after `zng_tr_flush_block`) keeps the invariant's

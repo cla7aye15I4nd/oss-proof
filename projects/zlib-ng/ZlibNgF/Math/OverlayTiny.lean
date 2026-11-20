@@ -8,7 +8,7 @@ noncomputable section
 Re-proved from the sibling project (`ZlibF.Math.DeflateOverlayTiny`); the bounds are statements about code
 lengths and frequencies only, and `OverlayTinyBudget` instantiates them with zlib-ng's model. At
 `lit_bufsize = 128` (`memLevel` 1) and `lit_bufsize = 256` (`memLevel` 2) the general header bound of 2283 bits
-exceeds `8 * lit_bufsize`, so the budget (`H + bitExcess ≤ 8B + 4 - b0`, i.e. `1021` and `2045` with `b0 ≤ 7`)
+exceeds `8 * lit_bufsize`, so the budget (`H + bitExcess ≤ 8B - 3 - b0`, i.e. `1014` and `2038` with `b0 ≤ 7`)
 uses the header and block-selection inequalities of the block at hand:
 
 * the **header bound** under a fixed reference bit-length code (`κ1` at `B = 128`, `κ0` at
@@ -17,16 +17,15 @@ uses the header and block-selection inequalities of the block at hand:
   `H + Σ fl·ll + Σ fd·dl + 1 ≤ Σ fl·staticLen + 5·Σ fd`;
 * **Kraft** on both data trees (`Σ 2^(15 − l) ≤ 2^15`), and the unclamped **Fibonacci depth bound**
   `f · F(l + 1) + F(l) ≤ W` on used symbols (while any forced leaf has `f = 0` and `l = 1`);
-* the **symbol count** (`≤ B − 1` non-EOB symbols) and **match balance** (`Σ_{v≥257} fl = Σ fd`).
+* the **symbol count** (`≤ B` non-EOB symbols) and **match balance** (`Σ_{v≥257} fl = Σ fd`).
 
 One parametric combination (`tiny_header_excess`) adds `a` copies of the header bound and `b = 2a`
 (or `b = a`) copies of the choice inequality, cancelling the dynamic and fixed symbol-length sums:
 
 * at `B = 128`: `a = 2, b = 4` (scale `2a + b = 8`), Kraft weights `9 / 1024` and `5 / 2048`,
-  symbol rates `27 + 16 = 43` → `H + bitExcess ≤ 983` (within `4` bits of the continuous per-slot LP
-  limit `979.12`);
+  symbol rates `27 + 16 = 43` → `H + bitExcess ≤ 989`;
 * at `B = 256`: `a = 1, b = 1` (scale `2a + b = 3`), Kraft weights `1 / 64` and `1 / 256`,
-  symbol rates `7 + 4 = 11` → `H + bitExcess ≤ 1899`.
+  symbol rates `7 + 4 = 11` → `H + bitExcess ≤ 1910`.
 -/
 
 namespace ZlibNgF.Math.OverlayTiny
@@ -124,7 +123,7 @@ theorem distanceExtra_lt (c : Nat) : distanceExtra c < 14 := by
 theorem staticLen_lit {v : Nat} (_hv : v < 256) : staticLen v ≤ 9 := by
   unfold staticLen; repeat (first | split | omega)
 
-theorem leaf_len_le_9 {x f : Nat} (h : LeafBound 130 x f) : x ≤ 9 := by
+theorem leaf_len_le_9 {x f : Nat} (h : LeafBound 131 x f) : x ≤ 9 := by
   obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, f12, _, _, _, _, _⟩ := fib_values
   rcases h with ⟨_, hx⟩ | ⟨hf, _, hfib⟩
   · omega
@@ -135,7 +134,7 @@ theorem leaf_len_le_9 {x f : Nat} (h : LeafBound 130 x f) : x ≤ 9 := by
       have mul : fib (x + 1) ≤ f * fib (x + 1) := Nat.le_mul_of_pos_left _ hf
       omega
 
-theorem leaf_len_le_11 {x f : Nat} (h : LeafBound 258 x f) : x ≤ 11 := by
+theorem leaf_len_le_11 {x f : Nat} (h : LeafBound 259 x f) : x ≤ 11 := by
   obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, f14, _, _, _⟩ := fib_values
   rcases h with ⟨_, hx⟩ | ⟨hf, _, hfib⟩
   · omega
@@ -293,13 +292,13 @@ theorem tiny_header_excess
 
 /-- Per-code cap of length code `c` (`v = 257 + c`) at `B = 128` (`a = 2, b = 4`, scale `8`). -/
 def capLen128 (c : Nat) : Nat :=
-  if c < 20 then 8 else if c < 23 then 15 else if c = 23 then 23 else if c < 28 then 36 else 23
+  if c < 20 then 8 else if c < 23 then 15 else if c = 23 then 24 else if c < 28 then 36 else 24
 
 /-- Per-code cap of a distance code with `e` extra bits at `B = 128` (`a = 2, b = 4`, scale `8`). -/
 def capDist128 : Nat → Nat
   | 10 => 14 | 11 => 30 | 12 => 58 | 13 => 136 | _ => 10
 
-theorem entry_lit_128 (x f : Nat) (h : LeafBound 130 x f) :
+theorem entry_lit_128 (x f : Nat) (h : LeafBound 131 x f) :
     2 * literalRegionCharge128 x + 4 * (f * 9) ≤
       (9 * kraftTerm x) / 1024 + 2 + (27 + 16) * f + 4 * (f * x) := by
   have hx := leaf_len_le_9 h
@@ -307,7 +306,7 @@ theorem entry_lit_128 (x f : Nat) (h : LeafBound 130 x f) :
     rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;>
     simp [literalRegionCharge128, refLen1, kraftTerm] at hx hx1 ⊢ <;> omega
 
-theorem entry_eob_128 (x : Nat) (hx1 : 1 ≤ x) (hfib : fib (x + 1) + fib x ≤ 130) :
+theorem entry_eob_128 (x : Nat) (hx1 : 1 ≤ x) (hfib : fib (x + 1) + fib x ≤ 131) :
     2 * literalRegionCharge128 x + 4 * 7 ≤ (9 * kraftTerm x) / 1024 + 37 + 4 * x := by
   have hx := leaf_len_le_9 (Or.inr ⟨Nat.le_refl 1, hx1, by simpa using hfib⟩)
   rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;>
@@ -320,12 +319,12 @@ theorem len_triple_128 {c : Nat} (hc : c < 29) :
     (staticLen (257 + c) = 7 ∧ lengthExtra c = 2 ∧ capLen128 c = 8) ∨
     (staticLen (257 + c) = 7 ∧ lengthExtra c = 3 ∧ capLen128 c = 8) ∨
     (staticLen (257 + c) = 7 ∧ lengthExtra c = 4 ∧ capLen128 c = 15) ∨
-    (staticLen (257 + c) = 8 ∧ lengthExtra c = 4 ∧ capLen128 c = 23) ∨
+    (staticLen (257 + c) = 8 ∧ lengthExtra c = 4 ∧ capLen128 c = 24) ∨
     (staticLen (257 + c) = 8 ∧ lengthExtra c = 5 ∧ capLen128 c = 36) ∨
-    (staticLen (257 + c) = 8 ∧ lengthExtra c = 0 ∧ capLen128 c = 23) := by
+    (staticLen (257 + c) = 8 ∧ lengthExtra c = 0 ∧ capLen128 c = 24) := by
   decide +revert
 
-theorem entry_len_128 (c : Nat) (hc : c < 29) (x f : Nat) (h : LeafBound 130 x f) :
+theorem entry_len_128 (c : Nat) (hc : c < 29) (x f : Nat) (h : LeafBound 131 x f) :
     2 * lengthRegionCharge128 x + 4 * (f * staticLen (257 + c)) +
         (2 * 2 + 4) * (f * (x + lengthExtra c - 9)) ≤
       (9 * kraftTerm x) / 1024 + capLen128 c + 27 * f + 4 * (f * x) := by
@@ -345,7 +344,7 @@ theorem entry_len_128 (c : Nat) (hc : c < 29) (x f : Nat) (h : LeafBound 130 x f
         Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMul, Nat.reducePow, Nat.reduceDiv,
         f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10] at hx hx1 hfib ⊢ <;> omega
 
-theorem entry_dist_128 (x f e : Nat) (he : e < 14) (h : LeafBound 130 x f) :
+theorem entry_dist_128 (x f e : Nat) (he : e < 14) (h : LeafBound 131 x f) :
     2 * distanceRegionCharge128 x + 4 * (f * 5) + (2 * 2 + 4) * (f * (x + e - 15)) ≤
       (5 * kraftTerm x) / 2048 + capDist128 e + 16 * f + 4 * (f * x) := by
   obtain ⟨f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, _, _, _, _, _, _⟩ := fib_values
@@ -361,28 +360,28 @@ theorem entry_dist_128 (x f e : Nat) (he : e < 14) (h : LeafBound 130 x f) :
         f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10] at he hx hx1 hfib ⊢ <;> omega
 
 theorem cap_sums_128 :
-    mass capLen128 29 = 395 ∧
+    mass capLen128 29 = 397 ∧
     mass (fun v => capDist128 (distanceExtra v)) 30 = 696 := ⟨rfl, rfl⟩
 
-/-- **The `memLevel` 1 bound (`lit_bufsize = 128`)**: `H + E ≤ 983` for `Δ ≤ 30`. -/
+/-- **The `memLevel` 1 bound (`lit_bufsize = 128`)**: `H + E ≤ 989` for `Δ ≤ 30`. -/
 theorem header_excess_cert_128 (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small : Δ ≤ 30)
     (kraftL : mass (fun v => kraftTerm (ll v)) 286 ≤ 2 ^ 15)
     (kraftD : mass (fun v => kraftTerm (dl v)) 30 ≤ 2 ^ 15)
-    (leafL : ∀ v, v < 286 → v ≠ 256 → LeafBound 130 (ll v) (fl v))
-    (eob : fl 256 = 1 ∧ 1 ≤ ll 256 ∧ fib (ll 256 + 1) + fib (ll 256) ≤ 130)
-    (leafD : ∀ v, v < 30 → LeafBound 130 (dl v) (fd v))
-    (symbols : mass (fun v => if v = 256 then 0 else fl v) 286 ≤ 127)
+    (leafL : ∀ v, v < 286 → v ≠ 256 → LeafBound 131 (ll v) (fl v))
+    (eob : fl 256 = 1 ∧ 1 ≤ ll 256 ∧ fib (ll 256 + 1) + fib (ll 256) ≤ 131)
+    (leafD : ∀ v, v < 30 → LeafBound 131 (dl v) (fd v))
+    (symbols : mass (fun v => if v = 256 then 0 else fl v) 286 ≤ 128)
     (balance : mass (fun v => if v < 257 then 0 else fl v) 286 = mass fd 30)
     (header : 2 * H ≤ 2 * (71 + Δ) + mass (fun v => literalCharge128 v (ll v)) 286 +
       mass (fun v => distanceRegionCharge128 (dl v)) 30)
     (choice : H + mass (fun v => fl v * ll v) 286 + mass (fun v => fd v * dl v) 30 + 1 ≤
       mass (fun v => fl v * staticLen v) 286 + 5 * mass fd 30) :
     H + mass (fun v => fl v * literalExcess v (ll v)) 286 +
-      mass (fun v => fd v * distanceExcess v (dl v)) 30 ≤ 983 := by
+      mass (fun v => fd v * distanceExcess v (dl v)) 30 ≤ 989 := by
   exact tiny_header_excess literalRegionCharge128 lengthRegionCharge128 distanceRegionCharge128
-    130 127 2 4 9 1024 5 2048 27 16 2 37 capLen128 capDist128 (by omega) (by omega) (by omega)
+    131 128 2 4 9 1024 5 2048 27 16 2 37 capLen128 capDist128 (by omega) (by omega) (by omega)
     entry_lit_128 entry_eob_128 entry_len_128 entry_dist_128
-    ll fl dl fd H (2 * (71 + Δ)) 983 kraftL kraftD leafL eob leafD symbols balance header choice
+    ll fl dl fd H (2 * (71 + Δ)) 989 kraftL kraftD leafL eob leafD symbols balance header choice
     (by rw [cap_sums_128.1, cap_sums_128.2]; omega)
 
 /-! ## Instantiation at `lit_bufsize = 256` (`memLevel` 2) -/
@@ -390,13 +389,13 @@ theorem header_excess_cert_128 (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small :
 /-- Per-code cap of length code `c` (`v = 257 + c`) at `B = 256` (`a = 1, b = 1`, scale `3`). -/
 def capLen256 (c : Nat) : Nat :=
   if c < 8 then 4 else if c < 12 then 6 else if c < 16 then 9 else if c < 20 then 12
-  else if c < 23 then 18 else if c = 23 then 21 else if c < 28 then 37 else 4
+  else if c < 23 then 18 else if c = 23 then 21 else if c < 28 then 41 else 4
 
 /-- Per-code cap of a distance code with `e` extra bits at `B = 256` (`a = 1, b = 1`, scale `3`). -/
 def capDist256 : Nat → Nat
-  | 7 => 7 | 8 => 10 | 9 => 14 | 10 => 22 | 11 => 40 | 12 => 82 | 13 => 159 | _ => 4
+  | 7 => 7 | 8 => 10 | 9 => 14 | 10 => 22 | 11 => 43 | 12 => 82 | 13 => 159 | _ => 4
 
-theorem entry_lit_256 (x f : Nat) (h : LeafBound 258 x f) :
+theorem entry_lit_256 (x f : Nat) (h : LeafBound 259 x f) :
     1 * literalRegionCharge256 x + 1 * (f * 9) ≤
       (1 * kraftTerm x) / 64 + 2 + (7 + 4) * f + 1 * (f * x) := by
   have hx := leaf_len_le_11 h
@@ -404,7 +403,7 @@ theorem entry_lit_256 (x f : Nat) (h : LeafBound 258 x f) :
     rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;>
     simp [literalRegionCharge256, refLen, kraftTerm] at hx hx1 ⊢ <;> omega
 
-theorem entry_eob_256 (x : Nat) (hx1 : 1 ≤ x) (hfib : fib (x + 1) + fib x ≤ 258) :
+theorem entry_eob_256 (x : Nat) (hx1 : 1 ≤ x) (hfib : fib (x + 1) + fib x ≤ 259) :
     1 * literalRegionCharge256 x + 1 * 7 ≤ (1 * kraftTerm x) / 64 + 11 + 1 * x := by
   have hx := leaf_len_le_11 (Or.inr ⟨Nat.le_refl 1, hx1, by simpa using hfib⟩)
   rcases x with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | x <;>
@@ -417,11 +416,11 @@ theorem len_triple_256 {c : Nat} (hc : c < 29) :
     (staticLen (257 + c) = 7 ∧ lengthExtra c = 3 ∧ capLen256 c = 12) ∨
     (staticLen (257 + c) = 7 ∧ lengthExtra c = 4 ∧ capLen256 c = 18) ∨
     (staticLen (257 + c) = 8 ∧ lengthExtra c = 4 ∧ capLen256 c = 21) ∨
-    (staticLen (257 + c) = 8 ∧ lengthExtra c = 5 ∧ capLen256 c = 37) ∨
+    (staticLen (257 + c) = 8 ∧ lengthExtra c = 5 ∧ capLen256 c = 41) ∨
     (staticLen (257 + c) = 8 ∧ lengthExtra c = 0 ∧ capLen256 c = 4) := by
   decide +revert
 
-theorem entry_len_256 (c : Nat) (hc : c < 29) (x f : Nat) (h : LeafBound 258 x f) :
+theorem entry_len_256 (c : Nat) (hc : c < 29) (x f : Nat) (h : LeafBound 259 x f) :
     1 * otherRegionCharge256 x + 1 * (f * staticLen (257 + c)) +
         (2 * 1 + 1) * (f * (x + lengthExtra c - 9)) ≤
       (1 * kraftTerm x) / 64 + capLen256 c + 7 * f + 1 * (f * x) := by
@@ -441,7 +440,7 @@ theorem entry_len_256 (c : Nat) (hc : c < 29) (x f : Nat) (h : LeafBound 258 x f
         Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMul, Nat.reducePow, Nat.reduceDiv,
         f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12] at hx hx1 hfib ⊢ <;> omega
 
-theorem entry_dist_256 (x f e : Nat) (he : e < 14) (h : LeafBound 258 x f) :
+theorem entry_dist_256 (x f e : Nat) (he : e < 14) (h : LeafBound 259 x f) :
     1 * otherRegionCharge256 x + 1 * (f * 5) + (2 * 1 + 1) * (f * (x + e - 15)) ≤
       (1 * kraftTerm x) / 256 + capDist256 e + 4 * f + 1 * (f * x) := by
   obtain ⟨f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, _, _, _, _⟩ := fib_values
@@ -457,28 +456,28 @@ theorem entry_dist_256 (x f e : Nat) (he : e < 14) (h : LeafBound 258 x f) :
         f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12] at he hx hx1 hfib ⊢ <;> omega
 
 theorem cap_sums_256 :
-    mass capLen256 29 = 367 ∧
-    mass (fun v => capDist256 (distanceExtra v)) 30 = 732 := ⟨rfl, rfl⟩
+    mass capLen256 29 = 383 ∧
+    mass (fun v => capDist256 (distanceExtra v)) 30 = 738 := ⟨rfl, rfl⟩
 
-/-- **The `memLevel` 2 bound (`lit_bufsize = 256`)**: `H + E ≤ 1899` for `Δ ≤ 245`. -/
+/-- **The `memLevel` 2 bound (`lit_bufsize = 256`)**: `H + E ≤ 1910` for `Δ ≤ 245`. -/
 theorem header_excess_cert_256 (ll fl dl fd : Nat → Nat) (H Δ : Nat) (small : Δ ≤ 245)
     (kraftL : mass (fun v => kraftTerm (ll v)) 286 ≤ 2 ^ 15)
     (kraftD : mass (fun v => kraftTerm (dl v)) 30 ≤ 2 ^ 15)
-    (leafL : ∀ v, v < 286 → v ≠ 256 → LeafBound 258 (ll v) (fl v))
-    (eob : fl 256 = 1 ∧ 1 ≤ ll 256 ∧ fib (ll 256 + 1) + fib (ll 256) ≤ 258)
-    (leafD : ∀ v, v < 30 → LeafBound 258 (dl v) (fd v))
-    (symbols : mass (fun v => if v = 256 then 0 else fl v) 286 ≤ 255)
+    (leafL : ∀ v, v < 286 → v ≠ 256 → LeafBound 259 (ll v) (fl v))
+    (eob : fl 256 = 1 ∧ 1 ≤ ll 256 ∧ fib (ll 256 + 1) + fib (ll 256) ≤ 259)
+    (leafD : ∀ v, v < 30 → LeafBound 259 (dl v) (fd v))
+    (symbols : mass (fun v => if v = 256 then 0 else fl v) 286 ≤ 256)
     (balance : mass (fun v => if v < 257 then 0 else fl v) 286 = mass fd 30)
     (header : 2 * H ≤ 2 * (71 + Δ) + mass (fun v => literalCharge256 v (ll v)) 286 +
       mass (fun v => otherRegionCharge256 (dl v)) 30)
     (choice : H + mass (fun v => fl v * ll v) 286 + mass (fun v => fd v * dl v) 30 + 1 ≤
       mass (fun v => fl v * staticLen v) 286 + 5 * mass fd 30) :
     H + mass (fun v => fl v * literalExcess v (ll v)) 286 +
-      mass (fun v => fd v * distanceExcess v (dl v)) 30 ≤ 1899 := by
+      mass (fun v => fd v * distanceExcess v (dl v)) 30 ≤ 1910 := by
   exact tiny_header_excess literalRegionCharge256 otherRegionCharge256 otherRegionCharge256
-    258 255 1 1 1 64 1 256 7 4 2 11 capLen256 capDist256 (by omega) (by omega) (by omega)
+    259 256 1 1 1 64 1 256 7 4 2 11 capLen256 capDist256 (by omega) (by omega) (by omega)
     entry_lit_256 entry_eob_256 entry_len_256 entry_dist_256
-    ll fl dl fd H (2 * (71 + Δ)) 1899 kraftL kraftD leafL eob leafD symbols balance header choice
+    ll fl dl fd H (2 * (71 + Δ)) 1910 kraftL kraftD leafL eob leafD symbols balance header choice
     (by rw [cap_sums_256.1, cap_sums_256.2]; omega)
 
 

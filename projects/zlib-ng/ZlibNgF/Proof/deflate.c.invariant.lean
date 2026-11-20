@@ -15,7 +15,7 @@ later call keeps: `pending_buf` is set, `head` lies in the plain bytes of the bl
 (`lm_set_level`), the tree arrays have their C sizes (`zng_tr_init`); the sizes `w_size`, `window_size`,
 `lit_bufsize`, `pending_buf_size`, `sym_end`; the layout of `alloc_deflate` (window, `prev`, `head`, `pending_buf` in
 that order, `sym_buf` at `pending_buf + lit_bufsize + PENDING_BUF_PAD`) and the pending bytes within `pending_buf`
-(from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end`; at most 63 bits in
+(from `pending_buf` itself when there are none); whole symbols in `sym_buf` up to `sym_end + 3`; at most 63 bits in
 `bi_buf`, whose complete bytes fit after the pending bytes; `strstart + lookahead` within the window; a valid `strategy`; both function pointers of `lm_set_level` set;
 valid distances in the tallied symbols and frequencies that count them, the pending bytes before `sym_buf` while there
 are symbols, no symbols in the header states; `block_start` and `insert` at or before `strstart`,
@@ -188,8 +188,11 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
       poo - pbo + v.pending.toNat + v.bi_valid.toInt.toNat / 8 ≤ 4 * v.lit_bufsize.toNat + 9
   /-- with no pending bytes, `pending_out` is back at `pending_buf` (`flush_pending`, `deflateResetKeep`) -/
   pout : v.pending = 0 → v.pending_out = v.pending_buf
-  /-- the symbol buffer holds whole three-byte symbols, at most `sym_end` bytes -/
-  syms : v.sym_next ≤ v.sym_end ∧ v.sym_next.toNat % 3 = 0
+  /-- the symbol buffer holds whole three-byte symbols, at most `sym_end + 3` bytes (`lit_bufsize` symbols): `deflate_fast`
+  and `deflate_medium` tally one more match at `sym_next == sym_end` before their `FLUSH_BLOCK` (the continuation of
+  a maximal match after a tally that filled the buffer); between calls `DeflateFacts.SymsOk` keeps
+  `sym_next < sym_end` -/
+  syms : v.sym_next ≤ v.sym_end + 3 ∧ v.sym_next.toNat % 3 = 0
   /-- the bit buffer (64 bits) holds at most 63 bits: `zng_tr_flush_bits` (`flush_pending`, `deflatePrime`) moves the
   complete bytes to `pending_buf`, but `deflate_quick` with `Z_FIXED` may return `need_more` with up to 63 bits
   waiting (when fewer than 8 bits are left is a between-call fact, `DeflateFacts.SymsOk`) -/
@@ -242,6 +245,26 @@ structure DCore (h : Heap) (s : StreamPtr) (z : ZStream) (b : Nat) (v : DView) (
 theorem DCore.of_heap {h h' : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
     (hb : h'.bytes b = h.bytes b) (c : DCore h s z b v al) : DCore h' s z b v al :=
   { c with head := by rw [hb]; exact c.head, lay := by rw [hb]; exact c.lay, symv := by rw [hb]; exact c.symv }
+
+/-- `sym_end + 3` does not wrap: `sym_end = 3 * (lit_bufsize - 1)` with `lit_bufsize ≤ 32768`. -/
+theorem DCore.sym_end3 {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
+    (c : DCore h s z b v al) : (v.sym_end + 3).toNat = v.sym_end.toNat + 3 := by
+  obtain ⟨-, -, -, -, hl, -, hse⟩ := c.sizes
+  rw [UInt32.toNat_add]; simp only [UInt32.reduceToNat]; omega
+
+/-- The symbol count of `DCore.syms` in natural numbers: at most `sym_end + 3 = 3 * lit_bufsize` bytes. -/
+theorem DCore.syms_le {h : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
+    (c : DCore h s z b v al) :
+    v.sym_next.toNat ≤ v.sym_end.toNat + 3 ∧ v.sym_next.toNat ≤ 3 * v.lit_bufsize.toNat ∧ v.sym_next.toNat % 3 = 0 := by
+  have h1 := UInt32.le_iff_toNat_le.mp c.syms.1
+  rw [c.sym_end3] at h1
+  obtain ⟨-, -, -, hl1, -, -, hse⟩ := c.sizes
+  exact ⟨h1, by omega, c.syms.2⟩
+
+/-- `sym_next ≤ sym_end` gives the `syms` clause (`sym_end + 3` does not wrap, `sym_end < 2^32 - 3`). -/
+theorem syms_of_le {a e : UInt32} (h : a ≤ e) (he : e.toNat + 3 < 2 ^ 32) : a ≤ e + 3 := by
+  rw [UInt32.le_iff_toNat_le] at h ⊢
+  rw [UInt32.toNat_add]; simp only [UInt32.reduceToNat]; omega
 
 /-- The structural invariant of the deflate stream `s` in `h`. -/
 def DInv (h : Heap) (s : StreamPtr) : Prop :=

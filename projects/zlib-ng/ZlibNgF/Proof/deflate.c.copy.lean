@@ -296,8 +296,7 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Deflate
   obtain rfl : pbo + st.lit_bufsize.toNat + 8 = sbo := by injection hsb2 with e; injection e
   have hsyms := c.syms
   simp only [dview] at hsyms
-  have hsn : st.sym_next.toNat ≤ 3 * (st.lit_bufsize.toNat - 1) := by
-    rw [← hse]; exact UInt32.le_iff_toNat_le.mp hsyms.1
+  have hsn : st.sym_next.toNat ≤ 3 * st.lit_bufsize.toNat := c.syms_le.2.1
   generalize hF : copyFold d0 (p + dWS (2 ^ k) + 2 * 2 ^ k + 131072) pbo
     (List.range' 0 (4 * st.lit_bufsize.toNat + 9)) (copyFold d0 (p + dWS (2 ^ k) + 2 * 2 ^ k) ho
       (List.range' 0 131072) (copyFold d0 (p + dWS (2 ^ k)) po (List.range' 0 (2 ^ k * 2))

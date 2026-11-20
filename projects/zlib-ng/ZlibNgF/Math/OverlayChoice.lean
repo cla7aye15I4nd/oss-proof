@@ -206,7 +206,7 @@ theorem match_balance (lc dc : Nat → Nat) (xs : List Symbol) (valid : ∀ s �
 /-- **The dynamic-block overlay budget for the covered `lit_bufsize`**: `512` and `1024 .. 32768` (`memLevel` 3 to
 9), for every block, with no block-choice fact. `lit_bufsize` 128 and 256 (`memLevel` 1 and 2) are not covered. -/
 theorem dynamic_budget_covered {B b0 : Nat} (xs : List Symbol) (hB : B = 512 ∨ (1024 ≤ B ∧ B ≤ 32768))
-    (hb0 : b0 ≤ 7) (hn : xs.length + 1 ≤ B) (valid : ∀ s ∈ xs, s.Valid) :
+    (hb0 : b0 ≤ 7) (hn : xs.length ≤ B) (valid : ∀ s ∈ xs, s.Valid) :
     Budget B (b0 + 3 + blockHeader xs) (blockCosts xs) := by
   rcases hB with rfl | ⟨lo, hi⟩
   · exact dynamic_budget_512 xs hb0 hn valid

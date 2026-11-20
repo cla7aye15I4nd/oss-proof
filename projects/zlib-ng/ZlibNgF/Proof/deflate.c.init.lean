@@ -867,7 +867,7 @@ theorem tail_sat {h : Heap} {i : Nat} (z1 : ZStream) (hza : z1.zalloc = .zcalloc
       · exact q1
       · exact q2
       · exact q0
-      · exact q3
+      · exact ⟨ZlibNgF.Proof.DeflateInv.syms_of_le q3.1 (by have := q1.2.2.2.2.2.2; have := q1.2.2.2.2.1; omega), q3.2⟩
       · exact q4
       · exact q5
       · exact q6
