@@ -55,7 +55,7 @@ def content (st : DeflateState) : Nat :=
 /-- The static block of `deflate_quick` with `Z_FIXED`. -/
 def quickB (f : Int32) (st : DeflateState) : Nat :=
   if st.block_open ≠ 0 then (if f = Z_FINISH ∧ st.block_open = 1 then 96 else 32)
-  else if st.lookahead ≠ 0 then 64 else 0
+  else if st.lookahead.toNat ≠ 0 then 64 else 0
 
 /-- The flush marker that the next call with `f` emits. -/
 def mark (f : Int32) (st : DeflateState) : Nat :=
@@ -157,19 +157,32 @@ theorem mark_zero {f : Int32} (hf : f = Z_NO_FLUSH ∨ f = Z_FINISH ∨ f = Z_BL
   unfold mark markK
   rcases hf with rfl | rfl | rfl <;> simp [Z_NO_FLUSH, Z_FINISH, Z_BLOCK, Z_PARTIAL_FLUSH, Z_SYNC_FLUSH, Z_FULL_FLUSH]
 
-/-- A literal or a match of `L >= 1` bytes tallied: `L` bytes move from the lookahead to the window span and one
-symbol is added; `content` drops by at least `2^19 L - 6 L - 2^18`. -/
-theorem content_tally {st st' : DeflateState} (L : Nat) (hL : 1 ≤ L)
+/-- `L` bytes move from the lookahead to the window span (a direct emission of `deflate_quick` with `Z_FIXED`):
+`content` drops by `2^19 L - 6 L`, which pays the emitted codes. -/
+theorem content_move {st st' : DeflateState} (L : Nat)
+    (e1 : st'.lookahead.toNat + L = st.lookahead.toNat)
+    (e2 : (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt + L)
+    (hs0 : st.block_start.toInt ≤ st.strstart.toNat)
+    (e3 : st'.sym_next = st.sym_next) (e4 : st'.match_available = st.match_available)
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) : content st' + 2 ^ 19 * L ≤ content st + 6 * L := by
+  unfold content span
+  rw [e3, e4, e5, e6]
+  omega
+
+/-- A literal or a match of `L` bytes tallied: `L` bytes move from the lookahead to the window span and one symbol
+is added. -/
+theorem content_tally {st st' : DeflateState} (L : Nat)
     (e1 : st'.lookahead.toNat + L = st.lookahead.toNat)
     (e2 : (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt + L)
     (hs0 : st.block_start.toInt ≤ st.strstart.toNat)
     (e3 : st'.sym_next.toNat = st.sym_next.toNat + 3) (e4 : st'.match_available = st.match_available)
-    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) : content st' + 2 ^ 18 ≤ content st := by
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) :
+    content st' + 2 ^ 19 * L ≤ content st + 6 * L + 2 ^ 18 := by
   unfold content span
   rw [e4, e5, e6]
   have : (st.sym_next.toNat + 3) / 3 = st.sym_next.toNat / 3 + 1 := by omega
   rw [e3, this]
-  split <;> split <;> split <;> omega
+  omega
 
 /-- The pending literal of `deflate_slow` set (`match_available = 1`, one byte from the lookahead to the span). -/
 theorem content_pend_lit {st st' : DeflateState}
@@ -177,10 +190,24 @@ theorem content_pend_lit {st st' : DeflateState}
     (e2 : (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt + 1)
     (hs0 : st.block_start.toInt ≤ st.strstart.toNat)
     (e3 : st'.sym_next = st.sym_next) (e4 : st.match_available = 0) (e4' : st'.match_available ≠ 0)
-    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) : content st' + 2 ^ 18 ≤ content st := by
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) : content st' + 2 ^ 19 ≤ content st + 6 + 2 ^ 18 := by
   unfold content span
-  rw [e3, e5, e6, if_pos e4', if_neg (not_not.mpr e4)]
-  split <;> split <;> omega
+  have m1 : (if st'.match_available ≠ 0 then (2 : Nat) ^ 18 else 0) = 2 ^ 18 := ite_eq_left e4'
+  have m0 : (if st.match_available ≠ 0 then (2 : Nat) ^ 18 else 0) = 0 := ite_eq_right (fun h => h e4)
+  rw [e3, e5, e6, m1, m0]
+  omega
+
+/-- The pending literal of `deflate_slow` tallied (`match_available = 0`, one symbol added). -/
+theorem content_tally_pend {st st' : DeflateState}
+    (e1 : st'.lookahead = st.lookahead) (e2 : span st' = span st)
+    (e3 : st'.sym_next.toNat = st.sym_next.toNat + 3) (e4 : st.match_available ≠ 0) (e4' : st'.match_available = 0)
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) : content st' ≤ content st := by
+  unfold content
+  have m1 : (if st.match_available ≠ 0 then (2 : Nat) ^ 18 else 0) = 2 ^ 18 := ite_eq_left e4
+  have m0 : (if st'.match_available ≠ 0 then (2 : Nat) ^ 18 else 0) = 0 := ite_eq_right (fun h => h e4')
+  have : (st.sym_next.toNat + 3) / 3 = st.sym_next.toNat / 3 + 1 := by omega
+  rw [e1, e2, e3, e5, e6, m1, m0, this]
+  omega
 
 /-- A block flush (`FLUSH_BLOCK_ONLY`: `block_start = strstart`, no symbols after) of a block with at least one
 symbol: `content` drops by `2^18`, which pays the block (at most `4 * lit_bufsize + 9` pending bytes from none, and
@@ -201,11 +228,12 @@ theorem content_finish {st st' : DeflateState} (hb : st.status ≠ FINISH_STATE)
     (e4 : st'.match_available = st.match_available) (e6 : st'.wrap = st.wrap) :
     content st' + 2 ^ 18 ≤ content st := by
   unfold content
-  rw [e1, e2, e3, e4, e6, e0, if_pos hb]
-  simp only [ne_eq, not_true_eq_false, if_false]
-  have h1 : ¬ (FINISH_STATE = INIT_STATE ∨ FINISH_STATE = GZIP_STATE) := by decide
-  rw [if_neg h1]
-  split <;> omega
+  have f1 : (if st.status ≠ FINISH_STATE then (2 : Nat) ^ 18 else 0) = 2 ^ 18 := ite_eq_left hb
+  have f2 : (if FINISH_STATE ≠ FINISH_STATE then (2 : Nat) ^ 18 else 0) = 0 := ite_eq_right (fun h => h rfl)
+  have f3 : (if FINISH_STATE = INIT_STATE ∨ FINISH_STATE = GZIP_STATE then (16 : Nat) else 0) = 0 :=
+    ite_eq_right (by decide)
+  rw [e1, e2, e3, e4, e6, e0, f1, f2, f3]
+  omega
 
 /-- `s->wrap = -s->wrap` after the trailer: `content` drops by `4 * wrap`, the trailer's bytes. -/
 theorem content_wrap {st st' : DeflateState} (hw : 0 < st.wrap.toInt) (e0 : st'.wrap.toInt = -st.wrap.toInt)
@@ -216,16 +244,31 @@ theorem content_wrap {st st' : DeflateState} (hw : 0 < st.wrap.toInt) (e0 : st'.
   rw [e1, e2, e3, e4, e5, e0]
   omega
 
-/-- The lookahead grows by `n` input bytes (`read_buf`): `content` and `quickB` grow by at most `G n`. -/
+/-- The lookahead grows by `n` bytes: `quickB` grows by at most `64 n`. -/
+theorem quickB_read {f : Int32} {st st' : DeflateState} (n : Nat)
+    (e1 : st'.lookahead.toNat = st.lookahead.toNat + n) (e7 : st'.block_open = st.block_open) :
+    quickB f st' ≤ quickB f st + 64 * n := by
+  unfold quickB
+  rw [e7, e1]
+  by_cases hb : st.block_open ≠ 0
+  · rw [ite_eq_left hb, ite_eq_left hb]; omega
+  · rw [ite_eq_right hb, ite_eq_right hb]
+    by_cases hl : st.lookahead.toNat ≠ 0
+    · rw [ite_eq_left hl, ite_eq_left (by omega : st.lookahead.toNat + n ≠ 0)]; omega
+    · rw [ite_eq_right hl]
+      by_cases hn : st.lookahead.toNat + n ≠ 0
+      · rw [ite_eq_left hn]; omega
+      · rw [ite_eq_right hn]; omega
+
+/-- The lookahead grows by `n` input bytes (`read_buf`): `psi` grows by at most `G n`. -/
 theorem psi_read {f : Int32} {st st' : DeflateState} (n : Nat)
     (e1 : st'.lookahead.toNat = st.lookahead.toNat + n) (e2 : span st' = span st)
     (e3 : st'.sym_next = st.sym_next) (e4 : st'.match_available = st.match_available)
     (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) (e7 : st'.block_open = st.block_open)
     (e8 : owed st' = owed st) (e9 : mark f st' = mark f st) : psi f st' ≤ psi f st + G * n := by
-  unfold psi content quickB G
-  rw [e2, e3, e4, e5, e6, e7, e8, e9, e1]
-  by_cases hn : n = 0
-  · subst hn; simp only [Nat.add_zero, Nat.mul_zero]; omega
-  · split <;> split <;> split <;> split <;> (try split) <;> (try split) <;> omega
+  have hq := quickB_read (f := f) n e1 e7
+  have hc : content st' = content st + 2 ^ 19 * n := by
+    unfold content; rw [e1, e2, e3, e4, e5, e6]; omega
+  unfold psi G; rw [hc, e8, e9]; omega
 
 end ZlibNgF.Proof.DeflatePsi
