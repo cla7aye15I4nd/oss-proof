@@ -173,6 +173,7 @@ import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
 import ZlibNgF.Proof.«deflate_huff.c.safety»
 import ZlibNgF.Proof.«deflate_rle.c.safety»
+import ZlibNgF.Proof.«deflate_slow.c.lazy»
 import ZlibNgF.Proof.«deflate_stored.c.io»
 import ZlibNgF.Proof.«deflate_stored.c.frame»
 import ZlibNgF.Proof.«deflate_stored.c.trip»
