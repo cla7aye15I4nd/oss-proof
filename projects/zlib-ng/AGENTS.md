@@ -174,8 +174,8 @@ Evidence: `nm` of `infback.c.o` in the `libz.a` of `tests/build-zlib-ng.sh` (it 
   `PULLBYTE` (calling `in()`) and `ROOM` (calling `out()`).
 - `inflateBackInit` does not set `state->strm`, `state->mode` or the code pointers; `inflateBack` sets `mode`, `last`
   and `whave` at entry and keeps `hold` / `bits` in locals that start at 0 on every call (there is no `inflatePrime`
-  for these streams, so the bit buffer holds fewer than 8 bits whenever `LEN` calls the fast path: patch 0007's
-  concern has no analogue). `state->wnext` stays 0.
+  for these streams, so the bit buffer holds fewer than 8 bits whenever `LEN` calls the fast path, and patch 0007's
+  cap on the bytes given back never binds). `state->wnext` stays 0.
 - `LEN` calls `inflate_fast_safe_c(strm, state->wsize)` (not `inflate_fast_c`) when `have >= 15` and `left >= 3`, with
   `next_out` inside the caller's window, so the output of `inflate_fast` *is* the window (`beg == window`). The safe
   variant bails out to `MATCH` when a match does not fit in `left`; `MATCH` of `infback.c` copies it with

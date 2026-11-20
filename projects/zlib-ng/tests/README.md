@@ -161,10 +161,11 @@ output buffered past `GZ_OFF_MAX` (the macro overflows in both runs).
 current series (`apply-patches.sh --library-only`), and prints `diff -r` of the two. Against the last commit with flat
 patches, the expected difference is `patch-source-identity.expected`: three comments, from the series `0006`, `0008`
 and `0015` in the form proposed upstream, and the `(z_size_t)` cast that `0003` drops in `deflateBound` (upstream
-review asked for it; the value is the same), and the new fix `0022` (`s->block_open = 0;` in `deflateResetKeep`, added
-after the layout change), and the new form of `0002` (`gzseek64` rewritten after madler/zlib `6995c67b` and
+review asked for it; the value is the same), the new fix `0022` (`s->block_open = 0;` in `deflateResetKeep`, added
+after the layout change), the new form of `0002` (`gzseek64` rewritten after madler/zlib `6995c67b` and
 `6ed77c48`, its `GZ_OFF_MAX` in `gzguts.h`, and a clause and a sentence added to the `gzseek` documentation of `zlib.h.in` and
-`zlib-ng.h.in`); no other statement differs.
+`zlib-ng.h.in`), and the new form of `0007` (the exit of `inflate_fast` gives back at most the bytes it loaded,
+`inffast_tpl.h`; the `bits < 8` test in `LEN` of `inflate.c` is gone); no other statement differs.
 
 ## GoogleTest cases of the patches
 

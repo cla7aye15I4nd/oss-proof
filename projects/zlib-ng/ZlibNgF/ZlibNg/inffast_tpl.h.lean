@@ -5,7 +5,8 @@ import ZlibNgF.ZlibNg.«inflate_p.h»
 # `inffast_tpl.h` — fast decoding loop (`ZlibNgF`)
 
 Source: `zlib-ng/inffast_tpl.h` with patch 0004 (a window copy is upstream's `CHUNKCOPY_SAFE` / `chunkcopy_safe`
-when `window == beg`, the output being the window as in `inflateBack`, and `memcpy` otherwise), instantiated twice by `zlib-ng/arch/generic/chunkset_c.c`:
+when `window == beg`, the output being the window as in `inflateBack`, and `memcpy` otherwise) and patch 0007 (on
+exit, `in` moves back by at most the bytes this call loaded from `next_in`), instantiated twice by `zlib-ng/arch/generic/chunkset_c.c`:
 `inflate_fast_c` (`safeMode = false`) and `inflate_fast_safe_c` (`USE_SAFE_MODE`, `safeMode = true`), with the
 chunk functions of `chunkset_tpl.h.lean`, no `HAVE_MASKED_READWRITE`, no `INFLATE_STRICT`, no
 `INFLATE_ALLOW_INVALID_DISTANCE_TOOFAR_ARRR`. `bits_t` is `uint8_t` (x86_64).
@@ -294,8 +295,11 @@ def INFLATE_FAST (safeMode : Bool) (strm : StreamPtr) (start : UInt32) : M Unit 
         return (← Ptr.lt l.out c.end_, (l, brk))
       return (false, (l, brk)))
     (l, false)
-  -- return unused bytes (on entry, bits < 8, so in won't go too far back)
-  let len := l.bits.toUInt32 >>> 3
+  -- return unused bytes, but no more than this call loaded from next_in
+  -- `MIN(a, b)` is `((a) > (b) ? (b) : (a))` (`zbuild.h`); `in - strm->next_in` is computed once
+  let mina := l.bits.toUInt32 >>> 3
+  let minb := (← Ptr.diff l.in_ (← ldStream strm).next_in).toUInt64.toUInt32
+  let len := if mina > minb then minb else mina
   let in_ ← l.in_.add (-(Int.ofNat len.toNat))
   let bits := l.bits - (len <<< 3).toUInt8
   let hold := l.hold &&& ((← shl64 1 bits.toUInt32) - 1)

@@ -114,9 +114,24 @@ diff -r -x test before/gzlib.c after/gzlib.c
 <     return state->x.pos + offset;
 ---
 >     return pos;
+diff -r -x test before/inffast_tpl.h after/inffast_tpl.h
+27c27
+<         state->bits < 8
+---
+>         state->bits <= 32
+348,349c348,349
+<     /* return unused bytes (on entry, bits < 8, so in won't go too far back) */
+<     len = bits >> 3;
+---
+>     /* return unused bytes, but no more than this call loaded from next_in */
+>     len = MIN((unsigned)(bits >> 3), (unsigned)(in - strm->next_in));
 diff -r -x test before/inflate.c after/inflate.c
 621a622
 >                     /* Guard against shared gz_header state reducing extra_len. */
+935c936
+<             if (have >= INFLATE_FAST_MIN_HAVE && left >= INFLATE_FAST_MIN_SAFE && bits < 8) {
+---
+>             if (have >= INFLATE_FAST_MIN_HAVE && left >= INFLATE_FAST_MIN_SAFE) {
 1250a1252,1254
 >     /* Reject any NULL dictionary, symmetric with deflateSetDictionary(): even
 >        a zero-length one would reach updatewindow() and the DFLTCC hook as a

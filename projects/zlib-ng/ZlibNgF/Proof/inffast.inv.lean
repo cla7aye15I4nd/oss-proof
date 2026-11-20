@@ -68,7 +68,7 @@ structure EnvOK (H0 : Heap) (c : FC) (e : FE) : Prop where
   last : c.last = .ref e.rin (e.E - 14)
   inA : ∃ A, Space.get H0 e.rin = some A ∧ e.E ≤ A.size
   inE : e.in0 + 15 ≤ e.E
-  bits0 : e.bits0 < 8
+  bits0 : e.bits0 < 64
   win : c.window = B e.wb e.woff
   wdata : ∃ wd, H0.bytes e.wb = some wd ∧ e.woff + c.wsize.toNat ≤ wd.size
   /-- The window is another block (`inflate`), or it is the output itself (`inflateBack`): `beg == window`, the safe

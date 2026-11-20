@@ -374,4 +374,44 @@ for xmax in (1, 16):
         for inchunk in (1 << 20, 1, 3, 13):
             emit(31, 0, inchunk, 1 << 20, len(d), m, "-", f"{xmax},4,4")
 
+# 15. inflate_fast entered with 8..32 bits held (patch 0007: on exit it gives back at most the bytes it loaded). The
+# first k bits of a raw stream go through inflatePrime (in pieces of at most 16 bits) and the rest of the stream is
+# re-packed from bit k. Text, so blocks are fixed or dynamic, never stored (a shift moves the byte alignment that a
+# stored block needs). Partial flushes make short blocks, so inflate_fast meets an end-of-block soon after entry with
+# primed bits left; output limits reach both variants. Plus hand-built blocks that are only an end-of-block code.
+def shifted(c, k):
+    return (int.from_bytes(c, "little") >> k).to_bytes((len(c) * 8 - k + 7) // 8, "little")
+
+def primes(c, k, step=16):
+    v = int.from_bytes(c, "little")
+    res, done = [], 0
+    while done < k:
+        m = min(step, k - done)
+        res.append(f"P{m}/{(v >> done) & ((1 << m) - 1)}")
+        done += m
+    return res
+
+def partial(d, step, strategy=zlib.Z_DEFAULT_STRATEGY):
+    co = zlib.compressobj(6, zlib.DEFLATED, -15, 8, strategy)
+    res = b""
+    for i in range(0, len(d), step):
+        res += co.compress(d[i:i + step]) + co.flush(zlib.Z_PARTIAL_FLUSH)
+    return res + co.flush()
+
+d1, d2 = text(600), text(120)
+PSTREAMS = [(d1, comp(d1, 6, -15)), (d1, comp(d1, 6, -15, zlib.Z_FIXED)), (d2, partial(d2, 1)),
+            (d2, partial(d2, 7, zlib.Z_FIXED)), (d2, partial(d2, 23))]
+for k in range(8, 33):
+    for j, (dd, cc) in enumerate(PSTREAMS):
+        rest = shifted(cc, k)
+        pk = primes(cc, k, 16 if (k + j) % 2 else 8)
+        ops(-15, len(dd) + 5, rest, "-", pk + ALL + ["f0"])
+        if j in (0, 2):
+            ops(-15, len(dd) + 5, rest, "-", pk + ["i1000000", "o100", "f0", "o1000000", "f0"])
+            ops(-15, len(dd) + 5, rest, "-", pk + ["i" + str(15 + k % 5), "o1000000", "f0", "i1000000", "f0"])
+for pre in (["P16/3074", "P16/0"], ["P16/3", "P16/0"], ["P10/3", "P16/0", "P6/0"], ["P16/2", "P16/0"]):
+    for n in (15, 16, 32):
+        ops(-15, 1024, bytes(n), "-", pre + ALL + ["f0"])
+        ops(-15, 1024, b"\xff" * n, "-", pre + ALL + ["f0"])
+
 print("\n".join(out))
