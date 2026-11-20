@@ -119,6 +119,10 @@ theorem SAcc.of_locals {E : Env} {l : IL} {z : ZStream} (hi : InAt E.inp E.A0 l.
   rw [hpo, hput, hao, hsub, hsub2]
   congr 1; omega
 
+/-- `msg` of a stream record: the one at entry (in `E.H0`) or a string literal of the program. -/
+def MsgK (E : Env) (z : ZStream) : Prop :=
+  ∀ z0, E.H0.streams E.i = some z0 → z.msg = z0.msg ∨ ∃ k, z.msg = .ref (.str k) 0 ∧ k < strTable.size
+
 /-- The loop invariant: heap `H` with stream record `z` and state `S`, locals `l`. -/
 structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Prop where
   inv : Inv H (some E.i)
@@ -142,6 +146,8 @@ structure LI (E : Env) (l : IL) (H : Heap) (z : ZStream) (S : InflateState) : Pr
   /-- the stream record has the exact accounting: it holds the entry values or those of the last `RESTORE()` or
   `inflate_fast` -/
   sacc : SAcc E z
+  /-- `msg` is the one at entry or a string literal (only `SET_BAD` stores it) -/
+  msgK : MsgK E z
 
 /-- The loop invariant for some stream record and state. -/
 def LIx (E : Env) (l : IL) (H : Heap) : Prop := ∃ z S, LI E l H z S
@@ -159,10 +165,10 @@ theorem LIh.hs {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (h
 
 /-- The stream record in `H` with the exact accounting of the call: `next_in` advanced by `A0 - avail_in` bytes
 (`InAt`), and `next_out` advanced by `O0 - avail_out` bytes from the start `oo` of the output buffer. -/
-def IoAcc (E : Env) (H : Heap) : Prop := ∃ z, H.streams E.i = some z ∧ SAcc E z
+def IoAcc (E : Env) (H : Heap) : Prop := ∃ z, H.streams E.i = some z ∧ SAcc E z ∧ MsgK E z
 
 theorem LI.ioAcc {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) : IoAcc E H :=
-  ⟨z, li.hz, li.sacc⟩
+  ⟨z, li.hz, li.sacc, li.msgK⟩
 
 theorem LIh.ioAcc {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (h : LIh E l H z S) : IoAcc E H := by
   rcases h with li | ⟨-, v, li⟩

@@ -158,10 +158,22 @@ theorem inflate_res : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO
     h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
     r = Z_OK ∨ r = Z_STREAM_END ∨ r = Z_NEED_DICT ∨ r = Z_BUF_ERROR ∨ r = Z_DATA_ERROR ∨ r = Z_STREAM_ERROR := by
   intro h i flush r h' hv hio hc e
-  obtain ⟨r2, h2, e2, -, -, -, -, -, -, -, hres⟩ := InflateTop.inflate_full flush hv hio hc
+  obtain ⟨r2, h2, e2, -, -, -, -, -, -, -, hres, -⟩ := InflateTop.inflate_full flush hv hio hc
   rw [e] at e2
   cases e2
   exact hres
+
+/-- **`msg` after `inflate`** (any `flush`, any result): the one before the call, or a string literal of the program
+(only `SET_BAD` stores it, in the modes and in `inflate_fast`). -/
+theorem inflate_msg : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO h (some i) →
+    h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
+    ∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧
+      (z'.msg = z.msg ∨ ∃ k, z'.msg = .ref (.str k) 0 ∧ k < strTable.size) := by
+  intro h i flush r h' hv hio hc e
+  obtain ⟨r2, h2, e2, -, -, -, -, -, -, -, -, hmsg⟩ := InflateTop.inflate_full flush hv hio hc
+  rw [e] at e2
+  cases e2
+  exact hmsg
 
 /-- **The exact accounting of `inflate`** (any `flush`, every code but `Z_STREAM_ERROR`): `next_in` advanced by the
 `avail_in - avail_in'` bytes consumed (`InAt`; a `NULL` input stays `NULL` with no bytes), `next_out` advanced by the

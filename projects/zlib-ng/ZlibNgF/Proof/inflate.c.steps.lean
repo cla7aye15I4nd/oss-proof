@@ -51,10 +51,11 @@ theorem LI.st {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li
 
 theorem LI.of_touch {E : Env} {l : IL} {H H' : Heap} {z z' : ZStream} {S S' : InflateState} (li : LI E l H z S)
     (t : St H H' E.i E.b z' S') (hh : S'.head = S.head) (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank S'.mode ≤ 2))
-    (hsa : SAcc E z') :
+    (hsa : SAcc E z') (hmk : MsgK E z') :
     LI E l H' z' S' :=
   { li with
     sacc := hsa
+    msgK := hmk
     outO := ho.elim Or.inl fun h => li.outO.imp_right h
     inv := t.inv
     frame := Frame.trans li.frame (touchFrame t.touch _ _)
@@ -75,7 +76,7 @@ theorem LI.wrS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (l
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view (f S)) al)
     (hh : (f S).head = S.head) (hm : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank (f S).mode ≤ 2) := by exact Or.inr id) :
     Sat H (ZlibNg.Inflate.wrS (some E.b) f) (fun _ H' => LI E l H' z (f S)) :=
-  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => li.of_touch t hh hm li.sacc)
+  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => li.of_touch t hh hm li.sacc li.msgK)
 
 /-- `LI.wrS` that also records that the bytes and the headers stay. -/
 theorem LI.wrST {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
@@ -84,24 +85,24 @@ theorem LI.wrST {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (
     (hh : (f S).head = S.head) (hm : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank (f S).mode ≤ 2) := by exact Or.inr id) :
     Sat H (ZlibNg.Inflate.wrS (some E.b) f) (fun _ H' => LI E l H' z (f S) ∧ H'.bytes = H.bytes ∧
       H'.gzheaders = H.gzheaders) :=
-  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => ⟨li.of_touch t hh hm li.sacc, t.touch.bytes, t.touch.gz⟩)
+  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => ⟨li.of_touch t hh hm li.sacc li.msgK, t.touch.bytes, t.touch.gz⟩)
 
 /-- A store into the stream record with the accounting of the call that keeps `state`, `zalloc`, `zfree` keeps
 `LI`. -/
 theorem LI.wrZio {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (f : ZStream → ZStream) (e1 : (f z).state = z.state) (e2 : (f z).zalloc = z.zalloc)
-    (e3 : (f z).zfree = z.zfree) (hsa : SAcc E (f z)) :
+    (e3 : (f z).zfree = z.zfree) (hsa : SAcc E (f z)) (hmk : MsgK E (f z)) :
     Sat H (wrZ (some E.i) f) (fun _ H' => LI E l H' (f z) S) :=
-  Sat.mono (InflateSync.step_Z li.st f e1 e2 e3) (fun _ _ t => li.of_touch t rfl (Or.inr id) hsa)
+  Sat.mono (InflateSync.step_Z li.st f e1 e2 e3) (fun _ _ t => li.of_touch t rfl (Or.inr id) hsa hmk)
 
 /-- A store into the stream record that keeps `state`, `zalloc`, `zfree` and the buffer fields keeps `LI`. -/
 theorem LI.wrZ {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (f : ZStream → ZStream) (e1 : (f z).state = z.state) (e2 : (f z).zalloc = z.zalloc)
     (e3 : (f z).zfree = z.zfree) (e4 : (f z).next_in = z.next_in := by rfl)
     (e5 : (f z).avail_in = z.avail_in := by rfl) (e6 : (f z).next_out = z.next_out := by rfl)
-    (e7 : (f z).avail_out = z.avail_out := by rfl) :
+    (e7 : (f z).avail_out = z.avail_out := by rfl) (e8 : (f z).msg = z.msg := by rfl) :
     Sat H (wrZ (some E.i) f) (fun _ H' => LI E l H' (f z) S) := by
-  refine li.wrZio f e1 e2 e3 ?_
+  refine li.wrZio f e1 e2 e3 ?_ (fun z0 h0 => by rw [e8]; exact li.msgK z0 h0)
   have h := li.sacc
   unfold SAcc at h ⊢
   rw [e4, e5, e6, e7]; exact h
@@ -146,7 +147,7 @@ theorem LI.locals {E : Env} {l l' : IL} {H : Heap} {z : ZStream} {S : InflateSta
     (h8 : l'.ret = l.ret := by rfl) : LI E l' H z S :=
   ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt,
     by rw [h3, h4, h5]; exact li.outAt, by rw [h6]; exact li.bits, by rw [h7]; exact li.inn,
-    by rw [h4]; exact li.outO, by rw [h8]; exact li.retB, li.sacc⟩
+    by rw [h4]; exact li.outO, by rw [h8]; exact li.retB, li.sacc, li.msgK⟩
 
 /-- `LI` with `ret` set to `Z_OK`, `Z_STREAM_END` or `Z_DATA_ERROR`. -/
 theorem LI.setRet {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (v : Int32)
@@ -364,7 +365,7 @@ theorem needbits_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
         rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; show 1 ≤ _; omega)]; rfl
       refine ⟨⟨rfl, ?_, ?_, ?_⟩, ?_⟩
       · refine ⟨li1.inv, li1.frame, li1.sz, li1.hz, li1.hb, li1.hs, li1.head, li1.hdr, ?_, li1.outAt, ?_, li1.inn,
-          li1.outO, li1.retB, li1.sacc⟩
+          li1.outO, li1.retB, li1.sacc, li1.msgK⟩
         · obtain ⟨hle, hat⟩ := li1.inAt
           refine ⟨by rw [UInt32.le_iff_toNat_le, hsub]; have : l1.have_.toNat ≤ E.A0.toNat := hle; omega, ?_⟩
           show match E.inp with
@@ -431,7 +432,8 @@ theorem LI.setBad {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
   refine Sat.bind (Sat.mono (li.setQuiet BAD (by decide) (by decide) (Or.inr (by decide))) ?_)
   intro _ H1 li1
   refine Sat.bind (Sat.of_eq (show strLitRef msg H1 = .ok (.ref (.str i) 0, H1) by simp [strLitRef, hm]) ?_)
-  exact Sat.mono (li1.wrZ (fun z => { z with msg := .ref (.str i) 0 }) rfl rfl rfl) (fun _ H2 li2 => ⟨_, li2⟩)
+  exact Sat.mono (li1.wrZio (fun z => { z with msg := .ref (.str i) 0 }) rfl rfl rfl li1.sacc
+    (fun _ _ => Or.inr ⟨i, rfl, by rw [Array.findIdx?_eq_some_iff_findIdx_eq] at hm; exact hm.1⟩)) (fun _ H2 li2 => ⟨_, li2⟩)
 
 /-- `CRC_DO1_B` with the static table in place. -/
 theorem crcDo1_ok {H : Heap} (hc : H.crcTable = ZlibNg.Crc32Tbl.crc_table) (c : UInt32) (w : UInt64) :
@@ -547,6 +549,6 @@ theorem LI.setBits {E : Env} {l l' : IL} {H : Heap} {z : ZStream} {S : InflateSt
     (h8 : l'.ret = l.ret := by rfl) : LI E l' H z S :=
   ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt,
     by rw [h3, h4, h5]; exact li.outAt, h6, by rw [h7]; exact li.inn, by rw [h4]; exact li.outO,
-    by rw [h8]; exact li.retB, li.sacc⟩
+    by rw [h8]; exact li.retB, li.sacc, li.msgK⟩
 
 end ZlibNgF.Proof.InflateLoop

@@ -58,7 +58,7 @@ theorem LI.resetOut {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
     (h8 : l'.ret = l.ret := by rfl) : LI E l' H z S := by
   obtain ⟨p, hp, hp1, hp2⟩ := li.outPos
   refine ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt, ?_,
-    by rw [h6]; exact li.bits, by rw [h7]; exact li.inn, Or.inr hr, by rw [h8]; exact li.retB, li.sacc⟩
+    by rw [h6]; exact li.bits, by rw [h7]; exact li.inn, Or.inr hr, by rw [h8]; exact li.retB, li.sacc, li.msgK⟩
   refine ⟨by rw [h4]; exact UInt32.le_refl _, p, hp1, by rw [h4, h5]; exact hp2, ?_⟩
   rw [h3, hp, h4, UInt32.sub_self]; rfl
 
