@@ -114,6 +114,15 @@ theorem fiz_nxt {ss la md k : Nat} {m n : Match} (hf : FindOk ss la md m) (hmd :
   · rw [e] at h4; exact absurd h4 (by decide)
   refine ⟨by omega, by omega, e5, Or.inr ⟨by omega, by omega, by omega⟩⟩
 
+/-- `StratPost` for `need_more` after a call without a flush, at the levels of `deflate_medium*`. -/
+theorem slc_postM {h H : Heap} {i b : Nat} (C : SLC h i b H) (hl : MedLv h b) :
+    StratPost h (some i) Z_NO_FLUSH .need_more H := by
+  refine slf_postM C.1 _ _ hl fun st2 h2 => ⟨(C.2 st2 h2).2, ?_, ?_, ?_, ?_⟩
+  · intro e; rcases e with e | e <;> cases e
+  · intro e; exact absurd rfl e
+  · intro e; rcases e with e | e <;> cases e
+  · intro e; cases e
+
 open ZlibNgF.Proof.MediumFind in
 /-- The facts of a found match that the emission uses. -/
 theorem findOk_cur {ss la md : Nat} {m : Match} (hf : FindOk ss la md m) (hmd : md ≤ 32768) (hla : 1 ≤ la) :
@@ -567,6 +576,48 @@ theorem trip_ok (T : TreesFacts) (fz : Bool) {h H : Heap} {i b wo : Nat} {W : UI
       refine Sat.bind (Sat.mono (hIF H0 z st d G hW (UInt32.le_iff_toNat_le.mp h4)) ?_)
       rintro hh _ ⟨d', rfl, G', hh6⟩
       exact hJ hh d' G' hh6
-  sorry
+  obtain ⟨G, hWS, hNI, hfzn⟩ := I
+  obtain ⟨z, st, d, eH, hst⟩ := slf_sh G.1.1
+  have hWst : st.w_size = W := hWS st hst
+  rw [eH] at G hμ ⊢
+  simp only [OM, avIn_SH, laOf_SH] at hμ
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+  refine sat_ite (fun hlt => ?_) (fun hlt => ?_)
+  · have hlt' : st.lookahead.toNat < 262 := UInt32.lt_iff_toNat_lt.mp hlt
+    refine Sat.bind (Sat.mono (mg_fill G (SH_dstate _ _ _ _ _ _) hlt') ?_)
+    rintro _ _ ⟨H1, z1, st1, d1, rfl, G1, hsum, hne, hws1, -⟩
+    rw [avIn_SH, avIn_SH] at hsum hne
+    refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+    refine sat_ite (fun hnm => ?_) (fun hnm => ?_)
+    · simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hnm
+      obtain ⟨-, rfl⟩ := hnm
+      exact Sat.pure ⟨⟨slc_postM G1.1 hl, G1.2⟩, by simp only [OM]; omega⟩
+    · refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+      refine sat_ite (fun h0 => ?_) (fun h0 => ?_)
+      · refine Sat.pure ⟨⟨G1, fun st2 h2 => ?_⟩, by simp only [OM]; omega⟩
+        obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
+        simpa using h0
+      · have h1 : 1 ≤ st1.lookahead.toNat := by
+          have : st1.lookahead ≠ 0 := fun e => h0 (by simp [e])
+          have h2 : st1.lookahead.toNat ≠ 0 := fun e => this (UInt32.toNat_inj.mp (by rw [e]; rfl))
+          omega
+        have hW1' : st1.w_size = W := hws1.trans hWst
+        have hA : 2 * z1.avail_in.toNat + st1.lookahead.toNat ≤ 2 * z.avail_in.toNat + st.lookahead.toNat := by
+          by_cases e : st1.lookahead = st.lookahead
+          · rw [e] at hsum ⊢; omega
+          · have := hne e; omega
+        have hA2 : 262 ≤ st1.lookahead.toNat →
+            2 * z1.avail_in.toNat + st1.lookahead.toNat + 1 ≤ 2 * z.avail_in.toNat + st.lookahead.toNat := by
+          intro h
+          have e : st1.lookahead ≠ st.lookahead := fun e => by rw [e] at h; omega
+          have := hne e; omega
+        have hz : ∀ n : Match, n.match_length = 0 → Sat (SH H1 i z1 b st1 d1) (jS () n)
+            (fun v H2 => OI h i b W flush fz v H2 ∧ OM i b v H2 < μ0) := fun n hn =>
+          hS n H1 z1 st1 d1 G1 hW1' h1 (fun hp => by rw [hn] at hp; exact absurd hp (by decide))
+            (fun _ => hn) (by have := nm_le nxt; omega) (fun h => by have := hA2 h; have := nm_le n; omega)
+        refine sat_ite (fun _ => hz _ rfl) (fun hf => hz _ (hfzn (by simpa using hf)))
+  · have hge : 262 ≤ st.lookahead.toNat := by have := UInt32.not_lt.mp hlt; exact UInt32.le_iff_toNat_le.mp this
+    refine hS nxt _ z st d G hWst (by omega) (fun hp => ⟨hge, hNI st hst hge hp⟩) hfzn
+      (by have := nm_le nxt; omega) (fun _ => by omega)
 
 end ZlibNgF.Proof.MediumLoop
