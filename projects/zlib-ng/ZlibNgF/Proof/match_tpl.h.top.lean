@@ -122,32 +122,33 @@ theorem roll_loop_ok {wo po ho : Nat} (N : LN d wo po ho st) (bl cm h0 : UInt32)
 
 /-- The outer loop of `LONGEST_MATCH` and its `return best_len` (`match_tpl.h:137-297`). -/
 theorem main_tail {e : LMEnv} {v : LMVars} {wo po ho bl0 : Nat} (E : LE b wo po ho st e) (N : LN d wo po ho st)
-    (hp : PrevBelow d po st B) (hBs : st.strstart.toNat ≤ B) (V : VI b wo st v) {ms : UInt32}
-    (hb : BL st B bl0 v.best_len ms) :
+    (hp : PrevBelow d po st B) {Ch : Nat → Prop} (hpc : PrevCh d po st Ch) (hall : e.slow = true → ∀ n, Ch n)
+    (hBs : st.strstart.toNat ≤ B) (V : VI b wo st v) (hcc : Ch v.cur_match.toNat)
+    (hmoc : v.match_offset = 0 ∨ ∀ n, Ch n) {ms : UInt32} (hb : BLC st B Ch bl0 v.best_len ms) :
     Sat (LH H i z b st d ms) (do
       let x ← cwhile (fun (x : LMExit × LMVars) => pure (x.fst.isCont, x.fst, x.snd))
         (fun x => LM.loop_body e x.snd) (LMExit.cont, v)
       match x.fst with
       | .ret r => pure r
       | _ => pure x.snd.best_len)
-      (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ PR st B bl0 r ms) := by
-  refine Sat.bind (Sat.mono (main_loop_ok E N hp hBs V hb) ?_)
+      (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ PRC st B Ch bl0 r ms) := by
+  refine Sat.bind (Sat.mono (main_loop_ok E N hp hpc hall hBs V hcc hmoc hb) ?_)
   rintro ⟨x, v⟩ _ ⟨⟨ms, rfl, hx⟩, hc⟩
   cases x with
   | cont => simp [LMExit.isCont] at hc
-  | brk => exact Sat.pure ⟨ms, rfl, BL.pr hx⟩
+  | brk => exact Sat.pure ⟨ms, rfl, BLC.pr hx⟩
   | ret r => exact Sat.pure ⟨ms, rfl, hx⟩
 
-/-- `longest_match_c` (levels 2-6): with `prev` entries 0 or below `B`, `strstart <= B` and the entry candidate
-`cur_match` a `Pos` at or above `limit_base` (the C's IN assertion `strstart - cur_match <= MAX_DIST`), it runs
-without fault, changes only `match_start`, and returns at most `STD_MIN_MATCH - 1`, or at most `lookahead` and 258
-with `limit_base <= match_start < B`. -/
-theorem longest_match_c_ok {wo po ho : Nat} {cm : UInt32}
+/-- `longest_match_c` (levels 2-6) with a candidate set `Ch` closed under the chain step (`PrevCh`) that holds the
+entry candidate: as `longest_match_c_ok`, and an accepted `match_start` is in `Ch` (`longest_match_c` keeps
+`match_offset == 0`, so `match_start` is a candidate of the walk). -/
+theorem longest_match_c_okC {wo po ho : Nat} {cm : UInt32}
     (hw : st.window = .val (.ref (.heap b) wo)) (hpv : st.prev = .val (.ref (.heap b) po))
-    (N : LN d wo po ho st) (hp : PrevBelow d po st B) (hBs : st.strstart.toNat ≤ B)
-    (hcm : cm.toNat < 65536) (hlb : (limitBase st).toNat ≤ cm.toNat) :
+    (N : LN d wo po ho st) (hp : PrevBelow d po st B) (hBs : st.strstart.toNat ≤ B) {Ch : Nat → Prop}
+    (hpc : PrevCh d po st Ch) (hcm : cm.toNat < 65536) (hlb : (limitBase st).toNat ≤ cm.toNat)
+    (hch : Ch cm.toNat) :
     Sat (SH H i z b st d) (longest_match_c (some b) cm)
-      (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ PR st B 2 r ms) := by
+      (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ PRC st B Ch 2 r ms) := by
   have hst := N.look
   have hla := N.la_le
   have hssl := N.ss_le
@@ -173,10 +174,43 @@ theorem longest_match_c_ok {wo po ho : Nat} {cm : UInt32}
   refine Sat.bind (Sat.mono (sat_add G (by omega) _ wo (by simp) (by omega)) ?_)
   rintro _ _ ⟨rfl, rfl⟩
   have hb2 : (STD_MIN_MATCH - 1 : UInt32).toNat = 2 := by decide
-  refine main_tail (bl0 := 2) ?E N hp hBs ?V (Or.inl hb2)
+  refine main_tail (bl0 := 2) ?E N hp hpc (fun h => by cases h) hBs ?V hch (Or.inl rfl)
+    ⟨Or.inl hb2, fun h => absurd h (by rw [hb2]; exact Nat.lt_irrefl 2)⟩
   case E => exact ⟨rfl, rfl, rfl, rfl, fun h => (by cases h), rfl, rfl, rfl, fun h => (by simp at h)⟩
   case V => exact ⟨rfl, by simp, by simp, by simp only []; omega, hcm, by simp, by simp only [UInt32.toNat_zero]; rfl,
       by simp only []; exact hlb⟩
+
+/-- `longest_match_c` (levels 2-6): with `prev` entries 0 or below `B`, `strstart <= B` and the entry candidate
+`cur_match` a `Pos` at or above `limit_base` (the C's IN assertion `strstart - cur_match <= MAX_DIST`), it runs
+without fault, changes only `match_start`, and returns at most `STD_MIN_MATCH - 1`, or at most `lookahead` and 258
+with `limit_base <= match_start < B`. -/
+theorem longest_match_c_ok {wo po ho : Nat} {cm : UInt32}
+    (hw : st.window = .val (.ref (.heap b) wo)) (hpv : st.prev = .val (.ref (.heap b) po))
+    (N : LN d wo po ho st) (hp : PrevBelow d po st B) (hBs : st.strstart.toNat ≤ B)
+    (hcm : cm.toNat < 65536) (hlb : (limitBase st).toNat ≤ cm.toNat) :
+    Sat (SH H i z b st d) (longest_match_c (some b) cm)
+      (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ PR st B 2 r ms) :=
+  Sat.mono (longest_match_c_okC hw hpv N hp hBs (prevCh_true d po st) hcm hlb trivial)
+    fun _ _ ⟨ms, e, h⟩ => ⟨ms, e, h.1⟩
+
+/-- `longest_match_c` on the hash chains (levels 2-6): with `Ch` closed under the chain step (`PrevCh`), the entry
+candidate in `Ch` at or above `limit_base`, it runs without fault, changes only `match_start`, and returns at most
+`STD_MIN_MATCH - 1`, or at most `lookahead` and 258 with `limit_base <= match_start` and `match_start` in `Ch`. With
+`Ch` the positions of the chains below `strstart` (`ChainOk` at level 2), `match_start < strstart`. -/
+theorem longest_match_c_chain {wo po ho : Nat} {cm : UInt32}
+    (hw : st.window = .val (.ref (.heap b) wo)) (hpv : st.prev = .val (.ref (.heap b) po))
+    (N : LN d wo po ho st) {Ch : Nat → Prop} (hpc : PrevCh d po st Ch) (hcm : cm.toNat < 65536)
+    (hlb : (limitBase st).toNat ≤ cm.toNat) (hch : Ch cm.toNat) :
+    Sat (SH H i z b st d) (longest_match_c (some b) cm)
+      (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ (r.toNat ≤ 2 ∨
+        (r.toNat ≤ st.lookahead.toNat ∧ r.toNat ≤ 258 ∧ (limitBase st).toNat ≤ ms.toNat ∧ Ch ms.toNat))) :=
+  Sat.mono (longest_match_c_okC hw hpv N (prevBelow_65536 d po st) N.ss_le hpc hcm hlb hch)
+    fun r _ ⟨ms, e, ⟨h1, h2⟩⟩ => ⟨ms, e, by
+      rcases h1 with h | ⟨a1, a2, a3, -⟩
+      · exact Or.inl h
+      · by_cases h3 : 2 < r.toNat
+        · exact Or.inr ⟨a1, a2, a3, h2 h3⟩
+        · exact Or.inl (by omega)⟩
 
 /-- The slow variants `LONGEST_MATCH` with `LONGEST_MATCH_SLOW` (levels 7-9), `roll` selecting the rolling-hash
 variant. `best_len` starts at `prev_length` (or `STD_MIN_MATCH - 1` when it is 0). -/
@@ -248,7 +282,9 @@ theorem longest_match_slow_ok (roll : Bool) {wo po ho : Nat} {cm : UInt32}
         | _ => pure x.snd.best_len)
         (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ PR st B bl.toNat r ms) := by
     intro c mo lim hc hmo hl hle chain osr
-    exact main_tail (E _ rfl osr) N hp hBs ⟨rfl, rfl, hoff, show bl.toNat ≤ 65536 by omega, hc, show mo.toNat ≤ 65536 by omega, hl, hle⟩ (Or.inl rfl)
+    exact Sat.mono (main_tail (E _ rfl osr) N hp (prevCh_true d po st) (fun _ _ => trivial) hBs
+      ⟨rfl, rfl, hoff, show bl.toNat ≤ 65536 by omega, hc, show mo.toNat ≤ 65536 by omega, hl, hle⟩ trivial
+      (Or.inr fun _ => trivial) ⟨Or.inl rfl, fun _ => trivial⟩) fun _ _ ⟨ms, e, h⟩ => ⟨ms, e, h.1⟩
   split
   · rename_i h3
     split
