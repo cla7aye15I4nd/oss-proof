@@ -5,6 +5,10 @@ import ZlibNgF.Proof.«gzwrite.c.zero»
 
 Helpers: a caller's buffer stays readable and outside the file across a step of the file (`callerBuf_step`);
 `memcpy` from a caller's buffer into the buffer block of the file changes only that block (`memcpy_hbuf`).
+`gz_write_eq` splits `gz_write` into the buffer setup, the pending seek and `wMid` (the position bound of patch
+0017 and the two paths). The buffered path: one round (`wb_main`, `wb_body`: the input stays inside the first `size`
+bytes of `in`, the position grows by the bytes copied, the caller's range moves on) and the loop (`wb_loop`, measure
+`2 len + [avail_in ≠ 0]`). `gz_comp` enters through `GzCompSpec` and `DeflateGz`.
 -/
 
 set_option autoImplicit false
@@ -337,5 +341,86 @@ theorem wb_main (C : GzCompSpec) (G : DeflateGz) {W : World} {H : Heap} {b : Nat
     have hng' : ¬ st.len.toNat < (s1.size - hvv).toUInt64.toNat := fun h' => hng (UInt64.lt_iff_toNat_lt.mpr h')
     rw [UInt32.toNat_toUInt64, hsub] at hng'
     exact cont _ (by omega) (by omega) (fun _ => by omega)
+
+theorem wb_body (C : GzCompSpec) (G : DeflateGz) {W : World} {H : Heap} {b : Nat} {s1 : GzState} {z : ZStream}
+    (hv : GzInvWS W H (some b)) (hs : W.gz H b = some s1) (hsz : s1.size ≠ 0) (hz : H.streams s1.strm = some z)
+    (hsk : s1.skip = 0) (st : WriteLoop) (hctl : st.ctl = .go) (hl0 : st.len ≠ 0)
+    (hpos : s1.pos.toInt + st.len.toNat ≤ GZ_OFF_MAX.toInt) (hr : ReadSlice H st.buf st.len.toNat)
+    (ho : OutsideGz W H (some b) st.buf) :
+    GSat W H (wbBody (some b) (some s1.strm) st) (WBPost W H b s1 st z.avail_in.toNat) := by
+  have hwm := modeOf hs hv.2.1
+  obtain ⟨sh, hn⟩ := inv_of hs hv.1
+  obtain ⟨c, base, z0, hB, hz0, WB⟩ := (sh.write hwm).bufs hsz
+  rw [hz] at hz0; cases hz0
+  unfold wbBody
+  refine GSat.bind (GSat.of_eq (a := z.avail_in) (w' := W) (h' := H) (by simp [lm_app, rdZ_run hz]) ?_)
+  refine GSat.ite (fun hai => ?_) (fun hai => ?_)
+  · have hai0 : z.avail_in = 0 := by simpa using hai
+    refine GSat.bind (GSat.of_eq (ldGz_app hs) ?_)
+    rw [hB.inp]
+    refine GSat.bind (GSat.of_eq (liftM_get_val _ _ _) ?_)
+    obtain ⟨hv1, hs1, g1⟩ := invWS_setIn hv hs hsz hz (.ref (.heap c) base) z.avail_in (fun c' base' hb => by
+      have e := hb.buffers; rw [hB.buffers] at e; cases e
+      exact Or.inl ⟨0, by simp, Nat.le_refl _, by rw [hai0]; simp⟩)
+    refine GSat.bind (GSat.of_eq (a := ()) (w' := W)
+      (h' := setZ H s1.strm { z with next_in := .ref (.heap c) base, avail_in := z.avail_in })
+      (by simp [lm_app, wrZ_run hz]) ?_)
+    have hB1 : GzBufs (setZ H s1.strm { z with next_in := .ref (.heap c) base, avail_in := z.avail_in }) s1 c base :=
+      ⟨hB.size, hB.buffers, hB.inp, hB.out, hB.fits, hB.hdr⟩
+    obtain ⟨hr1, ho1⟩ := callerBuf_step g1 hv.2.2.2.1.1 hr ho
+    refine GSat.mono (wb_main C G hv1 hs1 hsz hB1 (setZ_streams_same _ _ _) (k := 0) (by simp)
+      (by rw [hai0]; simp) (fun _ => rfl) hsk st hctl hl0 hpos hr1 ho1) fun r W2 H2 q => ?_
+    obtain ⟨s2, z2, hs2, hz2, hv2, g2, rest⟩ := q
+    exact ⟨s2, z2, hs2, hz2, hv2, g1.trans g2 ⟨s1, hs⟩ ⟨s1, hs1⟩, rest⟩
+  · have hai0 : z.avail_in ≠ 0 := by simpa using hai
+    rcases WB.inp with ⟨k, ek, -, hk⟩ | ⟨e1, -⟩
+    · exact wb_main C G hv hs hsz hB hz ek hk (fun e => absurd e hai0) hsk st hctl hl0 hpos hr ho
+    · exact absurd e1 hai0
+
+/-- **The buffered path of `gz_write`**: the loop ends, keeping the invariant. -/
+theorem wb_loop (C : GzCompSpec) (G : DeflateGz) {w W : World} {h H : Heap} {b : Nat} {s s1 : GzState}
+    (hv : GzInvWS W H (some b)) (hs : W.gz H b = some s1) (g : GStep w h W H b []) (zf : ZFix s s1)
+    (hsz : s1.size ≠ 0) (hsk : s1.skip = 0) (hs0 : ∃ s0, w.gz h b = some s0) (buf : BPtr) (len : UInt64)
+    (hl0 : len ≠ 0) (hl : len.toNat < 2 ^ 31) (hpos : s1.pos.toInt + len.toNat ≤ GZ_OFF_MAX.toInt)
+    (hr : ReadSlice H buf len.toNat) (ho : OutsideGz W H (some b) buf) :
+    GSat W H (gdoWhile (wbBody (some b) (some s.strm)) wCond ⟨buf, len, .go⟩)
+      (fun lp W' H' => ∃ s2, W'.gz H' b = some s2 ∧ GzInvWS W' H' (some b) ∧ GStep w h W' H' b [] ∧ ZFix s s2 ∧
+        s2.size = s1.size ∧ s2.skip = 0 ∧ (lp.ctl = .go ∨ lp.ctl = .ret)) := by
+  refine gsat_gdoWhile (fun st W H => st.ctl = .go ∧ st.len ≠ 0 ∧ st.len.toNat < 2 ^ 31 ∧ ∃ s2 z2,
+      W.gz H b = some s2 ∧ H.streams s.strm = some z2 ∧ GzInvWS W H (some b) ∧ GStep w h W H b [] ∧ ZFix s s2 ∧
+      s2.size = s1.size ∧ s2.skip = 0 ∧ s2.pos.toInt + st.len.toNat ≤ GZ_OFF_MAX.toInt ∧
+      ReadSlice H st.buf st.len.toNat ∧ OutsideGz W H (some b) st.buf)
+    (fun st _ H => 2 * st.len.toNat + (match H.streams s.strm with
+      | some z => if z.avail_in = 0 then 0 else 1 | none => 0)) _ ?_ ?_ ?_
+  · rintro st W1 H1 ⟨hctl, hl1, hlt, s2, z2, hs2, hz2, hv2, g2, zf2, hsz2, hsk2, hpos2, hr2, ho2⟩
+    rw [← zf2.strm] at hz2 ⊢
+    refine GSat.mono (wb_body C G hv2 hs2 (by rw [hsz2]; exact hsz) hz2 hsk2 st hctl hl1 hpos2 hr2 ho2)
+      fun r W3 H3 q => ?_
+    obtain ⟨s3, z3, hs3, hz3, hv3, g3, zf3, hsz3, hsk3, hpos3, hle3, hgo, hsame, hrr, hr3, ho3⟩ := q
+    have g' := g2.trans g3 hs0 ⟨s2, hs2⟩
+    have zf' : ZFix s s3 := zf2.trans zf3
+    unfold wCond
+    rcases hrr with hrr | hrr
+    · refine GSat.ite (fun hc => by simp [hrr] at hc) (fun _ => GSat.pure ⟨fun e => ?_, fun _ =>
+        ⟨s3, hs3, hv3, g', zf', by rw [hsz3, hsz2], by rw [hsk3, hsk2], Or.inl hrr⟩⟩)
+      dsimp only at e ⊢
+      have hl3 : r.len ≠ 0 := by simpa using e
+      refine ⟨⟨hrr, hl3, by omega, s3, z3, hs3, hz3, hv3, g', zf', by rw [hsz3, hsz2], by rw [hsk3, hsk2],
+        by omega, hr3, ho3⟩, ?_⟩
+      have h0 := hgo hrr hl3
+      simp only [hz3, h0, hz2, ite_true]
+      by_cases hz0 : z2.avail_in = 0
+      · have : r.len ≠ st.len := fun e => hsame e (by rw [hz0]; rfl)
+        have : r.len.toNat ≠ st.len.toNat := fun e => this (UInt64.toNat_inj.mp e)
+        simp only [hz0, ite_true]; omega
+      · simp only [hz0, ite_false]; omega
+    · refine GSat.ite (fun _ => GSat.pure ⟨fun e => by simp at e, fun _ =>
+        ⟨s3, hs3, hv3, g', zf', by rw [hsz3, hsz2], by rw [hsk3, hsk2], Or.inr hrr⟩⟩) (fun hc => by simp [hrr] at hc)
+  · obtain ⟨sh, -⟩ := inv_of hs hv.1
+    obtain ⟨z, hz⟩ := sh.strm
+    exact ⟨rfl, hl0, hl, s1, z, hs, by rw [← zf.strm]; exact hz, hv, g, zf, rfl, hsk, hpos, hr, ho⟩
+  · show 2 * len.toNat + _ < fuel
+    unfold fuel
+    split <;> (try split) <;> omega
 
 end ZlibNgF.Proof.GzWrite
