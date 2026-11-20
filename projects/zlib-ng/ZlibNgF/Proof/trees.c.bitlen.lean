@@ -1266,3 +1266,224 @@ theorem ra_SH (t : DescSel) (Y : DeflateState) (blc : Array UInt16) (sl O : UInt
 end
 
 end ZlibNgF.Proof.TreesBitlen
+
+namespace ZlibNgF.Proof.TreesBitlen
+open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNg.Trees ZlibNgF.Proof.DeflateInit ZlibNgF.Proof.TreesPrims
+open ZlibNgF.Proof.TreesScan ZlibNgF.Proof.TreesSort ZlibNgF.Proof.TreesBuild ZlibNgF.Proof.TreesMerge
+open ZlibNgF.Proof.TreesForce (sdl)
+open ZlibNgF.Proof.TreesBuildSpec (tElems tMaxLen tSize xb blFinal)
+open ZlibNgF.Math.TreesLabeled
+open ZlibNgF.Math.Huff (repairStep repairIter deepest updC cumC lenOfRank overflowCount blCount depthIn HTree Built)
+open ZlibNgF.Math.TreesRank (RInv rstep cntOf)
+open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono sat_cwhile)
+open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f u32_toInt32_toInt)
+
+/-! # `gen_bitlen` as a whole -/
+
+/-- The length `gen_bitlen` gives the leaf at sorted position `j` (tree `T`, maximum length `Lm`). -/
+noncomputable def glen (Lm : Nat) (srt : List (Nat × Nat)) (T : HTree) (j : Nat) : Nat :=
+  if overflowCount Lm T = 0 then min (depthIn T (srt[j]!).2) Lm
+  else lenOfRank Lm (repairIter Lm ((overflowCount Lm T + 1) / 2) (blCount Lm srt T)) (srt.length - j)
+
+theorem maxlen_tSD (t : DescSel) : ((tSD t).get.max_length).toNat = tMaxLen t ∧ 1 ≤ tMaxLen t ∧ tMaxLen t ≤ 15 ∧
+    tElems t ≤ 2 ^ tMaxLen t := by
+  cases t <;> decide
+
+@[simp] theorem tArr_bc (t : DescSel) (X : DeflateState) (blc : Array UInt16) :
+    tArr t { X with bl_count := blc } = tArr t X := by cases t <;> rfl
+@[simp] theorem bc_tPut (t : DescSel) (X : DeflateState) (A : Array Ct) : (tPut t X A).bl_count = X.bl_count := by
+  cases t <;> rfl
+@[simp] theorem opt_tPut (t : DescSel) (X : DeflateState) (A : Array Ct) : (tPut t X A).opt_len = X.opt_len := by
+  cases t <;> rfl
+@[simp] theorem stat_tPut (t : DescSel) (X : DeflateState) (A : Array Ct) : (tPut t X A).static_len = X.static_len := by
+  cases t <;> rfl
+@[simp] theorem qArr_tPut (q : Bool) (t : DescSel) (X : DeflateState) (A : Array Ct) : qArr q (tPut t X A) = qArr q X := by
+  cases q <;> cases t <;> rfl
+@[simp] theorem qArr_bc (q : Bool) (X : DeflateState) (blc : Array UInt16) : qArr q { X with bl_count := blc } = qArr q X := by
+  cases q <;> rfl
+theorem LS_norm (t : DescSel) (X : DeflateState) (z : Array UInt16) (B A : Array Ct) (blc : Array UInt16) (o sl : UInt32) :
+    LS t (tPut t { X with bl_count := z } B) A blc o sl = LS t X A blc o sl := by cases t <;> rfl
+theorem get_tPut_bc (t t' : DescSel) (X : DeflateState) (z : Array UInt16) (B : Array Ct) :
+    t'.get (tPut t { X with bl_count := z } B) = t'.get X := by cases t <;> cases t' <;> rfl
+
+section
+variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8}
+
+theorem gen_bitlen_SH (t : DescSel) (X : DeflateState) (qS : Bool) (srt : List (Nat × Nat)) (T : NT) (N R : Nat)
+    (nl root : Int32)
+    (hdyn : (t.get X).dyn_tree = .val (.ref (tRef t b) 0)) (hstat : (t.get X).stat_desc = .val (tSD t))
+    (hN : N = srt.length) (hN2 : 2 ≤ N) (hNE : N ≤ tElems t) (hR : R = tElems t + N - 2) (hroot : root.toInt = R)
+    (hnl : nl.toInt = N) (hA : (tArr t X).size = tSize t) (hbc : X.bl_count.size = 16)
+    (hS : (qArr qS X).size = 287) (hsrt : ∀ p, p < N → (qArr qS X)[p]! = pk srt[p]!)
+    (hb : ∀ e ∈ srt, e.1 < 65536 ∧ e.2 < tElems t) (hnd : (srt.map Prod.snd).Nodup)
+    (hfc : ∀ e ∈ srt, ((tArr t X)[e.2]!).fc.toNat = e.1)
+    (hlab : T.lab = R) (hlnd : T.labs.Nodup) (hints : T.ints.Perm (List.range' (tElems t) (N - 1)))
+    (hlvs : T.lvs.Perm (srt.map Prod.snd)) (hed : ∀ e ∈ T.edges, e.1 < e.2)
+    (hdl : ∀ e ∈ T.edges, ((tArr t X)[e.1]!).dl.toNat = e.2) :
+    Sat (SH H i z b X d) (gen_bitlen (some b) t (.ref (qRef qS b) 0) nl root)
+      (fun _ H' => ∃ A3 blc, H' = SH H i z b (LS t X A3 blc (X.opt_len + (sumF t srt A3).toUInt32)
+          (X.static_len + ((srt.map (statT t)).sum).toUInt32)) d ∧
+        BC blc (blFinal (tMaxLen t) ⟨srt, 0, T.erase⟩) ∧ A3.size = (tArr t X).size ∧
+        (∀ m : Nat, (A3[m]!).fc = ((tArr t X)[m]!).fc) ∧
+        (∀ m : Nat, m < tElems t → m ∉ srt.map Prod.snd → A3[m]! = (tArr t X)[m]!) ∧
+        ∀ j, j < N → (A3[(srt[j]!).2]!).dl.toNat = glen (tMaxLen t) srt T.erase j) := by
+  obtain ⟨hL, hLm1, hLm15, hE2⟩ := maxlen_tSD t
+  obtain ⟨hEs, hE3, hE286⟩ := tSize_ge t
+  have hsz := tSize_eq t
+  generalize hE : tElems t = E at *
+  generalize hLm : tMaxLen t = Lm at *
+  rw [gen_bitlen_eq]
+  refine Sat.bind (Sat.of_eq (descDynTree_SH t X hdyn) ?_)
+  refine Sat.bind (Sat.of_eq (descStat_SH t X hstat) ?_)
+  refine Sat.bind (Sat.of_eq (descStat_SH t X hstat) ?_)
+  refine Sat.bind (Sat.of_eq (descStat_SH t X hstat) ?_)
+  refine Sat.bind (Sat.of_eq (descStat_SH t X hstat) ?_)
+  refine Sat.bind (Sat.of_eq (descStat_SH t X hstat) ?_)
+  refine Sat.bind (Sat.mono (zero_SH X hbc) fun _ H1 h1 => ?_)
+  obtain ⟨blc0, rfl, hb0s, hb0z⟩ := h1
+  rw [hroot]
+  refine Sat.bind (Sat.of_eq (ctSetDl_T t _ R (by simp; omega) _) ?_)
+  simp only [tArr_bc]
+  generalize hY1 : { X with bl_count := blc0 } = Y1
+  generalize hA1 : (tArr t X).set! R { fc := (tArr t X)[R]!.fc, dl := 0 } = A1
+  have hA1s : A1.size = (tArr t X).size := by rw [← hA1]; simp
+  have hA1fc : ∀ m : Nat, (A1[m]!).fc = ((tArr t X)[m]!).fc := by
+    intro m; rw [← hA1]; by_cases hm : m = R
+    · subst hm; rw [set!_get_eq _ _ _ (by omega)]
+    · rw [set!_get_ne _ _ _ _ hm]
+  have hA1o : ∀ m : Nat, m ≠ R → A1[m]! = (tArr t X)[m]! := fun m hm => by rw [← hA1, set!_get_ne _ _ _ _ hm]
+  have hA1R : (A1[R]!).dl.toNat = 0 := by rw [← hA1, set!_get_eq _ _ _ (by omega)]; rfl
+  -- the edges end at internal nodes `≤ R`
+  have hpar : ∀ e ∈ T.edges, E ≤ e.2 ∧ e.2 ≤ R := by
+    intro e he
+    have := List.mem_range'_1.mp (hints.mem_iff.mp (NT.edge_par T he)); omega
+  rw [chkI32_ok (v := (R : Int) - 1) (by omega) (by omega)]
+  refine Sat.bind (Sat.pure ?_)
+  have hY1a : tArr t (tPut t Y1 A1) = A1 := tArr_tPut t Y1 A1
+  refine Sat.bind (Sat.mono (p1_SH (H := H) (i := i) (z := z) (b := b) (d := d) t (tPut t Y1 A1) T E R Lm
+    (tSD t).get.max_length (tSD t).get.elems _ hL hLm1 hLm15 (by rw [← hE]; exact elems_tSD t) (by omega) (by omega)
+    (by rw [hY1a]; omega) (by rw [hY1a]; omega) (by rw [i32_ofInt _ (by omega) (by omega)]) hlab hlnd
+    (by rw [show R - E + 1 = N - 1 by omega]; exact hints) hed
+    (fun e he _ => by rw [hY1a, hA1o _ (by have := hed e he; have := hpar e he; omega)]; exact hdl e he)
+    (by rw [hY1a]; exact hA1R)) fun x H2 h2 => ?_)
+  obtain ⟨A', rfl, hP1⟩ := h2
+  rw [hY1a] at hP1
+  simp only [tPut_tPut]
+  obtain ⟨hsA, hfcA, hsame, hdone, hov⟩ := hP1
+  have hovN : (List.range' ((E : Int) - 1 + 1).toNat (R - ((E : Int) - 1 + 1).toNat + 1)) = List.range' E (N - 1) := by
+    rw [show ((E : Int) - 1 + 1).toNat = E by omega, show R - E + 1 = N - 1 by omega]
+  rw [hovN] at hov
+  have hovb : (List.range' E (N - 1)).countP (fun x => decide (Lm < T.dep 0 x)) ≤ N - 1 := by
+    have := List.countP_le_length (p := fun x => decide (Lm < T.dep 0 x)) (l := List.range' E (N - 1))
+    simpa using this
+  -- the parent of each leaf
+  have hleaf : ∀ e ∈ srt, 1 ≤ T.dep 0 e.2 ∧ ∃ p, ((tArr t (tPut t Y1 A'))[e.2]!).dl.toNat = p ∧ E ≤ p ∧
+      p < (tArr t (tPut t Y1 A')).size ∧ ((tArr t (tPut t Y1 A'))[p]!).dl.toNat = min (T.dep 0 e.2 - 1) Lm := by
+    intro e he
+    simp only [tArr_tPut]
+    have hv : e.2 ∈ T.lvs := hlvs.mem_iff.mpr (List.mem_map_of_mem he)
+    have hvE := (hb e he).2
+    obtain ⟨p, hp⟩ := NT.has_parent T e.2 (NT.lvs_sub T hv) (by rw [hlab]; omega)
+    have hpp := hpar _ hp
+    have hdep := NT.dep_edge T 0 hlnd _ hp
+    simp only at hpp hdep
+    refine ⟨by omega, p, ?_, by omega, by omega, ?_⟩
+    · rw [hsame e.2 (Or.inl (by omega)), hA1o e.2 (by omega)]; exact hdl _ hp
+    · rw [hdone p (by omega) (by omega), hdep]; simp
+  have hfc2 : ∀ e ∈ srt, ((tArr t (tPut t Y1 A'))[e.2]!).fc.toNat = e.1 := by
+    intro e he; simp only [tArr_tPut]; rw [hfcA, hA1fc]; exact hfc e he
+  have hqY : qArr qS (tPut t Y1 A') = qArr qS X := by rw [qArr_tPut, ← hY1, qArr_bc]
+  refine Sat.bind (Sat.mono (p2_SH (H := H) (i := i) (z := z) (b := b) (d := d) t (tPut t Y1 A') qS srt (T.dep 0) Lm
+    (tSD t).get.max_length nl x.2 hL hLm1 hLm15 (by omega) (by omega) (by rw [hov]; omega) (by rw [hov]; omega)
+    (by rw [hqY]; exact hS) (fun p hp => by rw [hqY]; exact hsrt p (by omega)) (by rw [hE]; exact hb) hnd hfc2
+    (by rw [hE]; exact hleaf) (by simp only [tArr_tPut]; omega) (by simp only [tArr_tPut]; omega)
+    (by rw [bc_tPut, ← hY1]; exact hb0s) (fun j hj => by rw [bc_tPut, ← hY1]; exact hb0z j hj)) fun y H3 h3 => ?_)
+  obtain ⟨A2, blc2, rfl, hP2⟩ := h3
+  obtain ⟨hov2, hA2s, hA2fc, hA2o, hA2l, hbc2s, hbc2v⟩ := hP2
+  simp only [List.take_length] at hov2 hA2o hA2l hbc2v
+  rw [← hY1, LS_norm]
+  simp only [opt_tPut, stat_tPut]
+  -- the model quantities
+  have hsumA2 : (srt.map (optT t (T.dep 0) Lm)).sum = sumF t srt A2 := by
+    unfold sumF optT
+    congr 1
+    exact List.map_congr_left (fun e he => by rw [hA2l e he])
+  rw [hsumA2]
+  have hlvnd : T.lvs.Nodup := (List.nodup_append.mp ((NT.labs_perm T).nodup_iff.mp hlnd)).2.1
+  have hdI : ∀ v ∈ T.lvs, depthIn T.erase v = T.dep 0 v := fun v hv => NT.depthIn_erase T hlnd v hv
+  have hsrtl : ∀ e ∈ srt, e.2 ∈ T.lvs := fun e he => hlvs.mem_iff.mpr (List.mem_map_of_mem he)
+  have hovf : overflowCount Lm T.erase = (List.range' E (N - 1)).countP (fun x => decide (Lm < T.dep 0 x)) +
+      srt.countP (fun e => decide (Lm < T.dep 0 e.2)) := by
+    unfold overflowCount
+    rw [NT.ovf_erase Lm 0 T hlnd, hints.countP_eq, hlvs.countP_eq, List.countP_map]
+    rfl
+  have hy2 : y.2.toInt = (overflowCount Lm T.erase : Int) := by rw [hov2, hov, hovf]; push_cast; rfl
+  have hbl : ∀ j, blCount Lm srt T.erase j = cntOf (srt.map (fun e => min (T.dep 0 e.2) Lm)) j := by
+    intro j
+    rw [ZlibNgF.Math.TreesRank.blCount_eq]
+    have : srt.map (fun e => min (depthIn T.erase e.2) Lm) = srt.map (fun e => min (T.dep 0 e.2) Lm) :=
+      List.map_congr_left (fun e he => by rw [hdI e.2 (hsrtl e he)])
+    rw [this]
+  have hbc2 : BC blc2 (blCount Lm srt T.erase) := ⟨hbc2s, fun j hj => by rw [hbc2v j hj, hbl]⟩
+  have hfcX : ∀ m : Nat, (A2[m]!).fc = ((tArr t X)[m]!).fc := fun m => by
+    rw [hA2fc]; simp only [tArr_tPut]; rw [hfcA, hA1fc]
+  have hoX : ∀ m : Nat, m < E → m ∉ srt.map Prod.snd → A2[m]! = (tArr t X)[m]! := fun m hm hm' => by
+    rw [hA2o m hm']; simp only [tArr_tPut]; rw [hsame m (Or.inl (by omega)), hA1o m (by omega)]
+  have hsizeX : A2.size = (tArr t X).size := by rw [hA2s]; simp only [tArr_tPut]; rw [hsA, hA1s]
+  by_cases hz : (y.2 == 0) = true
+  · have hy0 : y.2.toInt = 0 := by have : y.2 = 0 := by simpa using hz
+                                   rw [this]; rfl
+    have hov0 : overflowCount Lm T.erase = 0 := by omega
+    rw [ite_t hz]
+    refine Sat.pure ⟨A2, blc2, rfl, ?_, hsizeX, hfcX, hoX, fun j hj => ?_⟩
+    · simp only [blFinal, hov0, ↓reduceIte]; exact hbc2
+    · have hm := mem_of_idx' srt j (by omega)
+      rw [hA2l _ hm]
+      simp only [glen, hov0, ↓reduceIte]
+      rw [hdI _ (hsrtl _ hm)]
+  · rw [ite_f hz]
+    have hy0 : y.2.toInt ≠ 0 := fun h => hz (by
+      have : y.2 = 0 := Int32.toInt_inj.mp (by simpa using h)
+      simp [this])
+    have hov0 : overflowCount Lm T.erase ≠ 0 := by omega
+    have hev := ZlibNgF.Math.Huff.overflow_even Lm T.erase
+    have hovle : overflowCount Lm T.erase ≤ N - 1 + N := by
+      rw [hovf]
+      have := List.countP_le_length (p := fun e => decide (Lm < T.dep 0 e.2)) (l := srt)
+      omega
+    -- the tree is a node, its leaves are below the root
+    have hnode : ∃ n a c, T = NT.node n a c := by
+      cases T with
+      | leaf s w => simp [NT.ints] at hints; omega
+      | node n a c => exact ⟨n, a, c, rfl⟩
+    obtain ⟨n0, a0, c0, hT⟩ := hnode
+    have hpos : ∀ x ∈ T.erase.leaves, 1 ≤ x.d := by
+      rw [hT]; exact ZlibNgF.Math.TreesRank.leaves_pos _ _
+    have hR0 := ZlibNgF.Math.TreesRank.init_inv Lm hLm1 srt T.erase (by rw [NT.erase_syms]; exact hlvnd)
+      (by rw [NT.erase_syms]; exact hlvs) hpos hov0
+    rw [← hN] at hR0
+    generalize hM : overflowCount Lm T.erase / 2 = M at hR0
+    have hM1 : 1 ≤ M := by omega
+    refine Sat.bind (Sat.mono (rp_SH (H := H) (i := i) (z := z) (b := b) (d := d) t X A2 _ _ blc2
+      (blCount Lm srt T.erase) Lm N M (tSD t).get.max_length hL hLm15 (by omega) hM1 (by omega) hR0 hbc2 y.2
+      (by omega)) fun _ H4 h4 => ?_)
+    obtain ⟨blc3, rfl, hbc3⟩ := h4
+    have hRF := ZlibNgF.Math.TreesRank.riter_inv Lm N (by omega) M _ hR0
+    rw [hN] at hRF
+    refine Sat.bind (Sat.mono (ra_SH (H := H) (i := i) (z := z) (b := b) (d := d) t X blc3 _ X.opt_len A2 srt Lm
+      (repairIter Lm M (blCount Lm srt T.erase)) qS (tSD t).get.max_length hL hLm15 (by omega) hRF hbc3 hS
+      (fun p hp => hsrt p (by omega)) (by rw [hE]; exact hb) hnd
+      (fun e he => by rw [hA2fc]; exact hfc2 e he) (fun e he => by rw [hA2l e he]; omega)
+      (by rw [hE, hsizeX, hA]; omega)) fun _ H5 h5 => ?_)
+    obtain ⟨A4, rfl, hRA⟩ := h5
+    obtain ⟨hA4s, hA4fc, hA4o, hA4l, _⟩ := hRA
+    have hMeq : (overflowCount Lm T.erase + 1) / 2 = M := by omega
+    refine Sat.pure ⟨A4, blc3, rfl, ?_, by rw [hA4s, hsizeX], fun m => by rw [hA4fc, hfcX],
+      fun m hm hm' => by rw [hA4o m hm', hoX m hm hm'], fun j hj => ?_⟩
+    · simp only [blFinal, hov0, ↓reduceIte, hMeq]; exact hbc3
+    · rw [hA4l j (by omega) (by omega)]
+      simp only [glen, hov0, ↓reduceIte, hMeq]
+
+end
+
+end ZlibNgF.Proof.TreesBitlen
