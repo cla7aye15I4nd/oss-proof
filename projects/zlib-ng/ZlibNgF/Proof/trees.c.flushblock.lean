@@ -78,7 +78,7 @@ theorem dynBudget : DynBudget := by
 structure TCtx (b : Nat) (st : DeflateState) (d : Array UInt8) (sbo n : Nat) : Prop where
   sym : SymOk d sbo st.sym_next st.dyn_ltree st.dyn_dtree
   hsn : st.sym_next.toNat = 3 * n
-  hn : n < 32768
+  hn : n ≤ 32768
   lsize : st.dyn_ltree.size = HEAP_SIZE
   dsize : st.dyn_dtree.size = 2 * 30 + 1
   bsize : st.bl_tree.size = 2 * 19 + 1

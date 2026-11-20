@@ -431,8 +431,8 @@ theorem dcore_tally_le {h H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : 
   obtain rfl : sbo = pbo + st.lit_bufsize.toNat + 8 := by injection hsb1 with e; injection e
   obtain ⟨hsn, hsm⟩ := c.syms
   simp only [dview] at hsn hsm
-  obtain ⟨-, -, -, -, hl2, -, hse⟩ := c.sizes
-  simp only [dview] at hse hl2
+  obtain ⟨-, -, -, hl1, hl2, -, hse⟩ := c.sizes
+  simp only [dview] at hse hl2 hl1
   have hlt' : st.sym_next.toNat ≤ st.sym_end.toNat := UInt32.le_iff_toNat_le.mp hlt
   have hse3 : (st.sym_end + 3).toNat = st.sym_end.toNat + 3 := c.sym_end3
   have hsn3 : (st.sym_next + 3).toNat = st.sym_next.toNat + 3 := by rw [UInt32.toNat_add]; simp; omega

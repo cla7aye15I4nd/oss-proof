@@ -64,10 +64,8 @@ theorem flush_run (hbt : BuildTreeSpec) {s : StreamPtr} {b : Nat} {buf : BPtr} {
   simp only [dview] at hs0 hsym
   rw [hsb] at hs0
   obtain rfl : pbo + st.lit_bufsize.toNat + 8 = sbo := by injection hs0 with e1; injection e1
-  have hsyms := c.syms
-  simp only [dview] at hsyms
-  have hn3 := hsyms.2
-  have hnle := UInt32.le_iff_toNat_le.mp hsyms.1
+  obtain ⟨hnle, -, hn3⟩ := c.syms_le
+  simp only [dview] at hnle hn3
   have hl := c.look
   have hst65 := (strstart_toInt32 c).2
   obtain ⟨tl, td, tb⟩ := c.trees
