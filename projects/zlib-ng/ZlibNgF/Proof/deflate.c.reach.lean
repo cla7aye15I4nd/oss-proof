@@ -21,12 +21,13 @@ steps `deflatePending`, `deflateUsed`, `deflateTune`, `deflateSetHeader`, `defla
 `deflateReset`, `deflateResetKeep` (on a stream with nothing unfinished), `deflateGetDictionary`
 (`Proof/deflate.c.dict.lean`), `deflatePrime` (`Proof/deflate.c.prime.lean`), `deflateSetDictionary`
 (`Proof/deflate.c.setdict.lean`, with the window facts `FillFacts.windowFacts`), and `deflateCopy` on the source.
-Every other case is a field of `DPending`, the list of obligations not proved yet: `deflate` (`deflateParams` follows
-from it, `Proof/deflate.c.params.lean`). The hash chains (`ChainOk`, the last part of `DSide`) follow after
+Every other case is a field of `DPending`, the obligations taken here as a hypothesis and proved elsewhere: `deflate`
+(`deflateParams` follows from it, `Proof/deflate.c.params.lean`); `DeflatePublic.dpending`
+(`Proof/public-deflate.lean`) proves `DPending`. The hash chains (`ChainOk`, the last part of `DSide`) follow after
 `deflateSetDictionary` from `DeflateSetDict.setDict_chain`, after `deflateInit_`, `deflateInit2_` and `deflateReset`
 from `lm_init`'s `CLEAR_HASH` (`FreshHead`); `deflateResetKeep` keeps them; `deflateCopy` copies them (`ChainCopy`).
-The `*_safety_of` theorems derive registered goals from `DPending`; a goal is registered as proved only once
-`DPending` is.
+The `*_safety_of` theorems derive registered goals from `DPending`; the registered goals apply them to
+`DeflatePublic.dpending`.
 -/
 
 set_option autoImplicit false
@@ -37,8 +38,8 @@ open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv
 open ZlibNgF.Proof.DeflateSide (DSide)
 open ZlibNgF.Proof.DeflateFacts (ChainOk DStateIs)
 
-/-- The obligations still to prove: each remaining public step keeps the invariant and the between-call facts
-(`DSide`). -/
+/-- The obligations taken as a hypothesis here: each remaining public step keeps the invariant and the between-call
+facts (`DSide`). Proved by `DeflatePublic.dpending` (`Proof/public-deflate.lean`). -/
 structure DPending : Prop where
   /-- `deflate`: no fault, its frame, the same state block, the invariant and `DSide` (`deflateParams` follows:
   `DeflateParams.params_ok`). -/
@@ -111,7 +112,7 @@ theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (h
   · exact ⟨(DeflateCopy.copy_inv hv hdst hne e).1, DeflateSide.copy_src_side hv hsd hfr hdst hne e⟩
 
 /-- **The induction.** Every reachable deflate stream has the structural invariant and `DSide`, given the pending
-obligations. -/
+obligations (proved: `DeflatePublic.dpending`). -/
 theorem dreach (P : DPending) {h : Heap} {s : StreamPtr} (hr : DeflateReachable h s) : DInv h s ∧ DSide h s := by
   induction hr with
   | init h h' s level version size hi hv e =>

@@ -22,8 +22,9 @@ What the proof takes of the deflate side besides `DeflateOk` (`StrategyFacts`):
   the stream record; on success the state is in a block that did not exist before, with no registered header.
 * `DeflateProgress`: `deflate` moves `next_in` / `next_out` by the bytes it consumes and produces (`BufAdv`), keeps
   "no registered header", and when it returns `Z_OK` with `Z_FINISH`, or with `Z_NO_FLUSH` on a non-empty input, it
-  consumed input or produced output. Not proved yet: the `compress*` goals are proved given it
-  (`*_safety_of_progress`). `deflate_nonvacuous` needs only `dInitFresh`.
+  consumed input or produced output (proved: `deflateProgress`, from `DeflateGz.deflate_progress`). The
+  `compress*` goals are proved given it (`*_safety_of_progress`) and registered with `deflateProgress`.
+  `deflate_nonvacuous` needs only `dInitFresh`.
 -/
 
 set_option autoImplicit false
