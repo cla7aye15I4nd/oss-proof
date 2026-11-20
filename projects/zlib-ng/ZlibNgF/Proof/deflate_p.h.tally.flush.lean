@@ -1,5 +1,6 @@
 import ZlibNgF.Proof.«deflate_p.h.tally»
 import ZlibNgF.Proof.«deflate_p.h.flush»
+import ZlibNgF.Proof.«trees.c.owed»
 
 /-!
 # `FLUSH_BLOCK_ONLY` / `FLUSH_BLOCK` (`ZlibNgF`)
@@ -94,6 +95,10 @@ structure FBPost (h h' : Heap) (i b : Nat) (z : ZStream) (st : DeflateState) : P
   /-- the bytes of block `b` change only inside `pending_buf` (`PENDING_BUF_SIZE` bytes): `zng_tr_flush_block`
   writes the block there, `flush_pending` the bits of `bi_buf` -/
   pbuf : ∀ pbo, st.pending_buf = .val (.ref (.heap b) pbo) → PbufOnly h h' b pbo (4 * st.lit_bufsize.toNat + 9)
+  /-- the bytes owed after the block (`DeflatePsi.owed`) and the bytes written to the output are at most
+  `4 * lit_bufsize + 9` (`TreesOwed.flush_block_owed`, then `TreesOwed.flush_pending_owed`) -/
+  owed : ∀ z' st', h'.streams i = some z' → h'.dstate b = some st' →
+    ZlibNgF.Proof.DeflatePsi.owed st' + (z.avail_out.toNat - z'.avail_out.toNat) ≤ 4 * st.lit_bufsize.toNat + 9
 
 /-- `FLUSH_BLOCK_ONLY(s, window, last)` from an invariant stream with no pending bytes at a level above 0; `window`
 evaluates to the window (offset `wo` of the block) without changing the heap. -/
@@ -225,7 +230,7 @@ theorem flush_block_only_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} 
     refine ⟨hv', streamIO_out hio hz hb hst hno hLo O hz' hzs (by rw [hz'e]) (by rw [hz'e]) (hadv ob oo hno) hav hst'
       hgz, ⟨z', ⟨i, rfl, hz'⟩, by rw [hadv ob oo hno]; simp, fun ha => ?_⟩, ?_, ⟨z', st', L, hz', hst', hLo, hav,
       ?_, hadv, fun ha => ?_, ?_, st1, hK1, ?_⟩, fun st3 h3 => by
-        obtain rfl := Option.some.inj (hst'.symm.trans h3); exact hbits, fun pbo hpb => ?_⟩
+        obtain rfl := Option.some.inj (hst'.symm.trans h3); exact hbits, fun pbo hpb => ?_, fun z5 st5 h5 hs5 => ?_⟩
     · have : z'.next_in = z.next_in := by rw [hz'e]
       rw [this]; exact hni (by rw [hz'e] at ha; exact ha)
     · -- the frame
@@ -248,6 +253,18 @@ theorem flush_block_only_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} 
       obtain rfl : db = d1' := Option.some.inj (hb1.symm.trans (SH_bytes _ _ _ _ _ _))
       obtain rfl : dc = db := Option.some.inj (hc.symm.trans (by rw [← hH2]; exact SH_bytes _ _ _ _ _ _))
       exact ⟨da, dd, ha, hd2, hs2.trans hs1, fun j hj => (q2 j (by dsimp only; omega)).trans (q1 j hj)⟩
+    · obtain rfl := Option.some.inj (hz'.symm.trans h5)
+      obtain rfl := Option.some.inj (hst'.symm.trans hs5)
+      have o1 := (ZlibNgF.Proof.TreesOwed.flush_block_owed (some i) b buf len32.toUInt32 last hl0 hl1 h _ st hw0
+        ⟨i, z, rfl, hz, hb, hst⟩ hpre (pendRoom_of_core c) ef st1
+        ⟨i, _, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _⟩).1
+      obtain ⟨-, o2⟩ := ZlibNgF.Proof.TreesOwed.flush_pending_owed hw2 hz2' hb hst2'
+        ⟨ob, oo, ad, hno, by rw [hob2]; exact had, hoo⟩ hnb h' ew z' st' hz' hst'
+      have o3 : ZlibNgF.Proof.DeflatePsi.owed { st1 with block_start := st1.strstart.toInt32 } =
+        ZlibNgF.Proof.DeflatePsi.owed st1 := rfl
+      have o4 : ({ z with data_type := dt } : ZStream).avail_out = z.avail_out := rfl
+      rw [o3, o4] at o2
+      omega
 
 /-- `FLUSH_BLOCK(s, window, last)`: `FLUSH_BLOCK_ONLY`, then the early return when no output room is left. -/
 theorem flush_block_ok (T : TreesFacts) {h : Heap} {i : Nat} {z : ZStream} {b : Nat}
