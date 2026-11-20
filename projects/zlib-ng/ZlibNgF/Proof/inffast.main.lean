@@ -86,7 +86,8 @@ def FastPost (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateSta
       8 * z.avail_in.toNat + st.bits.toNat + z.avail_out.toNat ∧
     h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧ (∀ c, c ≠ bo → h'.bytes c = h.bytes c) ∧
     (∀ d, h.bytes bo = some d → ∃ d', h'.bytes bo = some d' ∧ d'.size = d.size) ∧
-    Frame h h' [i] [b] [] [(z.next_out, z.avail_out.toNat)]
+    Frame h h' [i] [b] [] [(z.next_out, z.avail_out.toNat)] ∧
+    (msg = z.msg ∨ ∃ k, msg = .ref (.str k) 0 ∧ k < C.strTable.size)
 
 /-- **`INFLATE_FAST` (both variants), the window in block `wb`**: another block than the output (`LEN` of
 `inflate`), or the output itself with `beg == window`, the safe variant, `start == wsize` and `wnext == 0` (`LEN` of
@@ -187,7 +188,7 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
         (st' = st ∨ st' = { st with mode := BAD } ∨ st' = { st with mode := TYPE } ∨
           ∃ len dist : UInt32, safe = true ∧ 1 ≤ dist.toNat ∧
             st' = { st with mode := MATCH, length := len, was := len, offset := dist }) ∧
-        (z' = z ∨ ∃ q, z' = { z with msg := q }) ∧
+        (z' = z ∨ ∃ q, (∃ k, q = .ref (.str k) 0 ∧ k < C.strTable.size) ∧ z' = { z with msg := q }) ∧
         lf.bits.toNat + 1 ≤ 8 * (p - oi) + st.bits.toNat := by
       rcases hcase with ⟨-, hlt, ⟨q, hq, hqs⟩, r⟩ | ⟨-, ⟨q, hq, hqs⟩, G1, st', z', r1, hG, hst', hzz⟩
       · have hqp : q = p := by rw [hp] at hq; cases hq; rfl
@@ -285,7 +286,7 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
       refine ⟨ai, ao, st'.mode,
         (lf.hold &&& (1 : UInt64) <<< (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32.toUInt64 - 1).toUInt32.toUInt64,
         (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32, st'.length, st'.was, st'.offset, z'.msg,
-        ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · rw [hbf, hai]; omega
       · rw [UInt32.le_iff_toNat_le]; omega
       · rw [UInt32.le_iff_toNat_le]; omega
@@ -296,7 +297,7 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
         have h2 : oo + (start - ao).toNat = po := by
           rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; omega)]; omega
         rw [h1, h2]
-        rcases hzz with rfl | ⟨q, rfl⟩ <;> rfl
+        rcases hzz with rfl | ⟨q, -, rfl⟩ <;> rfl
       · show (upd (upd G1.istates b (some st')) b (some _)) b = some _
         rw [upd_same]
         rcases hst' with rfl | rfl | rfl | ⟨len, dist, -, -, rfl⟩ <;> rfl
@@ -324,6 +325,9 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
           (by dsimp only [e]; omega)) hbo.symm _ _ ?_ ?_
         · intro j hj; simp only [upd_ne _ _ _ _ hj]
         · intro j hj; simp only [upd_ne _ _ _ _ hj]
+      · rcases hzz with rfl | ⟨q, hq, rfl⟩
+        · exact Or.inl rfl
+        · exact Or.inr hq
       · show G1.nextBlk = h.nextBlk
         rw [r1.eq]
   cases safe

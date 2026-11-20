@@ -19,13 +19,14 @@ so that a proof about one function opens only the clauses it needs.
 * `want` is in `[8, 2^30]` (`gzbuffer`, `GZBUFSIZE`); `size` is 0 (no buffers yet) or `want`, and then the buffers
   are one live block (from `zng_alloc_aligned`, with its saved pointer), `in` at its start and `out` after the `in` part: `want` and `2 * want` bytes when reading,
   `2 * want` and `want` (none when `direct`) when writing (`gz_buffer_alloc`);
-* positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -2^31` (only `gzungetc` lowers it, by at
-  most the `2 * want` bytes of the output buffer), `pos ≥ 0` when writing;
+* positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -GZ_OFF_MAX` (only `gzungetc` lowers it,
+  and patch 0023 refuses a push at that bound, so that `gzseek64` can negate a negative position), `pos ≥ 0` when
+  writing;
 * reading: `how ∈ {LOOK, COPY, GZIP}`; with buffers, the inflate stream has the inflate invariant (`gz_look` called
   `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, `avail_in` bytes
   from `next_in` inside `in`, and the stream's `msg` is `NULL` or one of inflate's string literals (`gz_decomp` passes
   it to `gz_error`); without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
-  (`FreshStrm`); a pending skip and the bytes `gzungetc` pushed back
+  (`FreshStrm`) and `how` is `LOOK`; a pending skip and the bytes `gzungetc` pushed back
   after it keep `pos + skip + have ≤ GZ_OFF_MAX`; `pos + have ≤ GZ_OFF_MAX` (patch 0016), so that the `gzgetc()`
   macro cannot overflow `pos`; while looking at the start of transparent-capable input, `pos + have ≤ 0`;
 * writing: `x.have` is 0; without buffers `avail_in` is 0; with buffers and not `direct`, the deflate stream has the
@@ -63,7 +64,7 @@ def Inside (c base lo hi : Nat) (p : BPtr) (n : Nat) : Prop :=
 structure GzPos (s : GzState) : Prop where
   skip_nonneg : 0 ≤ s.skip.toInt
   pos_skip : s.pos.toInt + s.skip.toInt ≤ GZ_OFF_MAX.toInt
-  pos_lower : -(2 ^ 31 : Int) ≤ s.pos.toInt
+  pos_lower : -GZ_OFF_MAX.toInt ≤ s.pos.toInt
   write_pos : s.mode = GZ_WRITE → 0 ≤ s.pos.toInt
 
 /-- The buffers: none (`size == 0`), or one live block carved into `in` and `out`. -/
@@ -97,6 +98,8 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   skip_have : s.skip ≠ 0 → s.pos.toInt + s.skip.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt
   /-- before the buffers exist, `gz_read_init` can call `inflateInit2` on the stream -/
   fresh : s.size = 0 → FreshStrm h s
+  /-- before the buffers exist the stream type is not known yet (`gz_look` leaves `LOOK` only with buffers) -/
+  look : s.size = 0 → s.how = LOOK
   /-- what the `gzgetc()` macro of `zlib.h` may take from the output buffer stays at or below `GZ_OFF_MAX` (patch 0016:
   `gz_fetch` produces no output past it) -/
   pos_have : s.pos.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt

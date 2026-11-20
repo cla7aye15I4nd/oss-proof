@@ -42,7 +42,7 @@ theorem invR_setZS {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
   have hown : ownL H b s = ownL h b s := by simp only [ownL, hst]
   have shH : GzShape H s := by
     refine ⟨sh.mode, sh.path, ⟨z', hzH⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos, ⟨sh.msg.1, sh.msg.2⟩,
-      fun _ => ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz, R.pos_have, R.look_pos⟩,
+      fun _ => ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz, fun e => absurd e hsz, R.pos_have, R.look_pos⟩,
       fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
     obtain ⟨c, base, z0, hB, -, hz0, hhv, -, -⟩ := R.bufs hsz
     refine ⟨c, base, z', ⟨hB.size, hB.buffers, hB.inp, hB.out, hB.fits, hB.hdr⟩, hinv, hzH, hhv, hin c base hB, fun hp hrg => ?_, hmsg⟩
@@ -194,7 +194,7 @@ theorem outSize_read {s : GzState} (hr : s.mode = GZ_READ) (d : Int32) :
 /-- A store of no output, another `x.next`, `how`, `direct` and `eof` keeps a read handle. -/
 theorem invR_look {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (nx : Ival BPtr) (hw : Int32) (hhow : hw = LOOK ∨ hw = ZlibNg.Gz.COPY ∨ hw = GZIP)
-    (d e : Int32) (hlk : hw = LOOK → d ≠ 0 → s.pos.toInt ≤ 0) :
+    (d e : Int32) (hlook : s.size = 0 → hw = LOOK) (hlk : hw = LOOK → d ≠ 0 → s.pos.toInt ≤ 0) :
     GzInvR { w with gzs := upd w.gzs b (some { s with «have» := 0, next := nx, how := hw, direct := d, eof := e }) } h
       (some b) ∧
     GStep w h { w with gzs := upd w.gzs b (some { s with «have» := 0, next := nx, how := hw, direct := d, eof := e }) }
@@ -209,7 +209,7 @@ theorem invR_look {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w 
   have sh' : GzShape h s' := by
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size, ⟨P.1, P.2, P.3, P.4⟩,
       ⟨sh.msg.1, sh.msg.2⟩, fun _ => ⟨hhow, fun hsz => ?_, fun _ => rfl, fun _ => ?_,
-        fun hz => (R.fresh hz).of_strm rfl, ?_, fun h1 h2 => ?_⟩, fun e' => absurd (hr.symm.trans e') read_ne_write,
+        fun hz => (R.fresh hz).of_strm rfl, hlook, ?_, fun h1 h2 => ?_⟩, fun e' => absurd (hr.symm.trans e') read_ne_write,
         fun hz => sh.dead hz⟩
     · obtain ⟨c, base, z, hB, hi, hz, -, hai, hreg, hmsg⟩ := R.bufs hsz
       refine ⟨c, base, z, ⟨hB.size, hB.buffers, hB.inp, fun e' => ?_, ?_, hB.hdr⟩, hi, hz, Or.inl rfl, hai, hreg, hmsg⟩
@@ -258,7 +258,8 @@ theorem resetTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
   refine GSat.bind (GSat.of_eq (wrG_app hsH _) ?_)
   refine GSat.bind (GSat.of_eq (wrG_app (gz_upd_same hsH _) _) ?_)
   refine GSat.pure ?_
-  obtain ⟨hv2, g2⟩ := invR_look hv1 hsH s.next GZIP (Or.inr (Or.inr rfl)) 0 s.eof (fun e => absurd e (by decide))
+  obtain ⟨hv2, g2⟩ := invR_look hv1 hsH s.next GZIP (Or.inr (Or.inr rfl)) 0 s.eof (fun e => absurd e hsz)
+    (fun e => absurd e (by decide))
   simp only [InflateInv.upd_upd]
   have es : ({ ({ s with how := GZIP } : GzState) with direct := 0 } : GzState) =
       { s with «have» := 0, next := s.next, how := GZIP, direct := 0, eof := s.eof } := by
@@ -321,7 +322,7 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
     refine GSat.bind (GSat.of_eq (wrG_app hs1 _) ?_)
     refine GSat.bind (GSat.of_eq (wrG_app (gz_upd_same hs1 _) _) ?_)
     refine GSat.pure ?_
-    obtain ⟨hv2, g2⟩ := invR_look hv1 hs1 s.next s.how R.how s.direct 1
+    obtain ⟨hv2, g2⟩ := invR_look hv1 hs1 s.next s.how R.how s.direct 1 R.look
       (fun h1 h2 => by have := R.look_pos h1 h2; rw [h0] at this; simpa using this)
     simp only [InflateInv.upd_upd]
     have es : ({ ({ s with eof := 1 } : GzState) with «have» := 0 } : GzState) =
@@ -379,7 +380,7 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
   have hvB := invR_strm (z' := z') hvA' hsA hsz hz1 rfl (fun _ _ _ => Or.inl rfl)
   have hsB : w.gz H2 b = some s := hsA
   obtain ⟨hvC, gC⟩ := invR_look hvB hsB (.val (.ref (.heap c) (base + inSize s))) ZlibNg.Gz.COPY
-    (Or.inr (Or.inl rfl)) 1 s.eof (fun e => absurd e (by decide))
+    (Or.inr (Or.inl rfl)) 1 s.eof (fun e => absurd e hsz) (fun e => absurd e (by decide))
   have gA : GStep w h w H1 b [] := by
     have := gstep_hbuf hs hx hcb hown w.fs s rfl rfl rfl rfl
     rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
@@ -564,7 +565,7 @@ theorem consume_spec {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState}
   have R := sh.read hr
   have P := sh.pos
   have P2 : s'.pos.toInt + s'.skip.toInt ≤ GZ_OFF_MAX.toInt := P.2
-  have P3 : -(2 ^ 31 : Int) ≤ s'.pos.toInt := P.3
+  have P3 : -GZ_OFF_MAX.toInt ≤ s'.pos.toInt := P.3
   obtain ⟨db, hdb⟩ := gz_live hs'
   have h0 : 0 ≤ s'.skip.toInt := P.1
   have hN := nOf_toNat s'.«have» s'.skip h0
@@ -620,7 +621,7 @@ theorem consume_spec {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState}
     rw [hm1]; simp; omega
   have hvF := invR_seek hv0 hs0 (s'.«have» - n) (.val (.ref (.heap c) (base + kk + n.toNat)))
     (Int64.ofInt (s'.pos.toInt + (n.toNat : Int))) (Int64.ofInt (s'.skip.toInt - (n.toNat : Int))) s'.how R.how
-    (by rw [e3]; omega) (by rw [e2, e3]; have := P2; omega) (by rw [e2]; have := P3; omega) (by
+    (by rw [e3]; omega) (by rw [e2, e3]; have := P2; omega) (by rw [e2]; have := P3; omega) (hlook := (sh.read hr).look) (by
       by_cases hz2 : s'.«have» - n = 0
       · exact Or.inl hz2
       · refine Or.inr ⟨hsz, fun c' base' hb2 => ?_⟩
@@ -649,7 +650,8 @@ theorem invR_restore {W : World} {H : Heap} {b : Nat} {s' : GzState}
     rcases hout with e | ⟨hsz, f⟩
     · exact Or.inl e
     · exact Or.inr ⟨hsz, fun c base hb => f c base ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩⟩
-  have hv := invR_seek hv0 hs0 s'.«have» s'.next s'.pos s'.skip s'.how (sh.read hr).how P.1 P.2 P.3 hout' hkh hph.1 hph.2
+  have hv := invR_seek hv0 hs0 s'.«have» s'.next s'.pos s'.skip s'.how (sh.read hr).how P.1 P.2 P.3 hout' hkh
+    (sh.read hr).look hph.1 hph.2
   simp only [InflateInv.upd_upd] at hv
   have es : ({ s0 with «have» := s'.«have», next := s'.next, pos := s'.pos, skip := s'.skip, how := s'.how } :
       GzState) = s' := by cases s'; rfl

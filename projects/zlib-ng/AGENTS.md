@@ -250,7 +250,10 @@ Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of
   are refused before the buffer is read). `gz_zero` added a batch of a seek's zeros to `x.pos` before writing it but took
   it off `skip` only after success, so a failed write broke `x.pos + skip <= GZ_OFF_MAX` (`gztell` overflow at
   `gzlib.c:496`; the batch written twice after `gzclearerr`): patch 0022 takes it off `skip` before the write, which
-  `GzWF`'s `pos_skip` clause needs on the write side. Open question, not a finding:
+  `GzWF`'s `pos_skip` clause needs on the write side. `gzungetc` lowered `x.pos` without a bound (a failed push when the
+  buffer is full drops the pushed bytes but keeps the lowered `x.pos`; after `gzclearerr` the pushes start again): patch
+  0023 refuses a push at `x.pos <= -GZ_OFF_MAX` (not the minimum value: `gzseek64` negates a negative position), which
+  `GzPos.pos_lower` needs. Open question, not a finding:
   `gzoffset64` computes `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below
   `INT64_MIN + avail_in`: `GzWF` admits only the `lseek` values POSIX allows (`-1` or not negative), a
   `deviations.md` row (Linux files with unsigned offsets fail their reads at such offsets).

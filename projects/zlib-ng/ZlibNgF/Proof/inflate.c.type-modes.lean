@@ -50,7 +50,7 @@ theorem LI.restore {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState
     next_out := l.put
     avail_out := l.left
     next_in := l.next
-    avail_in := l.have_ }) rfl rfl rfl (SAcc.of_locals li.inAt li.outAt rfl rfl rfl rfl)) ?_))
+    avail_in := l.have_ }) rfl rfl rfl (SAcc.of_locals li.inAt li.outAt rfl rfl rfl rfl) li.msgK) ?_))
   intro _ H1 li1
   have hb : l.bits.toUInt32 ≤ 39 := by
     have := li.bits; rw [UInt8.le_iff_toNat_le] at this

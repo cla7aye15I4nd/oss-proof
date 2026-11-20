@@ -185,6 +185,7 @@ import ZlibNgF.Proof.«gzread.c.decomp»
 import ZlibNgF.Proof.«gzread.c.look»
 import ZlibNgF.Proof.«gzread.c.init»
 import ZlibNgF.Proof.«gzread.c.lookspec»
+import ZlibNgF.Proof.«gzread.c.ungetc»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
 import ZlibNgF.Proof.«deflate.c.gz»
@@ -215,3 +216,4 @@ import ZlibNgF.Proof.«deflate_quick.c.match»
 import ZlibNgF.Proof.«deflate_quick.c.safety»
 import ZlibNgF.Proof.«deflate_quick.c.frame»
 import ZlibNgF.Proof.«deflate_quick.c.static»
+import ZlibNgF.Proof.«public-deflate»

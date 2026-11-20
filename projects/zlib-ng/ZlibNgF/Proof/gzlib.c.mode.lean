@@ -126,7 +126,7 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
     · exact Or.inl e
     · exact Or.inr (ownBlk_keep hm fun c hc => hk.bytes c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inr hc)))
   · have R := sh.read hr
-    refine ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => (R.fresh hz0).of_streams hk.strm, R.pos_have, R.look_pos⟩
+    refine ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => (R.fresh hz0).of_streams hk.strm, R.look, R.pos_have, R.look_pos⟩
     obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg, hmsg⟩ := R.bufs hsz
     obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hi
     cases e
@@ -450,6 +450,7 @@ theorem shape_congr {h : Heap} {s s' : GzState} (sh : GzShape h s) (a : Agree s 
   · have R := sh.read (by rw [← a.mode]; exact hr)
     refine ⟨by rw [a.how]; exact R.how, fun hsz => ?_, by rw [a.size, a.hv]; exact R.nobuf,
       by rw [a.skip, a.pos, a.hv]; exact R.skip_have, fun hz => (R.fresh (by rw [← a.size]; exact hz)).of_strm a.strm,
+      fun hz => by rw [a.how]; exact R.look (by rw [← a.size]; exact hz),
       by rw [a.pos, a.hv]; exact R.pos_have, by rw [a.how, a.direct, a.pos, a.hv]; exact R.look_pos⟩
     obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg, hmsg⟩ := R.bufs (by rw [← a.size]; exact hsz)
     refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hi, by rw [a.strm]; exact hz, ?_, ?_, ?_, hmsg⟩
@@ -904,7 +905,8 @@ theorem buffer_keeps : KeepsR SBuffer ∧ KeepsW SBuffer := by
       refine Or.inr ⟨v, e1, e2, ?_, hn⟩
       exact ⟨sh.mode, sh.path, sh.strm, h8, h30, Or.inl hz, ⟨sh.pos.1, sh.pos.2, sh.pos.3, sh.pos.4⟩,
         ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => ⟨(sh.read hr).how, fun e => absurd hz e, (sh.read hr).nobuf,
-          (sh.read hr).skip_have, (sh.read hr).fresh, (sh.read hr).pos_have, (sh.read hr).look_pos⟩, fun hw => ⟨fun e => absurd hz e, (sh.write hw).nobuf,
+          (sh.read hr).skip_have, (sh.read hr).fresh, (sh.read hr).look,
+          (sh.read hr).pos_have, (sh.read hr).look_pos⟩, fun hw => ⟨fun e => absurd hz e, (sh.write hw).nobuf,
           (sh.write hw).have0⟩, fun _ => sh.dead hz⟩
   refine ⟨fun w h w' h' f hv hst => ?_, fun w h w' h' f hv hst => ?_⟩
   · obtain ⟨b, s, rfl, hs, sh, hn⟩ := hv.1
@@ -1022,14 +1024,14 @@ theorem macro_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size,
       ⟨P.1, ?_, ?_, fun e => absurd (hr.symm.trans e) read_ne_write⟩, ⟨sh.msg.msg, sh.msg.mem⟩,
       fun _ => ⟨R.how, fun _ => ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, hi, hz, ?_, hai, hreg, hmsg⟩,
-        fun e => absurd e hsz, ?_, fun e => absurd e hsz, ?_, fun hL hD => ?_⟩, fun e => absurd (hr.symm.trans e) read_ne_write,
-        fun e => absurd e hsz⟩
+        fun e => absurd e hsz, ?_, fun e => absurd e hsz, fun e => absurd e hsz, ?_, fun hL hD => ?_⟩,
+        fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
     · show (s.pos + 1).toInt + s.skip.toInt ≤ GZ_OFF_MAX.toInt
       rw [hp1]
       by_cases hk : s.skip = 0
       · rw [hk]; simp; rw [hmax]; omega
       · have := R.skip_have hk; omega
-    · show -(2 ^ 31 : Int) ≤ (s.pos + 1).toInt
+    · show -GZ_OFF_MAX.toInt ≤ (s.pos + 1).toInt
       rw [hp1]; have := P.3; omega
     · right
       refine ⟨.ref (.heap c) (base + (k + 1)), by show Ival.val (Ptr.ref (BRef.heap c) _) = _; rw [hk1], k + 1, rfl, ?_, ?_⟩

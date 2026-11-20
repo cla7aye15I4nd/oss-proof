@@ -93,7 +93,8 @@ structure FastFacts : Prop where
         8 * z.avail_in.toNat + st.bits.toNat + z.avail_out.toNat ∧
       h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧ (∀ c, c ≠ bo → h'.bytes c = h.bytes c) ∧
       (∀ d, h.bytes bo = some d → ∃ d', h'.bytes bo = some d' ∧ d'.size = d.size) ∧
-      Frame h h' [i] [b] [] [(z.next_out, z.avail_out.toNat)]
+      Frame h h' [i] [b] [] [(z.next_out, z.avail_out.toNat)] ∧
+      (msg = z.msg ∨ ∃ k, msg = .ref (.str k) 0 ∧ k < C.strTable.size)
 
 /-- `chunkmemset_safe_c(out, out - d, len, left)` as `MATCH` calls it: `out` at offset `p` of a heap block with `left`
 bytes after it, the source `d` bytes back in the same block with `1 ≤ d < 2 ^ 63` (`out - from` is computed, ISO C17
