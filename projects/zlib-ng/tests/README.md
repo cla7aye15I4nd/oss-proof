@@ -83,7 +83,8 @@ letter of the standard that misbehaves on no flat-memory target.
 | Case | Patch | Defect shown without the patch | Evidence |
 | --- | --- | --- | --- |
 | `inflate-copy-pointer-equality` | 0003 | invalid pointer pair in `inflateCopy` | public API (pointer-pair check) |
-| `gzseek-offset-overflow` | 0004 | signed overflow in `gzseek64` | public API; the `x.next + 0` that 0004 also removes is letter of the standard and not shown |
+| `gzseek-offset-overflow` | 0004 | signed overflow in `gzseek64`: `offset + skip` with `SEEK_CUR` (run `cur`), `offset - x.pos` after `gzungetc` at position 0 (`set`), `x.pos + offset` in the test of the raw area (`pos`), the `lseek` offset `offset - x.have` (`lseek`); the last two on `/dev/zero` (its `lseek` answered as Linux's on other hosts) | public API; the `x.next + 0` that 0004 also removes is letter of the standard and not shown |
+| `gzseek-refusal-state` | 0004 | none: on calls that do not overflow, the results and the state afterwards are the same with and without the patch (a refused `SEEK_CUR` before the start on a reader and on a writer, `SEEK_SET` to a negative offset after two `gzungetc` at position 0 on a gzip file and on a plain file); the first version of 0004 is kept as a guard | public API (no defect: same results) |
 | `deflatebound-gzip-extra-length` | 0006 | `deflateBound` too small for a gzip extra field with `extra_len > 0xffff` | public API (wrong result) |
 | `inflate-window-copy` | 0007 | invalid pointer pair (window vs output) in `chunkcopy_safe` | public API (pointer-pair check) |
 | `infback-window-overlap` | 0007 | none: upstream is clean here; the case checks that `inflateBack`, whose output is the window, decodes matches into the previous window pass alike with and without the patch | public API (no defect: same results) |
@@ -136,7 +137,9 @@ continues the block without its header, and `inflate` rejects it with `Z_DATA_ER
 Guards (an earlier, defective version of one of our patches, built in place of the current one; the case's
 reproduction must still show its defect there): `infback-window-overlap` with `first-0007.patch`, the first
 version of patch 0007, whose `memcpy` copies overlapping ranges when the output is the window
-(`memcpy-param-overlap`).
+(`memcpy-param-overlap`); `gzseek-refusal-state` with `first-0004.patch`, the first version of patch 0004, which
+refused before upstream's own steps and so kept the pending skip of a refused `SEEK_CUR` and refused a negative
+`SEEK_SET` target after `gzungetc` (each run prints a different line).
 
 Open defects in the differential test: `expected-faults.txt` lists the generated inputs on which the verified C
 source has undefined behaviour with no patch yet (see the findings page), so the translation faults there while the

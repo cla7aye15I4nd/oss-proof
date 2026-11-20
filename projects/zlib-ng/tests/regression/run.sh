@@ -29,7 +29,8 @@ mkdir -p "$work"
 # is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull.
 cases=(
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
-  "gzseek-offset-overflow|0004||runtime error: signed integer overflow|seek2 -1"
+  "gzseek-offset-overflow|0004|cur,set,pos,lseek|runtime error: signed integer overflow|seek2 -1;set unget 120 seek -1 tell -1 getc 120;pos getc 0 seek 9223372036854775806 seek -1 tell 9223372036854775806;lseek getc 0 seek 9223372036854775797 getc 0 seek 0 tell 0"
+  "gzseek-refusal-state|0004|read,write,unget,raw|none|read seek 100 -1 tell 0 getc 97;write seek 10 -1 tell 0 putc 122 close 0 length 1;unget unget 120 121 tell -2 seek -1 tell -1 getc 120 97;raw unget 120 121 tell -2 seek -1 tell -1 getc 120 97"
   "deflatebound-gzip-extra-length|0006||bound-ok 0|bound-ok 1"
   "inflate-window-copy|0007|300,1|invalid-pointer-pair|inflate 1 1;inflate 1 1"
   "infback-window-overlap|0007|8 100 200 150,8 100 250 100,8 100 256 100,8 100 256 200,8 200 220 100,15 1000 32700 200,15 1000 32768 258,9 10 400 258,8 3 255 10|none|back 1 546 1;back 1 496 1;back 1 496 1;back 1 596 1;back 1 596 1;back 1 34008 1;back 1 34066 1;back 1 820 1;back 1 309 1"
@@ -84,6 +85,7 @@ open_cases=(
 # extended regular expression every run's report must match
 guards=(
   "infback-window-overlap|0007|first-0007.patch|8 100 200 150,8 100 250 100,15 1000 32700 200,9 10 400 258,8 3 255 10|memcpy-param-overlap"
+  "gzseek-refusal-state|0004|first-0004.patch|read,write,unget,raw|^read seek 100 -1 tell 100 getc 119$|^write seek 10 -1 tell 10 putc 122 close 0 length 11$|^(unget|raw) unget 120 121 tell -2 seek -1 tell -2 getc 121 120$"
 )
 
 # 32-bit guards: like the guards, on a build whose size_t is 32 bits and whose file offsets are 64 bits

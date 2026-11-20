@@ -1,4 +1,4 @@
-<!-- source-sha256: abcdfba5ff2c7f4de1e51bf3079e119e31a0684356e55c8be7a54920149274aa -->
+<!-- source-sha256: 18dab6e75380192860d94022d54a96e2df8ee847e84fe55039dafdd30fc9909b -->
 # 发现：zlib-ng 中发现的问题
 
 本工作在被验证提交的 zlib-ng `develop` 分支中发现了二十一个问题。每个都是 zlib-ng 自身的缺陷，可通过 `zlib.h`
@@ -15,7 +15,7 @@ ISO C17 的条文应用于经跟踪的运行。**白盒** 指由测试自行设�
 | 问题 | 错在哪里 | 触达的调用 | 证据 | 修复 | 上游 |
 | --- | --- | --- | --- | --- | --- |
 | `inflateCopy` 比较无关指针 | `inflateCopy` 用 `>=` 与 `<=` 比较指向静态表 `lenfix` 的指针与指向堆状态的指针：未定义行为（ISO C17 §6.5.8p5）。 | 对处于固定编码块内的流调用 `inflateCopy` | **公开 API**（指针对检查：按标准条文是未定义行为，在平坦内存的目标上不出错）：AddressSanitizer 指针对检查，`inflate.c:1410` | 补丁 0003 | 未提交 |
-| `gzseek` 偏移溢出 | `gzseek64` 在 `SEEK_CUR` 下无界地把待跳过量加到偏移上：64 位有符号溢出。在首次读取之前还会对从未赋值的 `x.next` 加 0。 | 以写模式 `gzopen`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzseek(file, 1, SEEK_CUR)` | 溢出部分为 **公开 API**：UndefinedBehaviorSanitizer，`gzlib.c:412`；首次读取之前的 `x.next + 0`：**标准条文**（没有消毒器报告它） | 补丁 0004 | 未提交 |
+| `gzseek` 偏移溢出 | `gzseek64` 以 64 位有符号算术无界地计算：`SEEK_CUR` 下把待跳过量加到偏移上，原始区域的检查加上 `x.pos`，`SEEK_SET` 减去 `x.pos`（在位置 0 调用 `gzungetc` 后为负），复制模式下向回定位时为 `lseek` 减去已缓冲的输出 `x.have`：每一处都可能溢出（ISO C17 §6.5p5）。在首次读取之前还会对从未赋值的 `x.next` 加 0。 | 以写模式 `gzopen`，`gzseek(file, INT64_MAX, SEEK_SET)`，`gzseek(file, 1, SEEK_CUR)`；或对非 gzip 文件 `gzopen`，`gzungetc`，`gzseek(file, INT64_MAX, SEEK_SET)`；或对 Linux `/dev/zero` `gzdopen`，`gzgetc`，`gzseek(file, INT64_MAX - 1, SEEK_SET)`，`gzseek(file, 5, SEEK_CUR)`；或同样操作但先 `gzbuffer(file, 8)`，定位到 `INT64_MAX - 10`，`gzgetc`，`gzseek(file, 0, SEEK_SET)` | 溢出部分为 **公开 API**：UndefinedBehaviorSanitizer，`gzlib.c:412`、`gzlib.c:410`、`gzlib.c:417`、`gzlib.c:418`；首次读取之前的 `x.next + 0`：**标准条文**（没有消毒器报告它） | 补丁 0004 | 未提交 |
 | gzip 额外字段长度很大时 `deflateBound` 过小 | 对带额外字段的用户 gzip 头，`deflateBound` 以 32 位 `unsigned` 计算 `2 + extra_len`，在 `extra_len >= 0xfffffffe` 时回绕，而 `deflate` 写出 `2 + (extra_len & 0xffff)` 个头字节。于是以 `avail_out = deflateBound(...)` 进行一次 `deflate(Z_FINISH)` 不返回 `Z_STREAM_END`，违背 `zlib.h`。 | gzip 模式 `deflateInit2`，`extra_len = 0xffffffff` 的 `deflateSetHeader`，`deflateBound`，`deflate(Z_FINISH)` | **公开 API**：真实 C 代码返回 `Z_OK` 而非 `Z_STREAM_END` | 补丁 0006 | 未提交 |
 | `inflate` 比较窗口指针与输出指针 | 当匹配回溯到滑动窗口时，`inflate`（`MATCH` 状态）调用 `chunkcopy_safe`，`inflate_fast` 调用 `CHUNKCOPY_SAFE` 与 `chunkmemset`，其中 `from` 指向窗口（位于 inflate 自身的分配中），`out` 指向调用者的输出缓冲区。它们用 `>=`、`<` 比较并相减这两个指针：未定义行为（ISO C17 §6.5.8p5、§6.5.6p9）。 | 对匹配回溯到窗口的合法 zlib 流调用 `inflate`，每次调用的 `avail_out` 较小 | **公开 API**（指针对检查：按标准条文是未定义行为，在平坦内存的目标上不出错）：AddressSanitizer 指针对检查，`inflate_p.h:224`、`inflate_p.h:225`、`chunkset_tpl.h:119`、`chunkset_tpl.h:125`、`chunkset_tpl.h:319` | 补丁 0007 | 未提交 |
 | `inflateSync` 对空 `next_in` 加 0 | 没有输入（`next_in == NULL`，`avail_in == 0`）但已由 `inflatePrime` 预置至少 8 位时，`inflateSync` 执行 `strm->next_in += len` 且 `len == 0`：`NULL + 0`（ISO C17 §6.5.6p8）。 | `inflateInit`，`inflatePrime(strm, 16, v)`，`inflateSync` | **标准条文**：经跟踪的运行（加法之后返回 `Z_DATA_ERROR`）；UndefinedBehaviorSanitizer 在 C 中不报告 `NULL + 0` | 补丁 0008 | 未提交 |
