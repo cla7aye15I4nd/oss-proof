@@ -454,8 +454,8 @@ structure GetsLoop where
   ctl : Ctl
 
 /-- `char * Z_EXPORT PREFIX(gzgets)(gzFile file, char *buf, z_int32_t len)` (`gzread.c:514-569`, with patch 0016: `n`
-is at most `GZ_OFF_MAX - x.pos` when `x.pos > 0`, and the loop stops when that is 0). `eol` is written
-before it is read. -/
+is at most `GZ_OFF_MAX - x.pos` when `x.pos > 0`, and the loop stops when that is 0; with patch 0021: `gz_fetch` is
+called only when no skip is pending). `eol` is written before it is read. -/
 def gzgets (file : GzPtr) (buf : BPtr) (len : Int32) : G BPtr := do
   if file == none || buf == .null || len < 1 then
     return .null
@@ -473,8 +473,9 @@ def gzgets (file : GzPtr) (buf : BPtr) (len : Int32) : G BPtr := do
     let lp ← gdoWhile
       (fun (s : GetsLoop) => do
         if (← rdG state (·.«have»)) == 0 then
-          if (← gz_fetch state) == -1 then
-            return { s with ctl := .ret }
+          if (← rdG state (·.skip)) == 0 then
+            if (← gz_fetch state) == -1 then
+              return { s with ctl := .ret }
         if (← rdG state (·.«have»)) == 0 then
           wrG state fun st => { st with past := 1 }
           return { s with ctl := .brk }
