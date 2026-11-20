@@ -132,6 +132,7 @@ import ZlibNgF.Proof.«gzlib.c.invariant»
 import ZlibNgF.Proof.«gzlib.c.reach»
 import ZlibNgF.Proof.«insert_string_p.h.base»
 import ZlibNgF.Proof.«insert_string_p.h.safety»
+import ZlibNgF.Proof.«insert_string_p.h.chain»
 import ZlibNgF.Proof.«compare256_c.c.safety»
 import ZlibNgF.Proof.«match_tpl.h.bits»
 import ZlibNgF.Proof.«match_tpl.h.safety»

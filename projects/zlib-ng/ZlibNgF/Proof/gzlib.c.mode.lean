@@ -36,10 +36,12 @@ def GzWFr (w : World) (h : Heap) : Prop :=
   (∀ b, h.nextBlk ≤ b → w.gzs b = none) ∧
   (∀ b s, w.gz h b = some s → ∃ z, h.streams s.strm = some z) ∧
   w.fs.budget < 2 ^ 62 ∧ (∀ d ∈ w.fs.nodes, d.size < 2 ^ 62) ∧
-  (∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v)
+  (∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v) ∧ LitOk w h
 
 theorem GzWFr.of {w : World} {h : Heap} (hwf : GzWF w h) : GzWFr w h :=
-  ⟨hwf.1, hwf.2.1, hwf.2.2.2.1, hwf.2.2.2.2.1, hwf.2.2.2.2.2.1, hwf.2.2.2.2.2.2.1, hwf.2.2.2.2.2.2.2⟩
+  ⟨hwf.1, hwf.2.1, hwf.2.2.2.1, hwf.2.2.2.2.1, hwf.2.2.2.2.2.1, hwf.2.2.2.2.2.2.1, hwf.2.2.2.2.2.2.2.1, hwf.lit⟩
+
+theorem GzWFr.lit {w : World} {h : Heap} (hw : GzWFr w h) : LitOk w h := hw.2.2.2.2.2.2.2
 
 /-- **The invariant of a read handle.** -/
 def GzInvR (w : World) (h : Heap) (f : GzPtr) : Prop := GzInv w h f ∧ GzModeIs w h f GZ_READ ∧ GzWFr w h
@@ -550,15 +552,17 @@ structure HLess (h h' : Heap) : Prop where
   next : h'.nextBlk = h.nextBlk
   base : h'.baseAddr = h.baseAddr
   hdr : h'.gzheaders = h.gzheaders
+  consts : ∀ k a, h.consts k = some a → h'.consts k = some a
 
-theorem HLess.refl (h : Heap) : HLess h h := ⟨fun _ _ e => e, fun _ z e => ⟨z, e⟩, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+theorem HLess.refl (h : Heap) : HLess h h :=
+  ⟨fun _ _ e => e, fun _ z e => ⟨z, e⟩, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ _ e => e⟩
 
 theorem HLess.free (h : Heap) (s : GzState) : HLess h (freeMsg h s) := by
   unfold freeMsg; split
   · split
     · exact HLess.refl h
     · next c _ _ =>
-      refine ⟨fun c' d e => ?_, fun _ z e => ⟨z, e⟩, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+      refine ⟨fun c' d e => ?_, fun _ z e => ⟨z, e⟩, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ _ e => e⟩
       by_cases hc : c' = c
       · subst hc; simp at e
       · simp only [upd_ne _ _ _ _ hc] at e; exact e
@@ -566,21 +570,21 @@ theorem HLess.free (h : Heap) (s : GzState) : HLess h (freeMsg h s) := by
 
 theorem HLess.lit (h : Heap) (a : Array UInt8) :
     HLess h { h with consts := upd h.consts h.consts.arr.size (some a) } :=
-  ⟨fun _ _ e => e, fun _ z e => ⟨z, e⟩, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  ⟨fun _ _ e => e, fun _ z e => ⟨z, e⟩, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun k b e => GzReach.consts_grow h a k b e⟩
 
 /-- `GzWFr` after a step that stores `s'` into the state of block `b` (or keeps it), changes the file system within
 `FsLe`, and changes the heap within `HLess`. -/
 theorem wfr_step {w W : World} {h h' : Heap} {b : Nat} {s : GzState} (hw : GzWFr w h) (hs : w.gz h b = some s)
     (hg : ∀ c, c ≠ b → W.gzs c = w.gzs c) (hgb : ∀ s', W.gzs b = some s' → s'.strm = s.strm)
-    (hf : GzOpen.FsLe w.fs W.fs) (hl : HLess h h') : GzWFr W h' := by
-  obtain ⟨hc, ⟨hfr, hdf⟩, hgz, hst, hb, hn, hlk⟩ := hw
+    (hf : GzOpen.FsLe w.fs W.fs) (hl : HLess h h') (hL : LitOk W h') : GzWFr W h' := by
+  obtain ⟨hc, ⟨hfr, hdf⟩, hgz, hst, hb, hn, hlk, -⟩ := hw
   obtain ⟨d0, hd0⟩ := gz_live hs
   have hbn : b < h.nextBlk := by
     refine Nat.lt_of_not_le fun e => ?_
     rw [(hfr b e).2.2] at hd0; cases hd0
   have fs := GzOpen.FsLe.wf ⟨hb, hn, hlk⟩ hf
   refine ⟨⟨by rw [hl.crc]; exact hc.1, by rw [hl.x2n]; exact hc.2⟩, ⟨fun c e => ?_, fun c e => ?_⟩, fun c e => ?_,
-    fun c s2 e => ?_, fs.1, fs.2.1, fs.2.2⟩
+    fun c s2 e => ?_, fs.1, fs.2.1, fs.2.2, hL⟩
   · rw [hl.next] at e
     refine ⟨by rw [hl.istates]; exact (hfr c e).1, by rw [hl.iallocs]; exact (hfr c e).2.1, ?_⟩
     cases e' : h'.bytes c with
@@ -721,12 +725,13 @@ theorem rewind_keepsW : KeepsW SRewind := keepsW_same fun _ _ _ _ _ _ hs hm ⟨_
 blocks outside the file's own, leaving the `gz_state` objects, keeps both invariants. -/
 theorem keeps_outside {S : World → Heap → World → Heap → GzPtr → Prop}
     (hS : ∀ w h w' h' f, (GzInvR w h f ∨ GzInvWS w h f) → S w h w' h' f →
-      w'.gzs = w.gzs ∧ GzOpen.FsLe w.fs w'.fs ∧ (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) })) :
+      w'.gzs = w.gzs ∧ GzOpen.FsLe w.fs w'.fs ∧ (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) ∧
+      (LitOk w h → LitOk w' h')) :
     KeepsR S ∧ KeepsW S := by
   have key : ∀ w h w' h' f, (GzInvR w h f ∨ GzInvWS w h f) → S w h w' h' f →
       GzInv w' h' f ∧ (∀ m, GzModeIs w h f m → GzModeIs w' h' f m) ∧ (GzWFr w h → GzWFr w' h') := by
     intro w h w' h' f hv0 hst
-    obtain ⟨hg, hf, hh⟩ := hS w h w' h' f hv0 hst
+    obtain ⟨hg, hf, hh, hL⟩ := hS w h w' h' f hv0 hst
     have hv : GzInv w h f := by rcases hv0 with ⟨hv, -⟩ | ⟨hv, -⟩ <;> exact hv
     obtain ⟨b, s, rfl, hs, sh, hn⟩ := hv
     have hl : HLess h h' := by
@@ -746,7 +751,7 @@ theorem keeps_outside {S : World → Heap → World → Heap → GzPtr → Prop}
       intro s' e'
       rw [hg, gzs_of hs] at e'; cases e'; rfl
     exact ⟨⟨b, s, rfl, hs', sh', by rw [e]; exact hn⟩, fun m hm => ⟨b, s, rfl, hs', modeOf hs hm⟩, fun hw =>
-      wfr_step (W := w') hw hs (fun c _ => by rw [hg]) hgb hf hl⟩
+      wfr_step (W := w') hw hs (fun c _ => by rw [hg]) hgb hf hl (hL hw.lit)⟩
   refine ⟨fun w h w' h' f hv hst => ?_, fun w h w' h' f hv hst => ?_⟩
   · obtain ⟨a, b, c⟩ := key w h w' h' f (Or.inl hv) hst
     exact ⟨a, b _ hv.2.1, c hv.2.2⟩
@@ -756,22 +761,22 @@ theorem keeps_outside {S : World → Heap → World → Heap → GzPtr → Prop}
 theorem tell64_keeps : KeepsR STell64 ∧ KeepsW STell64 := keeps_outside fun w h w' h' f hv ⟨r, e⟩ => by
   obtain ⟨r', e'⟩ := GzReach.gztell64_inv (Or.inr (parts' hv))
   obtain ⟨-, rfl, rfl⟩ := gdet e e'
-  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl⟩
+  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl, id⟩
 
 theorem tell_keeps : KeepsR STell ∧ KeepsW STell := keeps_outside fun w h w' h' f hv ⟨r, e⟩ => by
   obtain ⟨r', e'⟩ := GzReach.gztell_inv (Or.inr (parts' hv))
   obtain ⟨-, rfl, rfl⟩ := gdet e e'
-  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl⟩
+  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl, id⟩
 
 theorem eof_keeps : KeepsR SEof ∧ KeepsW SEof := keeps_outside fun w h w' h' f hv ⟨r, e⟩ => by
   obtain ⟨r', e'⟩ := GzReach.gzeof_inv (Or.inr (parts' hv))
   obtain ⟨-, rfl, rfl⟩ := gdet e e'
-  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl⟩
+  exact ⟨rfl, GzOpen.FsLe.refl _, Or.inl rfl, id⟩
 
 theorem error_keeps : KeepsR SError ∧ KeepsW SError := keeps_outside fun w h w' h' f hv ⟨ee, r, e⟩ => by
-  obtain ⟨r', w2, h2, e', -, hg, hf, hh⟩ := GzReach.gzerror_inv ee (Or.inr (parts' hv))
+  obtain ⟨r', w2, h2, e', -, hg, hf, hh, hL⟩ := GzReach.gzerror_inv ee (Or.inr (parts' hv))
   obtain ⟨-, rfl, rfl⟩ := gdet e e'
-  exact ⟨hg, by rw [hf]; exact GzOpen.FsLe.refl _, hh⟩
+  exact ⟨hg, by rw [hf]; exact GzOpen.FsLe.refl _, hh, hL⟩
 
 /-- `gzoffset64` and `gzoffset` on a write handle, or on a read handle in a world whose `lseek` values are `-1` or
 not negative. -/
@@ -782,10 +787,11 @@ theorem offset_fs {w : World} {h : Heap} {f : GzPtr} (hv : GzInv w h f) {S : G I
     {w' : World} {h' : Heap} {r : Int64} (e : GzRun S w h r w' h')
     (hl : ∀ b s, f = some b → w.gz h b = some s → s.mode = GZ_READ →
       ∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v) :
-    w'.gzs = w.gzs ∧ GzOpen.FsLe w.fs w'.fs ∧ (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) := by
+    w'.gzs = w.gzs ∧ GzOpen.FsLe w.fs w'.fs ∧ (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) ∧
+      (LitOk w h → LitOk w' h') := by
   obtain ⟨r', fs', e', hfs⟩ := hrun hl (Or.inr hv)
   obtain ⟨-, rfl, rfl⟩ := gdet e e'
-  refine ⟨rfl, ?_, Or.inl rfl⟩
+  refine ⟨rfl, ?_, Or.inl rfl, id⟩
   rcases hfs with rfl | ⟨fd, rfl⟩
   · exact GzOpen.FsLe.refl _
   · exact GzOpen.lseekCall_le _ _ _ _
@@ -795,7 +801,7 @@ theorem lseek_ok {w : World} {h : Heap} {f : GzPtr} (hv : GzInvR w h f ∨ GzInv
       ∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v := by
   intro b s e hs hm
   rcases hv with ⟨-, -, hw⟩ | ⟨-, hm'⟩
-  · exact hw.2.2.2.2.2.2
+  · exact hw.2.2.2.2.2.2.1
   · cases e; exact absurd (hm.symm.trans (modeOf hs hm')) read_ne_write
 
 theorem offset64_keeps : KeepsR SOffset64 ∧ KeepsW SOffset64 := keeps_outside fun _ _ _ _ _ hv ⟨_, e⟩ =>
@@ -823,6 +829,7 @@ theorem keeps_store {w : World} {h h' : Heap} {b : Nat} {s s' : GzState} (hs : w
   refine ⟨fun hv => ⟨hi, ⟨b, s', rfl, e, by rw [hmode]; exact modeOf hs hv.2.1⟩, ?_⟩,
     fun hv => ⟨hi, ⟨b, s', rfl, e, by rw [hmode]; exact modeOf hs hv.2⟩⟩⟩
   refine wfr_step hv.2.2 hs (fun c hc => by simp [upd_ne _ _ _ _ hc]) (fun s2 e2 => ?_) (GzOpen.FsLe.refl _) hl
+    (LitOk.ext hv.2.2.lit rfl hl.consts)
   simp at e2; rw [← e2, hstrm]
 
 theorem buffer_keeps : KeepsR SBuffer ∧ KeepsW SBuffer := by

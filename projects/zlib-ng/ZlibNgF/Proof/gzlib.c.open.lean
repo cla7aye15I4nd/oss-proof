@@ -49,11 +49,11 @@ structure OI (w : World) (h : Heap) (b i : Nat) (w1 : World) (h1 : Heap) : Prop 
   snone : ∀ z, h1.streams i = some z → z.state = none
 
 theorem fsWF_of {w : World} {h : Heap} (hwf : GzWF w h) : FsWF w.fs :=
-  ⟨hwf.2.2.2.2.2.1, hwf.2.2.2.2.2.2.1, hwf.2.2.2.2.2.2.2⟩
+  ⟨hwf.2.2.2.2.2.1, hwf.2.2.2.2.2.2.1, hwf.2.2.2.2.2.2.2.1⟩
 
 theorem gzWF_mk {w : World} {h : Heap} (c : CrcGlobals h) (d : DFreshBlocks h) (o : ObjBound h)
     (g : ∀ b, h.nextBlk ≤ b → w.gzs b = none) (s : ∀ b s, w.gz h b = some s → ∃ z, h.streams s.strm = some z)
-    (f : FsWF w.fs) : GzWF w h := ⟨c, d, o, g, s, f.1, f.2.1, f.2.2⟩
+    (f : FsWF w.fs) (l : LitOk w h) : GzWF w h := ⟨c, d, o, g, s, f.1, f.2.1, f.2.2, l⟩
 
 /-! ## The file system -/
 
@@ -307,12 +307,12 @@ theorem oi_init {w : World} {h : Heap} {W : World} {H : Heap} (hwf : GzWF w h)
     (hs : ∀ j, j ≠ h.streams.arr.size → H.streams j = h.streams j) (hsi : ∃ z, H.streams h.streams.arr.size = some z)
     (hg : ∀ c, c ≠ h.nextBlk → W.gzs c = w.gzs c)
     (hgb : ∃ st, W.gzs h.nextBlk = some st ∧ st.strm = h.streams.arr.size) (hfs : W.fs = w.fs) (hn : H.nextBlk = h.nextBlk + 1) (same : HSame h H)
-    (hsn : ∀ z, H.streams h.streams.arr.size = some z → z.state = none) :
+    (hsn : ∀ z, H.streams h.streams.arr.size = some z → z.state = none) (hk : W.litKeys = w.litKeys) :
     OI w h h.nextBlk h.streams.arr.size W H := by
   have hi := streams_size_none h
   obtain ⟨st, hgb, hst⟩ := hgb
   have hnone : ∀ c, h.nextBlk ≤ c → h.bytes c = none := fun c hc => (hwf.2.1.1 c hc).2.2
-  refine ⟨hwf, gzWF_mk ?_ ?_ ?_ ?_ ?_ ?_, Nat.le_refl _, hi, by omega, fun c hc => hb c (by omega), ?_,
+  refine ⟨hwf, gzWF_mk ?_ ?_ ?_ ?_ ?_ ?_ (LitOk.ext hwf.lit hk fun _ _ e => by rw [same.consts]; exact e), Nat.le_refl _, hi, by omega, fun c hc => hb c (by omega), ?_,
     fun c hc => hg c (by omega), fun c hc hne => by rw [hg c hne]; exact hwf.2.2.2.1 c hc, same, hsn⟩
   · exact ⟨by rw [same.crc]; exact hwf.1.1, by rw [same.x2n]; exact hwf.1.2⟩
   · refine ⟨fun c hc => ⟨by rw [same.istates]; exact (hwf.2.1.1 c (by omega)).1,
@@ -354,7 +354,7 @@ theorem state_init_spec {w : World} {h : Heap} (hwf : GzWF w h) : GSat w h gz_st
       and_intros <;> rfl
     case q =>
       refine Or.inr ⟨rfl, oi_init hwf (fun c hc => ?_) ?_ (fun j hj => ?_) (by simp) (fun c hc => ?_) (by simp) rfl rfl
-        ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (fun z hz => ?_), rfl, ?_⟩
+        ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (fun z hz => ?_) rfl, rfl, ?_⟩
       all_goals (try simp [upd_ne, World.gz, *])
       · simp at hz; rw [← hz]
       · exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
@@ -379,7 +379,7 @@ theorem oi_heap {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 H : Heap} (o
     (hold : ∀ j z, h1.streams j = some z → h.streams j = some z → H.streams j = some z)
     (hsn : ∀ z, H.streams i = some z → z.state = none) : OI w h b i w1 H := by
   have wf := o.wf
-  refine ⟨o.wf0, gzWF_mk ?_ ?_ ?_ hgz hstr (fsWF_of wf), o.nb, o.inone, by have := o.next; omega,
+  refine ⟨o.wf0, gzWF_mk ?_ ?_ ?_ hgz hstr (fsWF_of wf) (LitOk.ext wf.lit rfl fun _ _ e => by rw [same.consts]; exact e), o.nb, o.inone, by have := o.next; omega,
     fun c hc => by rw [hbytes c hc]; exact o.bytes c hc,
     fun j z hz => hold j z (o.strOld j z hz) hz, o.gzOld, o.gzNew, o.same.trans same, hsn⟩
   · exact ⟨by rw [same.crc]; exact wf.1.1, by rw [same.x2n]; exact wf.1.2⟩
@@ -395,9 +395,10 @@ theorem oi_heap {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 H : Heap} (o
 /-- A change of the world only: the `gz_state` of `b` (keeping a live stream) and the file system. -/
 theorem oi_world {w : World} {h : Heap} {b i : Nat} {w1 W : World} {h1 : Heap} (o : OI w h b i w1 h1)
     (hg : ∀ c, c ≠ b → W.gzs c = w1.gzs c) (hgb : ∀ s, W.gz h1 b = some s → ∃ z, h1.streams s.strm = some z)
-    (hfs : FsLe w1.fs W.fs) (hb : b < h1.nextBlk) : OI w h b i W h1 := by
+    (hfs : FsLe w1.fs W.fs) (hb : b < h1.nextBlk) (hk : W.litKeys = w1.litKeys) : OI w h b i W h1 := by
   have wf := o.wf
-  refine ⟨o.wf0, gzWF_mk wf.1 wf.2.1 wf.2.2.1 (fun c hc => ?_) (fun c s hs => ?_) (hfs.wf (fsWF_of wf)), o.nb,
+  refine ⟨o.wf0, gzWF_mk wf.1 wf.2.1 wf.2.2.1 (fun c hc => ?_) (fun c s hs => ?_) (hfs.wf (fsWF_of wf))
+    (LitOk.ext wf.lit hk fun _ _ e => e), o.nb,
     o.inone, o.next, o.bytes, o.strOld, fun c hc => ?_, fun c hc hne => ?_, o.same, o.snone⟩
   · by_cases e : c = b
     · omega
@@ -414,7 +415,7 @@ theorem gsat_wrG_oi {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} 
     (hf : (f s).strm = s.strm) :
     GSat w1 h1 (wrG (some b) f) (fun _ W H => H = h1 ∧ W.gz H b = some (f s) ∧ OI w h b i W H) := by
   refine GSat.of_eq (wrG_app hs f) ⟨rfl, gz_upd_same hs _, oi_world o (fun c hc => ?_) (fun s' hs' => ?_)
-    (FsLe.refl _) hbl⟩
+    (FsLe.refl _) hbl rfl⟩
   · show (upd w1.gzs b (some (f s))) c = w1.gzs c
     rw [upd_ne _ _ _ _ hc]
   · rw [gz_upd_same hs] at hs'
@@ -513,7 +514,7 @@ theorem gsat_free_state {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : He
     by simp [gz_state_free, gzStateFree, ldGz_app hs, freeB, hd, dropStream, hsi, hz], ?_⟩
   have o1 : OI w h b i { w1 with gzs := upd w1.gzs b none } h1 :=
     oi_world o (fun c hc => by simp [upd_ne _ _ _ _ hc]) (fun s' hs' => by unfold World.gz at hs'; simp [hd] at hs')
-      (FsLe.refl _) hbn
+      (FsLe.refl _) hbn rfl
   refine ⟨oi_heap o1 ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (Nat.le_refl _)
     (fun c hc => by simp [upd_ne _ _ _ _ (show c ≠ b by have := o.nb; omega)]) (fun c hc => ?_)
     (fun c d' hd' => ?_) o1.wf.2.2.2.1 (fun c t ht => ?_) (fun j z' hz' hj => ?_) (fun z hz => by simp at hz), by simp, by simp, by simp,
@@ -604,7 +605,7 @@ theorem oi_stream {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} (o
 /-- The file system calls of `gz_open`. -/
 theorem oi_fs {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} (o : OI w h b i w1 h1) (fs : Fs)
     (hf : FsLe w1.fs fs) (hb : b < h1.nextBlk) : OI w h b i { w1 with fs := fs } h1 :=
-  oi_world o (fun _ _ => rfl) (fun s hs => o.wf.2.2.2.2.1 b s hs) hf hb
+  oi_world o (fun _ _ => rfl) (fun s hs => o.wf.2.2.2.2.1 b s hs) hf hb rfl
 
 set_option maxHeartbeats 1000000 in
 /-- `gz_reset` of the fresh state (no message yet). -/
@@ -623,9 +624,9 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
   obtain ⟨z, hz⟩ := o.wf.2.2.2.2.1 b st hs
   rw [hsi] at hz
   have hW : ∀ (W : World), W.fs = w1.fs → (∀ c, c ≠ b → W.gzs c = w1.gzs c) →
-      (∃ s', W.gzs b = some s' ∧ s'.strm = i) → OI w h b i W h1 := fun W hf hg ⟨s', e1, e2⟩ =>
+      (∃ s', W.gzs b = some s' ∧ s'.strm = i) → W.litKeys = w1.litKeys → OI w h b i W h1 := fun W hf hg ⟨s', e1, e2⟩ hk =>
     oi_world o hg (fun t ht => by unfold World.gz at ht; rw [hd, e1] at ht; cases ht; rw [e2]; exact ⟨z, hz⟩)
-      (by rw [hf]; exact FsLe.refl _) hbl
+      (by rw [hf]; exact FsLe.refl _) hbl hk
   by_cases hm : st.mode = GZ_READ
   · refine ⟨?r, ?W, ?H, ?e, ?q⟩
     case e =>
@@ -633,10 +634,11 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
         ldStream, stStream, hsi, hz, Ival.get, liftM, monadLift, MonadLift.monadLift, StateT.lift, getHeap_app]
       and_intros <;> rfl
     case q =>
-      refine ⟨oi_stream (hW _ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
+      refine ⟨oi_stream (hW _ ?_ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
       · rfl
       · intro c hc; simp only [upd_ne _ _ _ _ hc]
       · simp
+      · rfl
       · simp [World.gz, hd, hm, hmsg, ZlibNg.Inflate.Z_OK]
         exact hsi.symm
   · refine ⟨?r2, ?W2, ?H2, ?e2, ?q2⟩
@@ -645,10 +647,11 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
         ldStream, stStream, hsi, hz, Ival.get, liftM, monadLift, MonadLift.monadLift, StateT.lift, getHeap_app]
       and_intros <;> rfl
     case q2 =>
-      refine ⟨oi_stream (hW _ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
+      refine ⟨oi_stream (hW _ ?_ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
       · rfl
       · intro c hc; simp only [upd_ne _ _ _ _ hc]
       · simp
+      · rfl
       · simp [World.gz, hd, hm, hsi, hmsg, ZlibNg.Inflate.Z_OK]
 
 /-! ## The mode loop -/
