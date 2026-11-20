@@ -287,6 +287,13 @@ for b in (8, 64):
                 ["read:3", "seek:9223372036854775797:0", "fread:3:4", "tell", "fread:1:5", "tell"],
                 ["read:3", "seek:9223372036854775800:0", "ungetc:65", "ungetc:66", "tell", "read:20", "tell", "getc"]):
         line(t, dev, ["open:r", "buffer:%d" % b] + ops + ["error", "close"])
+# the output buffer never holds bytes past GZ_OFF_MAX (patch 0016): a read just below it, then single bytes, lines
+# and reads at it (Z_DATA_ERROR there)
+for b in (8, 64):
+    line(t, dev, ["open:r", "buffer:%d" % b, "read:3", "seek:9223372036854775795:0", "read:1", "tell"] + ["getc"] * 13 +
+         ["tell", "error", "clearerr", "gets:5", "error", "clearerr", "read:2", "error", "close"])
+    line(t, dev, ["open:r", "buffer:%d" % b, "read:3", "seek:9223372036854775800:0", "gets:30", "tell", "gets:30",
+                  "error", "clearerr", "fread:1:9", "tell", "error", "close"])
 for c in (gz(text(2000)), gz(b"short")):
     line(c, [], ["open:r", "buffer:8", "seek:9223372036854775807:0", "read:5", "tell", "getc", "gets:5", "eof", "error",
                  "close"])
