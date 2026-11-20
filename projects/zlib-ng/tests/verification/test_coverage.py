@@ -55,16 +55,16 @@ class CoverageTests(unittest.TestCase):
         m["apis"].append({"function": "inflateFoo", "status": "not-done", "scope": "lp64-linux", "reason": "x"})
         self.rejects("extra=\\['inflateFoo'\\]", m)
         m = copy.deepcopy(self.manifest)
-        m["apis"].append(copy.deepcopy(self.api(m, "compress")))
-        self.rejects("duplicated=\\['compress'\\]", m)
+        m["apis"].append(copy.deepcopy(self.api(m, "gzbuffer")))
+        self.rejects("duplicated=\\['gzbuffer'\\]", m)
 
     def test_status_needs_reason_or_goal(self):
         m = copy.deepcopy(self.manifest)
-        del self.api(m, "compress")["reason"]
+        del self.api(m, "gzbuffer")["reason"]
         self.rejects("needs a reason", m)
         m = copy.deepcopy(self.manifest)
-        self.api(m, "compress")["status"] = "skipped"
-        self.rejects("status of compress", m)
+        self.api(m, "gzbuffer")["status"] = "skipped"
+        self.rejects("status of gzbuffer", m)
         m = copy.deepcopy(self.manifest)
         self.api(m, "inflate")["status"] = "not-applicable"
         self.rejects("only a Windows-only function", m)
@@ -86,7 +86,7 @@ class CoverageTests(unittest.TestCase):
 
     def test_not_done_with_proved_goal_is_stale(self):
         lists = copy.deepcopy(self.lists)
-        lists["proved"].append(v.SAFETY + "compress_safety")
+        lists["proved"].append(v.SAFETY + "gzbuffer_safety")
         self.rejects("its safety goal is proved", lists=lists)
 
     def test_translation_binding(self):
