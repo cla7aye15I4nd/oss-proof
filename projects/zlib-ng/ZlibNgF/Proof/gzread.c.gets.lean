@@ -190,7 +190,8 @@ theorem getsCopy_spec {W : World} {H : Heap} {b cb o k L : Nat} {s : GzState} (h
     {dc : Array UInt8} (hdc : H.bytes cb = some dc) (hfit : o + L ≤ dc.size) (hno : cb ∉ GzOwned W H (some b)) :
     GSat W H (getsCopy (some b) st eol n) (fun s1 W' H' =>
       s1 = { st with buf := .ref (.heap cb) (o + (k + n.toNat)), left := st.left - n, eol := eol } ∧
-      GzInvR W' H' (some b) ∧ GStep W H W' H' b [(.ref (.heap cb) o, L)]) := by
+      GzInvR W' H' (some b) ∧ GStep W H W' H' b [(.ref (.heap cb) o, L)] ∧
+      (LookIdle W H (some b) → LookIdle W' H' (some b))) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have R := sh.read (modeOf hs hv.2.1)
   have P := sh.pos
@@ -214,6 +215,7 @@ theorem getsCopy_spec {W : World} {H : Heap} {b cb o k L : Nat} {s : GzState} (h
   have hs1 : W.gz H1 b = some s := by rw [x.gz hbc]; exact hs
   have g1 : GStep W H W H1 b [(.ref (.heap cb) o, L)] := gstep_caller x hno hbc (by omega) (by omega)
   have hd1 : H1.bytes c = some d := by rw [x.bytes_ne hcb]; exact hd
+  have hstr : H1.streams = H.streams := by obtain ⟨t, et, -⟩ := x; rw [et]
   obtain ⟨dc1, hdc1, hsz1⟩ := x.size hdc
   obtain ⟨db, hdb⟩ := gz_live hs1
   let s1 : GzState := { s with «have» := s.«have» - n }
@@ -262,7 +264,8 @@ theorem getsCopy_spec {W : World} {H : Heap} {b cb o k L : Nat} {s : GzState} (h
     show -GZ_OFF_MAX.toInt ≤ (Int64.ofInt (s.pos.toInt + (n.toNat : Int))).toInt
     rw [e2]; have := P.3; omega
   obtain ⟨hvF, gF⟩ := invR_hp hv1 hs1 (s' := sF) rfl f0 f1 f2 f3 f4 f5
-  exact ⟨hvF, g1.trans (GzDecomp.GStep.widen gF _) ⟨s, hs⟩ ⟨s, hs1⟩⟩
+  exact ⟨hvF, g1.trans (GzDecomp.GStep.widen gF _) ⟨s, hs⟩ ⟨s, hs1⟩,
+    fun hi => idle_same hi hs (gz_upd_same hs1 sF) rfl rfl rfl (by rw [hstr])⟩
 
 /-- A round of the loop of `gzgets` after the fetch (copied from the translation). -/
 def getsRest (state : GzPtr) (s : GetsLoop) : G GetsLoop := do
@@ -284,7 +287,8 @@ theorem getsRest_spec {W : World} {H : Heap} {b cb o k L : Nat} {s : GzState} (h
       ((s1 = { st with ctl := .brk }) ∨
         ∃ n e, 1 ≤ n.toNat ∧ n.toNat ≤ st.left.toNat ∧
           s1 = { st with buf := .ref (.heap cb) (o + (k + n.toNat)), left := st.left - n, eol := e }) ∧
-      GzInvR W' H' (some b) ∧ GStep W H W' H' b [(.ref (.heap cb) o, L)]) := by
+      GzInvR W' H' (some b) ∧ GStep W H W' H' b [(.ref (.heap cb) o, L)] ∧
+      (LookIdle W H (some b) → LookIdle W' H' (some b))) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have R := sh.read (modeOf hs hv.2.1)
   unfold getsRest
@@ -293,7 +297,7 @@ theorem getsRest_spec {W : World} {H : Heap} {b cb o k L : Nat} {s : GzState} (h
   · intro _
     obtain ⟨hvP, gP⟩ := invR_past hv hs 1
     refine GSat.bind (GSat.of_eq (wrG_app hs _) ?_)
-    exact GSat.pure ⟨Or.inl rfl, hvP, GzDecomp.GStep.widen gP _⟩
+    exact GSat.pure ⟨Or.inl rfl, hvP, GzDecomp.GStep.widen gP _, fun hi => idle_upd hi hs _ rfl rfl rfl⟩
   intro hh0
   have hh : s.«have» ≠ 0 := by simpa using hh0
   have hsz : s.size ≠ 0 := fun e => hh (R.nobuf e)
@@ -315,7 +319,8 @@ theorem getsRest_spec {W : World} {H : Heap} {b cb o k L : Nat} {s : GzState} (h
         ((s1 = { st with ctl := .brk }) ∨
           ∃ n e, 1 ≤ n.toNat ∧ n.toNat ≤ st.left.toNat ∧
             s1 = { st with buf := .ref (.heap cb) (o + (k + n.toNat)), left := st.left - n, eol := e }) ∧
-        GzInvR W' H' (some b) ∧ GStep W H W' H' b [(.ref (.heap cb) o, L)]) := by
+        GzInvR W' H' (some b) ∧ GStep W H W' H' b [(.ref (.heap cb) o, L)] ∧
+        (LookIdle W H (some b) → LookIdle W' H' (some b))) := by
     intro e' n h1 h2
     exact (getsCopy_spec hv hs st hbk e' n h1 (by omega) (by omega) hdc hfit hno).mono fun s1 W' H' q =>
       ⟨Or.inr ⟨n, e', h1, by omega, q.1⟩, q.2⟩
@@ -338,19 +343,20 @@ theorem getsRest_spec {W : World} {H : Heap} {b cb o k L : Nat} {s : GzState} (h
 
 /-! ## `gzgets` -/
 
-theorem gzgets_read (FS : GzFetchSpec) (SS : GzSkipSpec) {w : World} {h : Heap} {b : Nat}
-    (hv : GzInvR w h (some b)) (buf : BPtr) (len : Int32)
+theorem gzgets_read (FS : GzFetchSpec) (SS : GzSkipSpec) (FI : GzFetchIdle) (SI : GzSkipIdle) {w : World}
+    {h : Heap} {b : Nat} (hv : GzInvR w h (some b)) (hi : LookIdle w h (some b)) (buf : BPtr) (len : Int32)
     (hbuf : len ≥ 1 → GzOut w h (some b) buf len.toNatClampNeg ∨ buf = .null) :
     GSat w h (gzgets (some b) buf len)
-      (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b [(buf, len.toNatClampNeg)]) := by
+      (fun _ W H => GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b [(buf, len.toNatClampNeg)]) := by
   obtain ⟨b0, s, e0, hs, -, -⟩ := hv.1
   cases e0
-  have done : ∀ W H, GzInvR W H (some b) → GStep w h W H b [] → GSat W H (pure (.null : BPtr))
-      (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b [(buf, len.toNatClampNeg)]) :=
-    fun W H hv g => GSat.pure ⟨hv, GzDecomp.GStep.widen g _⟩
+  have done : ∀ W H, GzInvR W H (some b) → LookIdle W H (some b) → GStep w h W H b [] →
+      GSat W H (pure (.null : BPtr))
+      (fun _ W H => GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b [(buf, len.toNatClampNeg)]) :=
+    fun W H hv hi g => GSat.pure ⟨hv, hi, GzDecomp.GStep.widen g _⟩
   unfold gzgets
   apply GSat.ite
-  · intro _; exact done w h hv (GStep.refl w h b [])
+  · intro _; exact done w h hv hi (GStep.refl w h b [])
   intro hc
   simp at hc
   obtain ⟨hnull, hlen0⟩ := hc
@@ -366,17 +372,18 @@ theorem gzgets_read (FS : GzFetchSpec) (SS : GzSkipSpec) {w : World} {h : Heap} 
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
   apply GSat.ite
-  · intro _; exact done w h hv (GStep.refl w h b [])
+  · intro _; exact done w h hv hi (GStep.refl w h b [])
   intro _
   refine GSat.bind (GSat.of_eq (rdG_app' hs _) ?_)
   extract_lets str left jpE J
   have hE : ∀ (bv : BPtr) W H, (∃ k, bv = .ref (.heap cb) (o + k) ∧ k ≤ len.toNatClampNeg - 1) ∧
-      GzInvR W H (some b) ∧ GStep w h W H b [(.ref (.heap cb) o, len.toNatClampNeg)] → GSat W H (jpE () bv)
-      (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b [(.ref (.heap cb) o, len.toNatClampNeg)]) := by
-    rintro bv W H ⟨⟨k, rfl, hk⟩, hvW, gW⟩
+      GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b [(.ref (.heap cb) o, len.toNatClampNeg)] →
+      GSat W H (jpE () bv) (fun _ W H => GzInvR W H (some b) ∧ LookIdle W H (some b) ∧
+        GStep w h W H b [(.ref (.heap cb) o, len.toNatClampNeg)]) := by
+    rintro bv W H ⟨⟨k, rfl, hk⟩, hvW, hiW, gW⟩
     simp only [jpE]
     apply GSat.ite
-    · intro _; exact GSat.pure ⟨hvW, gW⟩
+    · intro _; exact GSat.pure ⟨hvW, hiW, gW⟩
     · intro _
       obtain ⟨d', hd', hsz', hnoW⟩ := caller_blk gW hcbn hno hd
       refine GSat.bind (GSat.lm ⟨_, H, addH hd' 0 (by omega), ?_⟩)
@@ -384,12 +391,14 @@ theorem gzgets_read (FS : GzFetchSpec) (SS : GzSkipSpec) {w : World} {h : Heap} 
       refine GSat.bind (GSat.lm ⟨(), _, store8_heap hd' (off := o + k + 0) (by omega) 0, ?_⟩)
       obtain ⟨s1, hs1⟩ : ∃ s1, W.gz H b = some s1 := by obtain ⟨b1, s1, e1, h1, -⟩ := hvW.1; cases e1; exact ⟨s1, h1⟩
       have hbc : b ≠ cb := fun e => hnoW (by subst e; simp [GzOwned, hs1])
-      exact GSat.pure ⟨invR_caller hvW hnoW x, gW.trans (gstep_caller x hnoW hbc (by omega) (by omega))
-        ⟨s, hs⟩ ⟨s1, hs1⟩⟩
+      have hs1' := (x.gz (W := W) hbc).trans hs1
+      exact GSat.pure ⟨invR_caller hvW hnoW x, idle_same hiW hs1 hs1' rfl rfl rfl rfl,
+        gW.trans (gstep_caller x hnoW hbc (by omega) (by omega)) ⟨s, hs⟩ ⟨s1, hs1⟩⟩
   clear_value jpE
-  have hJ : ∀ x W H, GzInvR W H (some b) ∧ GStep w h W H b [] → GSat W H (J x)
-      (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b [(.ref (.heap cb) o, len.toNatClampNeg)]) := by
-    intro _ W1 H1 ⟨hv1, g1⟩
+  have hJ : ∀ x W H, GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b [] → GSat W H (J x)
+      (fun _ W H => GzInvR W H (some b) ∧ LookIdle W H (some b) ∧
+        GStep w h W H b [(.ref (.heap cb) o, len.toNatClampNeg)]) := by
+    intro _ W1 H1 ⟨hv1, hi1, g1⟩
     simp only [J]
     have g1' := GzDecomp.GStep.widen g1 [(.ref (.heap cb) o, len.toNatClampNeg)]
     apply GSat.ite
@@ -398,34 +407,36 @@ theorem gzgets_read (FS : GzFetchSpec) (SS : GzSkipSpec) {w : World} {h : Heap} 
       have hl0' : left ≠ 0 := by simpa using hl0
       let L := len.toNatClampNeg
       let Q : GetsLoop → World → Heap → Prop := fun lp W H => (∃ k, lp.buf = .ref (.heap cb) (o + k) ∧ k ≤ L - 1) ∧
-        GzInvR W H (some b) ∧ GStep w h W H b [(.ref (.heap cb) o, L)]
+        GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b [(.ref (.heap cb) o, L)]
       let I : GetsLoop → World → Heap → Prop := fun st W H =>
         (∃ k, st.buf = .ref (.heap cb) (o + k) ∧ k + st.left.toNat = L - 1) ∧ st.left ≠ 0 ∧ st.ctl = .go ∧
-        GzInvR W H (some b) ∧ GStep w h W H b [(.ref (.heap cb) o, L)]
+        GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b [(.ref (.heap cb) o, L)]
       refine GSat.bind (GSat.mono (gsat_gdoWhile I (fun st _ _ => st.left.toNat) Q ?_
-        (s := ⟨str, left, .null, .go⟩) ⟨⟨0, rfl, by show 0 + left.toNat = L - 1; omega⟩, hl0', rfl, hv1, g1'⟩
+        (s := ⟨str, left, .null, .go⟩) ⟨⟨0, rfl, by show 0 + left.toNat = L - 1; omega⟩, hl0', rfl, hv1, hi1, g1'⟩
         (by show left.toNat < 2 ^ 64; have := left.toNat_lt; omega)) fun lp W H q => ?_)
-      · intro st W H ⟨⟨k, hbk, hkl⟩, hl0, hgo, hvW, gW⟩
+      · intro st W H ⟨⟨k, hbk, hkl⟩, hl0, hgo, hvW, hiW, gW⟩
         obtain ⟨b2, s2, e2, hs2, -, -⟩ := hvW.1; cases e2
         try dsimp (config := {zeta := false}) only
         refine GSat.bind (GSat.of_eq (rdG_app' hs2 _) ?_)
-        have hB : ∀ W' H', GzInvR W' H' (some b) ∧ GStep w h W' H' b [(.ref (.heap cb) o, L)] →
+        have hB : ∀ W' H', GzInvR W' H' (some b) ∧ LookIdle W' H' (some b) ∧
+            GStep w h W' H' b [(.ref (.heap cb) o, L)] →
             GSat W' H' (getsRest (some b) st) (fun s1 w1 h1 => GSat w1 h1 (getsCond s1) (fun cs w2 h2 =>
               (cs.1 = true → I cs.2 w2 h2 ∧ cs.2.left.toNat < st.left.toNat) ∧ (cs.1 = false → Q cs.2 w2 h2))) := by
-          intro W' H' ⟨hv', g'⟩
+          intro W' H' ⟨hv', hi', g'⟩
           obtain ⟨b3, s3, e3, hs3, -, -⟩ := hv'.1; cases e3
           obtain ⟨dc, hdc, hdcs, hnoW⟩ := caller_blk g' hcbn hno hd
           refine (getsRest_spec hv' hs3 st hbk hkl hl0 hdc (by rw [hdcs]; exact hfit) hnoW).mono
             fun s1 W'' H'' q => ?_
-          obtain ⟨hs1, hvF, gF⟩ := q
+          obtain ⟨hs1, hvF, gF, hiF⟩ := q
+          have hiF' := hiF hi'
           have g := g'.trans gF ⟨s, hs⟩ ⟨s3, hs3⟩
           rcases hs1 with rfl | ⟨n, e, h1, h2, rfl⟩
           · exact cond_stop (X := fun s w h => I s w h ∧ s.left.toNat < st.left.toNat) (Q := Q) (by simp)
-              ⟨⟨k, hbk, by omega⟩, hvF, g⟩
+              ⟨⟨k, hbk, by omega⟩, hvF, hiF', g⟩
           · have hsub : (st.left - n).toNat = st.left.toNat - n.toNat :=
               UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr h2)
             let s1' : GetsLoop := { st with buf := .ref (.heap cb) (o + (k + n.toNat)), left := st.left - n, eol := e }
-            refine cond_go (s1 := s1') (X := fun s w h => I s w h ∧ s.left.toNat < st.left.toNat) (Q := Q) hgo (fun hl _ => ⟨⟨⟨k + n.toNat, rfl, ?_⟩, hl, hgo, hvF, g⟩, ?_⟩) ⟨⟨k + n.toNat, rfl, ?_⟩, hvF, g⟩
+            refine cond_go (s1 := s1') (X := fun s w h => I s w h ∧ s.left.toNat < st.left.toNat) (Q := Q) hgo (fun hl _ => ⟨⟨⟨k + n.toNat, rfl, ?_⟩, hl, hgo, hvF, hiF', g⟩, ?_⟩) ⟨⟨k + n.toNat, rfl, ?_⟩, hvF, hiF', g⟩
             · show k + n.toNat + (st.left - n).toNat = L - 1; rw [hsub]; omega
             · show (st.left - n).toNat < st.left.toNat; rw [hsub]; omega
             · omega
@@ -434,37 +445,41 @@ theorem gzgets_read (FS : GzFetchSpec) (SS : GzSkipSpec) {w : World} {h : Heap} 
           refine GSat.bind (GSat.of_eq (rdG_app' hs2 _) ?_)
           apply GSat.ite
           · intro hk0
-            refine GSat.bind (GSat.mono (FS W H b s2 hvW hs2 (by simpa using hh0)) fun r W' H' q => ?_)
-            obtain ⟨-, gF, -, s', -, -, -, -, hinv, -⟩ := q
+            have hh0' : s2.«have» = 0 := by simpa using hh0
+            refine GSat.bind (GSat.mono (GSat.withRun (FS W H b s2 hvW hs2 hh0')) fun r W' H' q => ?_)
+            obtain ⟨⟨-, gF, -, s', -, -, -, -, hinv, -⟩, run⟩ := q
+            have hi' := FI W H b s2 r W' H' hvW hiW hs2 hh0' run
             have hv' := hinv (by simpa using hk0)
             have g' := gW.trans (GzDecomp.GStep.widen gF _) ⟨s, hs⟩ ⟨s2, hs2⟩
             apply GSat.ite
             · intro _
               exact GSat.pure (cond_stop (X := fun s w h => I s w h ∧ s.left.toNat < st.left.toNat) (Q := Q) (by simp)
-                ⟨⟨k, hbk, by omega⟩, hv', g'⟩)
-            · intro _; exact hB W' H' ⟨hv', g'⟩
-          · intro _; exact hB W H ⟨hvW, gW⟩
-        · intro _; exact hB W H ⟨hvW, gW⟩
+                ⟨⟨k, hbk, by omega⟩, hv', hi', g'⟩)
+            · intro _; exact hB W' H' ⟨hv', hi', g'⟩
+          · intro _; exact hB W H ⟨hvW, hiW, gW⟩
+        · intro _; exact hB W H ⟨hvW, hiW, gW⟩
       · apply GSat.ite
-        · intro _; exact GSat.pure ⟨q.2.1, q.2.2⟩
+        · intro _; exact GSat.pure q.2
         · intro _; exact hE lp.buf W H q
     · intro _
-      exact hE str W1 H1 ⟨⟨0, rfl, by omega⟩, hv1, g1'⟩
+      exact hE str W1 H1 ⟨⟨0, rfl, by omega⟩, hv1, hi1, g1'⟩
   clear_value J
   · apply GSat.ite
     · intro hk
-      refine GSat.bind (GSat.mono (SS w h b s (mid_of hv hs) (by simpa using hk)) fun r W H q => ?_)
-      obtain ⟨-, hvW, gW, -, -⟩ := q
+      have hk' : s.skip ≠ 0 := by simpa using hk
+      refine GSat.bind (GSat.mono (GSat.withRun (SS w h b s (mid_of hv hs) hk')) fun r W H q => ?_)
+      obtain ⟨⟨-, hvW, gW, -, -⟩, run⟩ := q
+      have hiW := SI w h b s r W H (mid_of hv hs) hi hk' run
       apply GSat.ite
-      · intro _; exact done W H hvW gW
-      · intro _; exact hJ () W H ⟨hvW, gW⟩
-    · intro _; exact hJ () w h ⟨hv, GStep.refl w h b []⟩
+      · intro _; exact done W H hvW hiW gW
+      · intro _; exact hJ () W H ⟨hvW, hiW, gW⟩
+    · intro _; exact hJ () w h ⟨hv, hi, GStep.refl w h b []⟩
 
-theorem gets_keepsR (FS : GzFetchSpec) (SS : GzSkipSpec) : KeepsR SGets := by
-  intro w h w' h' f hv ⟨buf, len, r, hb, e⟩
+theorem gets_keepsRI (FS : GzFetchSpec) (SS : GzSkipSpec) (FI : GzFetchIdle) (SI : GzSkipIdle) : KeepsRI SGets := by
+  intro w h w' h' f hv hi ⟨buf, len, r, hb, e⟩
   obtain ⟨b, s, rfl, -, -, -⟩ := hv.1
-  obtain ⟨r2, W, H, e2, q⟩ := (gzgets_read FS SS hv buf len (fun h1 => (hb h1))).run
+  obtain ⟨r2, W, H, e2, q⟩ := (gzgets_read FS SS FI SI hv hi buf len (fun h1 => (hb h1))).run
   obtain ⟨-, rfl, rfl⟩ := gdet e2 e
-  exact q.1
+  exact ⟨q.1, q.2.1⟩
 
 end ZlibNgF.Proof.GzMode

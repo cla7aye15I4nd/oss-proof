@@ -1,5 +1,6 @@
 import ZlibNgF.Proof.«gzread.c.ungetc»
 import ZlibNgF.Proof.«gzread.c.readspec»
+import ZlibNgF.Proof.«gzread.c.idlespec»
 
 /-!
 # `gzgetc` and `gzgetc_` on a read handle (`ZlibNgF`)
@@ -177,11 +178,28 @@ theorem invR_free {W : World} {H : Heap} {b c : Nat} (hv : GzInvR W H (some b)) 
     ⟨⟨b, s, rfl, hs, sh, hn⟩, hm, hw⟩
   rwa [DeflateReset.upd_self W.gzs b s (gzs_of hs)] at this
 
+/-- `LookIdle` after a store of a state with the same `how`, `direct` and stream. -/
+theorem idle_upd {w : World} {h : Heap} {b : Nat} {s : GzState} (hi : LookIdle w h (some b))
+    (hs : w.gz h b = some s) (s' : GzState) (e1 : s'.how = s.how) (e2 : s'.direct = s.direct)
+    (e3 : s'.strm = s.strm) : LookIdle { w with gzs := upd w.gzs b (some s') } h (some b) :=
+  idle_same hi hs (gz_upd_same hs s') e1 e2 e3 rfl
+
+/-- `LookIdle` after freeing a block other than the state's. -/
+theorem idle_free {W : World} {H : Heap} {b c : Nat} (hi : LookIdle W H (some b)) (hbc : b ≠ c) :
+    LookIdle W { H with bytes := upd H.bytes c none } (some b) := by
+  intro b' s z e hs hz
+  cases e
+  rw [gz_free_ne hbc] at hs
+  exact hi b s z rfl hs hz
+
 /-! ## `gzgetc` -/
 
-/-- **`gzgetc`** on a read handle: a read handle again, and a step of the call that writes no caller memory. -/
-theorem gzgetc_read (RS : GzReadSpec) {w : World} {h : Heap} {b : Nat} (hv : GzInvR w h (some b)) :
-    GSat w h (gzgetc (some b)) (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b []) := by
+/-- **`gzgetc`** on a read handle with `LookIdle`: a read handle with `LookIdle` again, and a step of the call that
+writes no caller memory. -/
+theorem gzgetc_read (RS : GzReadSpec) (RI : GzReadIdle) {w : World} {h : Heap} {b : Nat}
+    (hv : GzInvR w h (some b)) (hi : LookIdle w h (some b)) :
+    GSat w h (gzgetc (some b))
+      (fun _ W H => GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b []) := by
   obtain ⟨b0, s, e0, hs, -, -⟩ := hv.1
   cases e0
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
@@ -190,8 +208,9 @@ theorem gzgetc_read (RS : GzReadSpec) {w : World} {h : Heap} {b : Nat} (hv : GzI
   have P := sh.pos
   have hmx := gzmax
   obtain ⟨db, hdb⟩ := gz_live hs
-  have done : GSat w h (pure (-1 : Int32)) (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b []) :=
-    GSat.pure ⟨hv, GStep.refl w h b []⟩
+  have done : GSat w h (pure (-1 : Int32))
+      (fun _ W H => GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b []) :=
+    GSat.pure ⟨hv, hi, GStep.refl w h b []⟩
   unfold gzgetc
   apply GSat.ite
   · intro _; exact done
@@ -234,6 +253,7 @@ theorem gzgetc_read (RS : GzReadSpec) {w : World} {h : Heap} {b : Nat} (hv : GzI
     refine GSat.pure ?_
     simp only [InflateInv.upd_upd]
     have e2 := toInt_ofInt' hb1.1 hb1.2
+    refine and_left_comm.mp ⟨idle_upd hi hs _ rfl rfl rfl, ?_⟩
     refine invR_hp hv hs rfl (by rw [e2]; have := P.3; omega) ?_ ?_ ?_ ?_ ?_
     · show (Int64.ofInt (s.pos.toInt + 1)).toInt + s.skip.toInt ≤ GZ_OFF_MAX.toInt
       rw [e2]
@@ -264,8 +284,10 @@ theorem gzgetc_read (RS : GzReadSpec) {w : World} {h : Heap} {b : Nat} (hv : GzI
       cases e
       rw [ho] at hc
       exact hnb hc
-    refine GSat.bind (GSat.mono (RS w (localH h 1) b _ 1 hv1 hout) fun r W H q => ?_)
-    obtain ⟨-, hvW, gW, -⟩ := q
+    have hi1 : LookIdle w (localH h 1) (some b) := idle_same hi hs hs1 rfl rfl rfl rfl
+    refine GSat.bind (GSat.mono (GSat.withRun (RS w (localH h 1) b _ 1 hv1 hout)) fun r W H q => ?_)
+    obtain ⟨⟨-, hvW, gW, -⟩, run⟩ := q
+    have hiW := RI w (localH h 1) b _ 1 r W H hv1 hi1 hout run
     have hl : h.nextBlk < (localH h 1).nextBlk := by simp [localH]
     have hno : h.nextBlk ∉ GzOwned w (localH h 1) (some b) := by rw [ho]; exact hnb
     obtain ⟨a, ha, hasz⟩ := frame_live gW.frame.1.1 hl hno (d := localArr h 1) (by simp [localH])
@@ -277,10 +299,10 @@ theorem gzgetc_read (RS : GzReadSpec) {w : World} {h : Heap} {b : Nat} (hv : GzI
       intro x hx c off e
       simp at hx; subst hx; cases e; exact Nat.le_refl _
     have T : ∀ r' : Int32, GSat W H (do lm (dropLocal (Ptr.ref (BRef.heap h.nextBlk) 0)); pure r')
-        (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b []) := by
+        (fun _ W H => GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b []) := by
       intro r'
       refine GSat.bind (GSat.lm ⟨(), { H with bytes := upd H.bytes h.nextBlk none }, by simp [dropLocal, ha'], ?_⟩)
-      exact GSat.pure ⟨invR_free hvW hnW, g2.free_new (Nat.le_refl _) hbn⟩
+      exact GSat.pure ⟨invR_free hvW hnW, idle_free hiW (by omega), g2.free_new (Nat.le_refl _) hbn⟩
     dsimp only
     apply GSat.ite
     · intro _; exact GSat.bind (GSat.pure (T (-1)))
@@ -289,22 +311,24 @@ theorem gzgetc_read (RS : GzReadSpec) {w : World} {h : Heap} {b : Nat} (hv : GzI
       exact GSat.bind (GSat.pure (T _))
 
 /-- `gzgetc_` is `gzgetc`. -/
-theorem gzgetc__read (RS : GzReadSpec) {w : World} {h : Heap} {b : Nat} (hv : GzInvR w h (some b)) :
-    GSat w h (gzgetc_ (some b)) (fun _ W H => GzInvR W H (some b) ∧ GStep w h W H b []) :=
-  gzgetc_read RS hv
+theorem gzgetc__read (RS : GzReadSpec) (RI : GzReadIdle) {w : World} {h : Heap} {b : Nat}
+    (hv : GzInvR w h (some b)) (hi : LookIdle w h (some b)) :
+    GSat w h (gzgetc_ (some b))
+      (fun _ W H => GzInvR W H (some b) ∧ LookIdle W H (some b) ∧ GStep w h W H b []) :=
+  gzgetc_read RS RI hv hi
 
-theorem getc_keepsR (RS : GzReadSpec) : KeepsR SGetc := by
-  intro w h w' h' f hv ⟨r, e⟩
+theorem getc_keepsRI (RS : GzReadSpec) (RI : GzReadIdle) : KeepsRI SGetc := by
+  intro w h w' h' f hv hi ⟨r, e⟩
   obtain ⟨b, s, rfl, -, -, -⟩ := hv.1
-  obtain ⟨r2, W, H, e2, q⟩ := (gzgetc_read RS hv).run
+  obtain ⟨r2, W, H, e2, q⟩ := (gzgetc_read RS RI hv hi).run
   obtain ⟨-, rfl, rfl⟩ := gdet e2 e
-  exact q.1
+  exact ⟨q.1, q.2.1⟩
 
-theorem getc__keepsR (RS : GzReadSpec) : KeepsR SGetc_ := by
-  intro w h w' h' f hv ⟨r, e⟩
+theorem getc__keepsRI (RS : GzReadSpec) (RI : GzReadIdle) : KeepsRI SGetc_ := by
+  intro w h w' h' f hv hi ⟨r, e⟩
   obtain ⟨b, s, rfl, -, -, -⟩ := hv.1
-  obtain ⟨r2, W, H, e2, q⟩ := (gzgetc__read RS hv).run
+  obtain ⟨r2, W, H, e2, q⟩ := (gzgetc__read RS RI hv hi).run
   obtain ⟨-, rfl, rfl⟩ := gdet e2 e
-  exact q.1
+  exact ⟨q.1, q.2.1⟩
 
 end ZlibNgF.Proof.GzMode
