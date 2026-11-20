@@ -26,6 +26,7 @@ import ZlibNgF.Proof.«trees.c.sendtree»
 import ZlibNgF.Proof.«trees.c.blt»
 import ZlibNgF.Proof.«trees.c.alltrees»
 import ZlibNgF.Proof.«trees.c.dyn»
+import ZlibNgF.Proof.«trees.c.flushblock»
 import ZlibNgF.Proof.«trees.c.buildspec»
 import ZlibNgF.Math.TreesRadix
 import ZlibNgF.Proof.«trees.c.sort»

@@ -241,6 +241,14 @@ theorem treeTokens_small (len : Nat → Nat) (m : Nat) (hl : ∀ i, i < m → le
     (h0 : len j ≠ 0) : ∃ t ∈ treeTokens len m, t ≤ 15 :=
   scan_small len m hl m 0 (-1) 0 _ _ (by omega) (by omega) ⟨j, by omega, hj, h0⟩
 
+theorem blMaxIndex_ge (f : Nat → Nat) : ∀ k, 3 ≤ blMaxIndex f k
+  | 0 => Nat.le_refl _
+  | k + 1 => by
+    have := blMaxIndex_ge f k
+    simp only [blMaxIndex]; split
+    · omega
+    · split <;> omega
+
 theorem blOrder_pos : ∀ t : Fin 16, ∃ j : Fin 19, 3 ≤ j.val ∧ blOrder.getD j.val 0 = t.val := by decide
 
 /-- `max_blindex` of the C loop is the model's `blMaxIndex` when a code length is among the bit-length symbols. -/
