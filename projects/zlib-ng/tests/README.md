@@ -163,7 +163,8 @@ refused before upstream's own steps and so kept the pending skip of a refused `S
 current series (`apply-patches.sh --library-only`), and prints `diff -r` of the two. Against the last commit with flat
 patches, the expected difference is `patch-source-identity.expected`: three comments, from the series `0006`, `0008`
 and `0015` in the form proposed upstream, and the `(z_size_t)` cast that `0003` drops in `deflateBound` (upstream
-review asked for it; the value is the same); no other statement differs.
+review asked for it; the value is the same), and the new fix `0022` (`s->block_open = 0;` in `deflateResetKeep`, added
+after the layout change); no other statement differs.
 
 ## GoogleTest cases of the patches
 

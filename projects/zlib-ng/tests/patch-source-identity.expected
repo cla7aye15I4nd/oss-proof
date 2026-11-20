@@ -1,9 +1,11 @@
 diff -r -x test before/deflate.c after/deflate.c
-737c737
+546a547
+>     s->block_open = 0;
+737c738
 <                 wraplen += 2 + (z_size_t)(s->gzhead->extra_len & 0xffff);
 ---
 >                 wraplen += 2 + (s->gzhead->extra_len & 0xffff);
-1274,1275c1274
+1274,1275c1275
 <             /* A static block of deflate_quick (Z_FIXED) stays open across slides: keep block_start
 <              * at or above -(2^30 + 2^16) so that it and strstart - block_start cannot overflow. */
 ---
