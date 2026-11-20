@@ -34,6 +34,7 @@ open ZlibNgF.Proof.FillIO (FillIO fill_io streamIO_in)
 open ZlibNgF.Proof.DeflateBits (WrIn)
 open ZlibNgF.Proof.DeflateFlush (flush_ok)
 open ZlibNg.DeflateP ZlibNg.DeflateQuick
+open ZlibNgF.Proof.DeflatePsi (psiS G span owed content quickB)
 
 /-! ## The frame -/
 
@@ -221,11 +222,14 @@ theorem qf_flush {h H : Heap} {i b : Nat} (F : QF h i b H) :
         pending_out := st'.pending_out
         bi_buf := st'.bi_buf
         bi_valid := st'.bi_valid } ∧ st'.bi_valid < 8 ∧ z'.avail_in = z.avail_in ∧
-      (z'.avail_out ≠ 0 → st'.pending = 0 ∧ st'.pending_out = st'.pending_buf)) := by
+      (z'.avail_out ≠ 0 → st'.pending = 0 ∧ st'.pending_out = st'.pending_buf) ∧
+      z'.avail_out.toNat ≤ z.avail_out.toNat ∧ owed st' + (z.avail_out.toNat - z'.avail_out.toNat) = owed st) := by
   obtain ⟨z, st, al, hz, hb, hst, hal, c⟩ := F.live
   obtain ⟨H', e, hv, hio, hset, P⟩ := flush_ok (DWork.of_inv F.inv) F.io F.set
   refine ⟨(), H', e, ?_⟩
   obtain ⟨len, z', st', hz', hst', hlen, hpend, hsteq, hav, hzeq, hadv, fr, -, -, hbv⟩ := P z b st hz hb hst
+  have hO := ZlibNgF.Proof.TreesOwed.flush_pending_owed' (DWork.of_inv F.inv) F.io F.set H' e z b st z' st' hz hb hst
+    hz' hst'
   have hzs : z'.state = some b := by rw [hzeq]; exact hb
   obtain ⟨z0, z4, ob, oo, k, h0, h4, e0, e4, ek⟩ := F.out
   obtain rfl : z = z4 := Option.some.inj (hz.symm.trans h4)
@@ -233,7 +237,7 @@ theorem qf_flush {h H : Heap} {i b : Nat} (F : QF h i b H) :
   have hk : StratKeeps st st' := by rw [hsteq]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩
   refine ⟨⟨hv, hio, hset, ?_, ⟨z', hz', hzs⟩, F.blk0, ?_, ?_,
     F.inp.keep hz hz' (by rw [hzeq]) (by rw [hzeq]), ?_, ?_, fun st3 h3 => ?_⟩,
-    z, st, z', st', hz, hst, hz', hst', hsteq, hbv, by rw [hzeq], fun ha => ?_⟩
+    z, st, z', st', hz, hst, hz', hst', hsteq, hbv, by rw [hzeq], fun ha => ?_, hO.1, hO.2⟩
   · obtain ⟨⟨-, -, -, -, -, -, ec, ex, -, -⟩, -⟩ := fr
     exact ⟨by rw [ec]; exact F.crc.1, by rw [ex]; exact F.crc.2⟩
   · refine dframe_trans F.frame (dframe_wmono fr ?_)
@@ -270,6 +274,117 @@ theorem qf_flush {h H : Heap} {i b : Nat} (F : QF h i b H) :
     obtain rfl : b = b2 := Option.some.inj (hzs.symm.trans hb2)
     obtain rfl : st' = st2 := Option.some.inj (hst'.symm.trans hst2)
     exact ⟨hp0, c2.pout hp0⟩
+
+/-! ## The potential -/
+
+/-- The potential of the call with flush `f` spent within `e`, from the entry heap `h` to `H` with the locals `la` /
+`ss` written back (`DeflatePsi.PsiAccF`). -/
+def QP (f : Int32) (e : Nat) (h : Heap) (i b : Nat) (la ss : UInt32) (H : Heap) : Prop :=
+  ∀ z0 z st0 st, h.streams i = some z0 → H.streams i = some z → h.dstate b = some st0 → H.dstate b = some st →
+    psiS f (FS st la ss) + (z0.avail_out.toNat - z.avail_out.toNat) ≤
+      psiS f st0 + G * (z0.avail_in.toNat - z.avail_in.toNat) + e
+
+theorem QP.mono {f : Int32} {e e' : Nat} {h H : Heap} {i b : Nat} {la ss : UInt32} (A : QP f e h i b la ss H)
+    (he : e ≤ e') : QP f e' h i b la ss H := fun z0 z st0 st h0 h1 s0 s1 =>
+  Nat.le_trans (A z0 z st0 st h0 h1 s0 s1) (by omega)
+
+/-- `QP` at the entry. -/
+theorem qp_entry (f : Int32) {h : Heap} {i b : Nat} {st : DeflateState} (hst : h.dstate b = some st) :
+    QP f 0 h i b st.lookahead st.strstart h := by
+  intro z0 z st0 st1 h0 h1 s0 s1
+  rw [h0] at h1; obtain rfl := Option.some.inj h1
+  rw [s0] at s1; obtain rfl := Option.some.inj s1
+  rw [hst] at s0; obtain rfl := Option.some.inj s0
+  simp
+
+/-- `QP` over one step from `H` to `H'` under `QF` whose change of `psiS` (locals included), with the allowance `e`
+before, is paid within `e'` after. -/
+theorem qp_next {f : Int32} {e e' : Nat} {h H H' : Heap} {i b : Nat} {la ss la' ss' : UInt32} {z z' : ZStream}
+    {st st' : DeflateState} (A : QP f e h i b la ss H) (F : QF h i b H)
+    (hz : H.streams i = some z) (hst : H.dstate b = some st) (hz' : H'.streams i = some z')
+    (hst' : H'.dstate b = some st') (ho : z'.avail_out.toNat ≤ z.avail_out.toNat)
+    (hi : z'.avail_in.toNat ≤ z.avail_in.toNat)
+    (S : psiS f (FS st' la' ss') + (z.avail_out.toNat - z'.avail_out.toNat) + e ≤
+      psiS f (FS st la ss) + G * (z.avail_in.toNat - z'.avail_in.toNat) + e') : QP f e' h i b la' ss' H' := by
+  intro z0 z2 st0 st2 h0 h2 s0 s2
+  rw [hz'] at h2; obtain rfl := Option.some.inj h2
+  rw [hst'] at s2; obtain rfl := Option.some.inj s2
+  have a := A z0 z st0 st h0 hz s0 hst
+  have m2 := F.inp.le h0 hz
+  obtain ⟨z5, z4, ob, oo, k, h5, h4, -, -, ek⟩ := F.out
+  obtain rfl := Option.some.inj (h5.symm.trans h0)
+  obtain rfl := Option.some.inj (h4.symm.trans hz)
+  rw [ZlibNgF.Proof.DeflatePsi.G_mul_split _ _ _ m2 hi]
+  generalize G * (z5.avail_in.toNat - z4.avail_in.toNat) = X at *
+  generalize G * (z4.avail_in.toNat - z'.avail_in.toNat) = Y at *
+  omega
+
+/-- `QP` with the locals those of the state gives `PsiPost` within `finSlack bs`. -/
+theorem qp_post {f : Int32} {e : Nat} {h H : Heap} {i b : Nat} {la ss : UInt32} (F : QF h i b H)
+    (A : QP f e h i b la ss H) (hls : ∀ st, H.dstate b = some st → st.lookahead = la ∧ st.strstart = ss)
+    (bs : BlockState) (he : e ≤ finSlack bs) : PsiPost h (some i) f bs H := by
+  intro i' b' e' hsb
+  obtain rfl := Option.some.inj e'
+  obtain ⟨z0, hz0, hb0⟩ := F.blk0
+  obtain ⟨z1, ⟨i1, e1, hz1⟩, hb1⟩ := hsb
+  obtain rfl := Option.some.inj e1
+  obtain rfl : z0 = z1 := Option.some.inj (hz0.symm.trans hz1)
+  obtain rfl : b = b' := Option.some.inj (hb0.symm.trans hb1)
+  intro z2 z st0 st h0 h1 s0 s1
+  have a := A z2 z st0 st h0 h1 s0 s1
+  obtain ⟨e1, e2⟩ := hls st s1
+  have : FS st la ss = st := by rw [← e1, ← e2]
+  rw [this] at a
+  omega
+
+/-- `QP` does not read the bytes of the block. -/
+theorem qp_bytes {f : Int32} {e : Nat} {h H0 : Heap} {i b : Nat} {la ss : UInt32} {z : ZStream} {st : DeflateState}
+    {d d' : Array UInt8} (A : QP f e h i b la ss (SH H0 i z b st d)) : QP f e h i b la ss (SH H0 i z b st d') :=
+  fun z0 z1 st0 st1 h0 h1 s0 s1 => by
+    rw [SH_streams] at h1; rw [SH_dstate] at s1
+    exact A z0 z1 st0 st1 h0 (by rw [SH_streams]; exact h1) s0 (by rw [SH_dstate]; exact s1)
+
+/-- `QP` after the locals are written to the state. -/
+theorem qp_wb {f : Int32} {e : Nat} {h H0 : Heap} {i b : Nat} {la ss : UInt32} {z : ZStream} {st : DeflateState}
+    {d : Array UInt8} (A : QP f e h i b la ss (SH H0 i z b st d)) : QP f e h i b la ss (SH H0 i z b (FS st la ss) d) :=
+  fun z0 z1 st0 st1 h0 h1 s0 s1 => by
+    rw [SH_streams] at h1; rw [SH_dstate] at s1; obtain rfl := Option.some.inj s1
+    exact A z0 z1 st0 st h0 (by rw [SH_streams]; exact h1) s0 (SH_dstate _ _ _ _ _ _)
+
+/-- `psiS` over a change that moves `k` bytes from the lookahead to the window span (or not more), with `quickB`
+raised by at most `q` and `owed` by `o` less the `out` bytes written. -/
+theorem psiS_gen {f : Int32} {st st' : DeflateState} {k out q o : Nat}
+    (e1 : st'.lookahead.toNat + k = st.lookahead.toNat) (hsp : span st' ≤ span st + k)
+    (e4 : st'.sym_next = st.sym_next) (e5 : st'.match_available = st.match_available)
+    (e6 : st'.status = st.status) (e7 : st'.wrap = st.wrap)
+    (hq : quickB f st' ≤ quickB f st + q) (ho : owed st' + out ≤ owed st + o) :
+    psiS f st' + out + 2 ^ 19 * k ≤ psiS f st + 6 * k + q + o := by
+  unfold psiS content; rw [e4, e5, e6, e7]; omega
+
+/-- The lookahead grows by at most the `n` input bytes taken: `psiS` grows by at most `(2^19 + 64) n`. -/
+theorem psiS_read' {f : Int32} {st st' : DeflateState} (n : Nat)
+    (e1 : st'.lookahead.toNat ≤ st.lookahead.toNat + n) (e2 : span st' ≤ span st)
+    (e3 : st'.sym_next = st.sym_next) (e4 : st'.match_available = st.match_available)
+    (e5 : st'.status = st.status) (e6 : st'.wrap = st.wrap) (e7 : st'.block_open = st.block_open)
+    (e8 : owed st' = owed st) : psiS f st' ≤ psiS f st + (2 ^ 19 + 64) * n := by
+  have hq := ZlibNgF.Proof.DeflatePsi.quickB_read_le (f := f) n e1 e7
+  have hc : content st' ≤ content st + 2 ^ 19 * n := by
+    unfold content; rw [e3, e4, e5, e6]; omega
+  unfold psiS; rw [e8]; omega
+
+/-- `QP` over a change of the state (and the block's bytes) that does not raise `psiS` with the locals. -/
+theorem qp_state {f : Int32} {e : Nat} {h H0 : Heap} {i b : Nat} {la ss la' ss' : UInt32} {z : ZStream}
+    {st st' : DeflateState} {d d' : Array UInt8} (A : QP f e h i b la ss (SH H0 i z b st d))
+    (hle : psiS f (FS st' la' ss') ≤ psiS f (FS st la ss)) : QP f e h i b la' ss' (SH H0 i z b st' d') :=
+  fun z0 z1 st0 st1 h0 h1 s0 s1 => by
+    rw [SH_streams] at h1; rw [SH_dstate] at s1; obtain rfl := Option.some.inj s1
+    have := A z0 z1 st0 st h0 (by rw [SH_streams]; exact h1) s0 (SH_dstate _ _ _ _ _ _)
+    omega
+
+/-- `quickB` with a block open is the same for states with the same `block_open`. -/
+theorem quickB_open {f : Int32} {st st' : DeflateState} (h0 : st.block_open ≠ 0)
+    (e : st'.block_open = st.block_open) : quickB f st' = quickB f st := by
+  unfold quickB; rw [e, ite_eq_left h0, ite_eq_left h0]
 
 /-! ## `fill_window` -/
 
@@ -316,14 +431,16 @@ theorem fill_sum {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState
 (with `lookahead < MIN_LOOKAHEAD`): `QF` after, `fill_window`'s fields changed only, the lookahead not smaller, the
 lookahead plus the input not grown, and the input dropped when the lookahead changed. -/
 theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {la ss : UInt32}
-    (F : QF h i b (SH H0 i z b st d)) (hss : st.strstart.toNat ≤ ss.toNat)
+    {fl : Int32} {ep : Nat} (F : QF h i b (SH H0 i z b st d)) (A : QP fl ep h i b la ss (SH H0 i z b st d))
+    (hss : st.strstart.toNat ≤ ss.toNat)
     (hsum : ss.toNat + la.toNat = st.strstart.toNat + st.lookahead.toNat) (hla : la.toNat < 262) :
     Sat (SH H0 i z b st d) (wrD (some b) fun s => { s with lookahead := la, strstart := ss }) (fun _ H1 =>
       Sat H1 (ZlibNg.Deflate.fill_window (some b)) (fun _ H2 => ∃ H3 z' st' d', H2 = SH H3 i z' b st' d' ∧
         QF h i b H2 ∧ ZlibNgF.Proof.WinInv.FWS (FS st la ss) st' ∧ la.toNat ≤ st'.lookahead.toNat ∧
         z'.avail_in.toNat + st'.lookahead.toNat ≤ z.avail_in.toNat + la.toNat ∧
         (st'.lookahead ≠ la → z'.avail_in.toNat < z.avail_in.toNat) ∧
-        (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0))) := by
+        (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0) ∧ QP fl ep h i b st'.lookahead st'.strstart H2 ∧
+        (z'.avail_in.toNat < z.avail_in.toNat → ep ≤ 33 → QP fl 0 h i b st'.lookahead st'.strstart H2))) := by
   refine Sat.of_eq (wrD_SH _) ?_
   obtain ⟨z1, st1, al, hz1, hb, hst1, -, c⟩ := F.live
   obtain rfl : z = z1 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz1)
@@ -340,7 +457,7 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
   obtain ⟨z5, z', st5, st', d', hz5, hst5, rfl, zr, fws⟩ := FI.shape
   obtain rfl : z = z5 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz5)
   obtain rfl : FS st la ss = st5 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst5)
-  obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, hlt, hsum2, -, -, hend, -⟩ :=
+  obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, hlt, hsum2, hspan, -, hend, -⟩ :=
     FI.post
   obtain rfl : i = i6 := Option.some.inj e6
   obtain rfl : z = z6 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz6)
@@ -362,7 +479,7 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
       dframe_trans F1.frame (dframe_nil _ FI.frame), ?_,
       F1.inp.trans (ZlibNgF.Proof.FillFacts.inTail_of_zr (SH_streams _ _ _ _ _ _) (SH_streams _ _ _ _ _ _) zr0),
       ?_, ?_, fun st2 h2 => ?_⟩,
-    ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩, ?_, ?_, hlt, hend⟩
+    ⟨fe, ms, pl, ss', bs', ins', sl, la', ih, hw', hste⟩, ?_, ?_, hlt, hend, ?_, fun hlt' he => ?_⟩
   · obtain ⟨z0, z4, ob, oo, k, h0, h4, e0, e4, ek⟩ := F1.out
     obtain rfl : z = z4 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans h4)
     exact ⟨z0, _, ob, oo, k, h0, SH_streams _ _ _ _ _ _, e0, by rw [hze]; exact e4, by rw [hze]; exact ek⟩
@@ -379,6 +496,30 @@ theorem qf_fill {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d :
   · have : z'.avail_in.toNat ≤ z.avail_in.toNat := hle
     simp only at hs8; omega
   · simp only at hsum2; omega
+  all_goals
+    have hle' : z'.avail_in.toNat ≤ z.avail_in.toNat := hle
+    have ea : z'.avail_out = z.avail_out := by rw [hze]
+    have hk' : st'.sym_next = (FS st la ss).sym_next ∧ st'.match_available = (FS st la ss).match_available ∧
+        st'.status = (FS st la ss).status ∧ st'.wrap = (FS st la ss).wrap ∧
+        st'.block_open = (FS st la ss).block_open ∧ owed st' = owed (FS st la ss) := by
+      rw [hste]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
+    have q := psiS_read' (f := fl) (st := FS st la ss) (st' := st') (z.avail_in.toNat - z'.avail_in.toNat)
+      (by simp only at hs8 ⊢; omega) (by unfold span; simp only at hspan ⊢; omega)
+      hk'.1 hk'.2.1 hk'.2.2.1 hk'.2.2.2.1 hk'.2.2.2.2.1 hk'.2.2.2.2.2
+    refine qp_next A F (SH_streams _ _ _ _ _ _) (SH_dstate _ _ _ _ _ _) (SH_streams _ _ _ _ _ _)
+      (SH_dstate _ _ _ _ _ _) (by rw [ea]; exact Nat.le_refl _) hle' ?_
+    rw [ea, Nat.sub_self, FS_self]
+    have g : (2 ^ 19 + 64) * (z.avail_in.toNat - z'.avail_in.toNat) ≤ G * (z.avail_in.toNat - z'.avail_in.toNat) :=
+      Nat.mul_le_mul_right _ (by decide)
+    first
+    | omega
+    | have h1 : 1 ≤ z.avail_in.toNat - z'.avail_in.toNat := by omega
+      have g2 : (2 ^ 19 + 64) * (z.avail_in.toNat - z'.avail_in.toNat) + 33 ≤
+          G * (z.avail_in.toNat - z'.avail_in.toNat) := by
+        generalize z.avail_in.toNat - z'.avail_in.toNat = n at h1 ⊢
+        show (2 ^ 19 + 64) * n + 33 ≤ 2 ^ 20 * n
+        omega
+      omega
 
 /-! ## Exit -/
 
