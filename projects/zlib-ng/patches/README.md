@@ -33,9 +33,9 @@ pending.
 | [0001-inflate-copy-pointer-equality](0001-inflate-copy-pointer-equality/pr-summary.md) | `inflateCopy` compares unrelated pointers | `inflate.c`, `test/test_inflate_copy.cc` | 1 | upstream form (with tests) | [#2524](https://github.com/zlib-ng/zlib-ng/pull/2524), open | `0003` |
 | [0002-gzseek-overflow](0002-gzseek-overflow/pr-summary.md) | `gzseek` offset overflow | `gzguts.h`, `gzlib.c` | 1 | local form; tests and upstream-style message pending | [#2525](https://github.com/zlib-ng/zlib-ng/pull/2525), open (a different form) | `0004` |
 | [0003-deflatebound-gzip-extra-length](0003-deflatebound-gzip-extra-length/pr-summary.md) | `deflateBound` too small with a large gzip extra length | `deflate.c`, `test/test_deflate_bound.cc` | 1 | upstream form (with tests) | [#2523](https://github.com/zlib-ng/zlib-ng/pull/2523), open | `0006` |
-| [0004-inflate-window-copy](0004-inflate-window-copy/pr-summary.md) | `inflate` compares window and output pointers | `inffast_tpl.h`, `inflate.c` | 1 | local form; tests and upstream-style message pending | not submitted | `0007` |
-| [0005-inflatesync-null-next-in](0005-inflatesync-null-next-in/pr-summary.md) | `inflateSync` adds 0 to a null `next_in` | `inflate.c` | 1 | local form; tests and upstream-style message pending | not submitted | `0008` |
-| [0006-inflatesetdictionary-null](0006-inflatesetdictionary-null/pr-summary.md) | `inflateSetDictionary` accepts a null dictionary | `inflate.c` | 1 | local form; tests and upstream-style message pending | covered by [#2516](https://github.com/zlib-ng/zlib-ng/pull/2516) (another contributor), open | `0009` |
+| [0004-inflate-window-copy](0004-inflate-window-copy/pr-summary.md) | `inflate` compares window and output pointers | `inffast_tpl.h`, `inflate.c`, `test/test_inflate_back.cc` | 1 | upstream form (with tests) | not submitted | `0007` |
+| [0005-inflatesync-null-next-in](0005-inflatesync-null-next-in/pr-summary.md) | `inflateSync` adds 0 to a null `next_in` | `inflate.c`, `test/test_inflate_sync.cc` | 1 | upstream form (with tests) | not submitted | `0008` |
+| [0006-inflatesetdictionary-null](0006-inflatesetdictionary-null/pr-summary.md) | `inflateSetDictionary` accepts a null dictionary | `inflate.c`, `test/test_dict.cc` | 2 | upstream form: the maintainer's commit `f35ed264` (library part) and a test | covered by [#2516](https://github.com/zlib-ng/zlib-ng/pull/2516) (maintainer), open | `0009` |
 | [0007-inflate-fast-primed-bits](0007-inflate-fast-primed-bits/pr-summary.md) | `inflate` moves `next_in` before the input after `inflatePrime` | `inflate.c` | 1 | local form; tests and upstream-style message pending | covered by [#2526](https://github.com/zlib-ng/zlib-ng/pull/2526) (another contributor, a different form), open | `0010` |
 | [0008-inflate-extra-copy-bound](0008-inflate-extra-copy-bound/pr-summary.md) | Two streams sharing one `gz_header` overrun its extra buffer | `inflate.c`, `test/test_inflate_copy.cc` | 1 | upstream form (with tests) | [#2528](https://github.com/zlib-ng/zlib-ng/pull/2528), open | `0011` |
 | [0009-longest-match-offset-base](0009-longest-match-offset-base/pr-summary.md) | Levels 7-9 `deflate` form a pointer before the window's block | `match_tpl.h` | 1 | local form; tests and upstream-style message pending | not submitted | `0012` |
@@ -53,12 +53,14 @@ pending.
 | [0021-gzvprintf-input-at-buffer-start](0021-gzvprintf-input-at-buffer-start/pr-summary.md) | `gzprintf` after failed writes formats past its buffer | `gzwrite.c` | 1 | local form; tests and upstream-style message pending | not submitted | `0024` |
 | [0022-deflate-reset-block-open](0022-deflate-reset-block-open/pr-summary.md) | `deflateReset` keeps a static block of level 1 open | `deflate.c`, `test/test_deflate_quick_block_open.cc` | 1 | upstream form (with tests) | not submitted | none |
 
-The three series in upstream form were installed as proposed upstream. Against the earlier single-commit form of the
-same fix their library change differs by comments only: `0001` not at all, `0008` by one added comment line in
-`inflate.c` (state `EXTRA`), `0015` by the comment above the clamp in `fill_window` (`deflate.c`, one line shorter).
-The statements are identical, and line citations in the translation, proofs and documents refer to the unpatched
-upstream source, so nothing else changes. The test hunk of `0008` was rebased onto `0001` (both append to
-`test/test_inflate_copy.cc`); its library hunk and commit message are as proposed upstream.
+The series in upstream form were installed with their library change as proved. Against the earlier single-commit
+form of the same fix their library change differs by comments only: `0006` by the three-line comment of the
+maintainer's commit `f35ed264` above the check in `inflateSetDictionary` (`inflate.c`), `0008` by one added comment
+line in `inflate.c` (state `EXTRA`), `0015` by the comment above the clamp in `fill_window` (`deflate.c`, one line
+shorter); the others not at all. The statements are identical, and line citations in the translation, proofs and
+documents refer to the unpatched upstream source, so nothing else changes. The test hunks of a series that appends
+to a test file an earlier series also touches are rebased onto it (`0008` onto `0001`, both in
+`test/test_inflate_copy.cc`); library hunks and commit messages are as proposed upstream.
 
 ## What each fix changes
 

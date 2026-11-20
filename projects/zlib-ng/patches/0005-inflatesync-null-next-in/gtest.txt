@@ -1,0 +1,4 @@
+# GoogleTest cases this series adds or changes, run by tests/patch-gtest.sh.
+# <gtest filter> <fails without this patch: yes|no> [VAR=value ...]
+# Adding 0 to a null pointer is not reported by the sanitizers.
+inflate.sync_primed_bits_without_input no

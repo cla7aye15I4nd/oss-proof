@@ -37,6 +37,7 @@ Add `inflate.shared_gzip_header_extra_bounds` in `test/test_inflate_copy.cc` usi
 
 ## Testing
 
-- Clang (`ZLIB_COMPAT=ON`, `WITH_OPTIM=OFF`, ASan + UBSan) and Clang (`ZLIB_COMPAT=OFF`, `WITH_OPTIM=ON`, ASan + UBSan):
-  - Before fix: `inflate.shared_gzip_header_extra_bounds` crashes under AddressSanitizer.
-  - After fix: passes in both builds (and verified separately with a 4 GiB `extra_max = 0xfffffff0U` allocation under ASan).
+- With `tests/patch-gtest.sh` (clang, `ZLIB_COMPAT=ON`, `WITH_OPTIM=OFF`, AddressSanitizer + UndefinedBehaviorSanitizer):
+  - Without the fix: `inflate.shared_gzip_header_extra_bounds` crashes under AddressSanitizer (`SEGV` on the wild `memcpy` destination `extra + len`).
+  - With the fix: it passes, and nothing is written to `extra`.
+- Reproduction in the project's regression suite: `inflate-shared-header-extra`.
