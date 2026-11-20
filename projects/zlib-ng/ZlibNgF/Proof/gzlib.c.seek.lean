@@ -37,14 +37,14 @@ theorem shape_avail0 {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzSh
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
     · exact Or.inr (ownBlk_keep hm fun _ _ => rfl)
-  · obtain ⟨c, base, z0, hb, hi, hz0, hhv, -, hreg⟩ := R.bufs hsz
+  · obtain ⟨c, base, z0, hb, hi, hz0, hhv, -, hreg, hmsg⟩ := R.bufs hsz
     rw [hz] at hz0; cases hz0
     obtain ⟨d, hd, hds⟩ := hb.fits
     obtain ⟨i, z1, sb, st, al, e, hz1, hsb, hst1, hal, core⟩ := hi
     cases e
     rw [hz] at hz1; cases hz1
     refine ⟨c, base, { z with avail_in := 0 }, ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, ?_,
-      by simp [avail0], hhv, Or.inl rfl, fun hp hr' => hreg hp (regHdr_avail0 hz hr')⟩
+      by simp [avail0], hhv, Or.inl rfl, fun hp hr' => hreg hp (regHdr_avail0 hz hr'), hmsg⟩
     exact InflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst1, hal, core⟩
       ⟨s.strm, z, { z with avail_in := 0 }, sb, rfl, hz, by simp [avail0], hsb, rfl, rfl, rfl, rfl,
         fun k g _ hg => ⟨g, hg⟩, rfl, Nat.le_refl _⟩
@@ -110,8 +110,8 @@ theorem reset_keep {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzShap
       ⟨by rw [hsk]; decide, by rw [hpo, hsk]; decide, by rw [hpo]; decide, fun _ => by rw [hpo]; decide⟩,
       ⟨sh1.msg.msg, sh1.msg.mem⟩, fun _ => ⟨Or.inl rfl, fun hsz => ?_, fun _ => rfl, fun e => absurd rfl e, fun hz => (R.fresh hz).of_strm rfl⟩,
       fun e => absurd (hr.symm.trans e) read_ne_write, fun hz => sh1.dead hz⟩
-    obtain ⟨c, base, z0, hb, hi, hz0, -, hai, hreg⟩ := R.bufs hsz
-    exact ⟨c, base, z0, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz0, Or.inl rfl, hai, hreg⟩
+    obtain ⟨c, base, z0, hb, hi, hz0, -, hai, hreg, hmsg⟩ := R.bufs hsz
+    exact ⟨c, base, z0, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz0, Or.inl rfl, hai, hreg, hmsg⟩
   have hz' : (freeMsg h s).streams (rstSt s).strm = some z := by rw [freeMsg_streams]; exact hz
   obtain ⟨sh3, e3⟩ := shape_avail0 (b := b) sh2 hr hz'
   have e4 : ownL (freeMsg h s) b (rstSt s) =

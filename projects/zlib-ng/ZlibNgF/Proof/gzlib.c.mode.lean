@@ -127,7 +127,7 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
     · exact Or.inr (ownBlk_keep hm fun c hc => hk.bytes c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inr hc)))
   · have R := sh.read hr
     refine ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => (R.fresh hz0).of_streams hk.strm⟩
-    obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg⟩ := R.bufs hsz
+    obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg, hmsg⟩ := R.bufs hsz
     obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hi
     cases e
     rw [hz] at hz0; cases hz0
@@ -137,7 +137,7 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
       refine InflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst0, hal, core⟩
         ⟨s.strm, z, z, sb, rfl, hz, by rw [hk.strm]; exact hz, hsb, rfl, hk.bytes sb hsbL, hk.ist sb hsbL,
           hk.ial sb hsbL, fun k g hr' _ => absurd (hreg _ hr') (by simp), hk.base, hk.next⟩
-    refine ⟨c, base, z, hbufs c base hsz hb, hcs, by rw [hk.strm]; exact hz, hhv, hai, fun hp hr' => hreg hp ?_⟩
+    refine ⟨c, base, z, hbufs c base hsz hb, hcs, by rw [hk.strm]; exact hz, hhv, hai, fun hp hr' => hreg hp ?_, hmsg⟩
     obtain ⟨sb', st', ⟨z', ⟨i', e', hz'⟩, hsb'⟩, hst', hhd⟩ := hr'
     cases e'
     rw [hk.strm, hz] at hz'; cases hz'
@@ -450,8 +450,8 @@ theorem shape_congr {h : Heap} {s s' : GzState} (sh : GzShape h s) (a : Agree s 
   · have R := sh.read (by rw [← a.mode]; exact hr)
     refine ⟨by rw [a.how]; exact R.how, fun hsz => ?_, by rw [a.size, a.hv]; exact R.nobuf,
       by rw [a.skip, a.pos, a.hv]; exact R.skip_have, fun hz => (R.fresh (by rw [← a.size]; exact hz)).of_strm a.strm⟩
-    obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg⟩ := R.bufs (by rw [← a.size]; exact hsz)
-    refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hi, by rw [a.strm]; exact hz, ?_, ?_, ?_⟩
+    obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg, hmsg⟩ := R.bufs (by rw [← a.size]; exact hsz)
+    refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hi, by rw [a.strm]; exact hz, ?_, ?_, ?_, hmsg⟩
     · rw [a.hv, a.next, a.inS, a.outS]; exact hhv
     · rw [a.inS]; exact hai
     · rw [a.strm]; exact hreg
@@ -990,7 +990,7 @@ theorem macro_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
   have hr := modeOf hs hm
   have R := sh.read hr
   have hsz : s.size ≠ 0 := fun e => hhv (R.nobuf e)
-  obtain ⟨c, base, z, hb, hi, hz, hhv', hai, hreg⟩ := R.bufs hsz
+  obtain ⟨c, base, z, hb, hi, hz, hhv', hai, hreg, hmsg⟩ := R.bufs hsz
   obtain ⟨p, hp, k, hpk, hlo, hhi⟩ := hhv'.resolve_left hhv
   rw [hnx] at hp; cases hp
   obtain ⟨d, hd, hds⟩ := hb.fits
@@ -1016,7 +1016,7 @@ theorem macro_keepsR {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
   have sh' : GzShape h s' := by
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size,
       ⟨P.1, ?_, ?_, fun e => absurd (hr.symm.trans e) read_ne_write⟩, ⟨sh.msg.msg, sh.msg.mem⟩,
-      fun _ => ⟨R.how, fun _ => ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, hi, hz, ?_, hai, hreg⟩,
+      fun _ => ⟨R.how, fun _ => ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, ⟨d, hd, hds⟩, hb.hdr⟩, hi, hz, ?_, hai, hreg, hmsg⟩,
         fun e => absurd e hsz, ?_, fun e => absurd e hsz⟩, fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
     · show (s.pos + 1).toInt + s.skip.toInt ≤ GZ_OFF_MAX.toInt
       rw [hp1]
