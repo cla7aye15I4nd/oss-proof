@@ -20,6 +20,11 @@ def jpeg_get_small_mem : M MemPtr :=
 def jpeg_free_small_mem (obj : MemPtr) : M Unit :=
   freeMemMgr obj
 
+/-- `GLOBAL(void *) jpeg_get_large(j_common_ptr cinfo, size_t sizeofobject)` (`jmemnobs.c:55-59`)
+paired with `jpeg_marker_struct` + `limit` byte data (`alloc_large` in `save_marker`). -/
+def jpeg_get_large_saved_marker (limit : Nat) : M (SavedMarkerPtr × BPtr) :=
+  allocSavedMarkerData limit
+
 /-- `GLOBAL(long) jpeg_mem_init(j_common_ptr cinfo)` (`jmemnobs.c:100-104`). -/
 def jpeg_mem_init (_cinfo : DecompPtr) : M Int64 :=
   return 0

@@ -434,6 +434,38 @@ private theorem uint64_toNat_sub_one {x : UInt64} (hne : x ≠ 0) :
   rw [UInt64.toNat_sub_of_le x 1 (UInt64.le_iff_toNat_le.mpr (by change 1 ≤ x.toNat; omega))]
   rfl
 
+def SameConstEof (nib0 nib1 : C.BPtr) (bib0 bib1 : UInt64) : Prop :=
+  (match nib1 with | .ref .const_eof _ => true | _ => false) =
+    (match nib0 with | .ref .const_eof _ => true | _ => false) ∧
+  (∀ off1, nib1 = .ref .const_eof off1 →
+    ∃ off0, nib0 = .ref .const_eof off0 ∧ off0 + bib0.toNat = off1 + bib1.toNat)
+
+theorem sameConstEof_refl (nib : C.BPtr) (bib : UInt64) : SameConstEof nib nib bib bib :=
+  ⟨rfl, fun off1 h => ⟨off1, h, rfl⟩⟩
+
+theorem sameConstEof_trans {n0 n1 n2 : C.BPtr} {b0 b1 b2 : UInt64}
+    (h01 : SameConstEof n0 n1 b0 b1) (h12 : SameConstEof n1 n2 b1 b2) :
+    SameConstEof n0 n2 b0 b2 := by
+  refine ⟨h12.1.trans h01.1, fun off2 hn2 => ?_⟩
+  obtain ⟨off1, hn1, hsum1⟩ := h12.2 off2 hn2
+  obtain ⟨off0, hn0, hsum0⟩ := h01.2 off1 hn1
+  exact ⟨off0, hn0, hsum0.trans hsum1⟩
+
+theorem sameConstEof_fwd {n0 n1 : C.BPtr} {b0 b1 : UInt64}
+    (hsce : SameConstEof n0 n1 b0 b1) {off0 : Nat} (hn0 : n0 = .ref .const_eof off0) :
+    ∃ off1, n1 = .ref .const_eof off1 ∧ off1 + b1.toNat = off0 + b0.toNat := by
+  have hm := hsce.1
+  rw [hn0] at hm
+  cases hn1 : n1 with
+  | ref r off1 =>
+    cases r with
+    | const_eof =>
+      obtain ⟨off0', hn0', hsum⟩ := hsce.2 off1 hn1
+      have h0Eq : off0' = off0 := by cases hn0'.symm.trans hn0; rfl
+      exact ⟨off1, rfl, by omega⟩
+    | _ => simp [hn1] at hm
+  | _ => simp [hn1] at hm
+
 theorem inputByte_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C.MarkerRef}
     {rs : C.SrcRef} {nwMax : Int} (nib : C.BPtr) (bib : UInt64)
     (hmw : bib = 0 → nwMax + 1 < 2 ^ 63)
@@ -450,6 +482,7 @@ theorem inputByte_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
           bib1.toNat = bib.toNat - 1 ∧
           (bib1 = 0 ∨ LiveBytes h' nib1 bib1.toNat) ∧
           (nib = .ref .const_eof 1 → bib = 1 → c = 0xd9 ∧ nib1 = .ref .const_eof 2 ∧ bib1 = 0) ∧
+          SameConstEof nib nib1 bib bib1 ∧
           h' = h ∧ ResyncEnv h' bdc rerr rmrk rs nwMax
         else
           c = 0xFF ∧ nib1 = .ref .const_eof 1 ∧ bib1 = 1 ∧
@@ -476,7 +509,7 @@ theorem inputByte_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
         rw [C.run_bind, hadd]; rfl
       refine ⟨_, h, hrun, sameBytes_refl h, ?_⟩
       simp only [hzero, ↓reduceIte]
-      refine ⟨hsub, ?_, ?_, (by first | rfl | trivial), henv⟩
+      refine ⟨hsub, ?_, ?_, ?_, (by first | rfl | trivial), henv⟩
       · by_cases hb1 : bib - 1 = 0
         · left; exact hb1
         · right; refine ⟨r, off + 1, data, rfl, hg, by omega⟩
@@ -491,6 +524,9 @@ theorem inputByte_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
         have hbyte : (#[0xff, 0xd9, 0, 0] : Array UInt8)[1] = 0xd9 := rfl
         rw [hbyte]
         exact ⟨rfl, rfl, rfl⟩
+      · refine ⟨?_, fun off1 h => ?_⟩
+        · rw [hp]; cases r <;> rfl
+        · cases h; exact ⟨off, hp, by omega⟩
   · have hbf : (bib != 0) = false := Bool.eq_false_iff.mpr hzero
     have hbib0 : bib = 0 := by simpa using hbf
     subst hbib0
@@ -591,14 +627,19 @@ theorem skipToFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C.
         (if eof1 then
           bs1.nib = .ref .const_eof 1 ∧ bs1.bib = 1 ∧ ResyncEnv h1 bdc rerr rmrk rs (nwMax + 1)
         else
-          ResyncEnv h1 bdc rerr rmrk rs nwMax ∧ bs1.bib.toNat ≤ bs0.bib.toNat)) := by
+          ResyncEnv h1 bdc rerr rmrk rs nwMax ∧ bs1.bib.toNat ≤ bs0.bib.toNat ∧
+            SameConstEof bs0.nib bs1.nib bs0.bib bs1.bib ∧
+            (bs0.c ≠ 0xFF → bs1.bib.toNat < bs0.bib.toNat))) := by
   let Inv : Nat → C.Heap → ByteScanState → Prop := fun k hx bs =>
     k = skMeasure bs ∧ SameBytes hx h ∧
     bs.bib.toNat < 2 ^ 20 ∧ (bs.bib = 0 ∨ LiveBytes hx bs.nib bs.bib.toNat) ∧
     ∃ eof : Bool,
       (if eof then bs.susp = false ∧ bs.c = 0xFF ∧ bs.nib = .ref .const_eof 1 ∧ bs.bib = 1 ∧
         ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)
-      else ResyncEnv hx bdc rerr rmrk rs nwMax ∧ (bs.susp = false → bs.bib.toNat ≤ bs0.bib.toNat))
+      else ResyncEnv hx bdc rerr rmrk rs nwMax ∧
+        (bs.susp = false → bs.bib.toNat ≤ bs0.bib.toNat ∧
+          SameConstEof bs0.nib bs.nib bs0.bib bs.bib ∧
+          (bs.bib.toNat < bs0.bib.toNat ∨ (bs.bib = bs0.bib ∧ bs.c = bs0.c))))
   let Post : C.Heap → ByteScanState → Prop := fun hx bs =>
     SameBytes hx h ∧
     (if bs.susp then ResyncEnv hx bdc rerr rmrk rs nwMax
@@ -606,7 +647,9 @@ theorem skipToFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C.
       bs.c = 0xFF ∧ bs.bib.toNat < 2 ^ 20 ∧ (bs.bib = 0 ∨ LiveBytes hx bs.nib bs.bib.toNat) ∧
       ∃ eof1 : Bool,
         (if eof1 then bs.nib = .ref .const_eof 1 ∧ bs.bib = 1 ∧ ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)
-        else ResyncEnv hx bdc rerr rmrk rs nwMax ∧ bs.bib.toNat ≤ bs0.bib.toNat))
+        else ResyncEnv hx bdc rerr rmrk rs nwMax ∧ bs.bib.toNat ≤ bs0.bib.toNat ∧
+          SameConstEof bs0.nib bs.nib bs0.bib bs.bib ∧
+          (bs0.c ≠ 0xFF → bs.bib.toNat < bs0.bib.toNat)))
   have hlt : skMeasure bs0 < C.fuel := by
     change skMeasure bs0 < 2 ^ 64
     dsimp [skMeasure]; split <;> first | omega | (split <;> omega)
@@ -614,7 +657,8 @@ theorem skipToFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C.
     refine ⟨rfl, sameBytes_refl h, hbib0Lt, hlive0, eof0, ?_⟩
     cases eof0
     · simp only [Bool.false_eq_true, ↓reduceIte] at hinv0 ⊢
-      exact ⟨hinv0, fun _ => Nat.le_refl _⟩
+      exact ⟨hinv0, fun _ => ⟨Nat.le_refl _, sameConstEof_refl _ _, Or.inr ⟨by simp, by simp⟩⟩⟩
+
     · simp only [↓reduceIte] at hinv0 ⊢
       exact ⟨hsusp0, hinv0⟩
   obtain ⟨bs1, h1, hrun, hpost⟩ := cwhile_terminates
@@ -694,7 +738,7 @@ theorem skipToFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C.
             rw [C.run_bind, hi3]; rfl
           by_cases hzn : (bs.bib != 0) = true
           · simp only [hzn, ↓reduceIte] at hres3
-            obtain ⟨hsub, hlive3, _, hEq32, henv3⟩ := hres3
+            obtain ⟨hsub, hlive3, _, hsce3, hEq32, henv3⟩ := hres3
             have hltMeas : skMeasure bs' < skMeasure bs := by
               have hpos : 0 < bs.bib.toNat := uint64_toNat_pos fun hb0 => by simp [hb0] at hzn
               have hneFF : (bs.c == 0xFF) = false := Bool.eq_false_iff.mpr fun h => hcne (by simpa using h)
@@ -707,7 +751,10 @@ theorem skipToFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C.
               sameBytes_trans hb3 (sameBytes_trans hb2 (sameBytes_trans hb1 hbx)),
               (by dsimp [bs']; omega), hlive3, false, ?_⟩
             simp only [Bool.false_eq_true, ↓reduceIte]
-            exact ⟨henv3, fun _ => by dsimp [bs']; have := hle0 hsF; omega⟩
+            exact ⟨henv3, fun _ => by
+              dsimp [bs']; have hprev := hle0 hsF; have hble := hprev.1
+              have hpos : 0 < bs.bib.toNat := uint64_toNat_pos fun hb0 => by simp [hb0] at hzn
+              exact ⟨by omega, sameConstEof_trans hprev.2.1 hsce3, Or.inl (by omega)⟩⟩
           · simp only [hzn, Bool.false_eq_true, ↓reduceIte] at hres3
             obtain ⟨hc1, hnib1, hbib1, hlive3, henv3⟩ := hres3
             have hltMeas : skMeasure bs' < skMeasure bs := by
@@ -730,7 +777,14 @@ theorem skipToFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C.
           refine ⟨hcFF, hbibLt, hlive, eof, ?_⟩
           cases eof with
           | true => simp only [↓reduceIte] at heof ⊢; exact heof.2.2
-          | false => simp only [Bool.false_eq_true, ↓reduceIte] at heof ⊢; exact ⟨heof.1, heof.2 hs⟩
+          | false =>
+            simp only [Bool.false_eq_true, ↓reduceIte] at heof ⊢
+            obtain ⟨henvF, hsStep⟩ := heof
+            have hstep := hsStep hs
+            refine ⟨henvF, hstep.1, hstep.2.1, fun hneFF => ?_⟩
+            rcases hstep.2.2 with hlt' | ⟨_, hceq⟩
+            · exact hlt'
+            · exact absurd (hceq.symm.trans hcFF) hneFF
         · cases eof with
           | false => simp only [Bool.false_eq_true, ↓reduceIte] at heof; exact heof.1
           | true => simp only [↓reduceIte] at heof; exact False.elim (Bool.noConfusion (hs.symm.trans heof.1)))
@@ -775,7 +829,9 @@ theorem findNonFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
           bs1.c = M_EOI ∧ bs1.nib = .ref .const_eof 2 ∧ bs1.bib = 0 ∧
           ResyncEnv h1 bdc rerr rmrk rs (nwMax + 1)
         else
-          eof0 = false ∧ ResyncEnv h1 bdc rerr rmrk rs nwMax ∧ bs1.bib.toNat < bs0.bib.toNat)) ∧
+          eof0 = false ∧ ResyncEnv h1 bdc rerr rmrk rs nwMax ∧ bs1.bib.toNat < bs0.bib.toNat ∧
+            SameConstEof bs0.nib bs1.nib bs0.bib bs1.bib ∧
+            (bs0.nib = .ref .const_eof 1 → bs0.bib = 1 → bs1.c = M_EOI))) ∧
       (eof0 = true → bs1.susp = false ∧ eof1 = true) := by
   let Inv : Nat → C.Heap → ByteScanState → Prop := fun k hx bs =>
     k = fdMeasure bs ∧ SameBytes hx h ∧ bs.susp = false ∧
@@ -783,7 +839,9 @@ theorem findNonFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
     ∃ eof : Bool,
       (eof0 = true → eof = true) ∧
       (if eof then bs.nib = .ref .const_eof 1 ∧ bs.bib = 1 ∧ ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)
-      else ResyncEnv hx bdc rerr rmrk rs nwMax ∧ bs.bib.toNat ≤ bs0.bib.toNat)
+      else ResyncEnv hx bdc rerr rmrk rs nwMax ∧ bs.bib.toNat ≤ bs0.bib.toNat ∧
+        SameConstEof bs0.nib bs.nib bs0.bib bs.bib ∧
+        (bs0.nib = .ref .const_eof 1 → bs0.bib = 1 → bs.nib = .ref .const_eof 1 ∧ bs.bib = 1))
   let Post : C.Heap → ByteScanState → Prop := fun hx bs =>
     SameBytes hx h ∧
     (if bs.susp then eof0 = false ∧ ResyncEnv hx bdc rerr rmrk rs nwMax
@@ -794,7 +852,9 @@ theorem findNonFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
         (if eof1 then
           bs.c = M_EOI ∧ bs.nib = .ref .const_eof 2 ∧ bs.bib = 0 ∧
           ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)
-        else eof0 = false ∧ ResyncEnv hx bdc rerr rmrk rs nwMax ∧ bs.bib.toNat < bs0.bib.toNat))
+        else eof0 = false ∧ ResyncEnv hx bdc rerr rmrk rs nwMax ∧ bs.bib.toNat < bs0.bib.toNat ∧
+          SameConstEof bs0.nib bs.nib bs0.bib bs.bib ∧
+          (bs0.nib = .ref .const_eof 1 → bs0.bib = 1 → bs.c = M_EOI)))
   have hlt : fdMeasure bs0 < C.fuel := by
     change fdMeasure bs0 < 2 ^ 64
     dsimp [fdMeasure]; split <;> first | omega | (split <;> omega)
@@ -802,7 +862,7 @@ theorem findNonFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
     refine ⟨rfl, sameBytes_refl h, hsusp0, hbib0Lt, hlive0, eof0, (fun h => h), ?_⟩
     cases eof0
     · simp only [Bool.false_eq_true, ↓reduceIte] at hinv0 ⊢
-      exact ⟨hinv0, Nat.le_refl _⟩
+      exact ⟨hinv0, Nat.le_refl _, sameConstEof_refl _ _, fun hn hb => ⟨hn, hb⟩⟩
     · simp only [↓reduceIte] at hinv0 ⊢
       exact hinv0
   obtain ⟨bs1, h1, hrun, hpost⟩ := cdoWhile_terminates
@@ -826,7 +886,7 @@ theorem findNonFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
         | some triple =>
           rcases triple with ⟨c1, nib1, bib1⟩
           simp only [hnz, ↓reduceIte] at hres1
-          obtain ⟨_, _hlive1, hceof, hEq1x, _⟩ := hres1
+          obtain ⟨_, _hlive1, hceof, _, hEq1x, _⟩ := hres1
           rw [hEq1x] at hi1
           obtain ⟨hc1, hnib1, hbib1⟩ := hceof hnibE hbibE
           let bs' : ByteScanState := { susp := false, c := c1, nib := nib1, bib := bib1 }
@@ -848,7 +908,7 @@ theorem findNonFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
           | false => rfl
           | true => exact False.elim (Bool.noConfusion (heof0 h))
         simp only [Bool.false_eq_true, ↓reduceIte] at heof
-        obtain ⟨henvx, hle0⟩ := heof
+        obtain ⟨henvx, hle0, hsce0, hce0⟩ := heof
         obtain ⟨res, h1, hi1, hb1, hres1⟩ := inputByte_resync_ok bs.nib bs.bib (fun _ => hmw) henvx hlive
         cases res with
         | none =>
@@ -874,7 +934,7 @@ theorem findNonFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
             rw [C.run_bind, hi1]; rfl
           by_cases hnz : (bs.bib != 0) = true
           · simp only [hnz, ↓reduceIte] at hres1
-            obtain ⟨hsub, hlive1, hceof, hEq1x, henv1⟩ := hres1
+            obtain ⟨hsub, hlive1, hceof, hsce1, hEq1x, henv1⟩ := hres1
             rw [hEq1x] at hbody hlive1 henv1
             have hpos : 0 < bs.bib.toNat := uint64_toNat_pos fun hb0 => by simp [hb0] at hnz
             by_cases hcFF : (c1 == 0xFF) = true
@@ -894,14 +954,20 @@ theorem findNonFF_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk : C
               refine ⟨fdMeasure bs', hltMeas, rfl, hbx, rfl, (by dsimp [bs']; omega), hlive1, false,
                 (fun h => False.elim (Bool.noConfusion (h.symm.trans heof0F))), ?_⟩
               simp only [Bool.false_eq_true, ↓reduceIte]
-              exact ⟨henv1, by dsimp [bs']; omega⟩
+              refine ⟨henv1, (by dsimp [bs']; omega), sameConstEof_trans hsce0 hsce1, fun hn0 hb0 => ?_⟩
+              obtain ⟨hnx, hbx1⟩ := hce0 hn0 hb0
+              have hc := (hceof hnx hbx1).1
+              simp [hc] at hcFF
             · have hcFFf : (c1 == 0xFF) = false := Bool.eq_false_iff.mpr hcFF
               refine ⟨bs', hx, false, bs', hx, hbody, (by simp [C.run, bs', hcFFf]), ?_⟩
               simp only [Bool.false_eq_true, ↓reduceIte]
               exact ⟨hbx, (by dsimp [bs']; exact fun heq => hcFF (by simp [heq])),
                 (by dsimp [bs']; omega), hlive1, false,
                 (fun h => False.elim (Bool.noConfusion (h.symm.trans heof0F))),
-                ⟨heof0F, henv1, by dsimp [bs']; omega⟩⟩
+                ⟨heof0F, henv1, (by dsimp [bs']; omega), sameConstEof_trans hsce0 hsce1,
+                  fun hn0 hb0 => by
+                    obtain ⟨hnx, hbx1⟩ := hce0 hn0 hb0
+                    simpa [bs', M_EOI] using (hceof hnx hbx1).1⟩⟩
           · simp only [hnz, Bool.false_eq_true, ↓reduceIte] at hres1
             obtain ⟨hc1, hnib1, hbib1, hlive1, henv1⟩ := hres1
             have hcFF : (c1 == 0xFF) = true := by simp [hc1]
@@ -949,7 +1015,13 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
             C.Space.get h' rs = some srcs' ∧ 0 < srcs'.size ∧
             srcs'[0]!.bytesInBuffer.toNat < 2 ^ 20 ∧
             (srcs'[0]!.bytesInBuffer = 0 ∨ LiveBytes h' srcs'[0]!.nextInputByte srcs'[0]!.bytesInBuffer.toNat) ∧
-            (dcs'[0]!.unreadMarker = M_EOI ∨ srcs'[0]!.bytesInBuffer.toNat < bib0.toNat))) := by
+            ((dcs'[0]!.unreadMarker = M_EOI ∧
+                srcs'[0]!.nextInputByte = .ref .const_eof 2 ∧ srcs'[0]!.bytesInBuffer = 0 ∧
+                ResyncEnv h' bdc rerr rmrk rs (nwMax + 2)) ∨
+             (srcs'[0]!.bytesInBuffer.toNat < bib0.toNat ∧
+                SameConstEof nib0 srcs'[0]!.nextInputByte bib0 srcs'[0]!.bytesInBuffer ∧
+                ResyncEnv h' bdc rerr rmrk rs (nwMax + 1) ∧
+                (∀ off, nib0 = .ref .const_eof off → off + bib0.toNat ≤ 2 → dcs'[0]!.unreadMarker = M_EOI))))) := by
   obtain ⟨srcs0, hgetsrc0, hszsrc0, hbibEq, hnibEq⟩ := hsrc0
   obtain ⟨dcs0, _errs0, _mrks0, _srcs0', hgetdc0, hszdc0, _herr0, _hmrk0, hsrcp0, _⟩ := id henv
   have hdc0_0 : dcs0[0] = dcs0[0]! := by rw [← getElem!_pos dcs0 0 hszdc0]
@@ -965,22 +1037,27 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
     (if s.done then
       (s.ret = 0 ∧ ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)) ∨
       (s.ret != 0 ∧
-        ((s.c = M_EOI ∧ ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)) ∨
-         (ResyncEnv hx bdc rerr rmrk rs nwMax ∧ s.bib.toNat < bib0.toNat)))
-    else ResyncEnv hx bdc rerr rmrk rs nwMax ∧ s.bib.toNat ≤ bib0.toNat)
+        ((s.c = M_EOI ∧ s.nib = .ref .const_eof 2 ∧ s.bib = 0 ∧ ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)) ∨
+         (ResyncEnv hx bdc rerr rmrk rs nwMax ∧ s.bib.toNat < bib0.toNat ∧
+           SameConstEof nib0 s.nib bib0 s.bib ∧
+           (∀ off, nib0 = .ref .const_eof off → off + bib0.toNat ≤ 2 → s.c = M_EOI))))
+    else ResyncEnv hx bdc rerr rmrk rs nwMax ∧ s.bib.toNat ≤ bib0.toNat ∧
+      SameConstEof nib0 s.nib bib0 s.bib)
   let Post : C.Heap → NextMarkerState → Prop := fun hx s =>
     SameBytes hx h ∧
     s.bib.toNat < 2 ^ 20 ∧ (s.bib = 0 ∨ LiveBytes hx s.nib s.bib.toNat) ∧
     ((s.ret = 0 ∧ ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)) ∨
       (s.ret != 0 ∧
-        ((s.c = M_EOI ∧ ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)) ∨
-         (ResyncEnv hx bdc rerr rmrk rs nwMax ∧ s.bib.toNat < bib0.toNat))))
+        ((s.c = M_EOI ∧ s.nib = .ref .const_eof 2 ∧ s.bib = 0 ∧ ResyncEnv hx bdc rerr rmrk rs (nwMax + 1)) ∨
+         (ResyncEnv hx bdc rerr rmrk rs nwMax ∧ s.bib.toNat < bib0.toNat ∧
+           SameConstEof nib0 s.nib bib0 s.bib ∧
+           (∀ off, nib0 = .ref .const_eof off → off + bib0.toNat ≤ 2 → s.c = M_EOI)))))
   have hlt : nmMeasure initSt < C.fuel := by
     change nmMeasure initSt < 2 ^ 64
     dsimp [nmMeasure, initSt]; omega
   have hinvInit : Inv (nmMeasure initSt) h initSt := by
     refine ⟨rfl, sameBytes_refl h, hbib0Lt, hlive0, ?_⟩
-    simp [initSt, henv]
+    simp [initSt, henv, sameConstEof_refl]
   let bodyFn : NextMarkerState → C.M NextMarkerState := fun s => do
     match (← inputByte (Ptr.ref (C.DecompRef.decomp bdc) 0) s.nib s.bib) with
     | none => return { s with done := true, ret := FALSE }
@@ -1024,7 +1101,7 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
       by_cases hdone : s.done = false
       · simp only [hdone] at hsrest
         have hcond : (!s.done) = true := by simp [hdone]
-        obtain ⟨henvx, hsle0⟩ := hsrest
+        obtain ⟨henvx, hsle0, hsce0⟩ := hsrest
         refine ⟨true, s, hx, (by simp [C.run, hcond]), ?_⟩
         obtain ⟨resI, hI, hiI, hbI, hresI⟩ := inputByte_resync_ok s.nib s.bib (fun _ => by omega) henvx hslive
         cases resI with
@@ -1039,7 +1116,7 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
           rcases triple with ⟨c0, nib1, bib1⟩
           by_cases hzn : (s.bib != 0) = true
           · simp only [hzn, ↓reduceIte] at hresI
-            obtain ⟨hsub1, hlive1, _, hIx, henv1⟩ := hresI
+            obtain ⟨hsub1, hlive1, _, hsce1, hIx, henv1⟩ := hresI
             rw [hIx] at hiI hlive1 henv1
             have hspos : 0 < s.bib.toNat := uint64_toNat_pos fun hb0 => by simp [hb0] at hzn
             have hbib1Lt : bib1.toNat < 2 ^ 20 := by omega
@@ -1064,12 +1141,17 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
               · simp only [hfdSusp, Bool.false_eq_true, ↓reduceIte] at hfdPost
                 obtain ⟨hfdNeFF, hfdbibLt, hfdlive, hfdEof⟩ := hfdPost
                 by_cases hfc0 : (fd.c != 0) = true
-                · have hceof2 : if eof2 then fd.c = M_EOI ∧ ResyncEnv h3 bdc rerr rmrk rs (nwMax + 1)
-                      else ResyncEnv h3 bdc rerr rmrk rs nwMax ∧ fd.bib.toNat < bib0.toNat := by
+                · have hceof2 : if eof2 then
+                        fd.c = M_EOI ∧ fd.nib = .ref .const_eof 2 ∧ fd.bib = 0 ∧
+                        ResyncEnv h3 bdc rerr rmrk rs (nwMax + 1)
+                      else
+                        ResyncEnv h3 bdc rerr rmrk rs nwMax ∧ fd.bib.toNat < bib0.toNat ∧
+                        SameConstEof nib0 fd.nib bib0 fd.bib ∧
+                        (∀ off, nib0 = .ref .const_eof off → off + bib0.toNat ≤ 2 → fd.c = M_EOI) := by
                     cases eof2 with
                     | true =>
                       simp only [↓reduceIte] at hfdEof
-                      exact ⟨hfdEof.1, hfdEof.2.2.2⟩
+                      exact hfdEof
                     | false =>
                       simp only [Bool.false_eq_true, ↓reduceIte] at hfdEof
                       have heof1F : eof1 = false := by
@@ -1078,10 +1160,22 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
                         | true => exact False.elim (Bool.noConfusion (hfdEofImp h).2)
                       subst heof1F
                       simp only [Bool.false_eq_true, ↓reduceIte] at hskEof
-                      obtain ⟨_hfe, henv3, hfdsLt⟩ := hfdEof
-                      have hskLe : sk.bib.toNat ≤ sk0.bib.toNat := hskEof.2
+                      obtain ⟨_hfe, henv3, hfdsLt, hsceFd, hfdCe⟩ := hfdEof
+                      have hskLe : sk.bib.toNat ≤ sk0.bib.toNat := hskEof.2.1
                       have hfdLt : fd.bib.toNat < fd0.bib.toNat := hfdsLt
-                      exact ⟨henv3, by omega⟩
+                      have hsceAll : SameConstEof nib0 fd.nib bib0 fd.bib :=
+                        sameConstEof_trans hsce0 (sameConstEof_trans hsce1
+                          (sameConstEof_trans hskEof.2.2.1 hsceFd))
+                      refine ⟨henv3, (by omega), hsceAll, fun off hnib0 hle2 => ?_⟩
+                      obtain ⟨offS, hsNib, hsumS⟩ := sameConstEof_fwd hsce0 hnib0
+                      obtain ⟨off1, hnib1, hsum1⟩ := sameConstEof_fwd hsce1 hsNib
+                      obtain ⟨offSk, hskNib, hsumSk⟩ := sameConstEof_fwd hskEof.2.2.1 hnib1
+                      have hsPos : 0 < s.bib.toNat := hspos
+                      have hsk1 : sk.bib.toNat = 1 := by omega
+                      have hskEq1 : sk.bib = 1 := UInt64.eq_of_toBitVec_eq (BitVec.eq_of_toNat_eq hsk1)
+                      have hoffSk1 : offSk = 1 := by omega
+                      rw [hoffSk1] at hskNib
+                      exact hfdCe hskNib hskEq1
                   let s' : NextMarkerState := { done := true, ret := TRUE, c := fd.c, nib := fd.nib, bib := fd.bib }
                   refine ⟨nmMeasure s', s', h3, ?_, (by simp [nmMeasure, s', hdone]),
                     rfl, sameBytes_trans hb3 (sameBytes_trans hb2 hbx), hfdbibLt, hfdlive, Or.inr ⟨(by simp [s', TRUE]), ?_⟩⟩
@@ -1110,7 +1204,7 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
                     | true => exact False.elim (Bool.noConfusion ((hfdEofImp h).2.symm.trans heof2F))
                   subst heof2F; subst heof1F
                   simp only [Bool.false_eq_true, ↓reduceIte] at hfdEof hskEof
-                  obtain ⟨_hfe, henv3, hfdsLt⟩ := hfdEof
+                  obtain ⟨_hfe, henv3, hfdsLt, hsceFd, _⟩ := hfdEof
                   obtain ⟨h4, hm4, hb4, henv4⟩ := markerDiscardedInc_resync_ok 2 henv3
                   obtain ⟨h5, hs5, hb5, henv5⟩ := inputSync_resync_ok fd.nib fd.bib henv4
                   have hlive5 : fd.bib = 0 ∨ LiveBytes h5 fd.nib fd.bib.toNat := by
@@ -1121,11 +1215,14 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
                   have hsk0bib : sk0.bib.toNat = bib1.toNat := rfl
                   have hfd0bib : fd0.bib.toNat = sk.bib.toNat := rfl
                   have hs'bib : s'.bib.toNat = fd.bib.toNat := rfl
-                  have hleSk : sk.bib.toNat ≤ sk0.bib.toNat := hskEof.2
+                  have hleSk : sk.bib.toNat ≤ sk0.bib.toNat := hskEof.2.1
                   have hltFd : fd.bib.toNat < fd0.bib.toNat := hfdsLt
                   have hltMeas : nmMeasure s' < nmMeasure s := by
                     simp only [nmMeasure, s', hdone, Bool.false_eq_true, ↓reduceIte]
                     omega
+                  have hsceAll : SameConstEof nib0 s'.nib bib0 s'.bib :=
+                    sameConstEof_trans hsce0 (sameConstEof_trans hsce1
+                      (sameConstEof_trans hskEof.2.2.1 hsceFd))
                   refine ⟨nmMeasure s', s', h5, ?_, hltMeas, rfl,
                     sameBytes_trans hb5 (sameBytes_trans hb4 (sameBytes_trans hb3 (sameBytes_trans hb2 hbx))),
                     hfdbibLt, hlive5, ?_⟩
@@ -1137,7 +1234,7 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
                     simp only [hfdSusp, hfc0F, Bool.false_eq_true, ↓reduceIte]
                     rw [hm4]
                     rw [C.run_bind, hs5]; rfl
-                  · exact ⟨henv5, by omega⟩
+                  · exact ⟨henv5, (by omega), hsceAll⟩
               · simp only [hfdSusp, ↓reduceIte] at hfdPost
                 let s' : NextMarkerState := { s with done := true, ret := FALSE }
                 refine ⟨nmMeasure s', s', h3, ?_, (by simp [nmMeasure, s', hdone]),
@@ -1193,12 +1290,12 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
             obtain ⟨hfdSuspF, heof2T⟩ := hfdEofImp rfl
             subst heof2T
             simp only [hfdSuspF, Bool.false_eq_true, ↓reduceIte] at hfdPost
-            obtain ⟨_hne, hfdbibLt, hfdlive, hfcEoi, _hnib2, _hbib2, henv3⟩ := hfdPost
+            obtain ⟨_hne, hfdbibLt, hfdlive, hfcEoi, hnib2, hbib2, henv3⟩ := hfdPost
             have hfc0 : (fd.c != 0) = true := by simp [hfcEoi, M_EOI]
             let s' : NextMarkerState := { done := true, ret := TRUE, c := fd.c, nib := fd.nib, bib := fd.bib }
             refine ⟨nmMeasure s', s', h3, ?_, (by simp [nmMeasure, s', hdone]),
               rfl, sameBytes_trans hb3 (sameBytes_trans hbI hbx), hfdbibLt, hfdlive,
-              Or.inr ⟨(by simp [s', TRUE]), Or.inl ⟨hfcEoi, henv3⟩⟩⟩
+              Or.inr ⟨(by simp [s', TRUE]), Or.inl ⟨hfcEoi, hnib2, hbib2, henv3⟩⟩⟩
             dsimp only [bodyFn]
             rw [C.run_bind, hiI]; dsimp only
             rw [C.run_bind, hskExit]; dsimp only
@@ -1227,7 +1324,7 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
       simp [this] at hretNz
     simp only [hretCond, Bool.false_eq_true, ↓reduceIte]
     have hnw1 : ResyncEnv h1 bdc rerr rmrk rs (nwMax + 1) := by
-      rcases hstCase with ⟨_, h1e⟩ | ⟨h1e, _⟩
+      rcases hstCase with ⟨_, _, _, h1e⟩ | ⟨h1e, _, _, _⟩
       · exact h1e
       · exact resyncEnv_mono (by omega : nwMax ≤ nwMax + 1) h1e
     obtain ⟨dcs1, _errs1, mrks1, _srcs1, hgetdc1, hszdc1, herr1, hmrk1, hsrc1,
@@ -1238,7 +1335,10 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
     rw [Ptr.load_bind h1 rmrk 0 mrks1 _ hgetmrk1 hszmrk1, hmrk1_0]
     have finishAfterWarn : ∀ h2,
         SameBytes h2 h1 →
-        ResyncEnv h2 bdc rerr rmrk rs (nwMax + 2) →
+        ((st.c = M_EOI ∧ st.nib = .ref .const_eof 2 ∧ st.bib = 0 ∧ ResyncEnv h2 bdc rerr rmrk rs (nwMax + 2)) ∨
+         (ResyncEnv h2 bdc rerr rmrk rs (nwMax + 1) ∧ st.bib.toNat < bib0.toNat ∧
+           SameConstEof nib0 st.nib bib0 st.bib ∧
+           (∀ off, nib0 = .ref .const_eof off → off + bib0.toNat ≤ 2 → st.c = M_EOI))) →
         ∃ ret h',
           C.run (do
             let dc2 ← Ptr.load (Ptr.ref (C.DecompRef.decomp bdc) 0)
@@ -1255,10 +1355,20 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
                 C.Space.get h' rs = some srcs' ∧ 0 < srcs'.size ∧
                 srcs'[0]!.bytesInBuffer.toNat < 2 ^ 20 ∧
                 (srcs'[0]!.bytesInBuffer = 0 ∨ LiveBytes h' srcs'[0]!.nextInputByte srcs'[0]!.bytesInBuffer.toNat) ∧
-                (dcs'[0]!.unreadMarker = M_EOI ∨ srcs'[0]!.bytesInBuffer.toNat < bib0.toNat))) := by
-      intro h2 hb2 henv2
+                ((dcs'[0]!.unreadMarker = M_EOI ∧
+                    srcs'[0]!.nextInputByte = .ref .const_eof 2 ∧ srcs'[0]!.bytesInBuffer = 0 ∧
+                    ResyncEnv h' bdc rerr rmrk rs (nwMax + 2)) ∨
+                 (srcs'[0]!.bytesInBuffer.toNat < bib0.toNat ∧
+                    SameConstEof nib0 srcs'[0]!.nextInputByte bib0 srcs'[0]!.bytesInBuffer ∧
+                    ResyncEnv h' bdc rerr rmrk rs (nwMax + 1) ∧
+                    (∀ off, nib0 = .ref .const_eof off → off + bib0.toNat ≤ 2 → dcs'[0]!.unreadMarker = M_EOI))))) := by
+      intro h2 hb2 hRes
+      have henv2' : ResyncEnv h2 bdc rerr rmrk rs (nwMax + 2) := by
+        rcases hRes with ⟨_, _, _, he⟩ | ⟨he, _, _, _⟩
+        · exact he
+        · exact resyncEnv_mono (by omega : nwMax + 1 ≤ nwMax + 2) he
       obtain ⟨dcs2, errs2, mrks2, srcs2, hgetdc2, hszdc2, herr2, hmrk2, hsrc2,
-        hgeterr2, hszerr2, hnw02, hnwLe2, hgetmrk2, hszmrk2, hgetsrc2, hszsrc2, hfill2⟩ := henv2
+        hgeterr2, hszerr2, hnw02, hnwLe2, hgetmrk2, hszmrk2, hgetsrc2, hszsrc2, hfill2⟩ := henv2'
       have hdc2_0 : dcs2[0] = dcs2[0]! := by rw [← getElem!_pos dcs2 0 hszdc2]
       have hgetsrc2' : C.Space.get h2 rs = some srcs2 := hgetsrc2
       have hro_src2 : C.Space.ro h2 rs = false := by cases rs; rfl
@@ -1282,14 +1392,22 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
         rw [getElem!_pos _ 0 hszdc4]; simp [dcs4, Array.set!_eq_setIfInBounds]
       have hsrc3_bang : srcs3[0]! = src3 := by
         rw [getElem!_pos _ 0 hszsrc4]; simp [srcs3, Array.set!_eq_setIfInBounds]
-      have henv4 : ResyncEnv h4 bdc rerr rmrk rs (nwMax + 2) := by
-        refine ⟨dcs4, errs2, mrks2, srcs3, hgetdc4, hszdc4, ?_, ?_, ?_,
-          (by cases rs; exact hgeterr2), hszerr2, hnw02, hnwLe2,
+      have mkEnv : ∀ (m : Int), ResyncEnv h2 bdc rerr rmrk rs m → ResyncEnv h4 bdc rerr rmrk rs m := by
+        intro m hm
+        obtain ⟨_d2, e3, _m2, _s2, _gdc, _szdc, _hr, _hm, _hs, hge3, hsze3, hnw03, hlem,
+          _gmrk, _szmrk, _gs, _szs, _hf⟩ := hm
+        refine ⟨dcs4, e3, mrks2, srcs3, hgetdc4, hszdc4, ?_, ?_, ?_,
+          (by cases rs; exact hge3), hsze3, hnw03, hlem,
           (by cases rs; exact hgetmrk2), hszmrk2, hgetsrc4, hszsrc4, ?_⟩
         · rw [hdc4_bang]; exact herr2
         · rw [hdc4_bang]; exact hmrk2
         · rw [hdc4_bang]
         · rw [hsrc3_bang]; dsimp [src3]; rw [← getElem!_pos srcs2 0 hszsrc2]; exact hfill2
+      have henv4 : ResyncEnv h4 bdc rerr rmrk rs (nwMax + 2) := by
+        apply mkEnv (nwMax + 2)
+        rcases hRes with ⟨_, _, _, he⟩ | ⟨he, _, _⟩
+        · exact he
+        · exact resyncEnv_mono (by omega : nwMax + 1 ≤ nwMax + 2) he
       refine ⟨TRUE, h4, ?_, hb4, henv4, Or.inr ⟨rfl, dcs4, srcs3, hgetdc4, hszdc4, hgetsrc4, hszsrc4, ?_, ?_, ?_⟩⟩
       · rw [Ptr.load_bind h2 _ 0 dcs2 _ hgetdc2 hszdc2, hdc2_0, hsrc2]
         rw [Ptr.load_bind h2 rs 0 srcs2 _ hgetsrc2' hszsrc2]
@@ -1301,19 +1419,52 @@ theorem next_marker_resync_ok {h : C.Heap} {bdc : Nat} {rerr : C.ErrRef} {rmrk :
         rcases hstlive with hb0 | hl
         · left; exact hb0
         · right; exact resyncEnv_bytes_irrel (sameBytes_trans ⟨rfl, rfl⟩ (sameBytes_trans (by cases rs; exact ⟨rfl, rfl⟩) hb2)) hl
-      · rcases hstCase with ⟨hcEoi, _⟩ | ⟨_, hbibLt⟩
-        · left; rw [hdc4_bang]; exact hcEoi
-        · right; rw [hsrc3_bang]; exact hbibLt
+      · rcases hRes with ⟨hcEoi, hnibE, hbibE, _⟩ | ⟨he2, hbibLt, hsce, hceSt⟩
+        · left; refine ⟨(by rw [hdc4_bang]; exact hcEoi), (by rw [hsrc3_bang]; exact hnibE),
+            (by rw [hsrc3_bang]; exact hbibE), henv4⟩
+        · right; refine ⟨(by rw [hsrc3_bang]; exact hbibLt), (by rw [hsrc3_bang]; exact hsce),
+            mkEnv (nwMax + 1) he2, fun off hn hle => by rw [hdc4_bang]; exact hceSt off hn hle⟩
     by_cases hdis : (mrks1[0]!.discardedBytes != 0) = true
     · simp only [hdis, ↓reduceIte, herr1]
-      obtain ⟨h1a, hwa, hba, _, henv1a⟩ := warnms2_resync_ok (by omega) JWRN_EXTRANEOUS_DATA
-        (Int32.ofNat mrks1[0]!.discardedBytes.toNat) st.c hnw1
-      obtain ⟨h1b, hmb, hbb, henv1b⟩ := markerDiscardedZero_resync_ok henv1a
-      rw [C.run_bind, hwa]; dsimp only
-      rw [hmb]
-      exact finishAfterWarn h1b (sameBytes_trans hbb hba) (resyncEnv_mono (by omega : nwMax + 1 + 1 ≤ nwMax + 2) henv1b)
+      have hResWarn : ∃ h1b,
+          (∀ (k : C.M Int32),
+            C.run (do
+              let _ ← warnms2 (Ptr.ref rerr 0) JWRN_EXTRANEOUS_DATA
+                (Int32.ofNat mrks1[0]!.discardedBytes.toNat) st.c
+              let mrk2 ← Ptr.load (Ptr.ref rmrk 0)
+              Ptr.store (Ptr.ref rmrk 0) { mrk2 with discardedBytes := 0 }
+              k) h1 = C.run k h1b) ∧
+          SameBytes h1b h1 ∧
+          ((st.c = M_EOI ∧ st.nib = .ref .const_eof 2 ∧ st.bib = 0 ∧
+              ResyncEnv h1b bdc rerr rmrk rs (nwMax + 2)) ∨
+           (ResyncEnv h1b bdc rerr rmrk rs (nwMax + 1) ∧ st.bib.toNat < bib0.toNat ∧
+              SameConstEof nib0 st.nib bib0 st.bib ∧
+              (∀ off, nib0 = .ref .const_eof off → off + bib0.toNat ≤ 2 → st.c = M_EOI))) := by
+        rcases hstCase with ⟨hcEoi, hnibE, hbibE, h1e⟩ | ⟨h1e, hbibLt, hsce, hceSt⟩
+        · obtain ⟨h1a, hwa, hba, _, henv1a⟩ := warnms2_resync_ok (by omega : nwMax + 1 + 1 < 2 ^ 63)
+            JWRN_EXTRANEOUS_DATA (Int32.ofNat mrks1[0]!.discardedBytes.toNat) st.c h1e
+          obtain ⟨h1b, hmb, hbb, henv1b⟩ := markerDiscardedZero_resync_ok henv1a
+          refine ⟨h1b, ?_, sameBytes_trans hbb hba, Or.inl ⟨hcEoi, hnibE, hbibE, resyncEnv_mono (by omega : nwMax + 1 + 1 ≤ nwMax + 2) henv1b⟩⟩
+          intro k; rw [C.run_bind, hwa]; dsimp only; exact hmb k
+        · obtain ⟨h1a, hwa, hba, _, henv1a⟩ := warnms2_resync_ok (by omega : nwMax + 1 < 2 ^ 63)
+            JWRN_EXTRANEOUS_DATA (Int32.ofNat mrks1[0]!.discardedBytes.toNat) st.c h1e
+          obtain ⟨h1b, hmb, hbb, henv1b⟩ := markerDiscardedZero_resync_ok henv1a
+          refine ⟨h1b, ?_, sameBytes_trans hbb hba, Or.inr ⟨henv1b, hbibLt, hsce, hceSt⟩⟩
+          intro k; rw [C.run_bind, hwa]; dsimp only; exact hmb k
+      obtain ⟨h1b, hrun1b, hb1b, hres1b⟩ := hResWarn
+      rw [hrun1b]
+      exact finishAfterWarn h1b hb1b hres1b
     · have hdisF : (mrks1[0]!.discardedBytes != 0) = false := Bool.eq_false_iff.mpr hdis
       simp only [hdisF, Bool.false_eq_true, ↓reduceIte]
-      exact finishAfterWarn h1 (sameBytes_refl h1) (resyncEnv_mono (by omega : nwMax + 1 ≤ nwMax + 2) hnw1)
+      have hResNoWarn :
+          (st.c = M_EOI ∧ st.nib = .ref .const_eof 2 ∧ st.bib = 0 ∧
+            ResyncEnv h1 bdc rerr rmrk rs (nwMax + 2)) ∨
+          (ResyncEnv h1 bdc rerr rmrk rs (nwMax + 1) ∧ st.bib.toNat < bib0.toNat ∧
+            SameConstEof nib0 st.nib bib0 st.bib ∧
+            (∀ off, nib0 = .ref .const_eof off → off + bib0.toNat ≤ 2 → st.c = M_EOI)) := by
+        rcases hstCase with ⟨hcEoi, hnibE, hbibE, h1e⟩ | ⟨h1e, hbibLt, hsce, hceSt⟩
+        · exact Or.inl ⟨hcEoi, hnibE, hbibE, resyncEnv_mono (by omega : nwMax + 1 ≤ nwMax + 2) h1e⟩
+        · exact Or.inr ⟨resyncEnv_mono (by omega : nwMax ≤ nwMax + 1) h1e, hbibLt, hsce, hceSt⟩
+      exact finishAfterWarn h1 (sameBytes_refl h1) hResNoWarn
 
 end MozjpegF.Proof.JdmarkerHelpers

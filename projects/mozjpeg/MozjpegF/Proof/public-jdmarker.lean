@@ -341,7 +341,7 @@ theorem jpeg_resync_to_restart_safety : Goal.jpeg_resync_to_restart_safety := by
               rw [Ptr.load_bind hnm _ 0 dcs' _ hgd' hsd', hdc'_0]; rfl
             have hkLt : k' < k := by
               rcases hprog with hEoi | hBib
-              · have hs'm : s'.marker = M_EOI := hEoi
+              · have hs'm : s'.marker = M_EOI := hEoi.1
                 have hk1 : k' = 1 := by dsimp [k']; simp [hs'm]
                 omega
               · have hkLe : k' ≤ srcs'[0]!.bytesInBuffer.toNat + 2 := by

@@ -214,6 +214,45 @@ def allocSrc : M SrcPtr := fun h =>
   else
     .ok (.null, { h with nalloc := h.nalloc + 1 })
 
+/-- Allocate an array of `n` `JpegCompInfo` entries (`alloc_small` for `comp_info`). -/
+def allocComps (n : Nat) : M CompPtr := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    .ok (.ref (.comp b) 0, { h with comps := upd h.comps b (some (Array.replicate n default)), nextBlk := b + 1, nalloc := h.nalloc + 1 })
+  else
+    .ok (.null, { h with nalloc := h.nalloc + 1 })
+
+/-- Allocate a fresh `JQuantTbl` (`alloc_small` for `JQUANT_TBL`). -/
+def allocQuant : M QuantPtr := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    .ok (.ref (.quant b) 0, { h with quants := upd h.quants b (some #[default]), nextBlk := b + 1, nalloc := h.nalloc + 1 })
+  else
+    .ok (.null, { h with nalloc := h.nalloc + 1 })
+
+/-- Allocate a fresh `JHuffTbl` (`alloc_small` for `JHUFF_TBL`). -/
+def allocHuff : M HuffPtr := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    .ok (.ref (.huff b) 0, { h with huffs := upd h.huffs b (some #[default]), nextBlk := b + 1, nalloc := h.nalloc + 1 })
+  else
+    .ok (.null, { h with nalloc := h.nalloc + 1 })
+
+/-- Allocate a `JpegSavedMarker` together with its trailing `limit`-byte data buffer (`alloc_large`). -/
+def allocSavedMarkerData (limit : Nat) : M (SavedMarkerPtr × BPtr) := fun h =>
+  if h.allocOk h.nalloc then
+    let b := h.nextBlk
+    let h1 := {
+      h with
+      savedMarkers := upd h.savedMarkers b (some #[default])
+      bytes := upd h.bytes (b + 1) (some (Array.replicate limit 0))
+      nextBlk := b + 2
+      nalloc := h.nalloc + 1
+    }
+    .ok ((.ref (.savedMarker b) 0, .ref (.heap (b + 1)) 0), h1)
+  else
+    .ok ((.null, .null), { h with nalloc := h.nalloc + 1 })
+
 /-- Free every heap block recorded in `pa : PoolAllocs` (`free_pool`). -/
 def freePoolAllocs (pa : PoolAllocs) (h : Heap) : Heap :=
   {
@@ -225,6 +264,9 @@ def freePoolAllocs (pa : PoolAllocs) (h : Heap) : Heap :=
     markers := pa.markers.foldl (fun t b => upd t b none) h.markers
     srcs := pa.srcs.foldl (fun t b => upd t b none) h.srcs
     comps := pa.comps.foldl (fun t b => upd t b none) h.comps
+    quants := pa.quants.foldl (fun t b => upd t b none) h.quants
+    huffs := pa.huffs.foldl (fun t b => upd t b none) h.huffs
+    savedMarkers := pa.savedMarkers.foldl (fun t b => upd t b none) h.savedMarkers
   }
 
 /-- Monadic action freeing all heap objects recorded in `pa : PoolAllocs`. -/

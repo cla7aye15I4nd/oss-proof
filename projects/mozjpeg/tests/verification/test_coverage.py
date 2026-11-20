@@ -51,7 +51,7 @@ class CoverageTests(unittest.TestCase):
     def test_manifest_passes(self):
         counts = self.check()
         self.assertEqual(counts["declared"], len(self.manifest["apis"]))
-        self.assertEqual(counts["done"], 13)
+        self.assertEqual(counts["done"], 16)
 
     def test_missing_and_extra_functions(self):
         m = copy.deepcopy(self.manifest)
@@ -66,11 +66,11 @@ class CoverageTests(unittest.TestCase):
 
     def test_status_needs_reason_or_goal(self):
         m = copy.deepcopy(self.manifest)
-        del self.api(m, "jpeg_read_header")["reason"]
+        del self.api(m, "jpeg_start_decompress")["reason"]
         self.rejects("needs a reason", m)
         m = copy.deepcopy(self.manifest)
-        self.api(m, "jpeg_read_header")["status"] = "skipped"
-        self.rejects("status of jpeg_read_header", m)
+        self.api(m, "jpeg_start_decompress")["status"] = "skipped"
+        self.rejects("status of jpeg_start_decompress", m)
 
     def test_done_goals_proved_and_required(self):
         goal = v.SAFETY + "jpeg_std_error_safety"
@@ -89,7 +89,7 @@ class CoverageTests(unittest.TestCase):
 
     def test_not_done_with_proved_goal_is_stale(self):
         lists = copy.deepcopy(self.lists)
-        lists["proved"].append(v.SAFETY + "jpeg_read_header_safety")
+        lists["proved"].append(v.SAFETY + "jpeg_start_decompress_safety")
         self.rejects("its safety goal is proved", lists=lists)
 
     def test_translation_binding(self):

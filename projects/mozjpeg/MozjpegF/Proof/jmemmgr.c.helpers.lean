@@ -99,14 +99,16 @@ def PoolsCoverSince (base : Nat) (h : C.Heap) (mbmem : Option Nat) (p0 p1 : Pool
     (h.markers k ≠ none → k ∈ p0.markers ∨ k ∈ p1.markers) ∧
     (h.inputctls k ≠ none → k ∈ p0.inputctls ∨ k ∈ p1.inputctls) ∧
     (h.masters k ≠ none → k ∈ p0.masters ∨ k ∈ p1.masters) ∧
-    (h.mems k ≠ none → some k = mbmem)
+    (h.mems k ≠ none → some k = mbmem) ∧
+    (h.quants k = none ∧ h.huffs k = none ∧ h.savedMarkers k = none)
 
 theorem poolsCoverSince_of_fresh {h : C.Heap} (hf : FreshNextBlk h) :
     PoolsCoverSince h.nextBlk h none {} {} := by
   intro k hk
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := hf k hk
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, hq, hh, hsm⟩ := hf k hk
   exact ⟨h1, h2, h8, fun hne => False.elim (hne h7), fun hne => False.elim (hne h5),
-    fun hne => False.elim (hne h6), fun hne => False.elim (hne h4), fun hne => False.elim (hne h3)⟩
+    fun hne => False.elim (hne h6), fun hne => False.elim (hne h4), fun hne => False.elim (hne h3),
+    hq, hh, hsm⟩
 
 theorem poolsCoverSince_decomps_err_irrel {base : Nat} {h : C.Heap} {mbmem : Option Nat}
     {p0 p1 : PoolAllocs} (hc : PoolsCoverSince base h mbmem p0 p1)

@@ -26,6 +26,9 @@ def proved : List (Name × Name) := [
   (``MozjpegF.Spec.Safety.Goal.jpeg_has_multiple_scans_safety, ``MozjpegF.Proof.Jdapimin.jpeg_has_multiple_scans_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_save_markers_safety, ``MozjpegF.Proof.Jdmarker.jpeg_save_markers_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_resync_to_restart_safety, ``MozjpegF.Proof.Jdmarker.jpeg_resync_to_restart_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety, ``MozjpegF.Proof.Jdapimin.jpeg_read_header_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety, ``MozjpegF.Proof.Jdapimin.jpeg_consume_input_safety),
+  (``MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety, ``MozjpegF.Proof.Jdapimin.jpeg_finish_decompress_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_core_output_dimensions_safety, ``MozjpegF.Proof.Jdmaster.jpeg_core_output_dimensions_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_safety, ``MozjpegF.Proof.Jdmaster.jpeg_calc_output_dimensions_safety),
   (``MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_shrink_nonvacuous, ``MozjpegF.Proof.Jdmaster.jpeg_calc_output_dimensions_shrink_nonvacuous),
@@ -37,12 +40,9 @@ def proved : List (Name × Name) := [
 ]
 
 def notDone : List Name := [
-  ``MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_start_decompress_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_read_scanlines_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_read_raw_data_safety,
-  ``MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety
+  ``MozjpegF.Spec.Safety.Goal.jpeg_read_raw_data_safety
 ]
 
 def required : List Name := [
@@ -67,6 +67,9 @@ def required : List Name := [
   ``MozjpegF.Spec.Safety.Goal.jpeg_has_multiple_scans_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_save_markers_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_resync_to_restart_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety,
+  ``MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_core_output_dimensions_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_safety,
   ``MozjpegF.Spec.Safety.Goal.jpeg_calc_output_dimensions_shrink_nonvacuous,

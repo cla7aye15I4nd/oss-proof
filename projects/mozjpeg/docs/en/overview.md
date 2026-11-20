@@ -39,19 +39,19 @@ The verified library is built from the pinned upstream source with these CMake o
   exact `⌈a / b⌉` for non-overflowing nonnegative inputs.
 - `jpeg_std_error` (`jerror.c`) is safe and initializes `last_jpeg_message = 131`,
   `jpeg_std_message_table`, and standard error methods, paired with a concrete non-vacuity witness.
+- `jpeg_CreateDecompress` (`jdapimin.c`, `jmemmgr.c`) and `jpeg_mem_src` (`jdatasrc.c`) are safe and establish the valid decompressor/source invariants, with no-leak create-then-destroy safety.
 - `jpeg_abort`, `jpeg_destroy` (`jcomapi.c`), `jpeg_abort_decompress`, `jpeg_destroy_decompress`,
-  `jpeg_input_complete`, and `jpeg_has_multiple_scans` (`jdapimin.c`) are safe under valid object
-  invariants.
-- `jpeg_save_markers` (`jdmarker.c`) is safe across all `COM` / `APP0`..`APP15` / invalid marker
-  codes and `max_alloc_chunk` bounds.
+  `jpeg_input_complete`, `jpeg_has_multiple_scans`, `jpeg_consume_input`, `jpeg_read_header`, and
+  `jpeg_finish_decompress` (`jdapimin.c`) are safe under valid object invariants.
+- `jpeg_save_markers` and `jpeg_resync_to_restart` (`jdmarker.c`) are safe across all `COM` /
+  `APP0`..`APP15` / invalid marker codes, restart-resync, and `max_alloc_chunk` bounds.
 - `jpeg_core_output_dimensions` and `jpeg_calc_output_dimensions` (`jdmaster.c`) are safe, and
   `jpeg_core_output_dimensions` returns exact `ceil(width / denom)` and `ceil(height / denom)` for
   `scale_num = 1`, `scale_denom ∈ {1, 2, 4, 8}`, backed by a concrete 1001×753 shrink-on-load
   witness for `jpeg_calc_output_dimensions`.
 
-Remaining Tier 0 decompression functions (`jpeg_CreateDecompress`, `jpeg_mem_src`,
-`jpeg_read_header`, `jpeg_consume_input`, `jpeg_resync_to_restart`, `jpeg_start_decompress`,
-`jpeg_read_scanlines`, `jpeg_read_raw_data`, `jpeg_finish_decompress`) are not done. Differential
+Remaining Tier 0 decompression functions (`jpeg_start_decompress`, `jpeg_read_scanlines`,
+`jpeg_read_raw_data`) are not done. Differential
 tests under AddressSanitizer and UndefinedBehaviorSanitizer compare every translated module against
 the real C static library; these tests are evidence of translation fidelity, not proof. See
 [status](progress.html), [deviations](deviations.html), and [findings](findings.html).

@@ -21,6 +21,8 @@ import MozjpegF.Spec.Safety.Goals
 import MozjpegF.Spec.Functional.Goals
 import MozjpegF.Proof.«jmemmgr.c.helpers»
 import MozjpegF.Proof.«jdmarker.c.helpers»
+import MozjpegF.Proof.«jdmarker.c.readmarkers»
+import MozjpegF.Proof.«jdinput.c.consume»
 import MozjpegF.Proof.«public-runtime-ub»
 import MozjpegF.Proof.«public-jutils»
 import MozjpegF.Proof.«public-jerror»

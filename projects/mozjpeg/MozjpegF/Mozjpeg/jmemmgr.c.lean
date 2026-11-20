@@ -113,6 +113,67 @@ def alloc_small_src (cinfo : DecompPtr) (pool_id : Int32) (sizeofobject : UInt64
     | .ref (.src b) _ => { pa with srcs := pa.srcs.push b }
     | .null => pa)
 
+/-- Allocate `num_components` `jpeg_component_info` entries in `pool_id` via `alloc_small`. -/
+def alloc_small_comps (cinfo : DecompPtr) (pool_id : Int32) (numComps : Nat) (sizeofobject : UInt64) :
+    M (JpegRes CompPtr) :=
+  allocSmallCore cinfo pool_id sizeofobject (allocComps numComps) (fun pa p =>
+    match p with
+    | .ref (.comp b) _ => { pa with comps := pa.comps.push b }
+    | .null => pa)
+
+/-- Allocate `JQUANT_TBL` in `pool_id` via `alloc_small`. -/
+def alloc_small_quant (cinfo : DecompPtr) (pool_id : Int32) (sizeofobject : UInt64) :
+    M (JpegRes QuantPtr) :=
+  allocSmallCore cinfo pool_id sizeofobject allocQuant (fun pa p =>
+    match p with
+    | .ref (.quant b) _ => { pa with quants := pa.quants.push b }
+    | .null => pa)
+
+/-- Allocate `JHUFF_TBL` in `pool_id` via `alloc_small`. -/
+def alloc_small_huff (cinfo : DecompPtr) (pool_id : Int32) (sizeofobject : UInt64) :
+    M (JpegRes HuffPtr) :=
+  allocSmallCore cinfo pool_id sizeofobject allocHuff (fun pa p =>
+    match p with
+    | .ref (.huff b) _ => { pa with huffs := pa.huffs.push b }
+    | .null => pa)
+
+/-- `METHODDEF(void *) alloc_large(j_common_ptr cinfo, int pool_id, size_t sizeofobject)` (`jmemmgr.c:362-414`)
+specialized for `struct jpeg_marker_struct` + `limit` data bytes. -/
+def alloc_large_saved_marker (cinfo : DecompPtr) (pool_id : Int32) (limit : Nat) :
+    M (JpegRes (SavedMarkerPtr × BPtr)) := do
+  let dc ← Ptr.load cinfo
+  let maxChunkU : UInt64 := MAX_ALLOC_CHUNK.toInt.toNat.toUInt64
+  let reqSize : UInt64 := sizeof_jpeg_marker_struct.toInt.toNat.toUInt64 + UInt64.ofNat limit
+  if reqSize > maxChunkU then
+    let _ ← out_of_memory cinfo 8
+    return .errExit JERR_OUT_OF_MEMORY
+  let sizeofobject := round_up_pow2 reqSize ALIGN_SIZE
+  if sizeof_small_pool_hdr + sizeofobject + ALIGN_SIZE - 1 > maxChunkU then
+    let _ ← out_of_memory cinfo 3
+    return .errExit JERR_OUT_OF_MEMORY
+  if pool_id < 0 || pool_id ≥ JPOOL_NUMPOOLS then
+    let _ ← errexit1 dc.err JERR_BAD_POOL_ID pool_id
+    return .errExit JERR_BAD_POOL_ID
+  let pid := pool_id.toInt.toNat
+  let (smPtr, dataPtr) ← jpeg_get_large_saved_marker limit
+  if smPtr == .null then
+    let _ ← out_of_memory cinfo 4
+    return .errExit JERR_OUT_OF_MEMORY
+  let dc2 ← Ptr.load cinfo
+  let mem2 ← Ptr.load dc2.mem
+  let pa := mem2.poolAllocs[pid]!
+  let pa' :=
+    match smPtr, dataPtr with
+    | .ref (.savedMarker bs) _, .ref (.heap bd) _ =>
+      { pa with savedMarkers := pa.savedMarkers.push bs, bytes := pa.bytes.push bd }
+    | _, _ => pa
+  Ptr.store dc2.mem {
+    mem2 with
+    poolAllocs := mem2.poolAllocs.set! pid pa'
+    totalSpaceAllocated := mem2.totalSpaceAllocated + sizeofobject + sizeof_small_pool_hdr + ALIGN_SIZE - 1
+  }
+  return .ok (smPtr, dataPtr)
+
 /-- `METHODDEF(void) free_pool(j_common_ptr cinfo, int pool_id)` (`jmemmgr.c:1096-1159`). -/
 def free_pool (cinfo : DecompPtr) (pool_id : Int32) : M Unit := do
   let dc ← Ptr.load cinfo

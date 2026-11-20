@@ -1,6 +1,7 @@
 import MozjpegF.Spec.Safety.Goals
 import MozjpegF.Spec.Functional.Goals
 import MozjpegF.Proof.«jmemmgr.c.helpers»
+import MozjpegF.Proof.«jdinput.c.consume»
 
 /-!
 # Proofs of `jcomapi.c` and `jdapimin.c` safety specifications (`MozjpegF`)
@@ -17,8 +18,8 @@ private theorem poolsCoverSince_put_mem_same {base bmem : Nat} {h : C.Heap} {p0 
     (hc : PoolsCoverSince base h (some bmem) p0 p1) (ms : Array C.JpegMemMgr) :
     PoolsCoverSince base (C.Space.put h (C.MemRef.mem bmem) ms) (some bmem) p0 p1 := by
   intro k hk
-  obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm⟩ := hc k hk
-  refine ⟨hb, hi, hco, hsrc, hmk, hic, hms, fun hne => ?_⟩
+  obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm, hrest⟩ := hc k hk
+  refine ⟨hb, hi, hco, hsrc, hmk, hic, hms, fun hne => ?_, hrest⟩
   by_cases hkb : k = bmem
   · exact congrArg some hkb
   · simp only [C.Space.put, upd_ne _ _ _ _ hkb] at hne
@@ -29,8 +30,8 @@ private theorem poolsCoverSince_put_marker_mem {base bmem bmk : Nat} {h : C.Heap
     (hin : bmk ∈ p0.markers ∨ bmk ∈ p1.markers) (mrks : Array C.JpegMarkerReader) :
     PoolsCoverSince base (C.Space.put h (C.MarkerRef.marker bmk) mrks) (some bmem) p0 p1 := by
   intro k hk
-  obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm⟩ := hc k hk
-  refine ⟨hb, hi, hco, hsrc, fun hne => ?_, hic, hms, hmm⟩
+  obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm, hrest⟩ := hc k hk
+  refine ⟨hb, hi, hco, hsrc, fun hne => ?_, hic, hms, hmm, hrest⟩
   by_cases hkb : k = bmk
   · subst hkb; exact hin
   · simp only [C.Space.put, upd_ne _ _ _ _ hkb] at hne
@@ -41,8 +42,8 @@ private theorem poolsCoverSince_put_inputctl_mem {base bmem bic : Nat} {h : C.He
     (hin : bic ∈ p0.inputctls ∨ bic ∈ p1.inputctls) (ics : Array C.JpegInputController) :
     PoolsCoverSince base (C.Space.put h (C.InputCtlRef.inputctl bic) ics) (some bmem) p0 p1 := by
   intro k hk
-  obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm⟩ := hc k hk
-  refine ⟨hb, hi, hco, hsrc, hmk, fun hne => ?_, hms, hmm⟩
+  obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm, hrest⟩ := hc k hk
+  refine ⟨hb, hi, hco, hsrc, hmk, fun hne => ?_, hms, hmm, hrest⟩
   by_cases hkb : k = bic
   · subst hkb; exact hin
   · simp only [C.Space.put, upd_ne _ _ _ _ hkb] at hne
@@ -53,8 +54,8 @@ private theorem poolsCoverSince_put_master_mem {base bmem bmas : Nat} {h : C.Hea
     (hin : bmas ∈ p0.masters ∨ bmas ∈ p1.masters) (mas : Array C.JpegDecompMaster) :
     PoolsCoverSince base (C.Space.put h (C.MasterRef.master bmas) mas) (some bmem) p0 p1 := by
   intro k hk
-  obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm⟩ := hc k hk
-  refine ⟨hb, hi, hco, hsrc, hmk, hic, fun hne => ?_, hmm⟩
+  obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm, hrest⟩ := hc k hk
+  refine ⟨hb, hi, hco, hsrc, hmk, hic, fun hne => ?_, hmm, hrest⟩
   by_cases hkb : k = bmas
   · subst hkb; exact hin
   · simp only [C.Space.put, upd_ne _ _ _ _ hkb] at hne
@@ -384,8 +385,8 @@ private theorem jinit_memory_mgr_outcome (h : C.Heap) (bdc : Nat) (base : Nat)
     refine ⟨bmem, #[default].set! 0 memInit, rfl, hbase, hgetmemFin, (by decide),
       rfl, rfl, (fun _ => rfl), ?_⟩
     intro k hk
-    obtain ⟨hb, hi, hco, hs, hmk, hic, hms, hmm⟩ := hcover k hk
-    refine ⟨hb, hi, hco, hs, hmk, hic, hms, fun hne => ?_⟩
+    obtain ⟨hb, hi, hco, hs, hmk, hic, hms, hmm, hrest⟩ := hcover k hk
+    refine ⟨hb, hi, hco, hs, hmk, hic, hms, fun hne => ?_, hrest⟩
     by_cases hkb : k = bmem
     · exact congrArg some hkb
     · exfalso; apply hne
@@ -654,8 +655,8 @@ private theorem jinit_marker_reader_outcome (h : C.Heap) (base bdc bmem : Nat) (
             trivial, rfl, hgetdc1, hszdc1, hdc1, herrp1, ⟨errs1, hgeterr1, hszerr1⟩, hmem1, hgetmem1, hszmem1, hpsz1, hp1_1,
             (by simp [h_ok]; omega), rfl, ?_⟩
           intro k hk
-          obtain ⟨hb, hi, hco, hs, hmk, hic, hms, hmm⟩ := hcov1 k hk
-          refine ⟨hb, hi, hco, hs, fun hne => ?_, hic, hms, hmm⟩
+          obtain ⟨hb, hi, hco, hs, hmk, hic, hms, hmm, hrest⟩ := hcov1 k hk
+          refine ⟨hb, hi, hco, hs, fun hne => ?_, hic, hms, hmm, hrest⟩
           by_cases hkb : k = bmk
           · left; rw [hkb]; simp [Array.mem_push]
           · rw [show h_ok.markers k = h1.markers k from upd_ne _ _ _ _ hkb] at hne
@@ -780,8 +781,8 @@ private theorem jinit_input_controller_outcome (h : C.Heap) (base bdc bmem bmrk 
             hex1, rfl, hgetdc1, hszdc1, hdc1, herrp1, ⟨errs1, hgeterr1, hszerr1⟩, hmem1, hgetmem1, hszmem1, hpsz1, hp1_1,
             (by simp [h_ok]; omega), rfl, ?_⟩
           intro k hk
-          obtain ⟨hb, hi, hco, hs, hmk, hic, hms, hmm⟩ := hcov1 k hk
-          refine ⟨hb, hi, hco, hs, hmk, fun hne => ?_, hms, hmm⟩
+          obtain ⟨hb, hi, hco, hs, hmk, hic, hms, hmm, hrest⟩ := hcov1 k hk
+          refine ⟨hb, hi, hco, hs, hmk, fun hne => ?_, hms, hmm, hrest⟩
           by_cases hkb : k = bic
           · left; rw [hkb]; simp [Array.mem_push]
           · rw [show h_ok.inputctls k = h1.inputctls k from upd_ne _ _ _ _ hkb] at hne
@@ -881,8 +882,8 @@ private theorem alloc_small_master_outcome (h : C.Heap) (base bdc bmem bmrk bic 
             ⟨hmk1, hic1⟩, rfl, hgetdc1, hszdc1, hdc1, herrp1, ⟨errs1, hgeterr1, hszerr1⟩, hmem1, hgetmem1, hszmem1, hpsz1, hp1_1,
             (by simp [h_ok]; omega), rfl, ?_⟩
           intro k hk
-          obtain ⟨hb, hi, hco, hs, hmk, hic, hms, hmm⟩ := hcov1 k hk
-          refine ⟨hb, hi, hco, hs, hmk, hic, fun hne => ?_, hmm⟩
+          obtain ⟨hb, hi, hco, hs, hmk, hic, hms, hmm, hrest⟩ := hcov1 k hk
+          refine ⟨hb, hi, hco, hs, hmk, hic, fun hne => ?_, hmm, hrest⟩
           by_cases hkb : k = bms
           · left; rw [hkb]; simp [Array.mem_push]
           · rw [show h_ok.masters k = h1.masters k from upd_ne _ _ _ _ hkb] at hne
@@ -1235,7 +1236,8 @@ private theorem self_destruct_destroy_freshNextBlk
       ∀ k, base ≤ k →
         h6.bytes k = none ∧ h6.i32s k = none ∧ h6.mems k = none ∧
         h6.masters k = none ∧ h6.markers k = none ∧ h6.inputctls k = none ∧
-        h6.srcs k = none ∧ h6.comps k = none := by
+        h6.srcs k = none ∧ h6.comps k = none ∧
+        h6.quants k = none ∧ h6.huffs k = none ∧ h6.savedMarkers k = none := by
   have hdc1_0 : dcs1[0] = dc1 := by rw [← getElem!_pos dcs1 0 hszdc1]; exact hdc1.symm
   have hfp1 := free_pool_ok h1 bdc bmem 1 dcs1 dc1 mems1 hgetdc1 hszdc1 hdc1 hmem hgetmem1 hszmem1
     (by decide) (by decide)
@@ -1290,7 +1292,7 @@ private theorem self_destruct_destroy_freshNextBlk
     simp only [C.run, Ptr.store, hgetdc5, hro_dc5, hszdc5, ↓reduceIte]
     rw [C.Space.modify_eq h5 (C.DecompRef.decomp bdc) (dcs1.set! 0 dc4) _ hgetdc5]
     rfl
-  · obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm⟩ := hcov k hk
+  · obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm, hq, hh, hsm⟩ := hcov k hk
     have h0p : 0 < mems1[0]!.poolAllocs.size := by omega
     have hpa0_eq : pa0 = mems1[0]!.poolAllocs[0]! :=
       poolAllocs0_set1_eq mems1 hszmem1 h0p
@@ -1348,6 +1350,15 @@ private theorem self_destruct_destroy_freshNextBlk
     have hco6 : h6.comps k = none := clearConst (fun p => p.comps) C.Heap.comps
         (by simp only [h3_f, freePoolAllocs]) (by simp only [h2_f, freePoolAllocs])
         (by simp only [h6, h5, h4, h3, C.Space.put]) (by simp only [h2, C.Space.put]) hco
+    have hq6 : h6.quants k = none := clearConst (fun p => p.quants) C.Heap.quants
+        (by simp only [h3_f, freePoolAllocs]) (by simp only [h2_f, freePoolAllocs])
+        (by simp only [h6, h5, h4, h3, C.Space.put]) (by simp only [h2, C.Space.put]) hq
+    have hh6 : h6.huffs k = none := clearConst (fun p => p.huffs) C.Heap.huffs
+        (by simp only [h3_f, freePoolAllocs]) (by simp only [h2_f, freePoolAllocs])
+        (by simp only [h6, h5, h4, h3, C.Space.put]) (by simp only [h2, C.Space.put]) hh
+    have hsm6 : h6.savedMarkers k = none := clearConst (fun p => p.savedMarkers) C.Heap.savedMarkers
+        (by simp only [h3_f, freePoolAllocs]) (by simp only [h2_f, freePoolAllocs])
+        (by simp only [h6, h5, h4, h3, C.Space.put]) (by simp only [h2, C.Space.put]) hsm
     have hsrc_none : h6.srcs k = none := clearTbl (fun p => p.srcs) C.Heap.srcs rfl
         (by simp only [h3_f, freePoolAllocs]) (by simp only [h2_f, freePoolAllocs])
         (by simp only [h6, h5, h4, h3, C.Space.put]) (by simp only [h2, C.Space.put]) hsrc
@@ -1360,7 +1371,7 @@ private theorem self_destruct_destroy_freshNextBlk
     have hms_none : h6.masters k = none := clearTbl (fun p => p.masters) C.Heap.masters rfl
         (by simp only [h3_f, freePoolAllocs]) (by simp only [h2_f, freePoolAllocs])
         (by simp only [h6, h5, h4, h3, C.Space.put]) (by simp only [h2, C.Space.put]) hms
-    exact ⟨hb6, hi6, hmnone_k, hms_none, hmk_none, hic_none, hsrc_none, hco6⟩
+    exact ⟨hb6, hi6, hmnone_k, hms_none, hmk_none, hic_none, hsrc_none, hco6, hq6, hh6, hsm6⟩
 
 theorem jpeg_CreateDecompress_destroy_no_leak : Goal.jpeg_CreateDecompress_destroy_no_leak := by
   intro h cinfo version structsize hinit
@@ -1383,8 +1394,8 @@ theorem jpeg_CreateDecompress_destroy_no_leak : Goal.jpeg_CreateDecompress_destr
       rw [Ptr.load_bind h1 _ 0 dcs1 _ hgetdc1 hszdc1, hdc1_0]
       have hro_dc1 : C.Space.ro h1 (C.DecompRef.decomp bdc) = false := rfl
       simp [C.run, Ptr.store, hgetdc1, hro_dc1, hszdc1, C.Space.modify_eq h1 _ dcs1 _ hgetdc1, hmem, h2, dc1']
-    · obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm⟩ := hcov k hk
-      refine ⟨hb, hi, ?_, ?_, ?_, ?_, ?_, hco⟩
+    · obtain ⟨hb, hi, hco, hsrc, hmk, hic, hms, hmm, hq, hh, hsm⟩ := hcov k hk
+      refine ⟨hb, hi, ?_, ?_, ?_, ?_, ?_, hco, hq, hh, hsm⟩
       · exact Classical.byContradiction fun hne => by cases hmm hne
       · exact Classical.byContradiction fun hne => by rcases hms hne with hm | hm <;> simp at hm
       · exact Classical.byContradiction fun hne => by rcases hmk hne with hm | hm <;> simp at hm
@@ -1403,5 +1414,1405 @@ theorem jpeg_CreateDecompress_destroy_no_leak : Goal.jpeg_CreateDecompress_destr
         self_destruct_destroy_freshNextBlk h1 h.nextBlk bdc bmem dcs1 dc1 mems1
           hgetdc1 hszdc1 hdc1 hmem hgetmem1 hszmem1 hpsz1 hp1_1 hcov
       exact ⟨res, h1, h6, hrun1, hrun2, hcov6⟩
+
+section JdapiminConsume
+open MozjpegF.Proof.JdmarkerRead MozjpegF.Proof.JdmarkerHelpers MozjpegF.Proof.JdmarkerParsers
+open MozjpegF.Proof.JdmarkerMarkers MozjpegF.Proof.JdmarkerReadMarkers MozjpegF.Proof.JdinputConsume
+
+private theorem jda_array_set_bang_self {α : Type} [Inhabited α] (xs : Array α) {i : Nat}
+    (hi : i < xs.size) (v : α) : (xs.set! i v)[i]! = v := by
+  simp only [Array.set!, Array.setIfInBounds, hi, ↓reduceDIte]
+  rw [getElem!_pos _ i (by simpa using hi)]
+  simp
+
+private theorem jda_ptr_load_ok {R T : Type} [C.Space C.Heap R T] [Inhabited T]
+    {h : C.Heap} {r : R} {off : Nat} {xs : Array T}
+    (hg : C.Space.get h r = some xs) (hlt : off < xs.size) :
+    C.run (C.Ptr.load (C.Ptr.ref r off)) h = .ok (xs[off]!, h) := by
+  have heq : xs[off] = xs[off]! := (getElem!_pos xs off hlt).symm
+  simp only [C.run, C.Ptr.load, hg, hlt, ↓reduceDIte, heq]
+
+private theorem jda_ptr_store_ok {R T : Type} [C.Space C.Heap R T]
+    {h : C.Heap} {r : R} {xs : Array T} (v : T)
+    (hg : C.Space.get h r = some xs) (hro : C.Space.ro h r = false) (hsz : 0 < xs.size) :
+    C.run (C.Ptr.store (C.Ptr.ref r 0) v) h = .ok ((), C.Space.put h r (xs.set! 0 v)) := by
+  have h1 := C.Ptr.store_bind h r 0 v xs pure hg hro hsz
+  cases h2 : C.Ptr.store (C.Ptr.ref r 0) v h with
+  | error e => simp [C.run, h2] at h1
+  | ok p => simp [C.run, h2] at h1; rcases p with ⟨⟨⟩, hp⟩; rw [C.run, h2]; exact congrArg Except.ok (Prod.ext rfl h1)
+
+private theorem jda_ptr_add_ok {R T : Type} [C.Space C.Heap R T]
+    {h : C.Heap} {r : R} {xs : Array T} {k : Int}
+    (hg : C.Space.get h r = some xs) (hlo : 0 ≤ k) (hhi : k ≤ ↑xs.size) :
+    C.run (C.Ptr.add (C.Ptr.ref r 0) k) h = .ok (C.Ptr.ref r k.toNat, h) := by
+  have hb : 0 ≤ xs.size ∧ 0 ≤ (0 : Int) + k ∧ (0 : Int) + k ≤ ↑xs.size :=
+    ⟨Nat.zero_le _, by simpa using hlo, by simpa using hhi⟩
+  have h1 := C.Ptr.add_eq h r 0 k xs hg hb
+  cases h2 : C.Ptr.add (C.Ptr.ref r 0) k h with
+  | error e => simp [C.run, h2] at h1
+  | ok p => simp [C.run, h2] at h1; rcases p with ⟨a, hp⟩; rw [C.run, h2]; exact congrArg Except.ok (Prod.ext h1.1 h1.2)
+
+private theorem jda_errexit_ok {h : C.Heap} {rerr : C.ErrRef} {errs : Array C.JpegErrorMgr}
+    (hg : C.Space.get h rerr = some errs) (hsz : 0 < errs.size) (code : Int32) :
+    ∃ h', C.run (errexit (C.Ptr.ref rerr 0) code) h = .ok (.errExit code, h') := by
+  have hl := jda_ptr_load_ok hg hsz
+  have hro : C.Space.ro h rerr = false := rfl
+  let err' : C.JpegErrorMgr := { (errs[0]!) with msgCode := code }
+  have hs := jda_ptr_store_ok err' hg hro hsz
+  refine ⟨C.Space.put h rerr (errs.set! 0 err'), ?_⟩
+  unfold errexit
+  rw [C.run_bind, hl]; dsimp only
+  rw [C.run_bind, hs]; rfl
+
+private theorem jda_errexit1_ok {h : C.Heap} {rerr : C.ErrRef} {errs : Array C.JpegErrorMgr}
+    (hg : C.Space.get h rerr = some errs) (hsz : 0 < errs.size) (code p1 : Int32) :
+    ∃ h', C.run (errexit1 (C.Ptr.ref rerr 0) code p1) h = .ok (.errExit code, h') := by
+  have hl := jda_ptr_load_ok hg hsz
+  have hro : C.Space.ro h rerr = false := rfl
+  let err' : C.JpegErrorMgr := { (errs[0]!) with msgCode := code, msgParmI := errs[0]!.msgParmI.set! 0 p1 }
+  have hs := jda_ptr_store_ok err' hg hro hsz
+  refine ⟨C.Space.put h rerr (errs.set! 0 err'), ?_⟩
+  unfold errexit1
+  rw [C.run_bind, hl]; dsimp only
+  rw [C.run_bind, hs]; rfl
+
+private theorem jda_warnms1_parser {ctx : IoCtx} {h : C.Heap}
+    (hp : ParserEnv ctx h) (code p1 : Int32)
+    (hbd : ∀ errs, C.Space.get h ctx.rerr = some errs → 0 < errs.size →
+      errs[0]!.numWarnings.toInt + 1 < 2 ^ 63) :
+    ∃ h', C.run (warnms1 (C.Ptr.ref ctx.rerr 0) code p1) h = .ok ((), h') ∧ ParserEnv ctx h' := by
+  obtain ⟨h1, hk1, hp1, _, _, _, _, _, _, _, _, _, _, _, hnw1⟩ :=
+    errMsgUpdate_cont_parser hp code (fun arr => arr.set! 0 p1)
+  have hbd1 : ∀ errs1, C.Space.get h1 ctx.rerr = some errs1 → 0 < errs1.size →
+      errs1[0]!.numWarnings.toInt + 1 < 2 ^ 63 := by
+    intro errs1 hg1 hsz1
+    obtain ⟨errs0, hg0, hsz0, _⟩ := parserEnv_get_err hp
+    obtain ⟨_, heq⟩ := hnw1 errs0 errs1 hg0 hsz0 hg1
+    rw [heq]; exact hbd errs0 hg0 hsz0
+  obtain ⟨h2, hrun2, hp2, _⟩ := emitMessage_warn_parser hp1 hbd1
+  refine ⟨h2, ?_, hp2⟩
+  unfold warnms1
+  rw [hk1 (emitMessage (C.Ptr.ref ctx.rerr 0) (-1))]
+  exact hrun2
+
+private theorem validIoBase_to_consumeEnv {h : C.Heap} {cinfo : C.DecompPtr}
+    (hv : ValidDecompIoBase h cinfo) :
+    ∃ ctx potBd,
+      cinfo = C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0 ∧
+      ParserEnv ctx h ∧
+      CompSawZero ctx h ∧
+      2 ^ 24 ≤ potBd ∧
+      potBd + 2 ^ 23 < 2 ^ 63 ∧
+      (∀ dcs mrks srcs errs,
+        C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+        C.Space.get h ctx.rmrk = some mrks → 0 < mrks.size →
+        C.Space.get h ctx.rs = some srcs → 0 < srcs.size →
+        C.Space.get h ctx.rerr = some errs → 0 < errs.size →
+        rmWarnPot errs srcs dcs[0]! + ↑(rmRank dcs[0]! mrks[0]! srcs[0]!) ≤ potBd) ∧
+      (∀ dcs,
+        C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+        dcs[0]!.inputScanNumber.toInt + 2 + 2 ^ 20 + 6 < 2 ^ 31) := by
+  obtain ⟨nw, henv⟩ := ioEnv_of_validIoBase hv
+  obtain ⟨ctx, hc, hs⟩ := ioEnv_to_ioState henv
+  have hp : ParserEnv ctx h := parserEnv_of_ioState hs
+  obtain ⟨_hcore, _hfr, rc, dcsI, dcI, rerrI, errsI, rmemI, _memsI, rmasI, _mastersI,
+    ricI, _icsI, rmrkI, mrksI, rsI, srcsI,
+    hcI, hgdcI, _hszdcI, hdcI, herrI, hgerrI, _hszerrI, _hremI, hnw0I, hnwHiI,
+    _hmemp, _hgmem, _hszmem, _has, _hfp, _hsd, _hlpSz, _hlp0, _hlp1, _hpaSz, _hpm, _hpi, _hpmk, _hps,
+    _hmasp, _hgmas, _hszmas, _hicp, _hgic, _hszic, _hric, _hci,
+    hmrkpI, hgmrkI, _hszmrkI, _hrm, _hrmr, _hpcom, _hpappSz, _hpapp, _hllSz,
+    hsrcpI, hgsrcI, _hszsrcI, _his, _hts, _hsip, _hrtr, _hfill, hbibLtI, _hbibLiveI, _hceofI,
+    _hcurm, _hmlEnd, hcompI, _hqtSz, _hqt, _hdhSz, _hdh, _hahSz, _hah, _hccSz, _hisn0, hisnHiI⟩ := hv
+  have hrcEq : rc = C.DecompRef.decomp ctx.bdc := by
+    have h0 := hc.symm.trans hcI; cases h0; rfl
+  subst hrcEq
+  obtain ⟨dcs0, hgdc0, hszdc0, herr0, _, _, _, hmrk0, hsrc0⟩ := parserEnv_get_dc hp
+  have hdcsEq : dcsI = dcs0 := Option.some.inj (hgdcI.symm.trans hgdc0)
+  subst hdcsEq
+  rw [hdcI] at herrI hmrkpI hsrcpI
+  have hrerrEq : rerrI = ctx.rerr := by
+    have : C.Ptr.ref rerrI 0 = C.Ptr.ref ctx.rerr 0 := herrI.symm.trans herr0
+    cases this; rfl
+  have hrmrkEq : rmrkI = ctx.rmrk := by
+    have : C.Ptr.ref rmrkI 0 = C.Ptr.ref ctx.rmrk 0 := hmrkpI.symm.trans hmrk0
+    cases this; rfl
+  have hrsEq : rsI = ctx.rs := by
+    have : C.Ptr.ref rsI 0 = C.Ptr.ref ctx.rs 0 := hsrcpI.symm.trans hsrc0
+    cases this; rfl
+  subst hrerrEq hrmrkEq hrsEq
+  refine ⟨ctx, errsI[0]!.numWarnings.toInt + 2 ^ 24, hc, hp, ?_, (by omega), (by omega), ?_, ?_⟩
+  · intro mrks dcs hgm hszm hgd hszd hsaw0
+    have hmeq : mrks = mrksI := Option.some.inj (hgm.symm.trans hgmrkI)
+    have hdeq : dcs = dcsI := Option.some.inj (hgd.symm.trans hgdcI)
+    subst hmeq hdeq
+    rcases hcompI with ⟨hnull, _⟩ | ⟨_, hne, _⟩
+    · exact hdcI ▸ hnull
+    · exact absurd hsaw0 hne
+  · intro dcs mrks srcs errs hgd _ hgm _ hgs _ hge _
+    have hdeq : dcs = dcsI := Option.some.inj (hgd.symm.trans hgdcI)
+    have hmeq : mrks = mrksI := Option.some.inj (hgm.symm.trans hgmrkI)
+    have hseq : srcs = srcsI := Option.some.inj (hgs.symm.trans hgsrcI)
+    have heeq : errs = errsI := Option.some.inj (hge.symm.trans hgerrI)
+    subst hdeq hmeq hseq heeq
+    unfold rmWarnPot warnPotVal rmRank rmSrcWeight
+    by_cases hce : isConstEofPtr srcs[0]!.nextInputByte = true
+    · simp only [hce, ↓reduceIte]
+      try split
+      · try split <;> omega
+      · try split <;> omega
+    · have hceF : isConstEofPtr srcs[0]!.nextInputByte = false := Bool.eq_false_iff.mpr hce
+      simp only [hceF, Bool.false_eq_true, ↓reduceIte]
+      split <;> split <;> omega
+  · intro dcs hgd _
+    have hdeq : dcs = dcsI := Option.some.inj (hgd.symm.trans hgdcI)
+    subst hdeq; rw [← hdcI]; omega
+
+private def setDefaultParmsStruct (dc : C.JpegDecompressStruct) : C.JpegDecompressStruct :=
+  { dc with
+    scaleNum := 1, scaleDenom := 1,
+    outputGamma := 0x3ff0000000000000, bufferedImage := FALSE, rawDataOut := FALSE,
+    dctMethod := JDCT_DEFAULT, doFancyUpsampling := TRUE, doBlockSmoothing := TRUE,
+    quantizeColors := FALSE, ditherMode := JDITHER_FS, twoPassQuantize := TRUE,
+    desiredNumberOfColors := 256, colormap := .null, enable1passQuant := FALSE,
+    enableExternalQuant := FALSE, enable2passQuant := FALSE }
+
+private def setJcsStruct (dc : C.JpegDecompressStruct) (jcs outCs : Int32) : C.JpegDecompressStruct :=
+  { dc with jpegColorSpace := jcs, outColorSpace := outCs }
+
+private theorem default_parms_tail {ctx : IoCtx} {h : C.Heap}
+    (hp : ParserEnv ctx h) :
+    ∃ h', C.run (do
+      let dc2 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+      C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+        (setDefaultParmsStruct dc2)) h = .ok ((), h') ∧
+      ∃ dcs', C.Space.get h' (C.DecompRef.decomp ctx.bdc) = some dcs' ∧ 0 < dcs'.size := by
+  obtain ⟨dcs, hgdc, hszdc, _⟩ := parserEnv_get_dc hp
+  have hl := jda_ptr_load_ok hgdc hszdc
+  have hro : C.Space.ro h (C.DecompRef.decomp ctx.bdc) = false := rfl
+  let dc' : C.JpegDecompressStruct := setDefaultParmsStruct dcs[0]!
+  have hs := jda_ptr_store_ok dc' hgdc hro hszdc
+  refine ⟨C.Space.put h (C.DecompRef.decomp ctx.bdc) (dcs.set! 0 dc'), ?_, dcs.set! 0 dc', ?_, by simpa using hszdc⟩
+  · rw [C.run_bind, hl]; dsimp only; exact hs
+  · simp [C.Space.get, C.Space.put]
+
+private theorem default_decompress_parms_ok {ctx : IoCtx} {h : C.Heap}
+    (hp : ParserEnv ctx h)
+    (hmrkSof : ∀ mrks, C.Space.get h ctx.rmrk = some mrks → 0 < mrks.size → mrks[0]!.sawSOF ≠ 0)
+    (hbd : ∀ errs, C.Space.get h ctx.rerr = some errs → 0 < errs.size →
+      errs[0]!.numWarnings.toInt + 1 < 2 ^ 63) :
+    ∃ h', C.run (default_decompress_parms (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)) h = .ok ((), h') ∧
+      ∃ dcs', C.Space.get h' (C.DecompRef.decomp ctx.bdc) = some dcs' ∧ 0 < dcs'.size := by
+  obtain ⟨dcs0, hgdc0, hszdc0, herr0, _, hmas0, _, hmrk0, _⟩ := parserEnv_get_dc hp
+  have hl0 := jda_ptr_load_ok hgdc0 hszdc0
+  have hroDc : C.Space.ro h (C.DecompRef.decomp ctx.bdc) = false := rfl
+  by_cases hnc1 : (dcs0[0]!.numComponents == 1) = true
+  · let dc1 : C.JpegDecompressStruct :=
+      { (dcs0[0]!) with jpegColorSpace := JCS_GRAYSCALE, outColorSpace := JCS_GRAYSCALE }
+    have hs1 := jda_ptr_store_ok dc1 hgdc0 hroDc hszdc0
+    let h1 := C.Space.put h (C.DecompRef.decomp ctx.bdc) (dcs0.set! 0 dc1)
+    have hp1 : ParserEnv ctx h1 := parserEnv_put_dc_keep' hp hgdc0 hszdc0
+      rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+    obtain ⟨h', htail, hdcs'⟩ := default_parms_tail hp1
+    unfold setDefaultParmsStruct at htail
+    refine ⟨h', ?_, hdcs'⟩
+    unfold default_decompress_parms
+    rw [C.run_bind, hl0]; dsimp only
+    simp only [hnc1, ↓reduceIte, C.run_bind]
+    rw [hs1]; dsimp only; rw [C.run_bind] at htail; exact htail
+  · have hnc1F : (dcs0[0]!.numComponents == 1) = false := Bool.eq_false_iff.mpr hnc1
+    by_cases hnc3 : (dcs0[0]!.numComponents == 3) = true
+    · have storeJcs : ∀ (hX : C.Heap) (hpX : ParserEnv ctx hX) (jcs : Int32),
+          ∃ h', C.run (do
+            let dc1 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+            let __r ← C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+              { dc1 with jpegColorSpace := jcs, outColorSpace := JCS_RGB }
+            let dc2 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+            C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+              { dc2 with
+                scaleNum := 1, scaleDenom := 1,
+                outputGamma := 0x3ff0000000000000, bufferedImage := FALSE, rawDataOut := FALSE,
+                dctMethod := JDCT_DEFAULT, doFancyUpsampling := TRUE, doBlockSmoothing := TRUE,
+                quantizeColors := FALSE, ditherMode := JDITHER_FS, twoPassQuantize := TRUE,
+                desiredNumberOfColors := 256, colormap := .null, enable1passQuant := FALSE,
+                enableExternalQuant := FALSE, enable2passQuant := FALSE }) hX = .ok ((), h') ∧
+            ∃ dcs', C.Space.get h' (C.DecompRef.decomp ctx.bdc) = some dcs' ∧ 0 < dcs'.size := by
+        intro hX hpX jcs
+        obtain ⟨dcsX, hgdcX, hszdcX, _⟩ := parserEnv_get_dc hpX
+        have hlX := jda_ptr_load_ok hgdcX hszdcX
+        have hroX : C.Space.ro hX (C.DecompRef.decomp ctx.bdc) = false := rfl
+        let dcX' : C.JpegDecompressStruct := setJcsStruct dcsX[0]! jcs JCS_RGB
+        have hsX := jda_ptr_store_ok dcX' hgdcX hroX hszdcX
+        let hY := C.Space.put hX (C.DecompRef.decomp ctx.bdc) (dcsX.set! 0 dcX')
+        have hpY : ParserEnv ctx hY := parserEnv_put_dc_keep' hpX hgdcX hszdcX
+          rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+        obtain ⟨h', htail, hdcs'⟩ := default_parms_tail hpY
+        unfold setDefaultParmsStruct at htail
+        refine ⟨h', ?_, hdcs'⟩
+        dsimp only [dcX', setJcsStruct] at hsX
+        rw [C.run_bind, hlX]; dsimp only
+        rw [C.run_bind, hsX]; dsimp only; rw [C.run_bind] at htail; exact htail
+      by_cases hjfif : (dcs0[0]!.sawJFIFMarker != 0) = true
+      · obtain ⟨h', hbody, hdcs'⟩ := storeJcs h hp JCS_YCbCr
+        refine ⟨h', ?_, hdcs'⟩
+        unfold default_decompress_parms
+        rw [C.run_bind, hl0]; dsimp only
+        simp only [hnc1F, hnc3, hjfif, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+        exact hbody
+      · have hjfifF : (dcs0[0]!.sawJFIFMarker != 0) = false := Bool.eq_false_iff.mpr hjfif
+        by_cases hadobe : (dcs0[0]!.sawAdobeMarker != 0) = true
+        · by_cases hx0 : (dcs0[0]!.adobeTransform == 0) = true
+          · obtain ⟨h', hbody, hdcs'⟩ := storeJcs h hp JCS_RGB
+            refine ⟨h', ?_, hdcs'⟩
+            unfold default_decompress_parms
+            rw [C.run_bind, hl0]; dsimp only
+            simp only [hnc1F, hnc3, hjfifF, hadobe, hx0, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+            exact hbody
+          · have hx0F : (dcs0[0]!.adobeTransform == 0) = false := Bool.eq_false_iff.mpr hx0
+            by_cases hx1 : (dcs0[0]!.adobeTransform == 1) = true
+            · obtain ⟨h', hbody, hdcs'⟩ := storeJcs h hp JCS_YCbCr
+              refine ⟨h', ?_, hdcs'⟩
+              unfold default_decompress_parms
+              rw [C.run_bind, hl0]; dsimp only
+              simp only [hnc1F, hnc3, hjfifF, hadobe, hx0F, hx1, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+              exact hbody
+            · have hx1F : (dcs0[0]!.adobeTransform == 1) = false := Bool.eq_false_iff.mpr hx1
+              obtain ⟨h1, hw1, hp1⟩ := jda_warnms1_parser hp JWRN_ADOBE_XFORM
+                (Int32.ofNat dcs0[0]!.adobeTransform.toNat) hbd
+              obtain ⟨h', hbody, hdcs'⟩ := storeJcs h1 hp1 JCS_YCbCr
+              refine ⟨h', ?_, hdcs'⟩
+              unfold default_decompress_parms
+              rw [C.run_bind, hl0]; dsimp only
+              simp only [hnc1F, hnc3, hjfifF, hadobe, hx0F, hx1F, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+              rw [herr0, hw1]; dsimp only; exact hbody
+        · have hadobeF : (dcs0[0]!.sawAdobeMarker != 0) = false := Bool.eq_false_iff.mpr hadobe
+          obtain ⟨mrks0, hgmrk0, hszmrk0, _⟩ := parserEnv_get_mrk hp
+          have hsof0 : mrks0[0]!.sawSOF ≠ 0 := hmrkSof mrks0 hgmrk0 hszmrk0
+          obtain ⟨dcsC, mrksC, hgdcC, _, hgmrkC, _, hsofComp, hliveComp⟩ := parserEnv_get_comp hp
+          have hdCeq : dcsC = dcs0 := Option.some.inj (hgdcC.symm.trans hgdc0)
+          have hmCeq : mrksC = mrks0 := Option.some.inj (hgmrkC.symm.trans hgmrk0)
+          rw [hdCeq] at hsofComp hliveComp; rw [hmCeq] at hsofComp
+          obtain ⟨rcp, cs, hcompRef, hgcs, hliveSz⟩ := (hliveComp (hsofComp hsof0)).2
+          have hnc3Nat : dcs0[0]!.numComponents.toInt.toNat = 3 := by
+            have h3 : dcs0[0]!.numComponents = 3 := by simpa using hnc3
+            rw [h3]; decide
+          have hcs3 : 3 ≤ cs.size := hnc3Nat ▸ hliveSz
+          have ha0 : C.run (C.Ptr.add (C.Ptr.ref rcp 0) 0) h = .ok (C.Ptr.ref rcp 0, h) :=
+            jda_ptr_add_ok (k := 0) hgcs (by omega) (by omega)
+          have ha1 : C.run (C.Ptr.add (C.Ptr.ref rcp 0) 1) h = .ok (C.Ptr.ref rcp 1, h) :=
+            jda_ptr_add_ok (k := 1) hgcs (by omega) (by omega)
+          have ha2 : C.run (C.Ptr.add (C.Ptr.ref rcp 0) 2) h = .ok (C.Ptr.ref rcp 2, h) :=
+            jda_ptr_add_ok (k := 2) hgcs (by omega) (by omega)
+          have hlC0 := jda_ptr_load_ok (off := 0) hgcs (by omega)
+          have hlC1 := jda_ptr_load_ok (off := 1) hgcs (by omega)
+          have hlC2 := jda_ptr_load_ok (off := 2) hgcs (by omega)
+          obtain ⟨masters0, hgmas0, hszmas0⟩ := parserEnv_get_mas hp
+          have hlMas0 := jda_ptr_load_ok hgmas0 hszmas0
+          by_cases hrgb123 : (cs[0]!.componentId == 1 && cs[1]!.componentId == 2 && cs[2]!.componentId == 3) = true
+          · by_cases hll : (masters0[0]!.lossless != 0) = true
+            · obtain ⟨h', hbody, hdcs'⟩ := storeJcs h hp JCS_RGB
+              refine ⟨h', ?_, hdcs'⟩
+              unfold default_decompress_parms
+              rw [C.run_bind, hl0]; dsimp only
+              simp only [hnc1F, hnc3, hjfifF, hadobeF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+              rw [hcompRef, ha0]; dsimp only; rw [ha1]; dsimp only; rw [ha2]; dsimp only
+              rw [hlC0]; dsimp only; rw [hlC1]; dsimp only; rw [hlC2]; dsimp only
+              simp only [hrgb123, ↓reduceIte, C.run_bind]
+              rw [hmas0, hlMas0]; dsimp only
+              simp only [hll, ↓reduceIte, pure_bind_m]
+              exact hbody
+            · have hllF : (masters0[0]!.lossless != 0) = false := Bool.eq_false_iff.mpr hll
+              obtain ⟨h', hbody, hdcs'⟩ := storeJcs h hp JCS_YCbCr
+              refine ⟨h', ?_, hdcs'⟩
+              unfold default_decompress_parms
+              rw [C.run_bind, hl0]; dsimp only
+              simp only [hnc1F, hnc3, hjfifF, hadobeF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+              rw [hcompRef, ha0]; dsimp only; rw [ha1]; dsimp only; rw [ha2]; dsimp only
+              rw [hlC0]; dsimp only; rw [hlC1]; dsimp only; rw [hlC2]; dsimp only
+              simp only [hrgb123, ↓reduceIte, C.run_bind]
+              rw [hmas0, hlMas0]; dsimp only
+              simp only [hllF, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+              exact hbody
+          · have hrgb123F : (cs[0]!.componentId == 1 && cs[1]!.componentId == 2 && cs[2]!.componentId == 3) = false :=
+              Bool.eq_false_iff.mpr hrgb123
+            by_cases hrgbAsc : (cs[0]!.componentId == 82 && cs[1]!.componentId == 71 && cs[2]!.componentId == 66) = true
+            · obtain ⟨h', hbody, hdcs'⟩ := storeJcs h hp JCS_RGB
+              refine ⟨h', ?_, hdcs'⟩
+              unfold default_decompress_parms
+              rw [C.run_bind, hl0]; dsimp only
+              simp only [hnc1F, hnc3, hjfifF, hadobeF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+              rw [hcompRef, ha0]; dsimp only; rw [ha1]; dsimp only; rw [ha2]; dsimp only
+              rw [hlC0]; dsimp only; rw [hlC1]; dsimp only; rw [hlC2]; dsimp only
+              simp only [hrgb123F, hrgbAsc, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+              exact hbody
+            · have hrgbAscF : (cs[0]!.componentId == 82 && cs[1]!.componentId == 71 && cs[2]!.componentId == 66) = false :=
+                Bool.eq_false_iff.mpr hrgbAsc
+              obtain ⟨h1, htr1, hp1, _, _, _, hma1, _⟩ :=
+                tracems3_nonneg_parser hp 1 JTRC_UNKNOWN_IDS cs[0]!.componentId cs[1]!.componentId cs[2]!.componentId (by decide)
+              have hgmas1 : C.Space.get h1 ctx.rmas = some masters0 := by
+                simp only [C.Space.get]; rw [hma1]; exact hgmas0
+              have hlMas1 := jda_ptr_load_ok hgmas1 hszmas0
+              by_cases hll : (masters0[0]!.lossless != 0) = true
+              · obtain ⟨h', hbody, hdcs'⟩ := storeJcs h1 hp1 JCS_RGB
+                refine ⟨h', ?_, hdcs'⟩
+                unfold default_decompress_parms
+                rw [C.run_bind, hl0]; dsimp only
+                simp only [hnc1F, hnc3, hjfifF, hadobeF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+                rw [hcompRef, ha0]; dsimp only; rw [ha1]; dsimp only; rw [ha2]; dsimp only
+                rw [hlC0]; dsimp only; rw [hlC1]; dsimp only; rw [hlC2]; dsimp only
+                simp only [hrgb123F, hrgbAscF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+                rw [herr0, htr1]; dsimp only
+                rw [hmas0, hlMas1]; dsimp only
+                simp only [hll, ↓reduceIte, pure_bind_m]
+                exact hbody
+              · have hllF : (masters0[0]!.lossless != 0) = false := Bool.eq_false_iff.mpr hll
+                obtain ⟨h', hbody, hdcs'⟩ := storeJcs h1 hp1 JCS_YCbCr
+                refine ⟨h', ?_, hdcs'⟩
+                unfold default_decompress_parms
+                rw [C.run_bind, hl0]; dsimp only
+                simp only [hnc1F, hnc3, hjfifF, hadobeF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+                rw [hcompRef, ha0]; dsimp only; rw [ha1]; dsimp only; rw [ha2]; dsimp only
+                rw [hlC0]; dsimp only; rw [hlC1]; dsimp only; rw [hlC2]; dsimp only
+                simp only [hrgb123F, hrgbAscF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+                rw [herr0, htr1]; dsimp only
+                rw [hmas0, hlMas1]; dsimp only
+                simp only [hllF, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+                exact hbody
+    · have hnc3F : (dcs0[0]!.numComponents == 3) = false := Bool.eq_false_iff.mpr hnc3
+      by_cases hnc4 : (dcs0[0]!.numComponents == 4) = true
+      · have storeJcs4 : ∀ (hX : C.Heap) (hpX : ParserEnv ctx hX) (jcs : Int32),
+            ∃ h', C.run (do
+              let dc1 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+              let __r ← C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+                { dc1 with jpegColorSpace := jcs, outColorSpace := JCS_CMYK }
+              let dc2 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+              C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+                { dc2 with
+                  scaleNum := 1, scaleDenom := 1,
+                  outputGamma := 0x3ff0000000000000, bufferedImage := FALSE, rawDataOut := FALSE,
+                  dctMethod := JDCT_DEFAULT, doFancyUpsampling := TRUE, doBlockSmoothing := TRUE,
+                  quantizeColors := FALSE, ditherMode := JDITHER_FS, twoPassQuantize := TRUE,
+                  desiredNumberOfColors := 256, colormap := .null, enable1passQuant := FALSE,
+                  enableExternalQuant := FALSE, enable2passQuant := FALSE }) hX = .ok ((), h') ∧
+              ∃ dcs', C.Space.get h' (C.DecompRef.decomp ctx.bdc) = some dcs' ∧ 0 < dcs'.size := by
+          intro hX hpX jcs
+          obtain ⟨dcsX, hgdcX, hszdcX, _⟩ := parserEnv_get_dc hpX
+          have hlX := jda_ptr_load_ok hgdcX hszdcX
+          have hroX : C.Space.ro hX (C.DecompRef.decomp ctx.bdc) = false := rfl
+          let dcX' : C.JpegDecompressStruct := setJcsStruct dcsX[0]! jcs JCS_CMYK
+          have hsX := jda_ptr_store_ok dcX' hgdcX hroX hszdcX
+          let hY := C.Space.put hX (C.DecompRef.decomp ctx.bdc) (dcsX.set! 0 dcX')
+          have hpY : ParserEnv ctx hY := parserEnv_put_dc_keep' hpX hgdcX hszdcX
+            rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+          obtain ⟨h', htail, hdcs'⟩ := default_parms_tail hpY
+          unfold setDefaultParmsStruct at htail
+          refine ⟨h', ?_, hdcs'⟩
+          dsimp only [dcX', setJcsStruct] at hsX
+          rw [C.run_bind, hlX]; dsimp only
+          rw [C.run_bind, hsX]; dsimp only; rw [C.run_bind] at htail; exact htail
+        by_cases hadobe : (dcs0[0]!.sawAdobeMarker != 0) = true
+        · by_cases hx0 : (dcs0[0]!.adobeTransform == 0) = true
+          · obtain ⟨h', hbody, hdcs'⟩ := storeJcs4 h hp JCS_CMYK
+            refine ⟨h', ?_, hdcs'⟩
+            unfold default_decompress_parms
+            rw [C.run_bind, hl0]; dsimp only
+            simp only [hnc1F, hnc3F, hnc4, hadobe, hx0, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+            exact hbody
+          · have hx0F : (dcs0[0]!.adobeTransform == 0) = false := Bool.eq_false_iff.mpr hx0
+            by_cases hx2 : (dcs0[0]!.adobeTransform == 2) = true
+            · obtain ⟨h', hbody, hdcs'⟩ := storeJcs4 h hp JCS_YCCK
+              refine ⟨h', ?_, hdcs'⟩
+              unfold default_decompress_parms
+              rw [C.run_bind, hl0]; dsimp only
+              simp only [hnc1F, hnc3F, hnc4, hadobe, hx0F, hx2, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+              exact hbody
+            · have hx2F : (dcs0[0]!.adobeTransform == 2) = false := Bool.eq_false_iff.mpr hx2
+              obtain ⟨h1, hw1, hp1⟩ := jda_warnms1_parser hp JWRN_ADOBE_XFORM
+                (Int32.ofNat dcs0[0]!.adobeTransform.toNat) hbd
+              obtain ⟨h', hbody, hdcs'⟩ := storeJcs4 h1 hp1 JCS_YCCK
+              refine ⟨h', ?_, hdcs'⟩
+              unfold default_decompress_parms
+              rw [C.run_bind, hl0]; dsimp only
+              simp only [hnc1F, hnc3F, hnc4, hadobe, hx0F, hx2F, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+              rw [herr0, hw1]; dsimp only; exact hbody
+        · have hadobeF : (dcs0[0]!.sawAdobeMarker != 0) = false := Bool.eq_false_iff.mpr hadobe
+          obtain ⟨h', hbody, hdcs'⟩ := storeJcs4 h hp JCS_CMYK
+          refine ⟨h', ?_, hdcs'⟩
+          unfold default_decompress_parms
+          rw [C.run_bind, hl0]; dsimp only
+          simp only [hnc1F, hnc3F, hnc4, hadobeF, Bool.false_eq_true, ↓reduceIte, pure_bind_m]
+          exact hbody
+      · have hnc4F : (dcs0[0]!.numComponents == 4) = false := Bool.eq_false_iff.mpr hnc4
+        let dc1 : C.JpegDecompressStruct :=
+          { (dcs0[0]!) with jpegColorSpace := JCS_UNKNOWN, outColorSpace := JCS_UNKNOWN }
+        have hs1 := jda_ptr_store_ok dc1 hgdc0 hroDc hszdc0
+        let h1 := C.Space.put h (C.DecompRef.decomp ctx.bdc) (dcs0.set! 0 dc1)
+        have hp1 : ParserEnv ctx h1 := parserEnv_put_dc_keep' hp hgdc0 hszdc0
+          rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+        obtain ⟨h', htail, hdcs'⟩ := default_parms_tail hp1
+        unfold setDefaultParmsStruct at htail
+        refine ⟨h', ?_, hdcs'⟩
+        unfold default_decompress_parms
+        rw [C.run_bind, hl0]; dsimp only
+        simp only [hnc1F, hnc3F, hnc4F, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+        rw [hs1]; dsimp only; rw [C.run_bind] at htail; exact htail
+
+private theorem callConsumeInput_ok {ctx : IoCtx} {h : C.Heap}
+    (hp : ParserEnv ctx h) (hsaw : CompSawZero ctx h) (potBd : Int)
+    (hpotBd : ∀ dcs mrks srcs errs,
+      C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+      C.Space.get h ctx.rmrk = some mrks → 0 < mrks.size →
+      C.Space.get h ctx.rs = some srcs → 0 < srcs.size →
+      C.Space.get h ctx.rerr = some errs → 0 < errs.size →
+      rmWarnPot errs srcs dcs[0]! + ↑(rmRank dcs[0]! mrks[0]! srcs[0]!) ≤ potBd)
+    (hpotHi : potBd + 2 ^ 23 < 2 ^ 63)
+    (hscanBd : ∀ dcs, C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+      dcs[0]!.inputScanNumber.toInt + 2 ^ 20 + 6 < 2 ^ 31)
+    (hstate : ∀ ics dcs,
+      C.Space.get h ctx.ric = some ics → 0 < ics.size →
+      C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+      ics[0]!.eoiReached ≠ 0 ∨ ics[0]!.inheaders ≠ 0 ∨ ics[0]!.hasMultipleScans = 0 ∨ MultiScanReady h dcs[0]!) :
+    ∃ ics res h',
+      C.Space.get h ctx.ric = some ics ∧ 0 < ics.size ∧
+      C.run (callConsumeInput (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) ics[0]!.consumeInput) h = .ok (res, h') ∧
+      (ics[0]!.consumeInput = .fn "dummy_consume_data" → res = .ok JPEG_SUSPENDED ∧ h' = h) ∧
+      (ics[0]!.consumeInput = .fn "consume_markers" →
+        match res with
+        | .errExit _ => True
+        | .ok val =>
+          (val = JPEG_REACHED_SOS ∧ ParserEnv ctx h' ∧ CompSawZero ctx h' ∧
+            (∀ ics', C.Space.get h' ctx.ric = some ics' → 0 < ics'.size → ics'[0]!.eoiReached = 0) ∧
+            (∀ mrks', C.Space.get h' ctx.rmrk = some mrks' → 0 < mrks'.size → mrks'[0]!.sawSOF ≠ 0) ∧
+            ∀ dcs' mrks' srcs' errs' dcs0 mrks0 srcs0 ics0 ics',
+              C.Space.get h' (C.DecompRef.decomp ctx.bdc) = some dcs' → 0 < dcs'.size →
+              C.Space.get h' ctx.rmrk = some mrks' → 0 < mrks'.size →
+              C.Space.get h' ctx.rs = some srcs' → 0 < srcs'.size →
+              C.Space.get h' ctx.rerr = some errs' → 0 < errs'.size →
+              C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs0 → 0 < dcs0.size →
+              C.Space.get h ctx.rmrk = some mrks0 → 0 < mrks0.size →
+              C.Space.get h ctx.rs = some srcs0 → 0 < srcs0.size →
+              C.Space.get h ctx.ric = some ics0 → 0 < ics0.size →
+              C.Space.get h' ctx.ric = some ics' → 0 < ics'.size →
+              rmWarnPot errs' srcs' dcs'[0]! + ↑(rmRank dcs'[0]! mrks'[0]! srcs'[0]!) ≤ potBd ∧
+              rmRank dcs'[0]! mrks'[0]! srcs'[0]! < rmRank dcs0[0]! mrks0[0]! srcs0[0]! ∧
+              dcs'[0]!.inputScanNumber.toInt = dcs0[0]!.inputScanNumber.toInt + 1 ∧
+              (ics0[0]!.inheaders ≠ 0 →
+                ics'[0]!.inheaders = 0 ∧ ics'[0]!.consumeInput = ics0[0]!.consumeInput ∧
+                (dcs0[0]!.entropyStartPass = .fn "noop" →
+                  dcs0[0]!.coefStartInputPass = .fn "noop" →
+                  dcs0[0]!.coefConsumeData = .fn "dummy_consume_data" →
+                  MultiScanReady h' dcs'[0]!)) ∧
+              (ics0[0]!.inheaders = 0 → ics'[0]!.consumeInput = .fn "dummy_consume_data")) ∨
+          (val = JPEG_REACHED_EOI ∧ ParserEnv ctx h' ∧ CompSawZero ctx h' ∧
+            (∀ ics', C.Space.get h' ctx.ric = some ics' → 0 < ics'.size → ics'[0]!.eoiReached ≠ 0)) ∨
+          val = JPEG_SUSPENDED) := by
+  obtain ⟨ics, hgic, hszic, _, hcon⟩ := parserEnv_get_ic hp
+  rcases hcon with hcm | hdum
+  · have hcmEq : (ics[0]!.consumeInput == .fn "consume_markers") = true := by simp [hcm]
+    obtain ⟨res, h', hrun, hpost⟩ := consume_markers_ok hp hsaw potBd hpotBd hpotHi hscanBd hstate
+    refine ⟨ics, res, h', hgic, hszic, ?_, fun hbad => by simp [hcm] at hbad, fun _ => ?_⟩
+    · unfold callConsumeInput; simp only [hcmEq, ↓reduceIte]; exact hrun
+    · rcases res with val | code
+      · rcases hpost with ⟨rfl, hp', hsaw', heoi, hsof, hmore⟩ | hEoi | hSusp
+        · refine Or.inl ⟨rfl, hp', hsaw', heoi, hsof, fun dcs' mrks' srcs' errs' dcs0 mrks0 srcs0 ics0 ics'
+              hgdc' hszdc' hgmrk' hszmrk' hgsrc' hszsrc' hgerr' hszerr' hgdc0 hszdc0 hgmrk0 hszmrk0 hgsrc0 hszsrc0 hgic0 hszic0 hgic' hszic' => ?_⟩
+          obtain ⟨hw, hr, hisn, _, h1, h2⟩ := hmore dcs' mrks' srcs' errs' dcs0 mrks0 srcs0 ics0 ics'
+            hgdc' hszdc' hgmrk' hszmrk' hgsrc' hszsrc' hgerr' hszerr' hgdc0 hszdc0 hgmrk0 hszmrk0 hgsrc0 hszsrc0 hgic0 hszic0 hgic' hszic'
+          exact ⟨hw, hr, hisn, h1, h2⟩
+        · exact Or.inr (Or.inl hEoi)
+        · exact Or.inr (Or.inr hSusp)
+      · trivial
+  · have hcmEq : (ics[0]!.consumeInput == .fn "consume_markers") = false := by simp [hdum]
+    have hdumEq : (ics[0]!.consumeInput == .fn "dummy_consume_data") = true := by simp [hdum]
+    refine ⟨ics, .ok JPEG_SUSPENDED, h, hgic, hszic, ?_, fun _ => ⟨rfl, rfl⟩, fun hbad => by simp [hdum] at hbad⟩
+    unfold callConsumeInput; simp only [hcmEq, hdumEq, Bool.false_eq_true, ↓reduceIte]; rfl
+
+private theorem jpeg_consume_input_ok {h : C.Heap} {cinfo : C.DecompPtr}
+    (hv : ValidDecompConsumeInput h cinfo) :
+    ∃ res h', C.run (jpeg_consume_input cinfo) h = .ok (res, h') ∧
+      (∀ rc dcs, cinfo = C.Ptr.ref rc 0 → C.Space.get h rc = some dcs → 0 < dcs.size →
+        dcs[0]!.globalState = DSTATE_START ∨ dcs[0]!.globalState = DSTATE_INHEADER →
+        res = .ok JPEG_REACHED_EOI → ValidDecompCore h' cinfo) := by
+  obtain ⟨hvBase, hconIn⟩ := hv
+  obtain ⟨ctx, potBd, hcEq, hp0, hsaw0, hpotLo, hpotHi, hpotBd0, hscanBd0⟩ := validIoBase_to_consumeEnv hvBase
+  subst hcEq
+  obtain ⟨dcs0, hgdc0, hszdc0, herr0, _, _, hic0, _, _⟩ := parserEnv_get_dc hp0
+  have hldc0 := jda_ptr_load_ok hgdc0 hszdc0
+  by_cases hhdr : (dcs0[0]!.globalState == DSTATE_START || dcs0[0]!.globalState == DSTATE_INHEADER) = true
+  · have prepState :
+        ∃ hP,
+          (∀ {α : Type} (jp : Unit → C.M α),
+            C.run (do
+              if (dcs0[0]!.globalState == DSTATE_START) = true then do
+                let ic0 ← C.Ptr.load dcs0[0]!.inputctl
+                callResetInputController (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) ic0.resetInputController
+                let dc1 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+                let src1 ← C.Ptr.load dc1.src
+                callInitSource (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) src1.initSource
+                let dc2 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+                let __r ← C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) { dc2 with globalState := DSTATE_INHEADER }
+                jp __r
+              else jp ()) h = C.run (jp ()) hP) ∧
+          ParserEnv ctx hP ∧ CompSawZero ctx hP ∧
+          (∀ dcs mrks srcs errs,
+            C.Space.get hP (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+            C.Space.get hP ctx.rmrk = some mrks → 0 < mrks.size →
+            C.Space.get hP ctx.rs = some srcs → 0 < srcs.size →
+            C.Space.get hP ctx.rerr = some errs → 0 < errs.size →
+            rmWarnPot errs srcs dcs[0]! + ↑(rmRank dcs[0]! mrks[0]! srcs[0]!) ≤ potBd) ∧
+          (∀ dcs, C.Space.get hP (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+            dcs[0]!.inputScanNumber.toInt + 2 ^ 20 + 6 < 2 ^ 31) ∧
+          (∀ ics dcs,
+            C.Space.get hP ctx.ric = some ics → 0 < ics.size →
+            C.Space.get hP (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+            ics[0]!.eoiReached ≠ 0 ∨ ics[0]!.inheaders ≠ 0 ∨ ics[0]!.hasMultipleScans = 0 ∨ MultiScanReady hP dcs[0]!) := by
+      by_cases hst : (dcs0[0]!.globalState == DSTATE_START) = true
+      · obtain ⟨ics0, hgic0, hszic0, hrst0, _⟩ := parserEnv_get_ic hp0
+        have hlic0 := jda_ptr_load_ok hgic0 hszic0
+        have hrstEq : (ics0[0]!.resetInputController == .fn "reset_input_controller") = true := by simp [hrst0]
+        obtain ⟨h1, hrunRst, hp1, hsaw1, hdc1, hic1, hmrk1, herr1, hsrc1⟩ := reset_input_controller_ok hp0
+        obtain ⟨dcs1, hgdc1, hszdc1, _, _, _, _, _, hsrc1_ref⟩ := parserEnv_get_dc hp1
+        have hldc1 := jda_ptr_load_ok hgdc1 hszdc1
+        obtain ⟨srcs1, hgsrc1, hszsrc1, his1, _⟩ := parserEnv_get_src hp1
+        have hlsrc1 := jda_ptr_load_ok hgsrc1 hszsrc1
+        have hisEq : (srcs1[0]!.initSource == .fn "init_mem_source") = true := by simp [his1]
+        have hroDc1 : C.Space.ro h1 (C.DecompRef.decomp ctx.bdc) = false := rfl
+        let dc2 : C.JpegDecompressStruct := { (dcs1[0]!) with globalState := DSTATE_INHEADER }
+        have hsDc1 := jda_ptr_store_ok dc2 hgdc1 hroDc1 hszdc1
+        let h2 := C.Space.put h1 (C.DecompRef.decomp ctx.bdc) (dcs1.set! 0 dc2)
+        have hp2 : ParserEnv ctx h2 := parserEnv_put_dc_keep' hp1 hgdc1 hszdc1
+          rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+        have hsaw2 : CompSawZero ctx h2 := compSawZero_put_dc_keep hsaw1 hgdc1 hszdc1 rfl
+        refine ⟨h2, ?_, hp2, hsaw2, ?_, ?_, ?_⟩
+        · intro α jp
+          simp only [hst, ↓reduceIte]
+          rw [C.run_bind, hic0, hlic0]; dsimp only
+          rw [C.run_bind, show C.run (callResetInputController (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) ics0[0]!.resetInputController) h = .ok ((), h1) by
+            unfold callResetInputController; simp only [hrstEq, ↓reduceIte]; exact hrunRst]
+          dsimp only
+          rw [C.run_bind, hldc1]; dsimp only
+          rw [C.run_bind, hsrc1_ref, hlsrc1]; dsimp only
+          rw [C.run_bind, show C.run (callInitSource (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) srcs1[0]!.initSource) h1 = .ok ((), h1) by
+            unfold callInitSource Mozjpeg.Jdatasrc.init_mem_source; simp only [hisEq, ↓reduceIte]; rfl]
+          dsimp only
+          rw [C.run_bind, hldc1]; dsimp only
+          rw [C.run_bind, hsDc1]
+        · intro dcs2 mrks2 srcs2 errs2 hgd2 hszd2 hgm2 hszm2 hgs2 hszs2 hge2 hsze2
+          have hd2eq : dcs2 = dcs1.set! 0 dc2 := by
+            simp [h2, C.Space.get, C.Space.put] at hgd2; exact hgd2.symm
+          have hm2eq : C.Space.get h1 ctx.rmrk = some mrks2 := by simp [h2, C.Space.get, C.Space.put] at hgm2; exact hgm2
+          have he2eq : C.Space.get h1 ctx.rerr = some errs2 := by simp [h2, C.Space.get, C.Space.put] at hge2; exact hge2
+          have hnw2 := herr1 errs2 he2eq hsze2
+          have hmk2 := (hmrk1 mrks2 hm2eq hszm2).1
+          obtain ⟨srcs2', hgsrc2', _, _, _, _, _, _, hcur2⟩ := parserEnv_get_src hp2
+          have hsEq2 : srcs2' = srcs2 := Option.some.inj (hgsrc2'.symm.trans hgs2)
+          have hbl2 : srcs2[0]!.bytesInBuffer.toNat < 2 ^ 20 := hsEq2 ▸ hcur2.1
+          rw [hd2eq, jda_array_set_bang_self dcs1 hszdc1 dc2]
+          unfold rmWarnPot warnPotVal rmRank rmSrcWeight
+          rw [hnw2, (hdc1 dcs1 hgdc1 hszdc1).2, hmk2]
+          have hz64 : (0 : Int64).toInt = 0 := rfl
+          have hz32ne : ((0 : Int32) != 0) = false := rfl
+          have hz32eq : ((0 : Int32) == 0) = true := rfl
+          rw [hz64, hz32ne, hz32eq]
+          simp only [Bool.false_eq_true, ↓reduceIte]
+          by_cases hce : isConstEofPtr srcs2[0]!.nextInputByte = true
+          · simp only [hce, ↓reduceIte]; omega
+          · have hceF : isConstEofPtr srcs2[0]!.nextInputByte = false := Bool.eq_false_iff.mpr hce
+            simp only [hceF, Bool.false_eq_true, ↓reduceIte]; omega
+        · intro dcs2 hgd2 hszd2
+          have hd2eq : dcs2 = dcs1.set! 0 dc2 := by
+            simp [h2, C.Space.get, C.Space.put] at hgd2; exact hgd2.symm
+          rw [hd2eq, jda_array_set_bang_self dcs1 hszdc1 dc2]
+          change dcs1[0]!.inputScanNumber.toInt + 2 ^ 20 + 6 < 2 ^ 31
+          rw [(hdc1 dcs1 hgdc1 hszdc1).1]
+          decide
+        · intro ics2 dcs2 hgi2 hszi2 hgd2 hszd2
+          have hi2eq : C.Space.get h1 ctx.ric = some ics2 := by simp [h2, C.Space.get, C.Space.put] at hgi2; exact hgi2
+          exact Or.inr (Or.inl (by rw [(hic1 ics2 hi2eq hszi2).1]; decide))
+      · have hstF : (dcs0[0]!.globalState == DSTATE_START) = false := Bool.eq_false_iff.mpr hst
+        refine ⟨h, ?_, hp0, hsaw0, hpotBd0, ?_, ?_⟩
+        · intro α jp
+          simp only [hstF, Bool.false_eq_true, ↓reduceIte]
+        · intro dcs hgd hszd
+          have hsb := hscanBd0 dcs hgd hszd
+          omega
+        · intro ics dcs hgi hszi hgd hszd
+          have hneSt : dcs[0]!.globalState ≠ DSTATE_START := by
+            have hdEq : dcs = dcs0 := Option.some.inj (hgd.symm.trans hgdc0)
+            subst hdEq; simpa using hstF
+          rcases hconIn (C.DecompRef.decomp ctx.bdc) dcs dcs[0]! ctx.ric ics rfl hgd hszd rfl
+            (by rw [Option.some.inj (hgd.symm.trans hgdc0)]; exact hic0) hgi hszi with h1 | h2 | h3 | h4 | h5
+          · exact absurd h1 hneSt
+          · exact Or.inr (Or.inl h2)
+          · exact Or.inl h3
+          · exact Or.inr (Or.inr (Or.inl h4))
+          · exact Or.inr (Or.inr (Or.inr h5))
+    obtain ⟨hP, hrunHead, hpP, hsawP, hpotBdP, hscanBdP, hstateP⟩ := prepState
+    obtain ⟨dcsP, hgdcP, hszdcP, _, _, _, hicP, _, _⟩ := parserEnv_get_dc hpP
+    have hldcP := jda_ptr_load_ok hgdcP hszdcP
+    obtain ⟨icsP, resC, hC, hgicP, hszicP, hrunC, hdumC, hcmC⟩ :=
+      callConsumeInput_ok hpP hsawP potBd hpotBdP hpotHi hscanBdP hstateP
+    have hlicP := jda_ptr_load_ok hgicP hszicP
+    have jpPart :
+        ∃ res h',
+          C.run (do
+            let dc3 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+            let ic3 ← C.Ptr.load dc3.inputctl
+            let __do_lift ← callConsumeInput (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) ic3.consumeInput
+            match __do_lift with
+              | C.JpegRes.errExit code => pure (C.JpegRes.errExit code)
+              | C.JpegRes.ok retcode =>
+                if (retcode == JPEG_REACHED_SOS) = true then do
+                    default_decompress_parms (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+                    let dc4 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+                    let __r ← C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) { dc4 with globalState := DSTATE_READY }
+                    pure (C.JpegRes.ok retcode)
+                  else pure (C.JpegRes.ok retcode)) hP = .ok (res, h') ∧
+          (res = C.JpegRes.ok JPEG_REACHED_EOI → ValidDecompCore h' (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)) := by
+      obtain ⟨icsW, hgiW, _, _, hconP⟩ := parserEnv_get_ic hpP
+      rw [Option.some.inj (hgiW.symm.trans hgicP)] at hconP
+      rcases hconP with hcm | hdum
+      · have hcmRes := hcmC hcm
+        rcases resC with val | code
+        · rcases hcmRes with ⟨rfl, hpC, hsawC, _heoiC, hsofC, hmoreC⟩ | ⟨rfl, hpC, _⟩ | rfl
+          · have hbdC : ∀ errs, C.Space.get hC ctx.rerr = some errs → 0 < errs.size →
+                errs[0]!.numWarnings.toInt + 1 < 2 ^ 63 := by
+              intro errs hge hsze
+              obtain ⟨dcsC, hgdcC, hszdcC, _⟩ := parserEnv_get_dc hpC
+              obtain ⟨icsC, hgicC, hszicC, _⟩ := parserEnv_get_ic hpC
+              obtain ⟨mrksC, hgmrkC, hszmrkC, _⟩ := parserEnv_get_mrk hpC
+              obtain ⟨srcsC, hgsrcC, hszsrcC, _⟩ := parserEnv_get_src hpC
+              obtain ⟨mrksP, hgmrkP, hszmrkP, _⟩ := parserEnv_get_mrk hpP
+              obtain ⟨srcsP, hgsrcP, hszsrcP, _⟩ := parserEnv_get_src hpP
+              have hwp := (hmoreC dcsC mrksC srcsC errs dcsP mrksP srcsP icsP icsC
+                hgdcC hszdcC hgmrkC hszmrkC hgsrcC hszsrcC hge hsze hgdcP hszdcP hgmrkP hszmrkP hgsrcP hszsrcP
+                hgicP hszicP hgicC hszicC).1
+              have : errs[0]!.numWarnings.toInt ≤ potBd := by
+                unfold rmWarnPot warnPotVal at hwp
+                split at hwp <;> (try split at hwp) <;> omega
+              omega
+            obtain ⟨hD, hrunD, dcsD, hgdcD, hszdcD⟩ := default_decompress_parms_ok hpC hsofC hbdC
+            have hlD := jda_ptr_load_ok hgdcD hszdcD
+            have hroD : C.Space.ro hD (C.DecompRef.decomp ctx.bdc) = false := rfl
+            let dc5 : C.JpegDecompressStruct := { (dcsD[0]!) with globalState := DSTATE_READY }
+            have hsD := jda_ptr_store_ok dc5 hgdcD hroD hszdcD
+            have hvsos : (JPEG_REACHED_SOS == JPEG_REACHED_SOS) = true := by decide
+            refine ⟨.ok JPEG_REACHED_SOS, C.Space.put hD (C.DecompRef.decomp ctx.bdc) (dcsD.set! 0 dc5), ?_, fun hbad => by cases hbad⟩
+            rw [C.run_bind, hldcP]; dsimp only
+            rw [C.run_bind, hicP, hlicP]; dsimp only
+            rw [C.run_bind, hrunC]; dsimp only
+            simp only [hvsos, ↓reduceIte, C.run_bind]
+            rw [hrunD]; dsimp only
+            rw [hlD]; dsimp only
+            rw [hsD]; rfl
+          · have hveoi : (JPEG_REACHED_EOI == JPEG_REACHED_SOS) = false := by decide
+            refine ⟨.ok JPEG_REACHED_EOI, hC, ?_, fun _ => hpC.1⟩
+            rw [C.run_bind, hldcP]; dsimp only
+            rw [C.run_bind, hicP, hlicP]; dsimp only
+            rw [C.run_bind, hrunC]; dsimp only
+            simp only [hveoi, Bool.false_eq_true, ↓reduceIte]; rfl
+          · have hvsusp : (JPEG_SUSPENDED == JPEG_REACHED_SOS) = false := by decide
+            refine ⟨.ok JPEG_SUSPENDED, hC, ?_, fun hbad => by cases hbad⟩
+            rw [C.run_bind, hldcP]; dsimp only
+            rw [C.run_bind, hicP, hlicP]; dsimp only
+            rw [C.run_bind, hrunC]; dsimp only
+            simp only [hvsusp, Bool.false_eq_true, ↓reduceIte]; rfl
+        · refine ⟨.errExit code, hC, ?_, fun hbad => by cases hbad⟩
+          rw [C.run_bind, hldcP]; dsimp only
+          rw [C.run_bind, hicP, hlicP]; dsimp only
+          rw [C.run_bind, hrunC]; rfl
+      · obtain ⟨hresEq, hCEq⟩ := hdumC hdum
+        have hvsusp : (JPEG_SUSPENDED == JPEG_REACHED_SOS) = false := by decide
+        refine ⟨.ok JPEG_SUSPENDED, hP, ?_, fun hbad => by cases hbad⟩
+        rw [C.run_bind, hldcP]; dsimp only
+        rw [C.run_bind, hicP, hlicP]; dsimp only
+        rw [C.run_bind, hrunC, hresEq, hCEq]; dsimp only
+        simp only [hvsusp, Bool.false_eq_true, ↓reduceIte]; rfl
+    obtain ⟨res, h', hrunJp, hvalCore⟩ := jpPart
+    refine ⟨res, h', ?_, fun rc dcs hc1 hgd hszd _ hres => ?_⟩
+    · unfold jpeg_consume_input
+      rw [C.run_bind, hldc0]; dsimp only
+      simp only [hhdr, ↓reduceIte]
+      exact (hrunHead _).trans hrunJp
+    · exact hvalCore hres
+  · have hhdrF : (dcs0[0]!.globalState == DSTATE_START || dcs0[0]!.globalState == DSTATE_INHEADER) = false :=
+      Bool.eq_false_iff.mpr hhdr
+    by_cases hrdy : (dcs0[0]!.globalState == DSTATE_READY) = true
+    · refine ⟨.ok JPEG_REACHED_SOS, h, ?_, fun rc dcs hc1 hgd hszd hd0 hres => ?_⟩
+      · unfold jpeg_consume_input
+        rw [C.run_bind, hldc0]; dsimp only
+        simp only [hhdrF, hrdy, Bool.false_eq_true, ↓reduceIte]; rfl
+      · cases hres
+    · have hrdyF : (dcs0[0]!.globalState == DSTATE_READY) = false := Bool.eq_false_iff.mpr hrdy
+      by_cases hrunSt : (dcs0[0]!.globalState == DSTATE_PRELOAD || dcs0[0]!.globalState == DSTATE_PRESCAN ||
+          dcs0[0]!.globalState == DSTATE_SCANNING || dcs0[0]!.globalState == DSTATE_RAW_OK ||
+          dcs0[0]!.globalState == DSTATE_BUFIMAGE || dcs0[0]!.globalState == DSTATE_BUFPOST ||
+          dcs0[0]!.globalState == DSTATE_STOPPING) = true
+      · have hstate0 : ∀ ics dcs,
+            C.Space.get h ctx.ric = some ics → 0 < ics.size →
+            C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+            ics[0]!.eoiReached ≠ 0 ∨ ics[0]!.inheaders ≠ 0 ∨ ics[0]!.hasMultipleScans = 0 ∨ MultiScanReady h dcs[0]! := by
+          intro ics dcs hgi hszi hgd hszd
+          have hneSt : dcs[0]!.globalState ≠ DSTATE_START := by
+            intro heq
+            have hdEq : dcs = dcs0 := Option.some.inj (hgd.symm.trans hgdc0)
+            subst hdEq; simp [heq] at hhdrF
+          rcases hconIn (C.DecompRef.decomp ctx.bdc) dcs dcs[0]! ctx.ric ics rfl hgd hszd rfl
+            (by rw [Option.some.inj (hgd.symm.trans hgdc0)]; exact hic0) hgi hszi with h1 | h2 | h3 | h4 | h5
+          · exact absurd h1 hneSt
+          · exact Or.inr (Or.inl h2)
+          · exact Or.inl h3
+          · exact Or.inr (Or.inr (Or.inl h4))
+          · exact Or.inr (Or.inr (Or.inr h5))
+        have hscan0 : ∀ dcs, C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+            dcs[0]!.inputScanNumber.toInt + 2 ^ 20 + 6 < 2 ^ 31 := by
+          intro dcs hgd hszd
+          have hsb := hscanBd0 dcs hgd hszd
+          omega
+        obtain ⟨ics0, resC, hC, hgic0, hszic0, hrunC, hdumC, hcmC⟩ :=
+          callConsumeInput_ok hp0 hsaw0 potBd hpotBd0 hpotHi hscan0 hstate0
+        have hlic0 := jda_ptr_load_ok hgic0 hszic0
+        refine ⟨resC, hC, ?_, fun rc dcs hc1 hgd hszd _ hres => ?_⟩
+        · unfold jpeg_consume_input
+          rw [C.run_bind, hldc0]; dsimp only
+          simp only [hhdrF, hrdyF, hrunSt, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+          rw [hic0, hlic0]; dsimp only; exact hrunC
+        · obtain ⟨icsW, hgiW, _, _, hcon0⟩ := parserEnv_get_ic hp0
+          rw [Option.some.inj (hgiW.symm.trans hgic0)] at hcon0
+          rcases hcon0 with hcm | hdum
+          · rcases resC with val | code
+            · rcases hcmC hcm with ⟨rfl, _, _⟩ | ⟨rfl, hpC, _⟩ | rfl
+              · cases hres
+              · cases hc1; exact hpC.1
+              · cases hres
+            · cases hres
+          · obtain ⟨hresEq, _⟩ := hdumC hdum
+            rw [hresEq] at hres; cases hres
+      · have hrunStF : (dcs0[0]!.globalState == DSTATE_PRELOAD || dcs0[0]!.globalState == DSTATE_PRESCAN ||
+            dcs0[0]!.globalState == DSTATE_SCANNING || dcs0[0]!.globalState == DSTATE_RAW_OK ||
+            dcs0[0]!.globalState == DSTATE_BUFIMAGE || dcs0[0]!.globalState == DSTATE_BUFPOST ||
+            dcs0[0]!.globalState == DSTATE_STOPPING) = false := Bool.eq_false_iff.mpr hrunSt
+        obtain ⟨errs0, hgerr0, hszerr0, _⟩ := parserEnv_get_err hp0
+        obtain ⟨hE, hrunE⟩ := jda_errexit1_ok hgerr0 hszerr0 JERR_BAD_STATE dcs0[0]!.globalState
+        refine ⟨.errExit JERR_BAD_STATE, hE, ?_, fun rc dcs hc1 hgd hszd _ hres => ?_⟩
+        · unfold jpeg_consume_input
+          rw [C.run_bind, hldc0]; dsimp only
+          simp only [hhdrF, hrdyF, hrunStF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+          rw [herr0, hrunE]; rfl
+        · cases hres
+
+theorem jpeg_consume_input_safety : Goal.jpeg_consume_input_safety := by
+  intro h cinfo hv
+  obtain ⟨res, h', hrun, _⟩ := jpeg_consume_input_ok hv
+  exact ⟨res, h', hrun⟩
+
+theorem jpeg_read_header_safety : Goal.jpeg_read_header_safety := by
+  intro h cinfo require_image hv
+  have hvBase := hv.1
+  have hconIn := hv.2
+  obtain ⟨hcore, _hfr, rc, dcs, dc, rerr, errs, _rmem, _mems, _rmas, _masters, _ric, _ics,
+    _rmrk, _mrks, _rs, _srcs, hc, hgdc, hszdc, hdc, herr, hgerr, hszerr, _⟩ := hv.1
+  subst hc
+  have hldc := jda_ptr_load_ok hgdc hszdc
+  rw [← hdc] at hldc
+  by_cases hbad : (dc.globalState != DSTATE_START && dc.globalState != DSTATE_INHEADER) = true
+  · obtain ⟨hE, hrunE⟩ := jda_errexit1_ok hgerr hszerr JERR_BAD_STATE dc.globalState
+    refine ⟨.errExit JERR_BAD_STATE, hE, ?_⟩
+    unfold jpeg_read_header
+    rw [C.run_bind, hldc]; dsimp only
+    simp only [hbad, ↓reduceIte, C.run_bind]
+    rw [herr, hrunE]; rfl
+  · have hbadF : (dc.globalState != DSTATE_START && dc.globalState != DSTATE_INHEADER) = false :=
+      Bool.eq_false_iff.mpr hbad
+    have hhdr : dc.globalState = DSTATE_START ∨ dc.globalState = DSTATE_INHEADER := by
+      by_cases h1 : (dc.globalState == DSTATE_START) = true
+      · exact Or.inl (by simpa using h1)
+      · by_cases h2 : (dc.globalState == DSTATE_INHEADER) = true
+        · exact Or.inr (by simpa using h2)
+        · exfalso
+          have h1F : (dc.globalState == DSTATE_START) = false := Bool.eq_false_iff.mpr h1
+          have h2F : (dc.globalState == DSTATE_INHEADER) = false := Bool.eq_false_iff.mpr h2
+          simp [bne, h1F, h2F] at hbadF
+    obtain ⟨resC, hC, hrunC, hcoreC⟩ := jpeg_consume_input_ok ⟨hvBase, hconIn⟩
+    rcases resC with retcode | code
+    · by_cases hsos : (retcode == JPEG_REACHED_SOS) = true
+      · refine ⟨.ok JPEG_HEADER_OK, hC, ?_⟩
+        unfold jpeg_read_header
+        rw [C.run_bind, hldc]; dsimp only
+        simp only [hbadF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+        rw [hrunC]; dsimp only
+        simp only [hsos, ↓reduceIte]; rfl
+      · have hsosF : (retcode == JPEG_REACHED_SOS) = false := Bool.eq_false_iff.mpr hsos
+        by_cases heoi : (retcode == JPEG_REACHED_EOI) = true
+        · have heoiVal : retcode = JPEG_REACHED_EOI := by simpa using heoi
+          have hcoreE : ValidDecompCore hC (C.Ptr.ref rc 0) :=
+            hcoreC rc dcs rfl hgdc hszdc (hdc ▸ hhdr) (by rw [heoiVal])
+          by_cases hreq : (require_image != 0) = true
+          · obtain ⟨rc1, dcs1, dc1, _, _, _, _, _, _, _, _, hrcEq, hgdc1, hszdc1, hdc1, herrV1, _⟩ := hcoreE
+            have hrc1 : rc = rc1 := by injection hrcEq
+            subst hrc1
+            obtain ⟨rerr1, errs1, herr1, hgerr1, hszerr1⟩ := herrV1
+            have hldc1 := jda_ptr_load_ok hgdc1 hszdc1
+            rw [← hdc1] at hldc1
+            obtain ⟨hE, hrunE⟩ := jda_errexit_ok hgerr1 hszerr1 JERR_NO_IMAGE
+            refine ⟨.errExit JERR_NO_IMAGE, hE, ?_⟩
+            unfold jpeg_read_header
+            rw [C.run_bind, hldc]; dsimp only
+            simp only [hbadF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+            rw [hrunC]; dsimp only
+            simp only [hsosF, heoi, hreq, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+            rw [hldc1]; dsimp only
+            rw [herr1, hrunE]; rfl
+          · have hreqF : (require_image != 0) = false := Bool.eq_false_iff.mpr hreq
+            obtain ⟨hEnd, hrunAb⟩ := jpeg_abort_safety hC (C.Ptr.ref rc 0) hcoreE
+            refine ⟨.ok JPEG_HEADER_TABLES_ONLY, hEnd, ?_⟩
+            unfold jpeg_read_header
+            rw [C.run_bind, hldc]; dsimp only
+            simp only [hbadF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+            rw [hrunC]; dsimp only
+            simp only [hsosF, heoi, hreqF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+            rw [hrunAb]; rfl
+        · have heoiF : (retcode == JPEG_REACHED_EOI) = false := Bool.eq_false_iff.mpr heoi
+          refine ⟨.ok retcode, hC, ?_⟩
+          unfold jpeg_read_header
+          rw [C.run_bind, hldc]; dsimp only
+          simp only [hbadF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+          rw [hrunC]; dsimp only
+          simp only [hsosF, heoiF, Bool.false_eq_true, ↓reduceIte]; rfl
+    · refine ⟨.errExit code, hC, ?_⟩
+      unfold jpeg_read_header
+      rw [C.run_bind, hldc]; dsimp only
+      simp only [hbadF, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+      rw [hrunC]; rfl
+
+private def finishCond (ctx : IoCtx) (s : FinishLoopState) : C.M (Bool × FinishLoopState) :=
+  if s.done = true then pure (false, s)
+  else do
+    let dcL ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+    let icL ← C.Ptr.load dcL.inputctl
+    pure (icL.eoiReached == 0, s)
+
+private def finishBody (ctx : IoCtx) (_x : FinishLoopState) : C.M FinishLoopState := do
+  let dcL ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+  let icL ← C.Ptr.load dcL.inputctl
+  let __do_lift ← callConsumeInput (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) icL.consumeInput
+  match __do_lift with
+    | C.JpegRes.errExit code => pure { done := true, ret := C.JpegRes.errExit code }
+    | C.JpegRes.ok val =>
+      if (val == JPEG_SUSPENDED) = true then pure { done := true, ret := C.JpegRes.ok FALSE }
+      else pure { done := false, ret := C.JpegRes.ok TRUE }
+
+private def FinishInv (ctx : IoCtx) (potBd : Int) (scanTotBd : Nat)
+    (k : Nat) (h : C.Heap) (st : FinishLoopState) : Prop :=
+  if st.done then k = 0
+  else
+    ParserEnv ctx h ∧ CompSawZero ctx h ∧
+    potBd + 2 ^ 23 < 2 ^ 63 ∧ scanTotBd + 2 ^ 20 + 6 < 2 ^ 31 ∧
+    ∃ ics dcs mrks srcs,
+      C.Space.get h ctx.ric = some ics ∧ 0 < ics.size ∧
+      C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs ∧ 0 < dcs.size ∧
+      C.Space.get h ctx.rmrk = some mrks ∧ 0 < mrks.size ∧
+      C.Space.get h ctx.rs = some srcs ∧ 0 < srcs.size ∧
+      if ics[0]!.eoiReached ≠ 0 then k = 0
+      else
+        k = (if ics[0]!.consumeInput == .fn "dummy_consume_data" then 1
+             else rmRank dcs[0]! mrks[0]! srcs[0]! + 2) ∧
+        (∀ dcs1 mrks1 srcs1 errs1,
+          C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs1 → 0 < dcs1.size →
+          C.Space.get h ctx.rmrk = some mrks1 → 0 < mrks1.size →
+          C.Space.get h ctx.rs = some srcs1 → 0 < srcs1.size →
+          C.Space.get h ctx.rerr = some errs1 → 0 < errs1.size →
+          rmWarnPot errs1 srcs1 dcs1[0]! + ↑(rmRank dcs1[0]! mrks1[0]! srcs1[0]!) ≤ potBd) ∧
+        (∀ ics1 dcs1,
+          C.Space.get h ctx.ric = some ics1 → 0 < ics1.size →
+          C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs1 → 0 < dcs1.size →
+          dcs1[0]!.inputScanNumber.toInt +
+            (if ics1[0]!.consumeInput == .fn "dummy_consume_data" then 0
+             else if ics1[0]!.inheaders == 0 then 1 else 2) ≤ ↑scanTotBd) ∧
+        (∀ ics1 dcs1,
+          C.Space.get h ctx.ric = some ics1 → 0 < ics1.size →
+          C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs1 → 0 < dcs1.size →
+          (ics1[0]!.inheaders ≠ 0 ∧ dcs1[0]!.entropyStartPass = .fn "noop" ∧
+            dcs1[0]!.coefStartInputPass = .fn "noop" ∧ dcs1[0]!.coefConsumeData = .fn "dummy_consume_data") ∨
+          ics1[0]!.eoiReached ≠ 0 ∨
+          ics1[0]!.consumeInput = .fn "dummy_consume_data" ∨
+          (ics1[0]!.inheaders = 0 ∧ ics1[0]!.hasMultipleScans = 0) ∨
+          MultiScanReady h dcs1[0]!)
+
+private theorem rmRank_lt_2p24 (dc : C.JpegDecompressStruct) (mrk : C.JpegMarkerReader)
+    (src : C.JpegSourceMgr) (hbl : src.bytesInBuffer.toNat < 2 ^ 20) :
+    rmRank dc mrk src < 2 ^ 24 := by
+  unfold rmRank rmSrcWeight
+  by_cases hce : isConstEofPtr src.nextInputByte = true
+  · simp only [hce, ↓reduceIte]; split <;> split <;> omega
+  · have hceF : isConstEofPtr src.nextInputByte = false := Bool.eq_false_iff.mpr hce
+    simp only [hceF, Bool.false_eq_true, ↓reduceIte]; split <;> split <;> omega
+
+private theorem finish_init_inv {ctx : IoCtx} {potBd : Int} {scanTotBd : Nat} {hL : C.Heap}
+    (hpL : ParserEnv ctx hL) (hsawL : CompSawZero ctx hL)
+    (hpotHi : potBd + 2 ^ 23 < 2 ^ 63) (hscanTotHi : scanTotBd + 2 ^ 20 + 6 < 2 ^ 31)
+    (hpbL : ∀ dcs1 mrks1 srcs1 errs1,
+      C.Space.get hL (C.DecompRef.decomp ctx.bdc) = some dcs1 → 0 < dcs1.size →
+      C.Space.get hL ctx.rmrk = some mrks1 → 0 < mrks1.size →
+      C.Space.get hL ctx.rs = some srcs1 → 0 < srcs1.size →
+      C.Space.get hL ctx.rerr = some errs1 → 0 < errs1.size →
+      rmWarnPot errs1 srcs1 dcs1[0]! + ↑(rmRank dcs1[0]! mrks1[0]! srcs1[0]!) ≤ potBd)
+    (hsbL : ∀ ics1 dcs1,
+      C.Space.get hL ctx.ric = some ics1 → 0 < ics1.size →
+      C.Space.get hL (C.DecompRef.decomp ctx.bdc) = some dcs1 → 0 < dcs1.size →
+      dcs1[0]!.inputScanNumber.toInt +
+        (if ics1[0]!.consumeInput == .fn "dummy_consume_data" then 0
+         else if ics1[0]!.inheaders == 0 then 1 else 2) ≤ ↑scanTotBd)
+    (hstL : ∀ ics1 dcs1,
+      C.Space.get hL ctx.ric = some ics1 → 0 < ics1.size →
+      C.Space.get hL (C.DecompRef.decomp ctx.bdc) = some dcs1 → 0 < dcs1.size →
+      (ics1[0]!.inheaders ≠ 0 ∧ dcs1[0]!.entropyStartPass = .fn "noop" ∧
+        dcs1[0]!.coefStartInputPass = .fn "noop" ∧ dcs1[0]!.coefConsumeData = .fn "dummy_consume_data") ∨
+      ics1[0]!.eoiReached ≠ 0 ∨
+      ics1[0]!.consumeInput = .fn "dummy_consume_data" ∨
+      (ics1[0]!.inheaders = 0 ∧ ics1[0]!.hasMultipleScans = 0) ∨
+      MultiScanReady hL dcs1[0]!) :
+    ∃ kL, kL < C.fuel ∧ FinishInv ctx potBd scanTotBd kL hL { done := false, ret := .ok TRUE } := by
+  obtain ⟨icsL, hgicL, hszicL, _⟩ := parserEnv_get_ic hpL
+  obtain ⟨dcsL, hgdcL, hszdcL, _⟩ := parserEnv_get_dc hpL
+  obtain ⟨mrksL, hgmrkL, hszmrkL, _⟩ := parserEnv_get_mrk hpL
+  obtain ⟨srcsL, hgsrcL, hszsrcL, _, _, _, _, _, hcurL⟩ := parserEnv_get_src hpL
+  let kL := if icsL[0]!.eoiReached ≠ 0 then 0
+    else if icsL[0]!.consumeInput == .fn "dummy_consume_data" then 1
+    else rmRank dcsL[0]! mrksL[0]! srcsL[0]! + 2
+  have hkLF : kL < C.fuel := by
+    have hrmLt : rmRank dcsL[0]! mrksL[0]! srcsL[0]! < 2 ^ 24 :=
+      rmRank_lt_2p24 dcsL[0]! mrksL[0]! srcsL[0]! hcurL.1
+    dsimp only [kL, C.fuel]
+    split <;> (try split) <;> omega
+  refine ⟨kL, hkLF, ?_⟩
+  simp only [FinishInv]
+  refine ⟨hpL, hsawL, hpotHi, hscanTotHi, icsL, dcsL, mrksL, srcsL,
+    hgicL, hszicL, hgdcL, hszdcL, hgmrkL, hszmrkL, hgsrcL, hszsrcL, ?_⟩
+  by_cases heoi : icsL[0]!.eoiReached ≠ 0
+  · rw [ite_eq_left_of_eq_true _ _ (eq_true heoi)]; dsimp only [kL]; rw [ite_eq_left_of_eq_true _ _ (eq_true heoi)]
+  · rw [ite_eq_right_of_eq_false _ _ (eq_false heoi)]; refine ⟨?_, hpbL, hsbL, hstL⟩
+    dsimp only [kL]; rw [ite_eq_right_of_eq_false _ _ (eq_false heoi)]
+
+private theorem finish_loop_ok {ctx : IoCtx} {potBd : Int} {scanTotBd : Nat} {hL : C.Heap}
+    (hInv : ∃ kL, kL < C.fuel ∧ FinishInv ctx potBd scanTotBd kL hL { done := false, ret := .ok TRUE }) :
+    ∃ res hEnd,
+      C.run (do
+        let st ← C.cwhile (finishCond ctx) (finishBody ctx) { done := false, ret := .ok TRUE }
+        if st.done = true then pure st.ret
+        else do
+          let dcF ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+          let srcF ← C.Ptr.load dcF.src
+          callTermSource (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) srcF.termSource
+          jpeg_abort (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+          pure (.ok TRUE)) hL = .ok (res, hEnd) := by
+  obtain ⟨kL, hkLFuel, hInvL⟩ := hInv
+  have hstep : ∀ k hx st, FinishInv ctx potBd scanTotBd k hx st →
+      ∃ c s' h1, C.run (finishCond ctx st) hx = .ok ((c, s'), h1) ∧
+        if c = true then ∃ k' s2 h2, C.run (finishBody ctx s') h1 = .ok (s2, h2) ∧ k' < k ∧ FinishInv ctx potBd scanTotBd k' h2 s2
+        else (s'.done = true ∨ ParserEnv ctx h1) := by
+    intro k hx st hinv
+    by_cases hdn : st.done = true
+    · refine ⟨false, st, hx, ?_, Or.inl hdn⟩
+      simp only [finishCond, hdn, ↓reduceIte]; rfl
+    · have hdnF : st.done = false := Bool.eq_false_iff.mpr hdn
+      simp only [FinishInv, hdnF] at hinv
+      obtain ⟨hpX, hsawX, hpotHiX, hscHiX, icsX, dcsX, mrksX, srcsX,
+        hgicX, hszicX, hgdcX, hszdcX, hgmrkX, hszmrkX, hgsrcX, hszsrcX, hrest⟩ := hinv
+      obtain ⟨dcsX', hgdcX', hszdcX', _, _, _, hicX, _, _⟩ := parserEnv_get_dc hpX
+      have hdEq : dcsX' = dcsX := Option.some.inj (hgdcX'.symm.trans hgdcX)
+      rw [hdEq] at hicX
+      have hldcX := hdEq ▸ jda_ptr_load_ok hgdcX' hszdcX'
+      have hlicX := jda_ptr_load_ok hgicX hszicX
+      by_cases heoiX : icsX[0]!.eoiReached ≠ 0
+      · have heoiEq : (icsX[0]!.eoiReached == 0) = false := by
+          simp; exact heoiX
+        refine ⟨false, st, hx, ?_, Or.inr hpX⟩
+        simp only [finishCond, hdnF, Bool.false_eq_true, ↓reduceIte]
+        rw [C.run_bind, hldcX]; dsimp only
+        rw [C.run_bind, hicX, hlicX]; dsimp only
+        simp only [heoiEq]; rfl
+      · have heoiEq0 : icsX[0]!.eoiReached = 0 := Classical.not_not.mp heoiX
+        have heoiT : (icsX[0]!.eoiReached == 0) = true := by simp [heoiEq0]
+        simp only [heoiX, ↓reduceIte] at hrest
+        obtain ⟨hkEq, hpotBdX, hscBdX, hstX⟩ := hrest
+        have hstateX : ∀ ics dcs,
+            C.Space.get hx ctx.ric = some ics → 0 < ics.size →
+            C.Space.get hx (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+            ics[0]!.consumeInput = .fn "consume_markers" →
+            ics[0]!.eoiReached ≠ 0 ∨ ics[0]!.inheaders ≠ 0 ∨ ics[0]!.hasMultipleScans = 0 ∨ MultiScanReady hx dcs[0]! := by
+          intro ics dcs hgi hszi hgd hszd hcm
+          rcases hstX ics dcs hgi hszi hgd hszd with h1 | h2 | h3 | h4 | h5
+          · exact Or.inr (Or.inl h1.1)
+          · exact Or.inl h2
+          · rw [hcm] at h3; simp at h3
+          · exact Or.inr (Or.inr (Or.inl h4.2))
+          · exact Or.inr (Or.inr (Or.inr h5))
+        obtain ⟨icsW, hgiW, _, _, hconX⟩ := parserEnv_get_ic hpX
+        rw [Option.some.inj (hgiW.symm.trans hgicX)] at hconX
+        rcases hconX with hcm | hdum
+        · have hscanBdX : ∀ dcs, C.Space.get hx (C.DecompRef.decomp ctx.bdc) = some dcs → 0 < dcs.size →
+              dcs[0]!.inputScanNumber.toInt + 2 ^ 20 + 6 < 2 ^ 31 := by
+            intro dcs hgd hszd
+            have hb := hscBdX icsX dcs hgicX hszicX hgd hszd
+            omega
+          obtain ⟨icsC0, resC, hC, hgicC0, hszicC0, hrunC, _, hcmC⟩ :=
+            callConsumeInput_ok hpX hsawX potBd hpotBdX hpotHiX hscanBdX
+              (fun ics dcs hgi hszi hgd hszd =>
+                hstateX ics dcs hgi hszi hgd hszd
+                  (by rw [Option.some.inj (hgi.symm.trans hgicX)]; exact hcm))
+          rw [Option.some.inj (hgicC0.symm.trans hgicX)] at hcmC hrunC
+          have hcmRes := hcmC hcm
+          have hkGe : 2 < k := by
+            have hdumF : (icsX[0]!.consumeInput == .fn "dummy_consume_data") = false := by simp [hcm]
+            rw [hkEq]; simp only [hdumF, Bool.false_eq_true, ↓reduceIte]
+            unfold rmRank; omega
+          refine ⟨true, st, hx, ?_, ?_⟩
+          · simp only [finishCond, hdnF, Bool.false_eq_true, ↓reduceIte]
+            rw [C.run_bind, hldcX]; dsimp only
+            rw [C.run_bind, hicX, hlicX]; dsimp only
+            simp only [heoiT]; rfl
+          · rcases resC with val | code
+            · rcases hcmRes with ⟨rfl, hpC, hsawC, heoiC, _hsofC, hmoreC⟩ | ⟨rfl, hpC, _hsawC, heoiC⟩ | rfl
+              · have hsosF : (JPEG_REACHED_SOS == JPEG_SUSPENDED) = false := by decide
+                let st' : FinishLoopState := { done := false, ret := .ok TRUE }
+                obtain ⟨dcsC, hgdcC, hszdcC, _⟩ := parserEnv_get_dc hpC
+                obtain ⟨icsC, hgicC, hszicC, _⟩ := parserEnv_get_ic hpC
+                obtain ⟨mrksC, hgmrkC, hszmrkC, _⟩ := parserEnv_get_mrk hpC
+                obtain ⟨srcsC, hgsrcC, hszsrcC, _⟩ := parserEnv_get_src hpC
+                obtain ⟨errsC, hgerrC, hszerrC, _⟩ := parserEnv_get_err hpC
+                let k' := if icsC[0]!.consumeInput == .fn "dummy_consume_data" then 1
+                  else rmRank dcsC[0]! mrksC[0]! srcsC[0]! + 2
+                have heoiCF : ¬ icsC[0]!.eoiReached ≠ 0 := by
+                  intro h0; exact absurd (heoiC icsC hgicC hszicC) h0
+                have hlt : k' < k := by
+                  have hmore0 := hmoreC dcsC mrksC srcsC errsC dcsX mrksX srcsX icsX icsC
+                    hgdcC hszdcC hgmrkC hszmrkC hgsrcC hszsrcC hgerrC hszerrC
+                    hgdcX hszdcX hgmrkX hszmrkX hgsrcX hszsrcX hgicX hszicX hgicC hszicC
+                  have hrkLt : rmRank dcsC[0]! mrksC[0]! srcsC[0]! < rmRank dcsX[0]! mrksX[0]! srcsX[0]! := hmore0.2.1
+                  have hdumF : (icsX[0]!.consumeInput == .fn "dummy_consume_data") = false := by simp [hcm]
+                  dsimp only [k']; rw [hkEq]; simp only [hdumF, Bool.false_eq_true, ↓reduceIte]
+                  split <;> omega
+                refine ⟨k', st', hC, ?_, hlt, ?_⟩
+                · simp only [finishBody]
+                  rw [C.run_bind, hldcX]; dsimp only
+                  rw [C.run_bind, hicX, hlicX]; dsimp only
+                  rw [C.run_bind, hrunC]; dsimp only
+                  simp only [hsosF, Bool.false_eq_true, ↓reduceIte]; rfl
+                · simp only [FinishInv, st']
+                  refine ⟨hpC, hsawC, hpotHiX, hscHiX, icsC, dcsC, mrksC, srcsC,
+                    hgicC, hszicC, hgdcC, hszdcC, hgmrkC, hszmrkC, hgsrcC, hszsrcC, ?_⟩
+                  simp only [heoiCF, ↓reduceIte]
+                  refine ⟨rfl, ?_, ?_, ?_⟩
+                  · intro d1 m1 s1 e1 hd1 hsd1 hm1 hsm1 hs1 hss1 he1 hse1
+                    exact (hmoreC d1 m1 s1 e1 dcsX mrksX srcsX icsX icsC
+                      hd1 hsd1 hm1 hsm1 hs1 hss1 he1 hse1
+                      hgdcX hszdcX hgmrkX hszmrkX hgsrcX hszsrcX hgicX hszicX hgicC hszicC).1
+                  · intro i1 d1 hi1 _ hd1 _
+                    rw [Option.some.inj (hd1.symm.trans hgdcC), Option.some.inj (hi1.symm.trans hgicC)]
+                    have hmore0 := hmoreC dcsC mrksC srcsC errsC dcsX mrksX srcsX icsX icsC
+                      hgdcC hszdcC hgmrkC hszmrkC hgsrcC hszsrcC hgerrC hszerrC
+                      hgdcX hszdcX hgmrkX hszmrkX hgsrcX hszsrcX hgicX hszicX hgicC hszicC
+                    have hb0 := hscBdX icsX dcsX hgicX hszicX hgdcX hszdcX
+                    have hdumF : (icsX[0]!.consumeInput == .fn "dummy_consume_data") = false := by simp [hcm]
+                    have hscInc : dcsC[0]!.inputScanNumber.toInt = dcsX[0]!.inputScanNumber.toInt + 1 := hmore0.2.2.1
+                    simp only [hdumF, Bool.false_eq_true, ↓reduceIte] at hb0
+                    by_cases hinh0 : icsX[0]!.inheaders ≠ 0
+                    · have hinhC := (hmore0.2.2.2.1 hinh0).1
+                      have hinhCEq : (icsC[0]!.inheaders == 0) = true := by simp [hinhC]
+                      have hinhXEq : (icsX[0]!.inheaders == 0) = false := by simp [hinh0]
+                      simp only [hinhXEq, Bool.false_eq_true, ↓reduceIte] at hb0
+                      simp only [hinhCEq, ↓reduceIte]
+                      split <;> omega
+                    · have hinh0Z : icsX[0]!.inheaders = 0 := Classical.not_not.mp hinh0
+                      have hinhXEq : (icsX[0]!.inheaders == 0) = true := by simp [hinh0Z]
+                      have hdumC : icsC[0]!.consumeInput = .fn "dummy_consume_data" := hmore0.2.2.2.2 hinh0Z
+                      have hdumCT : (icsC[0]!.consumeInput == .fn "dummy_consume_data") = true := by simp [hdumC]
+                      simp only [hinhXEq, ↓reduceIte] at hb0
+                      simp only [hdumCT, ↓reduceIte]
+                      omega
+                  · intro i1 d1 hi1 _ hd1 _
+                    rw [Option.some.inj (hd1.symm.trans hgdcC), Option.some.inj (hi1.symm.trans hgicC)]
+                    have hmore0 := hmoreC dcsC mrksC srcsC errsC dcsX mrksX srcsX icsX icsC
+                      hgdcC hszdcC hgmrkC hszmrkC hgsrcC hszsrcC hgerrC hszerrC
+                      hgdcX hszdcX hgmrkX hszmrkX hgsrcX hszsrcX hgicX hszicX hgicC hszicC
+                    by_cases hinh0 : icsX[0]!.inheaders ≠ 0
+                    · have ⟨_, _, hmsrFn⟩ := hmore0.2.2.2.1 hinh0
+                      rcases hstX icsX dcsX hgicX hszicX hgdcX hszdcX with hA | hB | hC' | hD | hE
+                      · exact Or.inr (Or.inr (Or.inr (Or.inr (hmsrFn hA.2.1 hA.2.2.1 hA.2.2.2))))
+                      · exact absurd heoiEq0 hB
+                      · rw [hcm] at hC'; simp at hC'
+                      · exact absurd hD.1 hinh0
+                      · exact Or.inr (Or.inr (Or.inr (Or.inr (hmsrFn hE.1 hE.2.1 hE.2.2.1))))
+                    · have hinh0Z : icsX[0]!.inheaders = 0 := Classical.not_not.mp hinh0
+                      exact Or.inr (Or.inr (Or.inl (hmore0.2.2.2.2 hinh0Z)))
+              · have heoiS : (JPEG_REACHED_EOI == JPEG_SUSPENDED) = false := by decide
+                let st' : FinishLoopState := { done := false, ret := .ok TRUE }
+                obtain ⟨icsC, hgicC, hszicC, _⟩ := parserEnv_get_ic hpC
+                obtain ⟨dcsC, hgdcC, hszdcC, _⟩ := parserEnv_get_dc hpC
+                obtain ⟨mrksC, hgmrkC, hszmrkC, _⟩ := parserEnv_get_mrk hpC
+                obtain ⟨srcsC, hgsrcC, hszsrcC, _⟩ := parserEnv_get_src hpC
+                refine ⟨0, st', hC, ?_, (by omega), ?_⟩
+                · simp only [finishBody]
+                  rw [C.run_bind, hldcX]; dsimp only
+                  rw [C.run_bind, hicX, hlicX]; dsimp only
+                  rw [C.run_bind, hrunC]; dsimp only
+                  simp only [heoiS, Bool.false_eq_true, ↓reduceIte]; rfl
+                · simp only [FinishInv, st']
+                  refine ⟨hpC, _hsawC, hpotHiX, hscHiX, icsC, dcsC, mrksC, srcsC,
+                    hgicC, hszicC, hgdcC, hszdcC, hgmrkC, hszmrkC, hgsrcC, hszsrcC, ?_⟩
+                  simp [heoiC icsC hgicC hszicC]
+              · have hsuspT : (JPEG_SUSPENDED == JPEG_SUSPENDED) = true := by decide
+                let st' : FinishLoopState := { done := true, ret := .ok FALSE }
+                refine ⟨0, st', hC, ?_, (by omega), by simp [FinishInv, st']⟩
+                simp only [finishBody]
+                rw [C.run_bind, hldcX]; dsimp only
+                rw [C.run_bind, hicX, hlicX]; dsimp only
+                rw [C.run_bind, hrunC]; dsimp only
+                simp only [hsuspT, ↓reduceIte]; rfl
+            · let st' : FinishLoopState := { done := true, ret := .errExit code }
+              refine ⟨0, st', hC, ?_, (by omega), by simp [FinishInv, st']⟩
+              simp only [finishBody]
+              rw [C.run_bind, hldcX]; dsimp only
+              rw [C.run_bind, hicX, hlicX]; dsimp only
+              rw [C.run_bind, hrunC]; rfl
+        · have hdumT : (icsX[0]!.consumeInput == .fn "dummy_consume_data") = true := by simp [hdum]
+          have hkEq1 : k = 1 := by rw [hkEq]; simp [hdumT]
+          have hcmF : (icsX[0]!.consumeInput == .fn "consume_markers") = false := by simp [hdum]
+          have hsuspT : (JPEG_SUSPENDED == JPEG_SUSPENDED) = true := by decide
+          let st' : FinishLoopState := { done := true, ret := .ok FALSE }
+          refine ⟨true, st, hx, ?_, ?_⟩
+          · simp only [finishCond, hdnF, Bool.false_eq_true, ↓reduceIte]
+            rw [C.run_bind, hldcX]; dsimp only
+            rw [C.run_bind, hicX, hlicX]; dsimp only
+            simp only [heoiT]; rfl
+          · refine ⟨0, st', hx, ?_, (by rw [hkEq1]; decide), by simp [FinishInv, st']⟩
+            simp only [finishBody]
+            rw [C.run_bind, hldcX]; dsimp only
+            rw [C.run_bind, hicX, hlicX]; dsimp only
+            rw [C.run_bind]
+            unfold callConsumeInput
+            simp only [hcmF, hdumT, Bool.false_eq_true, ↓reduceIte]; rfl
+  obtain ⟨stF, hF, hrunW, hPost⟩ := cwhile_terminates (finishCond ctx) (finishBody ctx)
+    (FinishInv ctx potBd scanTotBd) (fun hx st => st.done = true ∨ ParserEnv ctx hx)
+    (fun k hx st hi => hstep k hx st hi) hkLFuel hInvL
+  by_cases hdnF : stF.done = true
+  · refine ⟨stF.ret, hF, ?_⟩
+    rw [C.run_bind, hrunW]; dsimp only
+    simp only [hdnF, ↓reduceIte]; rfl
+  · have hpF : ParserEnv ctx hF := by
+      rcases hPost with hbad | hok
+      · exact absurd hbad hdnF
+      · exact hok
+    obtain ⟨dcsF, hgdcF, hszdcF, _, _, _, _, _, hsrcF⟩ := parserEnv_get_dc hpF
+    obtain ⟨srcsF, hgsrcF, hszsrcF, _, htsF, _⟩ := parserEnv_get_src hpF
+    have hldcF := jda_ptr_load_ok hgdcF hszdcF
+    have hlsrcF := jda_ptr_load_ok hgsrcF hszsrcF
+    have htsRun : C.run (callTermSource (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) srcsF[0]!.termSource) hF = .ok ((), hF) := by
+      unfold callTermSource Mozjpeg.Jdatasrc.term_source
+      rcases htsF with hts1 | hts2
+      · simp [hts1, C.run]
+      · simp [hts2, C.run]
+    obtain ⟨hEnd, hrunAb⟩ := jpeg_abort_safety hF (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) hpF.1
+    refine ⟨.ok TRUE, hEnd, ?_⟩
+    rw [C.run_bind, hrunW]; dsimp only
+    simp only [hdnF, Bool.false_eq_true, ↓reduceIte]
+    rw [C.run_bind, hldcF]; dsimp only
+    rw [C.run_bind, hsrcF, hlsrcF]; dsimp only
+    rw [C.run_bind, htsRun]; dsimp only
+    rw [C.run_bind, hrunAb]; rfl
+
+private theorem finish_put_stopping {ctx : IoCtx} {h : C.Heap} {potBd : Int} {scanTotBd : Nat}
+    (hp0 : ParserEnv ctx h) (hsaw0 : CompSawZero ctx h)
+    (hpotHi : potBd + 2 ^ 23 < 2 ^ 63) (hscanTotHi : scanTotBd + 2 ^ 20 + 6 < 2 ^ 31)
+    {dcs0 : Array C.JpegDecompressStruct}
+    (hgdc0 : C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs0) (hszdc0 : 0 < dcs0.size)
+    (hpb0 : ∀ dcs1 mrks1 srcs1 errs1,
+      C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs1 → 0 < dcs1.size →
+      C.Space.get h ctx.rmrk = some mrks1 → 0 < mrks1.size →
+      C.Space.get h ctx.rs = some srcs1 → 0 < srcs1.size →
+      C.Space.get h ctx.rerr = some errs1 → 0 < errs1.size →
+      rmWarnPot errs1 srcs1 dcs1[0]! + ↑(rmRank dcs1[0]! mrks1[0]! srcs1[0]!) ≤ potBd)
+    (hsb0 : dcs0[0]!.inputScanNumber.toInt + 2 ≤ ↑scanTotBd)
+    (hst0 : ∀ ics1 dcs1,
+      C.Space.get h ctx.ric = some ics1 → 0 < ics1.size →
+      C.Space.get h (C.DecompRef.decomp ctx.bdc) = some dcs1 → 0 < dcs1.size →
+      (ics1[0]!.inheaders ≠ 0 ∧ dcs1[0]!.entropyStartPass = .fn "noop" ∧
+        dcs1[0]!.coefStartInputPass = .fn "noop" ∧ dcs1[0]!.coefConsumeData = .fn "dummy_consume_data") ∨
+      ics1[0]!.eoiReached ≠ 0 ∨
+      ics1[0]!.consumeInput = .fn "dummy_consume_data" ∨
+      (ics1[0]!.inheaders = 0 ∧ ics1[0]!.hasMultipleScans = 0) ∨
+      MultiScanReady h dcs1[0]!) :
+    let dc1 : C.JpegDecompressStruct := { (dcs0[0]!) with globalState := DSTATE_STOPPING }
+    let h1 := C.Space.put h (C.DecompRef.decomp ctx.bdc) (dcs0.set! 0 dc1)
+    ∃ kL, kL < C.fuel ∧ FinishInv ctx potBd scanTotBd kL h1 { done := false, ret := .ok TRUE } := by
+  intro dc1 h1
+  have hp1 : ParserEnv ctx h1 := parserEnv_put_dc_keep' hp0 hgdc0 hszdc0
+    rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+  have hsaw1 : CompSawZero ctx h1 := compSawZero_put_dc_keep hsaw0 hgdc0 hszdc0 rfl
+  obtain ⟨mrks0, hgmrk0, hszmrk0, _⟩ := parserEnv_get_mrk hp0
+  obtain ⟨srcs0, hgsrc0, hszsrc0, _⟩ := parserEnv_get_src hp0
+  obtain ⟨ics0, hgic0, hszic0, _⟩ := parserEnv_get_ic hp0
+  refine finish_init_inv hp1 hsaw1 hpotHi hscanTotHi ?_ ?_ ?_
+  · intro d1 m1 s1 e1 hd1 _ hm1 hsm1 hs1 hss1 he1 hse1
+    have hd1eq : d1 = dcs0.set! 0 dc1 := by simp [h1, C.Space.get, C.Space.put] at hd1; exact hd1.symm
+    have hm1eq : C.Space.get h ctx.rmrk = some m1 := by simp [h1, C.Space.get, C.Space.put] at hm1; exact hm1
+    have hs1eq : C.Space.get h ctx.rs = some s1 := by simp [h1, C.Space.get, C.Space.put] at hs1; exact hs1
+    have he1eq : C.Space.get h ctx.rerr = some e1 := by simp [h1, C.Space.get, C.Space.put] at he1; exact he1
+    have heq0 := hpb0 dcs0 m1 s1 e1 hgdc0 hszdc0 hm1eq hsm1 hs1eq hss1 he1eq hse1
+    rw [hd1eq, jda_array_set_bang_self dcs0 hszdc0 dc1]
+    exact heq0
+  · intro i1 d1 _ _ hd1 _
+    have hd1eq : d1 = dcs0.set! 0 dc1 := by simp [h1, C.Space.get, C.Space.put] at hd1; exact hd1.symm
+    rw [hd1eq, jda_array_set_bang_self dcs0 hszdc0 dc1]
+    dsimp only [dc1]
+    split <;> (try split) <;> omega
+  · intro i1 d1 hi1 _ hd1 _
+    have hd1eq : d1 = dcs0.set! 0 dc1 := by simp [h1, C.Space.get, C.Space.put] at hd1; exact hd1.symm
+    have hi1eq : i1 = ics0 := Option.some.inj (by simp [h1, C.Space.get, C.Space.put] at hi1; exact hi1.symm.trans hgic0)
+    rw [hd1eq, hi1eq, jda_array_set_bang_self dcs0 hszdc0 dc1]
+    rcases hst0 ics0 dcs0 hgic0 hszic0 hgdc0 hszdc0 with hA | hB | hC | hD | hE
+    · exact Or.inl hA
+    · exact Or.inr (Or.inl hB)
+    · exact Or.inr (Or.inr (Or.inl hC))
+    · exact Or.inr (Or.inr (Or.inr (Or.inl hD)))
+    · exact Or.inr (Or.inr (Or.inr (Or.inr (multiScanReady_put_dc_scalar hgdc0 hszdc0
+        rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl hE))))
+
+theorem jpeg_finish_decompress_safety : Goal.jpeg_finish_decompress_safety := by
+  intro h cinfo hv
+  obtain ⟨hvBase, hfinIn⟩ := hv
+  obtain ⟨ctx, potBd, hcEq, hp0, hsaw0, _hpotLo, hpotHi, hpotBd0, hscanBd0⟩ := validIoBase_to_consumeEnv hvBase
+  subst hcEq
+  obtain ⟨dcs0, hgdc0, hszdc0, herr0, _, hmas0, hic0, hmrk0, _⟩ := parserEnv_get_dc hp0
+  obtain ⟨mrks0, hgmrk0, hszmrk0, _⟩ := parserEnv_get_mrk hp0
+  obtain ⟨srcs0, hgsrc0, hszsrc0, _⟩ := parserEnv_get_src hp0
+  obtain ⟨ics0, hgic0, hszic0, _⟩ := parserEnv_get_ic hp0
+  obtain ⟨masters0, hgmas0, hszmas0⟩ := parserEnv_get_mas hp0
+  obtain ⟨errs0, hgerr0, hszerr0, _⟩ := parserEnv_get_err hp0
+  obtain ⟨dcsArr, hgdcArr, _, _, _, _, _, _, _, hscanNonneg⟩ := parserEnv_get_dc_arrs hp0
+  have hscan0Ge : 0 ≤ dcs0[0]!.inputScanNumber.toInt := by
+    rw [Option.some.inj (hgdcArr.symm.trans hgdc0)] at hscanNonneg
+    exact hscanNonneg.2
+  have hldc0 := jda_ptr_load_ok hgdc0 hszdc0
+  let scanTotBd : Nat := dcs0[0]!.inputScanNumber.toInt.toNat + 2
+  have hscanTotHi : scanTotBd + 2 ^ 20 + 6 < 2 ^ 31 := by
+    have hsb := hscanBd0 dcs0 hgdc0 hszdc0
+    dsimp only [scanTotBd]; omega
+  have hsbExact0 : dcs0[0]!.inputScanNumber.toInt + 2 ≤ ↑scanTotBd := by
+    dsimp only [scanTotBd]; omega
+  have hstBase : ∀ i1 d1,
+      C.Space.get h ctx.ric = some i1 → 0 < i1.size →
+      C.Space.get h (C.DecompRef.decomp ctx.bdc) = some d1 → 0 < d1.size →
+      (i1[0]!.inheaders ≠ 0 ∧ d1[0]!.entropyStartPass = .fn "noop" ∧
+        d1[0]!.coefStartInputPass = .fn "noop" ∧ d1[0]!.coefConsumeData = .fn "dummy_consume_data") ∨
+      i1[0]!.eoiReached ≠ 0 ∨
+      i1[0]!.consumeInput = .fn "dummy_consume_data" ∨
+      (i1[0]!.inheaders = 0 ∧ i1[0]!.hasMultipleScans = 0) ∨
+      MultiScanReady h d1[0]! := by
+    intro i1 d1 hi1 _ hd1 _
+    rw [Option.some.inj (hd1.symm.trans hgdc0), Option.some.inj (hi1.symm.trans hgic0)]
+    exact (hfinIn (C.DecompRef.decomp ctx.bdc) dcs0 dcs0[0]! ctx.rmas masters0 ctx.ric ics0
+      rfl hgdc0 hszdc0 rfl hmas0 hgmas0 hszmas0 hic0 hgic0 hszic0).1
+  by_cases hscan : ((dcs0[0]!.globalState == DSTATE_SCANNING || dcs0[0]!.globalState == DSTATE_RAW_OK) &&
+      dcs0[0]!.bufferedImage == 0) = true
+  · by_cases hlt : dcs0[0]!.outputScanline < dcs0[0]!.outputHeight
+    · obtain ⟨hE, hrunE⟩ := jda_errexit_ok hgerr0 hszerr0 JERR_TOO_LITTLE_DATA
+      refine ⟨.errExit JERR_TOO_LITTLE_DATA, hE, ?_⟩
+      unfold jpeg_finish_decompress
+      rw [C.run_bind, hldc0]; dsimp only
+      simp only [hscan, hlt, ↓reduceIte, C.run_bind]
+      rw [herr0, hrunE]; rfl
+    · have hlMas0 := jda_ptr_load_ok hgmas0 hszmas0
+      have hfinPass : masters0[0]!.finishOutputPass = .fn "finish_output_pass" := by
+        have hg : (dcs0[0]!.globalState = DSTATE_SCANNING ∨ dcs0[0]!.globalState = DSTATE_RAW_OK) ∧
+            dcs0[0]!.bufferedImage = 0 := by simpa using hscan
+        rcases (hfinIn (C.DecompRef.decomp ctx.bdc) dcs0 dcs0[0]! ctx.rmas masters0 ctx.ric ics0
+            rfl hgdc0 hszdc0 rfl hmas0 hgmas0 hszmas0 hic0 hgic0 hszic0).2 with
+          hbadSt | hbuf | hlt' | hok
+        · rcases hg.1 with gs | gs
+          · exact absurd gs hbadSt.1
+          · exact absurd gs hbadSt.2
+        · exact absurd hg.2 hbuf
+        · exact absurd hlt' hlt
+        · exact hok
+      have hfinNeF : (masters0[0]!.finishOutputPass != .fn "finish_output_pass") = false := by
+        simp [hfinPass]
+      have hroDc0 : C.Space.ro h (C.DecompRef.decomp ctx.bdc) = false := rfl
+      let dc1 : C.JpegDecompressStruct := { (dcs0[0]!) with globalState := DSTATE_STOPPING }
+      have hsDc0 := jda_ptr_store_ok dc1 hgdc0 hroDc0 hszdc0
+      obtain ⟨resF, hEnd, hrunEnd⟩ := finish_loop_ok
+        (finish_put_stopping hp0 hsaw0 hpotHi hscanTotHi hgdc0 hszdc0 hpotBd0 hsbExact0 hstBase)
+      refine ⟨resF, hEnd, ?_⟩
+      unfold jpeg_finish_decompress
+      rw [C.run_bind, hldc0]; dsimp only
+      simp only [hscan, hlt, ↓reduceIte, C.run_bind]
+      rw [hmas0, hlMas0]; dsimp only
+      simp only [hfinNeF, Bool.false_eq_true, ↓reduceIte]
+      change C.run (do
+        let dc1 ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+        let __r ← C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) { dc1 with globalState := DSTATE_STOPPING }
+        let st ← C.cwhile (finishCond ctx) (finishBody ctx) { done := false, ret := .ok TRUE }
+        if st.done = true then pure st.ret
+        else do
+          let dcF ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+          let srcF ← C.Ptr.load dcF.src
+          callTermSource (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) srcF.termSource
+          jpeg_abort (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+          pure (.ok TRUE)) h = .ok (resF, hEnd)
+      rw [C.run_bind, hldc0]; dsimp only
+      rw [C.run_bind, hsDc0]; exact hrunEnd
+  · have hscanF : ((dcs0[0]!.globalState == DSTATE_SCANNING || dcs0[0]!.globalState == DSTATE_RAW_OK) &&
+        dcs0[0]!.bufferedImage == 0) = false := Bool.eq_false_iff.mpr hscan
+    by_cases hbuf : (dcs0[0]!.globalState == DSTATE_BUFIMAGE) = true
+    · have hroDc0 : C.Space.ro h (C.DecompRef.decomp ctx.bdc) = false := rfl
+      let dc1 : C.JpegDecompressStruct := { (dcs0[0]!) with globalState := DSTATE_STOPPING }
+      have hsDc0 := jda_ptr_store_ok dc1 hgdc0 hroDc0 hszdc0
+      obtain ⟨resF, hEnd, hrunEnd⟩ := finish_loop_ok
+        (finish_put_stopping hp0 hsaw0 hpotHi hscanTotHi hgdc0 hszdc0 hpotBd0 hsbExact0 hstBase)
+      refine ⟨resF, hEnd, ?_⟩
+      unfold jpeg_finish_decompress
+      rw [C.run_bind, hldc0]; dsimp only
+      simp only [hscanF, hbuf, Bool.false_eq_true, ↓reduceIte]
+      change C.run (do
+        let __r ← C.Ptr.store (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) { (dcs0[0]!) with globalState := DSTATE_STOPPING }
+        let st ← C.cwhile (finishCond ctx) (finishBody ctx) { done := false, ret := .ok TRUE }
+        if st.done = true then pure st.ret
+        else do
+          let dcF ← C.Ptr.load (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+          let srcF ← C.Ptr.load dcF.src
+          callTermSource (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0) srcF.termSource
+          jpeg_abort (C.Ptr.ref (C.DecompRef.decomp ctx.bdc) 0)
+          pure (.ok TRUE)) h = .ok (resF, hEnd)
+      rw [C.run_bind, hsDc0]; exact hrunEnd
+    · have hbufF : (dcs0[0]!.globalState == DSTATE_BUFIMAGE) = false := Bool.eq_false_iff.mpr hbuf
+      by_cases hnotStop : (dcs0[0]!.globalState != DSTATE_STOPPING) = true
+      · obtain ⟨hE, hrunE⟩ := jda_errexit1_ok hgerr0 hszerr0 JERR_BAD_STATE dcs0[0]!.globalState
+        refine ⟨.errExit JERR_BAD_STATE, hE, ?_⟩
+        unfold jpeg_finish_decompress
+        rw [C.run_bind, hldc0]; dsimp only
+        simp only [hscanF, hbufF, hnotStop, Bool.false_eq_true, ↓reduceIte, C.run_bind]
+        rw [herr0, hrunE]; rfl
+      · have hnotStopF : (dcs0[0]!.globalState != DSTATE_STOPPING) = false := Bool.eq_false_iff.mpr hnotStop
+        have hsb0 : ∀ i1 d1,
+            C.Space.get h ctx.ric = some i1 → 0 < i1.size →
+            C.Space.get h (C.DecompRef.decomp ctx.bdc) = some d1 → 0 < d1.size →
+            d1[0]!.inputScanNumber.toInt +
+              (if i1[0]!.consumeInput == .fn "dummy_consume_data" then 0
+               else if i1[0]!.inheaders == 0 then 1 else 2) ≤ ↑scanTotBd := by
+          intro i1 d1 hi1 _ hd1 _
+          rw [Option.some.inj (hd1.symm.trans hgdc0)]
+          have htoNat : (dcs0[0]!.inputScanNumber.toInt.toNat : Int) = dcs0[0]!.inputScanNumber.toInt :=
+            Int.toNat_of_nonneg hscan0Ge
+          dsimp only [scanTotBd]
+          split <;> (try split) <;> omega
+        obtain ⟨resF, hEnd, hrunEnd⟩ := finish_loop_ok
+          (finish_init_inv hp0 hsaw0 hpotHi hscanTotHi hpotBd0 hsb0 hstBase)
+        refine ⟨resF, hEnd, ?_⟩
+        unfold jpeg_finish_decompress
+        rw [C.run_bind, hldc0]; dsimp only
+        simp only [hscanF, hbufF, hnotStopF, Bool.false_eq_true, ↓reduceIte]
+        exact hrunEnd
+
+end JdapiminConsume
 
 end MozjpegF.Proof.Jdapimin

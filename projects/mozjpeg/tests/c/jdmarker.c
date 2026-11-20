@@ -133,6 +133,83 @@ int main(void) {
                    jerr.pub.msg_parm.i[1]);
             if (fill_mode == 1) cinfo.src = NULL;
             jpeg_destroy_decompress(&cinfo);
+        } else if (strcmp(tok[0], "read_markers") == 0 && nt == 4) {
+            int fill_mode = (int)parse_i(tok[1]);
+            unsigned int save_mask = (unsigned int)parse_u(tok[2]);
+            const char *hex = tok[3];
+            size_t nbytes = 0;
+            unsigned char buf[4096];
+            if (strcmp(hex, "-") != 0) {
+                size_t slen = strlen(hex);
+                if (slen % 2 != 0 || slen / 2 > sizeof(buf)) { bad = 1; continue; }
+                nbytes = slen / 2;
+                for (size_t i = 0; i < nbytes; i++) {
+                    int hi = hex_val(hex[2 * i]), lo = hex_val(hex[2 * i + 1]);
+                    if (hi < 0 || lo < 0) { bad = 1; break; }
+                    buf[i] = (unsigned char)((hi << 4) | lo);
+                }
+            }
+            struct jpeg_decompress_struct cinfo;
+            struct err_env jerr;
+            struct jpeg_source_mgr susp_src;
+            unsigned char dummy[1] = {0};
+            memset(&cinfo, 0, sizeof(cinfo));
+            cinfo.err = jpeg_std_error(&jerr.pub);
+            jerr.pub.error_exit = test_error_exit;
+            if (setjmp(jerr.jmp)) {
+                printf("err code=%d p0=%d p1=%d\n",
+                       jerr.pub.msg_code, jerr.pub.msg_parm.i[0], jerr.pub.msg_parm.i[1]);
+                if (fill_mode == 1) cinfo.src = NULL;
+                jpeg_destroy_decompress(&cinfo);
+                continue;
+            }
+            jpeg_create_decompress(&cinfo);
+            if (fill_mode == 1) {
+                memset(&susp_src, 0, sizeof(susp_src));
+                susp_src.init_source = susp_init_source;
+                susp_src.fill_input_buffer = susp_fill_input_buffer;
+                susp_src.skip_input_data = susp_skip_input_data;
+                susp_src.resync_to_restart = jpeg_resync_to_restart;
+                susp_src.term_source = susp_term_source;
+                susp_src.bytes_in_buffer = nbytes;
+                susp_src.next_input_byte = nbytes > 0 ? buf : dummy;
+                cinfo.src = &susp_src;
+            } else if (nbytes > 0) {
+                jpeg_mem_src(&cinfo, buf, nbytes);
+            } else {
+                jpeg_mem_src(&cinfo, dummy, 1);
+                cinfo.src->bytes_in_buffer = 0;
+                cinfo.src->next_input_byte = dummy;
+            }
+            if (save_mask & 1u) jpeg_save_markers(&cinfo, 0xE0, 65535);
+            if (save_mask & 2u) jpeg_save_markers(&cinfo, 0xFE, 8);
+            if (save_mask & 4u) jpeg_save_markers(&cinfo, 0xE1, 4);
+            if (save_mask & 8u) jpeg_save_markers(&cinfo, 0xEE, 65535);
+            int ret = (*cinfo.marker->read_markers)(&cinfo);
+            int nm = 0;
+            for (jpeg_saved_marker_ptr p = cinfo.marker_list; p != NULL; p = p->next) nm++;
+            printf("rm ok ret=%d soi=%d sof=%d w=%u h=%u nc=%d cs=%d prog=%d arith=%d dri=%u bib=%zu unread=%d nm=%d m0=",
+                   ret, cinfo.marker->saw_SOI, cinfo.marker->saw_SOF,
+                   cinfo.image_width, cinfo.image_height, cinfo.num_components,
+                   (int)cinfo.jpeg_color_space, cinfo.progressive_mode, cinfo.arith_code,
+                   cinfo.restart_interval, cinfo.src->bytes_in_buffer,
+                   cinfo.unread_marker, nm);
+            if (cinfo.marker_list == NULL) {
+                putchar('-');
+            } else {
+                jpeg_saved_marker_ptr m = cinfo.marker_list;
+                printf("%02x:%u:%u:", m->marker, m->original_length, m->data_length);
+                if (m->data_length == 0) {
+                    putchar('-');
+                } else {
+                    for (unsigned int i = 0; i < m->data_length; i++) {
+                        printf("%02x", m->data[i]);
+                    }
+                }
+            }
+            printf(" warn=%ld\n", jerr.pub.num_warnings);
+            if (fill_mode == 1) cinfo.src = NULL;
+            jpeg_destroy_decompress(&cinfo);
         } else {
             fprintf(stderr, "unknown command: %s\n", tok[0]);
             printf("BADINPUT\n");

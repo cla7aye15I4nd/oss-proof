@@ -201,7 +201,8 @@ def Goal.jpeg_CreateDecompress_destroy_no_leak : Prop :=
       C.run (Mozjpeg.Jdapimin.jpeg_destroy_decompress cinfo) h1 = .ok ((), h2) ∧
       (∀ k, h.nextBlk ≤ k →
         h2.bytes k = none ∧ h2.i32s k = none ∧ h2.mems k = none ∧ h2.masters k = none ∧
-        h2.markers k = none ∧ h2.inputctls k = none ∧ h2.srcs k = none ∧ h2.comps k = none)
+        h2.markers k = none ∧ h2.inputctls k = none ∧ h2.srcs k = none ∧ h2.comps k = none ∧
+        h2.quants k = none ∧ h2.huffs k = none ∧ h2.savedMarkers k = none)
 
 /-- `jpeg_mem_src(cinfo, inbuffer, insize)` never faults for any `inbuffer`, `insize` (including
 `NULL` / `0`, existing `src` reuse mismatch, and OOM). -/
@@ -222,17 +223,34 @@ def Goal.jpeg_resync_to_restart_safety : Prop :=
 
 /-! ## Remaining Tier 0 decompression goals (not done yet) -/
 
-/-- `jpeg_read_header`: not done yet (`jdapimin.c`, `jdinput.c`, `jdmarker.c`). -/
-def Goal.jpeg_read_header_safety : Prop := True
-/-- `jpeg_consume_input`: not done yet (`jdapimin.c`, `jdinput.c`, `jdmarker.c`). -/
-def Goal.jpeg_consume_input_safety : Prop := True
+/-- `jpeg_read_header(cinfo, require_image)` never faults under `ValidDecompHeaderInput`,
+cleanly parsing JPEG headers, returning `JPEG_HEADER_OK` / `JPEG_HEADER_TABLES_ONLY` /
+`JPEG_SUSPENDED`, or unwinding via `ERREXIT*` on malformed headers, bad state, or OOM. -/
+def Goal.jpeg_read_header_safety : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr) (require_image : Int32),
+    ValidDecompHeaderInput h cinfo →
+    ∃ res h', C.run (Mozjpeg.Jdapimin.jpeg_read_header cinfo require_image) h = .ok (res, h')
+
+/-- `jpeg_consume_input(cinfo)` never faults under `ValidDecompConsumeInput` (in any
+`global_state`, under `fill_mem_input_buffer` or `suspend_input`, and any OOM oracle). -/
+def Goal.jpeg_consume_input_safety : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr),
+    ValidDecompConsumeInput h cinfo →
+    ∃ res h', C.run (Mozjpeg.Jdapimin.jpeg_consume_input cinfo) h = .ok (res, h')
+
 /-- `jpeg_start_decompress`: not done yet (`jdapistd.c`, `jdmaster.c`, entropy/IDCT/upsample/color). -/
 def Goal.jpeg_start_decompress_safety : Prop := True
 /-- `jpeg_read_scanlines`: not done yet (`jdapistd.c`, `jdmainct.c`, `jdcoefct.c`, `jdhuff.c`, `jidct*.c`, `jdcolor.c`). -/
 def Goal.jpeg_read_scanlines_safety : Prop := True
 /-- `jpeg_read_raw_data`: not done yet (`jdapistd.c`). -/
 def Goal.jpeg_read_raw_data_safety : Prop := True
-/-- `jpeg_finish_decompress`: not done yet (`jdapimin.c`). -/
-def Goal.jpeg_finish_decompress_safety : Prop := True
+
+/-- `jpeg_finish_decompress(cinfo)` never faults under `ValidDecompFinishInput`, draining
+trailing markers through EOI, calling `term_source` + `jpeg_abort`, or returning
+`FALSE` on suspension / `.errExit` cleanly. -/
+def Goal.jpeg_finish_decompress_safety : Prop :=
+  ∀ (h : C.Heap) (cinfo : C.DecompPtr),
+    ValidDecompFinishInput h cinfo →
+    ∃ res h', C.run (Mozjpeg.Jdapimin.jpeg_finish_decompress cinfo) h = .ok (res, h')
 
 end MozjpegF.Spec.Safety

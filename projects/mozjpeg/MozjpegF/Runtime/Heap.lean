@@ -207,6 +207,21 @@ inductive SrcRef where
   | src (b : Nat)
   deriving DecidableEq, Repr, Inhabited
 
+/-- Reference to a `JQUANT_TBL` object. -/
+inductive QuantRef where
+  | quant (b : Nat)
+  deriving DecidableEq, Repr, Inhabited
+
+/-- Reference to a `JHUFF_TBL` object. -/
+inductive HuffRef where
+  | huff (b : Nat)
+  deriving DecidableEq, Repr, Inhabited
+
+/-- Reference to a `struct jpeg_marker_struct` object (`jpeg_saved_marker_ptr`). -/
+inductive SavedMarkerRef where
+  | savedMarker (b : Nat)
+  deriving DecidableEq, Repr, Inhabited
+
 abbrev BPtr := Ptr BRef
 abbrev IPtr := Ptr IRef
 abbrev MsgTblPtr := Ptr MsgTblRef
@@ -218,6 +233,9 @@ abbrev InputCtlPtr := Ptr InputCtlRef
 abbrev MarkerPtr := Ptr MarkerRef
 abbrev MemPtr := Ptr MemRef
 abbrev SrcPtr := Ptr SrcRef
+abbrev QuantPtr := Ptr QuantRef
+abbrev HuffPtr := Ptr HuffRef
+abbrev SavedMarkerPtr := Ptr SavedMarkerRef
 
 /-- `struct jpeg_error_mgr` (`jpeglib.h:827-880`). -/
 structure JpegErrorMgr where
@@ -237,6 +255,28 @@ structure JpegErrorMgr where
   lastAddonMessage : Int32 := 0
   deriving Repr, Inhabited, DecidableEq
 
+/-- `JQUANT_TBL` (`jpeglib.h:118-127`). -/
+structure JQuantTbl where
+  quantval : Array UInt16 := Array.replicate 64 0
+  sentTable : Int32 := 0
+  deriving Repr, Inhabited, DecidableEq
+
+/-- `JHUFF_TBL` (`jpeglib.h:132-142`). -/
+structure JHuffTbl where
+  bits : Array UInt8 := Array.replicate 17 0
+  huffval : Array UInt8 := Array.replicate 256 0
+  sentTable : Int32 := 0
+  deriving Repr, Inhabited, DecidableEq
+
+/-- `struct jpeg_marker_struct` (`jpeglib.h:248-255`). -/
+structure JpegSavedMarker where
+  next : SavedMarkerPtr := .null
+  marker : UInt8 := 0
+  originalLength : UInt32 := 0
+  dataLength : UInt32 := 0
+  data : BPtr := .null
+  deriving Repr, Inhabited, DecidableEq
+
 /-- `jpeg_component_info` (`jpeglib.h:154-227`). -/
 structure JpegCompInfo where
   componentId : Int32 := 0
@@ -253,14 +293,24 @@ structure JpegCompInfo where
   downsampledWidth : UInt32 := 0
   downsampledHeight : UInt32 := 0
   componentNeeded : Int32 := 0
+  mcuWidth : Int32 := 0
+  mcuHeight : Int32 := 0
+  mcuBlocks : Int32 := 0
+  mcuSampleWidth : Int32 := 0
+  lastColWidth : Int32 := 0
+  lastRowHeight : Int32 := 0
+  quantTable : QuantPtr := .null
   deriving Repr, Inhabited, DecidableEq
 
 /-- `my_decomp_master` / `struct jpeg_decomp_master` (`jpegint.h`, `jdmaster.h`). -/
 structure JpegDecompMaster where
+  finishOutputPass : FnPtr := .null
   lossless : Int32 := 0
   usingMergedUpsample : Int32 := 0
   passNumber : Int32 := 0
-  markerListEnd : BPtr := .null
+  firstMcuCol : Array UInt32 := Array.replicate 10 0
+  lastMcuCol : Array UInt32 := Array.replicate 10 0
+  markerListEnd : SavedMarkerPtr := .null
   deriving Repr, Inhabited, DecidableEq
 
 /-- `struct jpeg_source_mgr` (`jpeglib.h:883-913`). -/
@@ -296,8 +346,9 @@ structure JpegMarkerReader where
   lengthLimitAPPn : Array UInt32 := Array.replicate 16 0
   sawSOI : Int32 := 0
   sawSOF : Int32 := 0
+  nextRestartNum : Int32 := 0
   discardedBytes : UInt32 := 0
-  curMarker : BPtr := .null
+  curMarker : SavedMarkerPtr := .null
   bytesRead : UInt32 := 0
   deriving Repr, Inhabited, DecidableEq
 
@@ -310,6 +361,9 @@ structure PoolAllocs where
   markers : Array Nat := #[]
   srcs : Array Nat := #[]
   comps : Array Nat := #[]
+  quants : Array Nat := #[]
+  huffs : Array Nat := #[]
+  savedMarkers : Array Nat := #[]
   deriving Repr, Inhabited, DecidableEq
 
 /-- `struct jpeg_memory_mgr` / `my_memory_mgr` (`jpeglib.h:937-990`, `jmemmgr.c:123-145`). -/
@@ -363,24 +417,42 @@ structure JpegDecompressStruct where
   inputScanNumber : Int32 := 0
   outputScanNumber : Int32 := 0
   coefBits : BPtr := .null
-  quantTblPtrs : Array BPtr := Array.replicate 4 .null
-  dcHuffTblPtrs : Array BPtr := Array.replicate 4 .null
-  acHuffTblPtrs : Array BPtr := Array.replicate 4 .null
+  quantTblPtrs : Array QuantPtr := Array.replicate 4 .null
+  dcHuffTblPtrs : Array HuffPtr := Array.replicate 4 .null
+  acHuffTblPtrs : Array HuffPtr := Array.replicate 4 .null
   dataPrecision : Int32 := 8
   compInfo : CompPtr := .null
   progressiveMode : Int32 := 0
   arithCode : Int32 := 0
+  arithDcL : Array UInt8 := Array.replicate 16 0
+  arithDcU : Array UInt8 := Array.replicate 16 0
+  arithAcK : Array UInt8 := Array.replicate 16 0
   restartInterval : UInt32 := 0
   sawJFIFMarker : Int32 := 0
+  jfifMajorVersion : UInt8 := 0
+  jfifMinorVersion : UInt8 := 0
+  densityUnit : UInt8 := 0
+  xDensity : UInt16 := 0
+  yDensity : UInt16 := 0
   sawAdobeMarker : Int32 := 0
   adobeTransform : UInt8 := 0
   ccir601Sampling : Int32 := 0
-  markerList : BPtr := .null
+  markerList : SavedMarkerPtr := .null
   maxHSampFactor : Int32 := 1
   maxVSampFactor : Int32 := 1
   minDctHScaledSize : Int32 := 8
   minDctVScaledSize : Int32 := 8
   totalIMcuRows : UInt32 := 0
+  compsInScan : Int32 := 0
+  curCompInfo : Array CompPtr := Array.replicate 4 .null
+  mcusPerRow : UInt32 := 0
+  mcuRowsInScan : UInt32 := 0
+  blocksInMcu : Int32 := 0
+  mcuMembership : Array Int32 := Array.replicate 10 0
+  ss : Int32 := 0
+  se : Int32 := 0
+  ah : Int32 := 0
+  al : Int32 := 0
   blockSize : Int32 := 8
   naturalOrder : IPtr := .null
   limSe : Int32 := 63
@@ -388,6 +460,10 @@ structure JpegDecompressStruct where
   master : MasterPtr := .null
   inputctl : InputCtlPtr := .null
   marker : MarkerPtr := .null
+  entropyStartPass : FnPtr := .null
+  coefStartInputPass : FnPtr := .null
+  coefConsumeData : FnPtr := .null
+  cquantFinishPass : FnPtr := .null
   deriving Repr, Inhabited, DecidableEq
 
 /-- Zero-byte representation of `struct jpeg_decompress_struct` after `memset(cinfo, 0, sizeof(...))`. -/
@@ -415,7 +491,18 @@ structure Heap where
   consts : Tbl (Option (Array UInt8)) := .empty
   i32s : Tbl (Option (Array Int32)) := .empty
   rgbPixelsize : Array Int32 := #[-1, -1, 3, -1, -1, -1, 3, 4, 3, 4, 4, 4, 4, 4, 4, 4, -1]
-  naturalOrder : Array Int32 := #[]
+  naturalOrder : Array Int32 := #[
+     0,  1,  8, 16,  9,  2,  3, 10,
+    17, 24, 32, 25, 18, 11,  4,  5,
+    12, 19, 26, 33, 40, 48, 41, 34,
+    27, 20, 13,  6,  7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36,
+    29, 22, 15, 23, 30, 37, 44, 51,
+    58, 59, 52, 45, 38, 31, 39, 46,
+    53, 60, 61, 54, 47, 55, 62, 63,
+    63, 63, 63, 63, 63, 63, 63, 63,
+    63, 63, 63, 63, 63, 63, 63, 63
+  ]
   errMgrs : Tbl (Option (Array JpegErrorMgr)) := .empty
   decomps : Tbl (Option (Array JpegDecompressStruct)) := .empty
   comps : Tbl (Option (Array JpegCompInfo)) := .empty
@@ -424,6 +511,9 @@ structure Heap where
   markers : Tbl (Option (Array JpegMarkerReader)) := .empty
   mems : Tbl (Option (Array JpegMemMgr)) := .empty
   srcs : Tbl (Option (Array JpegSourceMgr)) := .empty
+  quants : Tbl (Option (Array JQuantTbl)) := .empty
+  huffs : Tbl (Option (Array JHuffTbl)) := .empty
+  savedMarkers : Tbl (Option (Array JpegSavedMarker)) := .empty
   nextBlk : Nat := 0
   nalloc : Nat := 0
   allocOk : Nat → Bool := fun _ => true
@@ -585,5 +675,32 @@ instance : Space Heap SrcRef JpegSourceMgr where
   modify_eq h r a f hg := by
     cases r with | src b =>
     exact congrArg (fun x => { h with srcs := x }) (Tbl.modify_opt h.srcs b f a hg)
+
+instance : Space Heap QuantRef JQuantTbl where
+  get h | .quant b => h.quants b
+  put h | .quant b => fun a => { h with quants := upd h.quants b (some a) }
+  ro _ _ := false
+  modify h | .quant b => fun f => { h with quants := h.quants.modify b (Option.map f) }
+  modify_eq h r a f hg := by
+    cases r with | quant b =>
+    exact congrArg (fun x => { h with quants := x }) (Tbl.modify_opt h.quants b f a hg)
+
+instance : Space Heap HuffRef JHuffTbl where
+  get h | .huff b => h.huffs b
+  put h | .huff b => fun a => { h with huffs := upd h.huffs b (some a) }
+  ro _ _ := false
+  modify h | .huff b => fun f => { h with huffs := h.huffs.modify b (Option.map f) }
+  modify_eq h r a f hg := by
+    cases r with | huff b =>
+    exact congrArg (fun x => { h with huffs := x }) (Tbl.modify_opt h.huffs b f a hg)
+
+instance : Space Heap SavedMarkerRef JpegSavedMarker where
+  get h | .savedMarker b => h.savedMarkers b
+  put h | .savedMarker b => fun a => { h with savedMarkers := upd h.savedMarkers b (some a) }
+  ro _ _ := false
+  modify h | .savedMarker b => fun f => { h with savedMarkers := h.savedMarkers.modify b (Option.map f) }
+  modify_eq h r a f hg := by
+    cases r with | savedMarker b =>
+    exact congrArg (fun x => { h with savedMarkers := x }) (Tbl.modify_opt h.savedMarkers b f a hg)
 
 end C

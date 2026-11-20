@@ -241,9 +241,11 @@
     },
     {
       "function": "jpeg_read_header",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 JPEG header parsing is not done yet: jdapimin.c (jpeg_read_header), jdinput.c, and jdmarker.c marker readers are not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_read_header",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_read_header_safety"
     },
     {
       "function": "jpeg_start_decompress",
@@ -295,9 +297,11 @@
     },
     {
       "function": "jpeg_finish_decompress",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 decompression teardown finish check is not done yet: jdapimin.c (jpeg_finish_decompress) is not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_finish_decompress",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_finish_decompress_safety"
     },
     {
       "function": "jpeg_read_raw_data",
@@ -347,9 +351,11 @@
     },
     {
       "function": "jpeg_consume_input",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Tier 0 incremental input consumption is not done yet: jdinput.c and jdmarker.c marker readers are not translated yet."
+      "source": "MozjpegF/Mozjpeg/jdapimin.c.lean",
+      "implementation": "Mozjpeg.Jdapimin.jpeg_consume_input",
+      "safety_goal": "MozjpegF.Spec.Safety.Goal.jpeg_consume_input_safety"
     },
     {
       "function": "jpeg_core_output_dimensions",

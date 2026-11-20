@@ -1,4 +1,4 @@
-<!-- source-sha256: d40cc8c3dc349679209a8a7e95460005c0d0d6b5ba145bb4cca6d3962fa5fbd7 -->
+<!-- source-sha256: aeb5c054461884c6d4b3c28d8aba53158f8bcf09e057961a07ddd910d64c6fb8 -->
 # mozjpeg
 
 验证对象：`mozjpeg` 5.0.0（`08265790`），按可移植静态 8 位 x86_64 Linux LP64 库（`libjpeg.a`）构建，范围为默认 `Sharp` / `libvips` 调用链路触达的非可信输入解码（Tier 0）入口函数。
@@ -25,8 +25,9 @@
 - 严格 ISO C17 运行时模型拒绝 `NULL + 0`、悬垂指针 `+ 0`、`NULL - NULL`、跨对象指针减法及对 `NULL` 调用零长度 `memset`。
 - `jdiv_round_up`、`jround_up` 与 `jzero_far`（`jutils.c`）安全；对不溢出的非负输入，`jdiv_round_up` 计算精确的 `⌈a / b⌉`。
 - `jpeg_std_error`（`jerror.c`）安全，并初始化 `last_jpeg_message = 131`、`jpeg_std_message_table` 及标准错误处理方法，附带具体非空见证。
-- 在有效对象不变量下，`jpeg_abort`、`jpeg_destroy`（`jcomapi.c`）、`jpeg_abort_decompress`、`jpeg_destroy_decompress`、`jpeg_input_complete` 与 `jpeg_has_multiple_scans`（`jdapimin.c`）安全。
-- `jpeg_save_markers`（`jdmarker.c`）对所有 `COM`、`APP0`..`APP15` 及无效标记码和 `max_alloc_chunk` 边界均安全。
+- `jpeg_CreateDecompress`（`jdapimin.c`、`jmemmgr.c`）与 `jpeg_mem_src`（`jdatasrc.c`）安全，建立有效解码器与数据源不变量，并满足创建后销毁的无泄漏安全性质。
+- 在有效对象不变量下，`jpeg_abort`、`jpeg_destroy`（`jcomapi.c`）、`jpeg_abort_decompress`、`jpeg_destroy_decompress`、`jpeg_input_complete`、`jpeg_has_multiple_scans`、`jpeg_consume_input`、`jpeg_read_header` 与 `jpeg_finish_decompress`（`jdapimin.c`）安全。
+- `jpeg_save_markers` 与 `jpeg_resync_to_restart`（`jdmarker.c`）对所有 `COM`、`APP0`..`APP15`、无效标记码、重启重同步及 `max_alloc_chunk` 边界均安全。
 - `jpeg_core_output_dimensions` 与 `jpeg_calc_output_dimensions`（`jdmaster.c`）安全；在 `scale_num = 1`、`scale_denom ∈ {1, 2, 4, 8}` 时 `jpeg_core_output_dimensions` 返回精确的 `ceil(width / denom)` 与 `ceil(height / denom)`，且 `jpeg_calc_output_dimensions` 附带 1001×753 加载期缩放具体见证。
 
-其余 Tier 0 解码函数（`jpeg_CreateDecompress`、`jpeg_mem_src`、`jpeg_read_header`、`jpeg_consume_input`、`jpeg_resync_to_restart`、`jpeg_start_decompress`、`jpeg_read_scanlines`、`jpeg_read_raw_data`、`jpeg_finish_decompress`）尚未完成。AddressSanitizer 与 UndefinedBehaviorSanitizer 下的差分测试将每个已翻译模块与真实静态 C 库进行比较；这些测试是翻译一致性的证据，而不是证明。参见[结论的状态](progress.html)、[前提与偏差](deviations.html)与[发现的问题](findings.html)。
+其余 Tier 0 解码函数（`jpeg_start_decompress`、`jpeg_read_scanlines`、`jpeg_read_raw_data`）尚未完成。AddressSanitizer 与 UndefinedBehaviorSanitizer 下的差分测试将每个已翻译模块与真实静态 C 库进行比较；这些测试是翻译一致性的证据，而不是证明。参见[结论的状态](progress.html)、[前提与偏差](deviations.html)与[发现的问题](findings.html)。
