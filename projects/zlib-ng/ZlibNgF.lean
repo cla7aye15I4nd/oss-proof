@@ -32,6 +32,11 @@ import ZlibNgF.Math.TreesRadix
 import ZlibNgF.Proof.«trees.c.sort»
 import ZlibNgF.Proof.«trees.c.build»
 import ZlibNgF.Proof.«deflate.c.side»
+import ZlibNgF.Math.TreesLabeled
+import ZlibNgF.Math.TreesRank
+import ZlibNgF.Proof.«trees.c.merge»
+import ZlibNgF.Proof.«trees.c.bitlen»
+import ZlibNgF.Proof.«trees.c.codes»
 import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Gz
