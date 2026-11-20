@@ -16,8 +16,8 @@ import ZlibNgF.Proof.«gzwrite.c.loop»
   started with it; the input only moves forward (with buffers and not direct: `next_in` by the bytes consumed;
   direct: `next_in` stays; `gz_write_init` sets `next_in` to `NULL` when there is no input); on success the buffers exist, the input is consumed unless `flush` is `Z_FINISH`, and a non-direct call
   with a flush leaves room in the output (and, unless `Z_FINISH`, no pending `reset`); with `flush ≠ Z_FINISH`,
-  `reset` stays or is cleared, and on a non-direct handle with buffers and no pending `reset` (no `deflateReset`) the
-  potential `pot` of the stream does not grow (the measure of the loop of `gzsetparams`).
+  `reset` stays or is cleared, and on success on a non-direct handle with buffers and no pending `reset` (no
+  `deflateReset`) the potential `pot` of the stream does not grow (the measure of the loop of `gzsetparams`).
 
 The entry input may lie anywhere in the `2 size` bytes of `in` (`InX`): `gzvprintf` calls `gz_comp` with `size`
 bytes from `next_in`, which need not be `in`.
@@ -57,7 +57,7 @@ def CompPost (ψ : Int32 → C.DeflateState → Nat) (w : World) (h : Heap) (b :
       (s.direct = 0 → flush ≠ ZlibNg.Deflate.Z_NO_FLUSH → z'.avail_out ≠ 0 ∧
         (flush ≠ ZlibNg.Inflate.Z_FINISH → s'.reset = 0))) ∧
     (flush ≠ ZlibNg.Inflate.Z_FINISH → s'.reset = s.reset ∨ s'.reset = 0) ∧
-    (flush ≠ ZlibNg.Inflate.Z_FINISH → s.size ≠ 0 → s.direct = 0 → s.reset = 0 →
+    (r = 0 → flush ≠ ZlibNg.Inflate.Z_FINISH → s.size ≠ 0 → s.direct = 0 → s.reset = 0 →
       pot ψ flush s.size.toNat H s.strm ≤ pot ψ flush s.size.toNat h s.strm)
 
 /-- **The specification of `gz_comp`.** -/
