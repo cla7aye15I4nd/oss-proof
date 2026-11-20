@@ -51,11 +51,12 @@ theorem LI.st {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li
 
 theorem LI.of_touch {E : Env} {l : IL} {H H' : Heap} {z z' : ZStream} {S S' : InflateState} (li : LI E l H z S)
     (t : St H H' E.i E.b z' S') (hh : S'.head = S.head) (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank S'.mode ≤ 2))
-    (hsa : SAcc E z') (hmk : MsgK E z') :
+    (hsa : SAcc E z') (hmk : MsgK E z') (hfr : Fr E l S → Fr E l S') :
     LI E l H' z' S' :=
   { li with
     sacc := hsa
     msgK := hmk
+    fr := hfr li.fr
     outO := ho.elim Or.inl fun h => li.outO.imp_right h
     inv := t.inv
     frame := Frame.trans li.frame (touchFrame t.touch _ _)
@@ -74,18 +75,21 @@ theorem LI.of_touch {E : Env} {l : IL} {H H' : Heap} {z z' : ZStream} {S S' : In
 theorem LI.wrS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (f : InflateState → InflateState)
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view (f S)) al)
-    (hh : (f S).head = S.head) (hm : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank (f S).mode ≤ 2) := by exact Or.inr id) :
+    (hh : (f S).head = S.head) (hm : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank (f S).mode ≤ 2) := by exact Or.inr id)
+    (hfr : Fr E l S → Fr E l (f S) := by frt) :
     Sat H (ZlibNg.Inflate.wrS (some E.b) f) (fun _ H' => LI E l H' z (f S)) :=
-  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => li.of_touch t hh hm li.sacc li.msgK)
+  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => li.of_touch t hh hm li.sacc li.msgK hfr)
 
 /-- `LI.wrS` that also records that the bytes and the headers stay. -/
 theorem LI.wrST {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (f : InflateState → InflateState)
     (keep : ∀ al z, Core H (some E.i) z E.b (view S) al → Core H (some E.i) z E.b (view (f S)) al)
-    (hh : (f S).head = S.head) (hm : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank (f S).mode ≤ 2) := by exact Or.inr id) :
+    (hh : (f S).head = S.head) (hm : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank (f S).mode ≤ 2) := by exact Or.inr id)
+    (hfr : Fr E l S → Fr E l (f S) := by frt) :
     Sat H (ZlibNg.Inflate.wrS (some E.b) f) (fun _ H' => LI E l H' z (f S) ∧ H'.bytes = H.bytes ∧
       H'.gzheaders = H.gzheaders) :=
-  Sat.mono (InflateSync.step_S li.st f keep) (fun _ _ t => ⟨li.of_touch t hh hm li.sacc li.msgK, t.touch.bytes, t.touch.gz⟩)
+  Sat.mono (InflateSync.step_S li.st f keep)
+    (fun _ _ t => ⟨li.of_touch t hh hm li.sacc li.msgK hfr, t.touch.bytes, t.touch.gz⟩)
 
 /-- A store into the stream record with the accounting of the call that keeps `state`, `zalloc`, `zfree` keeps
 `LI`. -/
@@ -93,7 +97,7 @@ theorem LI.wrZio {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} 
     (f : ZStream → ZStream) (e1 : (f z).state = z.state) (e2 : (f z).zalloc = z.zalloc)
     (e3 : (f z).zfree = z.zfree) (hsa : SAcc E (f z)) (hmk : MsgK E (f z)) :
     Sat H (wrZ (some E.i) f) (fun _ H' => LI E l H' (f z) S) :=
-  Sat.mono (InflateSync.step_Z li.st f e1 e2 e3) (fun _ _ t => li.of_touch t rfl (Or.inr id) hsa hmk)
+  Sat.mono (InflateSync.step_Z li.st f e1 e2 e3) (fun _ _ t => li.of_touch t rfl (Or.inr id) hsa hmk id)
 
 /-- A store into the stream record that keeps `state`, `zalloc`, `zfree` and the buffer fields keeps `LI`. -/
 theorem LI.wrZ {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
@@ -130,12 +134,13 @@ theorem LI.core {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (
 /-- `setMode` to a mode with no mode clauses. -/
 theorem LI.setQuiet {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (m : UInt32)
     (lo : HEAD ≤ m) (hi : m ≤ SYNC) (q : m < LENLENS ∨ LIT < m)
-    (hm : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank m ≤ 2) := by exact Or.inr fun _ => by decide) :
+    (hm : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank m ≤ 2) := by exact Or.inr fun _ => by decide)
+    (hfr : Fr E l S → Fr E l { S with mode := m } := by frt) :
     Sat H (setMode (some E.b) m) (fun _ H' => LI E l H' z { S with mode := m }) :=
   li.wrS (fun s => { s with mode := m }) (fun _ _ c => { c with
     mode_lo := lo
     mode_hi := hi
-    modes := InflateInv.ModeOK.quiet _ _ q }) rfl hm
+    modes := InflateInv.ModeOK.quiet _ _ q }) rfl hm hfr
 
 
 /-! ## Mode statements -/
@@ -147,12 +152,18 @@ theorem LI.locals {E : Env} {l l' : IL} {H : Heap} {z : ZStream} {S : InflateSta
     (h8 : l'.ret = l.ret := by rfl) : LI E l' H z S :=
   ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt,
     by rw [h3, h4, h5]; exact li.outAt, by rw [h6]; exact li.bits, by rw [h7]; exact li.inn,
-    by rw [h4]; exact li.outO, by rw [h8]; exact li.retB, li.sacc, li.msgK⟩
+    by rw [h4]; exact li.outO, by rw [h8]; exact li.retB, li.sacc, li.msgK,
+    li.fr.mono h2 fun ⟨a, b, c, d⟩ => ⟨h6 ▸ a, b, c, h8 ▸ d⟩⟩
+
+/-- A fresh call in a state without `FrS` has consumed input. -/
+theorem LI.frLt {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
+    (hn : ¬ FrS l S) : Fresh E → l.have_ < E.A0 :=
+  li.fr.lt li.inAt.1 hn
 
 /-- `LI` with `ret` set to `Z_OK`, `Z_STREAM_END` or `Z_DATA_ERROR`. -/
 theorem LI.setRet {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) (v : Int32)
-    (hv : RetOK v) : LI E { l with ret := v } H z S :=
-  { li with retB := hv }
+    (hv : RetOK v) (hfr : Fr E l S → Fr E { l with ret := v } S := by frt) : LI E { l with ret := v } H z S :=
+  { li with retB := hv, fr := hfr li.fr }
 
 /-- In a mode of rank above 2 (every mode before `CHECK`), `out` is the output count at entry. -/
 theorem LI.outEq {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
@@ -222,11 +233,12 @@ theorem run_BAD (E : Env) : ModeRun E inflate_BAD (fun _ => True) := by
   refine SatX.bind (SatX.modify ?_)
   exact SatX.throw ⟨⟨z, S, li.setRet Z_DATA_ERROR (by decide)⟩, Or.inl (show Z_DATA_ERROR ≠ Z_OK by decide)⟩
 
-theorem run_DONE (E : Env) : ModeRun E inflate_DONE (fun _ => True) := by
-  intro l H z S li _ m _
+theorem run_DONE (E : Env) : ModeRun E inflate_DONE (·.mode = DONE) := by
+  intro l H z S li hm m _
   unfold inflate_DONE
   refine SatX.bind (SatX.modify ?_)
-  exact SatX.throw ⟨⟨z, S, li.setRet Z_STREAM_END (by decide)⟩, Or.inl (show Z_STREAM_END ≠ Z_OK by decide)⟩
+  exact SatX.throw ⟨⟨z, S, li.setRet Z_STREAM_END (by decide) (fun h => h.mono rfl (FrS.no_mode (by rw [hm]; decide)))⟩,
+    Or.inl (show Z_STREAM_END ≠ Z_OK by decide)⟩
 
 /-- A mode value outside the cases of the `switch` (`SYNC`, `MEM`): `return Z_STREAM_ERROR`. -/
 theorem run_default (E : Env) (M : UInt32) (hM : M = SYNC ∨ M = 16210) :
@@ -365,7 +377,7 @@ theorem needbits_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
         rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; show 1 ≤ _; omega)]; rfl
       refine ⟨⟨rfl, ?_, ?_, ?_⟩, ?_⟩
       · refine ⟨li1.inv, li1.frame, li1.sz, li1.hz, li1.hb, li1.hs, li1.head, li1.hdr, ?_, li1.outAt, ?_, li1.inn,
-          li1.outO, li1.retB, li1.sacc, li1.msgK⟩
+          li1.outO, li1.retB, li1.sacc, li1.msgK, Fr.ofLt ?_⟩
         · obtain ⟨hle, hat⟩ := li1.inAt
           refine ⟨by rw [UInt32.le_iff_toNat_le, hsub]; have : l1.have_.toNat ≤ E.A0.toNat := hle; omega, ?_⟩
           show match E.inp with
@@ -385,6 +397,9 @@ theorem needbits_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateStat
         · show l1.bits + 8 ≤ 39
           rw [UInt8.le_iff_toNat_le, hb8]; show _ ≤ 39
           have := li.bits; rw [UInt8.le_iff_toNat_le] at this; have : l.bits.toNat ≤ 39 := this; omega
+        · show l1.have_ - 1 < E.A0
+          have hle : l1.have_.toNat ≤ E.A0.toNat := li1.inAt.1
+          rw [UInt32.lt_iff_toNat_lt, hsub]; omega
       · refine p1.trans ⟨rfl, ?_⟩
         show 8 * (l1.have_ - 1).toNat + (l1.bits + 8).toNat = _
         rw [hsub, hb8]; omega
@@ -546,9 +561,9 @@ theorem LI.stHdr {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} 
 theorem LI.setBits {E : Env} {l l' : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (h1 : l'.next = l.next) (h2 : l'.have_ = l.have_) (h3 : l'.put = l.put) (h4 : l'.out = l.out)
     (h5 : l'.left = l.left) (h6 : l'.bits ≤ 39) (h7 : l'.in_ = l.in_ := by rfl)
-    (h8 : l'.ret = l.ret := by rfl) : LI E l' H z S :=
+    (h8 : l'.ret = l.ret := by rfl) (hfr : Fr E l S → Fr E l' S := by frt) : LI E l' H z S :=
   ⟨li.inv, li.frame, li.sz, li.hz, li.hb, li.hs, li.head, li.hdr, by rw [h1, h2]; exact li.inAt,
     by rw [h3, h4, h5]; exact li.outAt, h6, by rw [h7]; exact li.inn, by rw [h4]; exact li.outO,
-    by rw [h8]; exact li.retB, li.sacc, li.msgK⟩
+    by rw [h8]; exact li.retB, li.sacc, li.msgK, hfr li.fr⟩
 
 end ZlibNgF.Proof.InflateLoop

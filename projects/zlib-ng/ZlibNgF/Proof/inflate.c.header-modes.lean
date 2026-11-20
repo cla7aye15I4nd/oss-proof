@@ -149,7 +149,8 @@ theorem headZ2_ok {E : Env} {m : Nat} {l : IL} {H : Heap} {z : ZStream} {S : Inf
     have lo : HEAD ≤ md := by rcases hmd with rfl | rfl <;> decide
     have hi : md ≤ SYNC := by rcases hmd with rfl | rfl <;> decide
     have q : md < LENLENS ∨ LIT < md := by rcases hmd with rfl | rfl <;> decide
-    refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet md lo hi q (Or.inl hO)) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet md lo hi q (Or.inl hO) (fun h => h.mono rfl (FrS.no_bits
+      (by show 0 < (l.bits - (4 : UInt32).toUInt8).toNat; rw [hb4]; omega)))) ?_))
     intro _ H6 li7
     refine initbits_ok (post_ok (li7.setBits rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide)) ?_)
     have := rank_le md
@@ -243,7 +244,7 @@ theorem run_HEAD (E : Env) (eo : EnvOK E) : ModeRun E inflate_HEAD (fun S => S.m
     refine SatX.bind (initbits_ok ?_)
     have li5 := li4.setBits (l' := { l1 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide)
     refine SatX.bind (SatX.lift (Sat.mono (li5.setQuiet FLAGS (by decide) (by decide) (Or.inl (by decide))
-      (Or.inl (li1.outEq (by rw [hm]; decide)))) ?_))
+      (Or.inl (li1.outEq (by rw [hm]; decide))) (fun _ => Fr.ofFreshLt (li1.frLt (FrS.no_bits (by omega))))) ?_))
     intro _ H5 li6
     refine SatX.pure (post_ok li6 ?_)
     have := rank_le FLAGS

@@ -141,9 +141,9 @@ theorem run_HCRC (E : Env) (eo : EnvOK E) : ModeRun E inflate_HCRC (·.mode = HC
   intro H2 li2
   refine SatX.bind (SatX.lift_eq li2.ldState ?_)
   dsimp (config := { zeta := false }) only
-  have fin : ∀ H3 z3 S3, LI E l1 H3 z3 S3 →
+  have fin : ∀ H3 z3 S3, LI E l1 H3 z3 S3 → S3.mode = HCRC →
       SatX H3 l1 (MonadLiftT.monadLift (setMode E.c.st TYPE) : X Unit) (Post E m) := by
-    intro H3 z3 S3 li3
+    intro H3 z3 S3 li3 hS3
     refine SatX.lift (Sat.mono (li3.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide)) (Or.inl hO1)) ?_)
     intro _ H4 li4
     refine post_ok li4 ?_
@@ -155,8 +155,8 @@ theorem run_HCRC (E : Env) (eo : EnvOK E) : ModeRun E inflate_HCRC (·.mode = HC
     refine SatX.bind (SatX.lift (Sat.mono (li3.wrZ (fun z => { z with adler := CRC32_INITIAL_VALUE })
       rfl rfl rfl) ?_))
     intro _ H4 li4
-    exact fin _ _ _ li4
-  · exact fin _ _ _ li2
+    exact fin _ _ _ li4 (hm1.trans hm)
+  · exact fin _ _ _ li2 (hm1.trans hm)
 
 /-! ## `TYPE`, `DICT`, `DICTID` -/
 
@@ -313,12 +313,12 @@ theorem fixedModeOK (b : Nat) (S : InflateState) :
     · exact absurd (show LEN_ = MATCH from e) (by decide)
 
 theorem LI.setLen_ {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z (fixF S))
-    (ho : l.out = E.O0) :
+    (ho : l.out = E.O0) (hfr : Fr E l (fixF S) → Fr E l { fixF S with mode := LEN_ } := by frt) :
     Sat H (setMode (some E.b) LEN_) (fun _ H' => LI E l H' z { fixF S with mode := LEN_ }) :=
   li.wrS (fun s => { s with mode := LEN_ }) (fun _ _ c => { c with
     mode_lo := by show HEAD ≤ LEN_; decide
     mode_hi := by show LEN_ ≤ SYNC; decide
-    modes := fixedModeOK _ S }) rfl (Or.inl ho)
+    modes := fixedModeOK _ S }) rfl (Or.inl ho) hfr
 
 theorem rank_CHECK : rank CHECK = 2 := by decide
 
@@ -341,7 +341,9 @@ theorem run_TYPEDO (E : Env) (eo : EnvOK E) :
       hold := l.hold >>> (l.bits &&& 7).toUInt32.toUInt64
       bits := l.bits - (l.bits &&& 7) }) rfl rfl rfl rfl rfl
       (by show l.bits - (l.bits &&& 7) ≤ 39; rw [UInt8.le_iff_toNat_le]; show _ ≤ 39; omega)
-    refine SatX.bind (SatX.lift (Sat.mono (li1.setQuiet CHECK (by decide) (by decide) (Or.inr (by decide))) ?_))
+    rename_i hlast
+    refine SatX.bind (SatX.lift (Sat.mono (li1.setQuiet CHECK (by decide) (by decide) (Or.inr (by decide))
+      (Or.inr fun _ => by decide) (fun h => h.mono rfl fun ⟨_, e, _⟩ => absurd hlast (by simp [e]))) ?_))
     intro _ H1 li2
     refine SatX.pure (post_ok li2 ?_)
     unfold μ; dsimp only; rw [rank_CHECK]

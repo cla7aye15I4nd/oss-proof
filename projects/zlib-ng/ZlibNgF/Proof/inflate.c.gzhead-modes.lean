@@ -140,9 +140,10 @@ theorem fall_ok {E : Env} {f : Ctx → X Unit} {md : UInt32} (run : ModeRun E f 
     (lo : HEAD ≤ md) (hi : md ≤ SYNC) (q : md < LENLENS ∨ LIT < md)
     {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
     (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + rank md ≤ m)
-    (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank md ≤ 2)) :
+    (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank md ≤ 2))
+    (hfr : Fr E l S → Fr E l { S with mode := md } := by frt) :
     SatX H l (do (MonadLiftT.monadLift (setMode E.c.st md) : X Unit); f E.c) (Post E m) := by
-  refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet md lo hi q ho) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet md lo hi q ho hfr) ?_))
   intro _ H1 li1
   exact run _ _ _ _ li1 rfl m (by unfold μ; exact hμ)
 
@@ -151,13 +152,15 @@ theorem initfall_ok {E : Env} {f : Ctx → X Unit} {md : UInt32} (run : ModeRun 
     (lo : HEAD ≤ md) (hi : md ≤ SYNC) (q : md < LENLENS ∨ LIT < md)
     {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
     (hμ : 32 * (8 * l.have_.toNat + l.left.toNat) + rank md ≤ m)
-    (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank md ≤ 2)) :
+    (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank md ≤ 2))
+    (hfr : Fr E { l with hold := 0, bits := 0 } S → Fr E { l with hold := 0, bits := 0 } { S with mode := md } := by
+      frt) :
     SatX H l (do INITBITS; (MonadLiftT.monadLift (setMode E.c.st md) : X Unit); f E.c) (Post E m) := by
   refine SatX.bind (initbits_ok ?_)
   have e0 : (0 : UInt8).toNat = 0 := rfl
   exact fall_ok run lo hi q (li.setBits (l' := { l with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl
     (by show (0 : UInt8) ≤ 39; decide))
-    (by show 32 * (8 * l.have_.toNat + (0 : UInt8).toNat + l.left.toNat) + _ ≤ m; rw [e0]; omega) ho
+    (by show 32 * (8 * l.have_.toNat + (0 : UInt8).toNat + l.left.toNat) + _ ≤ m; rw [e0]; omega) ho hfr
 
 /-- `SET_BAD(msg); break;` with the input bits conserved. -/
 theorem bad_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}

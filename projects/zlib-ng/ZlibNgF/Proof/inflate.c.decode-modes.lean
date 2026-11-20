@@ -464,12 +464,13 @@ theorem modeOK_dec (b : Nat) (S : InflateState) (hm : ModeOK b (view S).m) (hd :
 
 theorem LI.setDec {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S)
     (hd : DecodeMode S.mode) (M : UInt32) (hM : DecodeMode M) (hx : M = LENEXT ∨ M = DISTEXT → S.extra ≤ 31)
-    (ho : M = DISTEXT ∨ M = MATCH → 1 ≤ S.offset.toNat ∧ (M = DISTEXT → S.offset.toNat < 65536)) :
+    (ho : M = DISTEXT ∨ M = MATCH → 1 ≤ S.offset.toNat ∧ (M = DISTEXT → S.offset.toNat < 65536))
+    (hfr : Fr E l S → Fr E l { S with mode := M } := by frt) :
     Sat H (setMode (some E.b) M) (fun _ H' => LI E l H' z { S with mode := M }) :=
   li.wrS (fun s => { s with mode := M }) (fun _ _ c => { c with
     mode_lo := (decodeMode_bounds hM).1
     mode_hi := (decodeMode_bounds hM).2
-    modes := modeOK_dec _ S c.modes hd M hM hx ho }) rfl (Or.inl (li.outEq (decodeMode_rank hd)))
+    modes := modeOK_dec _ S c.modes hd M hM hx ho }) rfl (Or.inl (li.outEq (decodeMode_rank hd))) hfr
 
 theorem rank_DISTEXT : rank DISTEXT = 7 := by decide
 theorem rank_DIST : rank DIST = 8 := by decide
@@ -632,7 +633,8 @@ theorem run_DIST (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_DISTEXT (·.mo
   refine SatX.bind (SatX.lift (Sat.mono (li5.setDec (by rw [hm1, ← hm]; exact hdm) DISTEXT
     (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl))))) (fun _ => UInt32.le_trans hx (by decide))
     (fun _ => ⟨by show 1 ≤ l1.here.val.toUInt32.toNat; rw [UInt16.toNat_toUInt32]; exact hv1,
-      fun _ => by show l1.here.val.toUInt32.toNat < 65536; rw [UInt16.toNat_toUInt32]; exact l1.here.val.toNat_lt⟩)) ?_))
+      fun _ => by show l1.here.val.toUInt32.toNat < 65536; rw [UInt16.toNat_toUInt32]; exact l1.here.val.toNat_lt⟩)
+    (fun h => h.mono rfl (FrS.no_mode (by simp only [hm1] <;> decide)))) ?_))
   intro _ H6 li6
   refine hX _ _ _ _ li6 rfl m ?_
   show 32 * (8 * l1.have_.toNat + (l1.bits - (CODE_BITS l1.here).toUInt8).toNat + l1.left.toNat) + rank DISTEXT ≤ m
@@ -856,7 +858,11 @@ theorem LI.afterFast {E : Env} (eo : EnvOK E) {l : IL} {H2 h' : Heap} {z : ZStre
         next := Ptr.ref ri (o0 + (E.A0.toNat - l.have_.toNat) + (l.have_ - ai).toNat)
         have_ := ai
         hold := hold
-        bits := bits.toUInt8 }) hIn hOut rfl rfl rfl rfl, hmk⟩
+        bits := bits.toUInt8 }) hIn hOut rfl rfl rfl rfl, hmk, fun hf ha => by
+      have ha' : ai.toNat = E.A0.toNat := congrArg UInt32.toNat ha
+      have hA : l.have_ = E.A0 := UInt32.toNat_inj.mp (by
+        have := li.inAt.1; have : l.have_.toNat ≤ E.A0.toNat := this; omega)
+      exact FrS.no_mode (by simp only [hm] <;> decide) (li.fr hf hA)⟩
   · obtain ⟨i', z0, b0, st0, al, e, hz0, hb0, hst0, hal, c⟩ := li.inv
     obtain rfl : E.i = i' := Option.some.inj e
     rw [li.hz] at hz0; cases hz0
@@ -1063,7 +1069,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
     · refine SatX.bind (SatX.lift (Sat.mono (li5.setDec (by rw [hm1]; exact Or.inr (Or.inl rfl)) LIT
         (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr rfl))))))
         (fun e => by rcases e with e | e <;> exact absurd e (by decide))
-        (fun e => by rcases e with e | e <;> exact absurd e (by decide))) ?_))
+        (fun e => by rcases e with e | e <;> exact absurd e (by decide)) (fun h => h.mono rfl (FrS.no_mode (by simp only [hm1] <;> decide)))) ?_))
       intro _ H6 li6
       refine SatX.pure (post_ok li6 ?_)
       show 32 * (8 * l1.have_.toNat + (l1.bits - (CODE_BITS l1.here).toUInt8).toNat + l1.left.toNat) + rank LIT < m
@@ -1072,7 +1078,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
     · refine SatX.bind (SatX.lift (Sat.mono (li5.wrS (fun s => { s with back := -1 }) (fun _ _ c => c) rfl) ?_))
       intro _ H6 li6
       refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide))
-        (Or.inl (li2.outEq (by rw [hm1]; decide)))) ?_))
+        (Or.inl (li2.outEq (by rw [hm1]; decide))) (fun h => h.mono rfl (FrS.no_mode (by simp only [hm1] <;> decide)))) ?_))
       intro _ H7 li7
       refine SatX.pure (post_ok li7 ?_)
       show 32 * (8 * l1.have_.toNat + (l1.bits - (CODE_BITS l1.here).toUInt8).toNat + l1.left.toNat) + rank TYPE < m
@@ -1089,7 +1095,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
     have hx := code_extra_le hent
     refine SatX.bind (SatX.lift (Sat.mono (li6.setDec (by rw [hm1]; exact Or.inr (Or.inl rfl)) LENEXT
       (Or.inr (Or.inr (Or.inl rfl))) (fun _ => UInt32.le_trans hx (by decide))
-      (fun e => by rcases e with e | e <;> exact absurd e (by decide))) ?_))
+      (fun e => by rcases e with e | e <;> exact absurd e (by decide)) (fun h => h.mono rfl (FrS.no_mode (by simp only [hm1] <;> decide)))) ?_))
     intro _ H7 li7
     refine hX _ _ _ _ li7 rfl m ?_
     show 32 * (8 * l1.have_.toNat + (l1.bits - (CODE_BITS l1.here).toUInt8).toNat + l1.left.toNat) + rank LENEXT ≤ m
