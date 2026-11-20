@@ -2,6 +2,7 @@ import ZlibNgF.Proof.«public-runtime-ub»
 import ZlibNgF.Proof.«public-zutil»
 import ZlibNgF.Proof.«adler32_c.c.kernel»
 import ZlibNgF.Proof.«adler32_c.c.safety»
+import ZlibNgF.Proof.«adler32_c.c.value»
 import ZlibNgF.Proof.«public-adler32»
 import ZlibNgF.Proof.«public-crc32»
 import ZlibNgF.Proof.«public-compress-bound»
@@ -11,6 +12,7 @@ import ZlibNgF.ZlibNg.«compress.c»
 import ZlibNgF.Spec.Safety.Deflate
 import ZlibNgF.Proof.«deflate.c.copy»
 import ZlibNgF.Proof.«deflate.c.params»
+import ZlibNgF.Proof.«deflate.c.body.trail»
 import ZlibNgF.Proof.«deflate.c.reach»
 import ZlibNgF.Proof.«trees_emit.h.emit»
 import ZlibNgF.Proof.«trees_emit.h.static»

@@ -1,12 +1,13 @@
 import ZlibNgF.Spec.Safety.Goals
 import ZlibNgF.Spec.Functional.Goals
+import ZlibNgF.Proof.«adler32_c.c.value»
 
 /-!
 # Proofs of `adler32.c`, `arch/generic/adler32_c.c`, and `adler32_p.h` (`ZlibNgF`)
 
-Proves safety and exact RFC 1950 §8.2 functional correctness of `adler32_combine` and `adler32_combine64`.
-The goals of `adler32` and `adler32_z` are not done here: the SWAR kernel `adler32_swar` is proved in
-`adler32_c.c.kernel.lean`, the rest of `adler32_c` is not yet.
+Proves safety and exact RFC 1950 §8.2 functional correctness of `adler32_combine` and `adler32_combine64`, the
+exact value of `adler32` and `adler32_z` (from the value of the kernel `adler32_c`, `adler32_c.c.value.lean`),
+and the non-vacuity witness of `adler32`. The safety of `adler32` and `adler32_z` is in `adler32_c.c.safety.lean`.
 -/
 
 set_option autoImplicit false
@@ -385,5 +386,73 @@ theorem adler32_combine64_safety : Goal.adler32_combine64_safety := by
   intro h a1 a2 l2
   obtain ⟨r, hr, _, _⟩ := adler32_combine_spec_proof h a1 a2 l2
   exact ⟨r, hr⟩
+
+/-! ## `adler32` and `adler32_z` -/
+
+private theorem seed_low16 (seed : UInt64) : (seed.toUInt32 &&& 0xffff).toNat = seed.toNat % 65536 := by
+  rw [low16_32, UInt64.toNat_toUInt32]
+  exact Nat.mod_mod_of_dvd _ (by decide)
+
+/-- `adler32Update` is the packed value of the reduced sums from the reduced seed halves. -/
+private theorem adler32Update_toNat (seed : UInt64) (xs : List UInt8) :
+    (adler32Update seed xs).toNat =
+      (sums (seed.toNat % 65536 % 65521, seed.toNat / 65536 % 65536 % 65521) xs).1 +
+        65536 * (sums (seed.toNat % 65536 % 65521, seed.toNat / 65536 % 65536 % 65521) xs).2 := by
+  have hb := sums_lt_base (seed.toNat % 65536 % 65521, seed.toNat / 65536 % 65536 % 65521) xs
+    ⟨Nat.mod_lt _ (by decide), Nat.mod_lt _ (by decide)⟩
+  rcases hp : sums (seed.toNat % 65536 % 65521, seed.toNat / 65536 % 65536 % 65521) xs with ⟨A, B⟩
+  rw [hp] at hb
+  simp only [ZlibNgF.Math.Adler32.BASE] at hb
+  simp only [adler32Update, ZlibNgF.Math.Adler32.BASE, hp]
+  exact u64_ofNat_toNat (by omega)
+
+/-- `adler32_c` through the public `unsigned long` interface: the value on a readable buffer. -/
+private theorem adler32_c_public {h : Heap} {r : BRef} {data : Array UInt8} (hg : Space.get h r = some data)
+    (seed : UInt64) (off : Nat) (len : UInt64) (hle : off + len.toNat ≤ data.size) :
+    ∃ v : UInt32, C.run (adler32_c seed.toUInt32 (.ref r off) len) h = .ok (v, h) ∧
+      v.toUInt64 = adler32Update seed ((data.toList.drop off).take len.toNat) := by
+  obtain ⟨v, e, hv⟩ := ZlibNgF.Proof.Adler32Value.adler32_c_val hg seed.toUInt32 off len hle
+  refine ⟨v, e, u64_eq_of_toNat ?_⟩
+  unfold ZlibNgF.Proof.Adler32Value.AdlerVal at hv
+  rw [UInt32.toNat_toUInt64, hv, adler32Update_toNat, seed_low16, seed_high16]
+
+theorem adler32_z_functional : Goal.adler32_z_functional := by
+  intro h seed buf len bytes hb
+  rcases hb with ⟨rfl, -⟩ | ⟨r, off, data, rfl, hg, hle, rfl⟩
+  · simp only [↓reduceIte]; rfl
+  · obtain ⟨v, e, hv⟩ := adler32_c_public hg seed off len hle
+    have e' : adler32_c seed.toUInt32 (.ref r off) len h = .ok (v, h) := e
+    have hne : (Ptr.ref r off : BPtr) ≠ .null := by intro hc; cases hc
+    simp only [hne, ↓reduceIte]
+    rw [← hv]
+    simp [C.run, ZlibNg.Adler32.adler32_z, bind_app, e']
+
+theorem adler32_functional : Goal.adler32_functional := by
+  intro h seed buf len bytes hb
+  rcases hb with ⟨rfl, -⟩ | ⟨r, off, data, rfl, hg, hle, rfl⟩
+  · simp only [↓reduceIte]; rfl
+  · obtain ⟨v, e, hv⟩ := adler32_c_public hg seed off len.toUInt64 (by simpa using hle)
+    have e' : adler32_c seed.toUInt32 (.ref r off) len.toUInt64 h = .ok (v, h) := e
+    have hne : (Ptr.ref r off : BPtr) ≠ .null := by intro hc; cases hc
+    simp only [hne, ↓reduceIte]
+    rw [show len.toNat = len.toUInt64.toNat by simp, ← hv]
+    simp [C.run, ZlibNg.Adler32.adler32, bind_app, e']
+
+theorem adler32_nonvacuous : Goal.adler32_nonvacuous := by
+  let arr : Array UInt8 := Array.replicate 6000 0xff
+  let h : Heap := { Heap.empty with bytes := upd Heap.empty.bytes 0 (some arr), nextBlk := 1 }
+  let buf : BPtr := .ref (.heap 0) 0
+  let bytes : List UInt8 := (arr.toList.drop 0).take 6000
+  have hg : Space.get h (BRef.heap 0) = some arr := by
+    simp only [Space.get, Heap.getBytes, h, upd_same]
+  have harr_sz : arr.size = 6000 := Array.size_replicate
+  have hlen_bytes : bytes.length = 6000 := by
+    dsimp [bytes]
+    rw [List.length_take, List.length_drop, Array.length_toList, harr_sz]
+    omega
+  have hbuf_ne : buf ≠ .null := by dsimp [buf]; intro hc; cases hc
+  have hbb : BufferBytes h buf 6000 bytes := Or.inr ⟨BRef.heap 0, 0, arr, rfl, hg, by omega, rfl⟩
+  obtain ⟨r, hrun⟩ := ZlibNgF.Proof.Adler32Safe.adler32_safety h 1 buf 6000 bytes hbb
+  exact ⟨h, buf, bytes, r, hbuf_ne, hlen_bytes, hbb, hrun⟩
 
 end ZlibNgF.Proof.Adler32
