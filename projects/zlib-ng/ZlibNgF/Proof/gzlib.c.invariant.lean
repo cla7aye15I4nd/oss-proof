@@ -23,7 +23,8 @@ so that a proof about one function opens only the clauses it needs.
   most the `2 * want` bytes of the output buffer), `pos ≥ 0` when writing;
 * reading: `how ∈ {LOOK, COPY, GZIP}`; with buffers, the inflate stream has the inflate invariant (`gz_look` called
   `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, and `avail_in` bytes
-  from `next_in` inside `in`; without buffers `x.have` is 0; a pending skip and the bytes `gzungetc` pushed back
+  from `next_in` inside `in`; without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
+  (`FreshStrm`); a pending skip and the bytes `gzungetc` pushed back
   after it keep `pos + skip + have ≤ GZ_OFF_MAX`;
 * writing: `x.have` is 0; without buffers `avail_in` is 0; with buffers and not `direct`, the deflate stream has the
   deflate invariant and the between-call facts (`gz_write_init`), no `gz_header` registered, `next_out + avail_out`
@@ -73,6 +74,12 @@ structure GzBufs (h : Heap) (s : GzState) (c base : Nat) : Prop where
   /-- the header of the aligned allocation (`zng_alloc_aligned`): the pointer to the block is saved before `base` -/
   hdr : 8 ≤ base ∧ h.savedPtrs c = some (base - 8, .ref (.heap c) 0)
 
+/-- The embedded stream before `gz_read_init`: allocator fields that `inflateInit2` accepts (`NULL` from
+`gz_state_init`, or `zcalloc` / `zcfree` from an `inflateInit2` that failed) and no input (`gz_reset`). -/
+def FreshStrm (h : Heap) (s : GzState) : Prop :=
+  ∃ z, h.streams s.strm = some z ∧ (z.zalloc = .null ∨ z.zalloc = .zcalloc) ∧ (z.zfree = .null ∨ z.zfree = .zcfree) ∧
+    z.avail_in = 0
+
 /-- Reading. -/
 structure GzRead (h : Heap) (s : GzState) : Prop where
   how : s.how = LOOK ∨ s.how = COPY ∨ s.how = GZIP
@@ -85,6 +92,8 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   nobuf : s.size = 0 → s.«have» = 0
   /-- a pending skip and the bytes pushed back by `gzungetc` after it stay below `GZ_OFF_MAX` -/
   skip_have : s.skip ≠ 0 → s.pos.toInt + s.skip.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt
+  /-- before the buffers exist, `gz_read_init` can call `inflateInit2` on the stream -/
+  fresh : s.size = 0 → FreshStrm h s
 
 /-- The write buffers and the embedded stream `z` once the buffers exist (block `c`, `in` at `base`). -/
 structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop where
@@ -148,6 +157,14 @@ def GzInv (w : World) (h : Heap) (f : GzPtr) : Prop :=
   ∃ b s, f = some b ∧ w.gz h b = some s ∧ GzShape h s ∧ (ownL h b s).Nodup
 
 /-! ## Interface lemmas -/
+
+theorem FreshStrm.of_streams {h h' : Heap} {s : GzState} (hf : FreshStrm h s)
+    (e : h'.streams s.strm = h.streams s.strm) : FreshStrm h' s := by
+  obtain ⟨z, hz, a, b, c⟩ := hf; exact ⟨z, by rw [e]; exact hz, a, b, c⟩
+
+theorem FreshStrm.of_strm {h : Heap} {s s' : GzState} (hf : FreshStrm h s) (e : s'.strm = s.strm) :
+    FreshStrm h s' := by
+  obtain ⟨z, hz, a, b, c⟩ := hf; exact ⟨z, by rw [e]; exact hz, a, b, c⟩
 
 /-- `LitOk` holds in a world with the same literal keys and a heap whose constants grow. -/
 theorem _root_.ZlibNgF.Spec.LitOk.ext {w w' : World} {h h' : Heap} (hl : LitOk w h) (hk : w'.litKeys = w.litKeys)

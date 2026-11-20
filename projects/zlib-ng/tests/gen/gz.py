@@ -17,8 +17,9 @@ A schedule entry A<k> makes the library's malloc call number k of the line (0-ba
 
 Every input on which the C ran into undefined behaviour before patches 0014-0016 is generated: write errors on the
 direct path of gz_write followed by further writes, flushes and closes, gzclearerr after write errors, allocation
-failures (gz_state, path, buffers, inflate and deflate state, error message), reads after gzseek to near 2^63, and
-gzdirect while a seek is pending (patch 0020).
+failures (gz_state, path, buffers, inflate and deflate state, error message), reads after gzseek to near 2^63,
+gzdirect while a seek is pending (patch 0020), and gzgets while a seek is pending at the end of a file that grows
+(patch 0021).
 Patch 0017 refuses a write past GZ_OFF_MAX before it reads the buffer: gzfwrite lengths above it are generated with
 a one-byte buffer (nothing else can reach that position in a test's time).
 """
@@ -288,6 +289,19 @@ for c in (text(300), b"hello, world\n", gz(text(300))):
                     ["read:3", "seek:2:0", "direct", "getc", "tell", "read:4"],
                     ["seek:3:1", "direct", "seek:4:1", "direct", "getc", "tell"]):
             line(c, [], ["open:r"] + pre + ops + ["error", "close"])
+
+# ---- gzgets while a seek is pending after the end of file (patch 0021): the file has grown (device data for the
+# read after the one that returned 0); gzgets does not fetch before the skip is done ----
+for sk in ("9223372036854775807", "5", "2"):
+    for ops in (["seek:%s:0" % sk, "direct", "gets:16", "tell", "gets:16", "tell"],
+                ["seek:%s:0" % sk, "read:1", "gets:16", "ungetc:65", "tell", "getc", "tell"],
+                ["seek:%s:0" % sk, "direct", "ungetc:66", "gets:16", "tell", "read:4", "tell"]):
+        for sched in ([], ["4:B64650a"], ["4:B64650a", "5:B7879"]):
+            line(b"abc", sched, ["open:r"] + ops + ["eof", "error", "close"])
+# the same reads with no skip pending: gzgets still reads after the end of file
+for sched in ([], ["4:B64650a"]):
+    line(b"abc", sched, ["open:r", "read:8", "gets:16", "tell", "eof", "close"])
+    line(b"abc", sched, ["open:r", "direct", "gets:16", "tell", "eof", "close"])
 
 # ---- a write that would move the position past GZ_OFF_MAX is refused (patch 0017); the driver's buffer is not read ----
 for m in ("w", "wT"):

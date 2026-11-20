@@ -34,8 +34,9 @@ theorem HSame.refl (h : Heap) : HSame h h := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rf
 def FsWF (fs : Fs) : Prop :=
   fs.budget < 2 ^ 62 ∧ (∀ d ∈ fs.nodes, d.size < 2 ^ 62) ∧ (∀ n v, fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v)
 
-/-- The embedded stream of a new file: no state, and the default allocator (`gz_state_init`). -/
-def SFresh (z : ZStream) : Prop := z.state = none ∧ z.zalloc = .null ∧ z.zfree = .null
+/-- The embedded stream of the new state: no inflate or deflate state, and the allocator fields `NULL`
+(`gz_state_init`). -/
+def SNone (z : ZStream) : Prop := z.state = none ∧ z.zalloc = .null ∧ z.zfree = .null
 
 /-- The state of a call of `gz_open` (see the module doc). -/
 structure OI (w : World) (h : Heap) (b i : Nat) (w1 : World) (h1 : Heap) : Prop where
@@ -49,7 +50,7 @@ structure OI (w : World) (h : Heap) (b i : Nat) (w1 : World) (h1 : Heap) : Prop 
   gzOld : ∀ c, c < h.nextBlk → w1.gzs c = w.gzs c
   gzNew : ∀ c, h.nextBlk ≤ c → c ≠ b → w1.gzs c = none
   same : HSame h h1
-  snone : ∀ z, h1.streams i = some z → SFresh z
+  snone : ∀ z, h1.streams i = some z → SNone z
 
 theorem fsWF_of {w : World} {h : Heap} (hwf : GzWF w h) : FsWF w.fs :=
   ⟨hwf.2.2.2.2.2.1, hwf.2.2.2.2.2.2.1, hwf.2.2.2.2.2.2.2.1⟩
@@ -310,7 +311,7 @@ theorem oi_init {w : World} {h : Heap} {W : World} {H : Heap} (hwf : GzWF w h)
     (hs : ∀ j, j ≠ h.streams.arr.size → H.streams j = h.streams j) (hsi : ∃ z, H.streams h.streams.arr.size = some z)
     (hg : ∀ c, c ≠ h.nextBlk → W.gzs c = w.gzs c)
     (hgb : ∃ st, W.gzs h.nextBlk = some st ∧ st.strm = h.streams.arr.size) (hfs : W.fs = w.fs) (hn : H.nextBlk = h.nextBlk + 1) (same : HSame h H)
-    (hsn : ∀ z, H.streams h.streams.arr.size = some z → SFresh z) (hk : W.litKeys = w.litKeys) :
+    (hsn : ∀ z, H.streams h.streams.arr.size = some z → SNone z) (hk : W.litKeys = w.litKeys) :
     OI w h h.nextBlk h.streams.arr.size W H := by
   have hi := streams_size_none h
   obtain ⟨st, hgb, hst⟩ := hgb
@@ -380,7 +381,7 @@ theorem oi_heap {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 H : Heap} (o
     (hgz : ∀ c, H.nextBlk ≤ c → w1.gzs c = none)
     (hstr : ∀ c s, w1.gz H c = some s → ∃ z, H.streams s.strm = some z)
     (hold : ∀ j z, h1.streams j = some z → h.streams j = some z → H.streams j = some z)
-    (hsn : ∀ z, H.streams i = some z → SFresh z) : OI w h b i w1 H := by
+    (hsn : ∀ z, H.streams i = some z → SNone z) : OI w h b i w1 H := by
   have wf := o.wf
   refine ⟨o.wf0, gzWF_mk ?_ ?_ ?_ hgz hstr (fsWF_of wf) (LitOk.ext wf.lit rfl fun _ _ e => by rw [same.consts]; exact e), o.nb, o.inone, by have := o.next; omega,
     fun c hc => by rw [hbytes c hc]; exact o.bytes c hc,
@@ -592,7 +593,7 @@ theorem sat_snprintf_path {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : 
 
 /-- A change of the stream record `i` (kept live) only. -/
 theorem oi_stream {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} (o : OI w h b i w1 h1) (z : ZStream)
-    (hzs : SFresh z) :
+    (hzs : SNone z) :
     OI w h b i w1 { h1 with streams := upd h1.streams i (some z) } := by
   have wf := o.wf
   refine oi_heap o ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ (Nat.le_refl _) (fun _ _ => rfl)
@@ -616,10 +617,9 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
     (o : OI w h b i w1 h1) (hs : w1.gz h1 b = some st) (hbl : b < h1.nextBlk) (hmsg : st.msg = .val .null)
     (hsi : st.strm = i) :
     GSat w1 h1 (gz_reset (some b)) (fun _ W H => OI w h b i W H ∧ H.bytes = h1.bytes ∧ H.nextBlk = h1.nextBlk ∧
-      ∃ st', W.gz H b = some st' ∧ st'.path = st.path ∧ st'.mode = st.mode ∧ st'.strm = st.strm ∧
+      (∀ z, H.streams i = some z → z.avail_in = 0) ∧ ∃ st', W.gz H b = some st' ∧ st'.path = st.path ∧ st'.mode = st.mode ∧ st'.strm = st.strm ∧
         st'.size = st.size ∧ st'.want = st.want ∧ st'.msg = st.msg ∧ st'.pos = 0 ∧ st'.skip = 0 ∧
-        st'.err = ZlibNg.Inflate.Z_OK ∧ st'.«have» = 0 ∧ st'.buffers = st.buffers ∧ (st.mode = GZ_READ → st'.how = LOOK) ∧
-        ∃ z, H.streams i = some z ∧ z.avail_in = 0) := by
+        st'.err = ZlibNg.Inflate.Z_OK ∧ st'.«have» = 0 ∧ st'.buffers = st.buffers ∧ (st.mode = GZ_READ → st'.how = LOOK)) := by
   obtain ⟨d, hd⟩ : ∃ d, h1.bytes b = some d := by
     unfold World.gz at hs; split at hs
     · next d hd => exact ⟨d, hd⟩
@@ -638,7 +638,7 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
         ldStream, stStream, hsi, hz, Ival.get, liftM, monadLift, MonadLift.monadLift, StateT.lift, getHeap_app]
       and_intros <;> rfl
     case q =>
-      refine ⟨oi_stream (hW _ ?_ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
+      refine ⟨oi_stream (hW _ ?_ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, fun z' hz' => by simp at hz'; rw [← hz'], ?_⟩
       · rfl
       · intro c hc; simp only [upd_ne _ _ _ _ hc]
       · simp
@@ -651,7 +651,7 @@ theorem gsat_reset {w : World} {h : Heap} {b i : Nat} {w1 : World} {h1 : Heap} {
         ldStream, stStream, hsi, hz, Ival.get, liftM, monadLift, MonadLift.monadLift, StateT.lift, getHeap_app]
       and_intros <;> rfl
     case q2 =>
-      refine ⟨oi_stream (hW _ ?_ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, ?_⟩
+      refine ⟨oi_stream (hW _ ?_ ?_ ?_ ?_) _ (o.snone z hz), rfl, rfl, fun z' hz' => by simp at hz'; rw [← hz'], ?_⟩
       · rfl
       · intro c hc; simp only [upd_ne _ _ _ _ hc]
       · simp
@@ -811,7 +811,7 @@ theorem finish_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
     (hpath : OwnedStr H st.path) (hfr : ∃ c, st.path = .val (.ref (.heap c) 0) ∧ h.nextBlk ≤ c ∧ c ≠ b) :
     GSat W H (gz_reset (some b) >>= fun _ => pure (some b)) (OpenPost w h) := by
   refine GSat.bind (GSat.mono (gsat_reset o t.hst t.hbl t.p0.msg t.p0.strm) fun _ W' H' q => ?_)
-  obtain ⟨o', hby, -, st', hst', hpa, hmo, hstm, hsz, hwa, hms, hpo, hsk, -, hhv, hbu, hhow, zr, hzr, hzr0⟩ := q
+  obtain ⟨o', hby, -, hav, st', hst', hpa, hmo, hstm, hsz, hwa, hms, hpo, hsk, -, hhv, hbu, hhow⟩ := q
   refine GSat.pure ⟨o'.post.1, o'.post.2, fun b' e => ?_⟩
   cases e
   have hsz0 : st'.size = 0 := by rw [hsz]; exact t.p0.size
@@ -825,8 +825,14 @@ theorem finish_ok {w : World} {h : Heap} {b i : Nat} {W : World} {H : Heap} {st 
     ⟨by rw [hsk]; decide, by rw [hpo, hsk]; decide, by rw [hpo]; decide, fun _ => by rw [hpo]; decide⟩,
     ⟨Or.inl (by rw [hms]; exact t.p0.msg), fun _ => by rw [hms]; exact t.p0.msg⟩,
     fun hr => ⟨Or.inl (hhow (by rw [← hmo]; exact hr)), fun e => absurd hsz0 e, fun _ => hhv,
-      fun e => absurd hsk e⟩, fun _ => ⟨fun e => absurd hsz0 e, fun _ => ⟨zr, by rw [hstm, t.p0.strm]; exact hzr, hzr0,
-          Or.inl (o'.snone zr hzr).2.1, Or.inl (o'.snone zr hzr).2.2⟩,
+      fun e => absurd hsk e, fun _ => by
+        obtain ⟨z, hz⟩ := o'.wf.2.2.2.2.1 b st' hst'
+        have hz' : H'.streams i = some z := by rw [hstm, t.p0.strm] at hz; exact hz
+        exact ⟨z, hz, Or.inl (o'.snone z hz').2.1, Or.inl (o'.snone z hz').2.2, hav z hz'⟩⟩,
+      fun _ => ⟨fun e => absurd hsz0 e, fun _ => by
+          obtain ⟨z, hz⟩ := o'.wf.2.2.2.2.1 b st' hst'
+          have hz' : H'.streams i = some z := by rw [hstm, t.p0.strm] at hz; exact hz
+          exact ⟨z, hz, hav z hz', Or.inl (o'.snone z hz').2.1, Or.inl (o'.snone z hz').2.2⟩,
         hhv⟩, fun _ c hc => by
         rw [hbu, t.p0.buffers] at hc
         obtain ⟨z, hz⟩ := o'.wf.2.2.2.2.1 b st' hst'
