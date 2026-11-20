@@ -121,7 +121,7 @@ theorem shl1_toNat (x : UInt32) (hx : x.toNat ≤ 2 ^ 30) : (x <<< 1).toNat = 2 
 /-- The room of `gz_fetch` (patch 0016): `x.pos + room <= GZ_OFF_MAX`. -/
 theorem room_ok (pos : Int64) (hlo : -GZ_OFF_MAX.toInt ≤ pos.toInt) (hhi : pos.toInt ≤ GZ_OFF_MAX.toInt) :
     ((decide (pos > 0) && decide ((4294967295 : UInt32).toUInt64 > (GZ_OFF_MAX - pos).toUInt64)) = true →
-      pos.toInt + ((GZ_OFF_MAX - pos).toUInt64.toUInt32).toNat ≤ GZ_OFF_MAX.toInt) ∧
+      pos.toInt + ((GZ_OFF_MAX - pos).toUInt64.toUInt32).toNat = GZ_OFF_MAX.toInt) ∧
     (¬ (decide (pos > 0) && decide ((4294967295 : UInt32).toUInt64 > (GZ_OFF_MAX - pos).toUInt64)) = true →
       pos.toInt + (4294967295 : UInt32).toNat ≤ GZ_OFF_MAX.toInt) := by
   have hmx := gzmax
@@ -176,15 +176,107 @@ theorem fmu_of {b : Nat} {fd : Int32} {i : Nat} {W : World} {H : Heap} {s : GzSt
 theorem fph_le (H : Heap) (s : GzState) (ai : Nat) : fph H s ai ≤ 4 := by
   unfold fph; repeat (first | omega | split)
 
+/-! ## The potential of a read handle (for `gz_skip` and `gz_read`) -/
+
+/-- The room for output left below `GZ_OFF_MAX`: `GZ_OFF_MAX - x.pos - x.have`. -/
+def xq (s : GzState) : Nat := (GZ_OFF_MAX.toInt - s.pos.toInt - (s.«have».toNat : Int)).toNat
+
+open Classical in
+/-- The phase of the potential: `COPY` 0, `LOOK` 2 (4 when `direct == -1`), `GZIP` 4. -/
+noncomputable def ph2 (s : GzState) : Nat :=
+  if s.how = ZlibNg.Gz.COPY then 0 else if s.how = LOOK then (if s.direct = -1 then 4 else 2) else 4
+
+open Classical in
+/-- The credit phase inside `gz_fetch`: `ph2`, but 2 for a just reset `GZIP` stream with input. -/
+noncomputable def phx (H : Heap) (s : GzState) : Nat :=
+  if s.how = ZlibNg.Gz.COPY then 0 else if s.how = LOOK then (if s.direct = -1 then 4 else 2)
+  else if InflFresh H s ∧ ∀ z, H.streams s.strm = some z → z.avail_in ≠ 0 then 2 else 4
+
+open Classical in
+/-- **The potential of a read handle**: twice the input still to come, twice the room for output in blocks of 16
+bytes, the phase, and 3 when not at the end of the input. A `gz_fetch` that returns 0 lowers it by 2 with output and
+by 1 without. -/
+noncomputable def Phi (W : World) (H : Heap) (s : GzState) : Nat :=
+  2 * dD s W H + 2 * ((xq s + 15) / 16) + ph2 s + (if AtEnd H s then 0 else 3)
+
+theorem ph2_le (s : GzState) : ph2 s ≤ 4 := by unfold ph2; repeat (first | omega | split)
+theorem phx_le (H : Heap) (s : GzState) : phx H s ≤ ph2 s := by
+  unfold phx ph2; repeat (first | omega | split)
+theorem phx_le4 (H : Heap) (s : GzState) : phx H s ≤ 4 := Nat.le_trans (phx_le H s) (ph2_le s)
+theorem ph2_le_phx (H : Heap) (s : GzState) : ph2 s ≤ phx H s + 2 := by
+  unfold phx ph2; repeat (first | omega | split)
+theorem phx_look {H : Heap} {s : GzState} (e : s.how = LOOK) : 2 ≤ phx H s := by
+  unfold phx
+  have h1 : ¬ s.how = ZlibNg.Gz.COPY := by rw [e]; decide
+  rw [ite_eq_right_of_eq_false _ _ (eq_false h1), ite_eq_left_of_eq_true _ _ (eq_true e)]
+  split <;> omega
+theorem phx_look1 {H : Heap} {s : GzState} (e : s.how = LOOK) (d : s.direct = -1) : phx H s = 4 := by
+  simp (config := {decide := true}) [phx, e, d]
+theorem phx_copy {H : Heap} {s : GzState} (e : s.how = ZlibNg.Gz.COPY) : phx H s = 0 := by simp [phx, e]
+theorem ph2_copy {s : GzState} (e : s.how = ZlibNg.Gz.COPY) : ph2 s = 0 := by simp [ph2, e]
+theorem ph2_look0 {s : GzState} (e : s.how = LOOK) (d : s.direct = 0) : ph2 s = 2 := by
+  simp (config := {decide := true}) [ph2, e, d]
+theorem phx_fresh {H : Heap} {s : GzState} (e : s.how = GZIP) (hf : InflFresh H s)
+    (ha : ∀ z, H.streams s.strm = some z → z.avail_in ≠ 0) : phx H s = 2 := by
+  unfold phx
+  have h1 : ¬ s.how = ZlibNg.Gz.COPY := by rw [e]; decide
+  have h2 : ¬ s.how = LOOK := by rw [e]; decide
+  rw [ite_eq_right_of_eq_false _ _ (eq_false h1), ite_eq_right_of_eq_false _ _ (eq_false h2),
+    ite_eq_left_of_eq_true _ _ (eq_true ⟨hf, ha⟩)]
+theorem ph2_gz {s : GzState} (e : s.how = GZIP) : ph2 s = 4 := by
+  simp (config := {decide := true}) [ph2, e]
+theorem phx_gz {H : Heap} {s : GzState} (e : s.how = GZIP)
+    (hn : ¬ (InflFresh H s ∧ ∀ z, H.streams s.strm = some z → z.avail_in ≠ 0)) : phx H s = 4 := by
+  simp (config := {decide := true}) only [phx, e, hn]; rfl
+
+theorem Phi_le (W : World) (H : Heap) (s : GzState) :
+    Phi W H s ≤ 2 * dD s W H + 2 * ((xq s + 15) / 16) + ph2 s + 3 := by
+  unfold Phi; split <;> omega
+theorem Phi_end {W : World} {H : Heap} {s : GzState} (e : AtEnd H s) :
+    Phi W H s = 2 * dD s W H + 2 * ((xq s + 15) / 16) + ph2 s := by
+  simp [Phi, e]
+theorem Phi_ne {W : World} {H : Heap} {s : GzState} (e : ¬ AtEnd H s) :
+    Phi W H s = 2 * dD s W H + 2 * ((xq s + 15) / 16) + ph2 s + 3 := by
+  simp [Phi, e]
+
+theorem Phi_le' {W : World} {H : Heap} {s : GzState} {D p : Nat} (hD : dD s W H ≤ D) (hp : ph2 s ≤ p) :
+    Phi W H s ≤ 2 * D + 2 * ((xq s + 15) / 16) + p + 3 := by
+  have := Phi_le W H s; omega
+theorem Phi_end' {W : World} {H : Heap} {s : GzState} {D p : Nat} (hat : AtEnd H s) (hD : dD s W H ≤ D)
+    (hp : ph2 s ≤ p) : Phi W H s ≤ 2 * D + 2 * ((xq s + 15) / 16) + p := by
+  rw [Phi_end hat]; omega
+
+theorem dD_congr {s s' : GzState} (W : World) (H : Heap) (hfd : s'.fd = s.fd) (hst : s'.strm = s.strm) :
+    dD s' W H = dD s W H := by
+  unfold dD; rw [hfd, hst]
+
+/-- The room after output `x.have` from a state with no output at the same position. -/
+theorem xq_have {s s' : GzState} (hp : s'.pos = s.pos) (h0 : s.«have» = 0)
+    (hph : s'.pos.toInt + s'.«have».toNat ≤ GZ_OFF_MAX.toInt) : xq s' + s'.«have».toNat = xq s := by
+  unfold xq; rw [hp, h0] at *; simp at *; omega
+
+/-- **What `gz_fetch` does to the potential**: from a state that is not at the end of the input, a return of 0 lowers
+`Phi` by 2 with output and by 1 without. -/
+def FetchMu (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : World) (H : Heap) : Prop :=
+  r = 0 → ¬ AtEnd h s → ∀ s', W.gz H b = some s' →
+    (s'.«have» ≠ 0 → Phi W H s' + 1 < Phi w h s) ∧ (s'.«have» = 0 → Phi W H s' < Phi w h s)
+
+/-- The bound of the exits of the loop of `gz_fetch`: `C0` is `2 * dD + ph2` at the call, `X` the room at the call. -/
+def FBound (C0 X : Nat) (r : Int32) (b : Nat) (W : World) (H : Heap) : Prop :=
+  r = 0 → ∀ s', W.gz H b = some s' → (s'.«have» ≠ 0 → Phi W H s' ≤ C0 + 2 * ((X + 15) / 16) + 1) ∧
+    (s'.«have» = 0 → Phi W H s' ≤ C0 + 2 * ((X + 15) / 16) + 2)
+
 /-- The invariant of the loop of `gz_fetch` at the start of a trip: a read handle with no output, a step of the call. -/
 def FInv (w : World) (h : Heap) (b : Nat) (s : GzState) (c : Ctl × Int32) (W : World) (H : Heap) : Prop :=
   c = (.go, 0) ∧ ∃ s1, W.gz H b = some s1 ∧ GzInvR W H (some b) ∧ s1.«have» = 0 ∧ GStep w h W H b [] ∧
     FsRd w.fs W.fs ∧ s1.pos = s.pos ∧ s1.skip = s.skip ∧ s1.fd = s.fd ∧ s1.strm = s.strm ∧
-    (s.size ≠ 0 → s1.size ≠ 0) ∧ (LookIdle w h (some b) → LookIdle W H (some b))
+    (s.size ≠ 0 → s1.size ≠ 0) ∧ (LookIdle w h (some b) → LookIdle W H (some b)) ∧
+    2 * dD s W H + phx H s1 ≤ 2 * dD s w h + ph2 s
 
 /-- The exit of the loop of `gz_fetch`. -/
 def FQ (w : World) (h : Heap) (b : Nat) (s : GzState) (c : Ctl × Int32) (W : World) (H : Heap) : Prop :=
-  FetchPost w h b s c.2 W H ∧ (c.1 ≠ .ret → c.2 = 0) ∧ (LookIdle w h (some b) → LookIdle W H (some b))
+  FetchPost w h b s c.2 W H ∧ (c.1 ≠ .ret → c.2 = 0) ∧ (LookIdle w h (some b) → LookIdle W H (some b)) ∧
+    FBound (2 * dD s w h + ph2 s) (xq s) c.2 b W H
 
 theorem fetchPost_of {w : World} {h : Heap} {b : Nat} {s : GzState} {W : World} {H : Heap} {s1 : GzState} {r : Int32}
     (hr : r = -1 ∨ r = 0) (hm : GzMid W H b s1) (g : GStep w h W H b []) (hf : FsRd w.fs W.fs)
@@ -199,12 +291,15 @@ theorem fetch_ret {w : World} {h : Heap} {b : Nat} {s : GzState} {W : World} {H 
     {i : Nat} (M : World → Heap → Nat) (μ0 : Nat) (hi : LookIdle w h (some b) → LookIdle W H (some b))
     (hr : r = -1 ∨ r = 0) (hm : GzMid W H b s1) (g : GStep w h W H b []) (hf : FsRd w.fs W.fs)
     (hp : s1.pos = s.pos) (hk : s1.skip = s.skip) (hsz : s.size ≠ 0 → s1.size ≠ 0)
-    (he : r = 0 → s1.«have» ≠ 0 ∨ AtEnd H s1) :
+    (he : r = 0 → s1.«have» ≠ 0 ∨ AtEnd H s1)
+    (hmu : r = 0 → (s1.«have» ≠ 0 → Phi W H s1 ≤ 2 * dD s w h + ph2 s + 2 * ((xq s + 15) / 16) + 1) ∧
+      (s1.«have» = 0 → Phi W H s1 ≤ 2 * dD s w h + ph2 s + 2 * ((xq s + 15) / 16) + 2)) :
     GSat W H (fetchCond (some b) (some i) (.ret, r)) (fun cs W2 H2 =>
       (cs.1 = true → FInv w h b s cs.2 W2 H2 ∧ M W2 H2 < μ0) ∧ (cs.1 = false → FQ w h b s cs.2 W2 H2)) := by
   unfold fetchCond
   refine GSat.ite (fun _ => GSat.pure ⟨fun e => absurd e (by simp), fun _ => ⟨fetchPost_of hr hm g hf hp hk hsz he,
-    fun e => absurd rfl e, hi⟩⟩) (fun hc => absurd rfl hc)
+    fun e => absurd rfl e, hi, fun e s2 hs2 => ?_⟩⟩) (fun hc => absurd rfl hc)
+  rw [hm.1] at hs2; cases hs2; exact hmu e
 
 /-- An error return of the loop body from a read handle. -/
 theorem fetch_err {w : World} {h : Heap} {b : Nat} {s : GzState} {W : World} {H : Heap} {s1 : GzState}
@@ -215,6 +310,7 @@ theorem fetch_err {w : World} {h : Heap} {b : Nat} {s : GzState} {W : World} {H 
     GSat W H (fetchCond (some b) (some i) (.ret, -1)) (fun cs W2 H2 =>
       (cs.1 = true → FInv w h b s cs.2 W2 H2 ∧ M W2 H2 < μ0) ∧ (cs.1 = false → FQ w h b s cs.2 W2 H2)) :=
   fetch_ret M μ0 hi (Or.inl rfl) (mid_of hv hs1) g hf hp hk hsz (fun e => absurd e (by decide))
+    (fun e => absurd e (by decide))
 
 /-- The loop body left `(.go, 0)`: the loop ends with output or at the end of the input, or goes on with a smaller
 measure. -/
@@ -222,10 +318,24 @@ theorem fetch_cont {w : World} {h : Heap} {b : Nat} {s : GzState} {W : World} {H
     (M : World → Heap → Nat) (μ0 : Nat) (hi : LookIdle w h (some b) → LookIdle W H (some b)) (hm : GzMid W H b s1) (g : GStep w h W H b []) (hf : FsRd w.fs W.fs)
     (hp : s1.pos = s.pos) (hk : s1.skip = s.skip) (hfd : s1.fd = s.fd) (hst : s1.strm = s.strm)
     (hsz : s.size ≠ 0 → s1.size ≠ 0) (hz : H.streams s.strm = some z)
-    (hdec : s1.«have» = 0 → (s1.eof = 0 ∨ z.avail_in ≠ 0) → M W H < μ0) :
+    (hdec : s1.«have» = 0 → (s1.eof = 0 ∨ z.avail_in ≠ 0) → M W H < μ0) (h00 : s.«have» = 0)
+    (hc1 : s1.«have» = 0 → 2 * dD s W H + phx H s1 ≤ 2 * dD s w h + ph2 s)
+    (hc2 : s1.«have» ≠ 0 → Phi W H s1 ≤ 2 * dD s w h + ph2 s + 2 * ((xq s + 15) / 16) + 1) :
     GSat W H (fetchCond (some b) (some s.strm) (.go, 0)) (fun cs W2 H2 =>
       (cs.1 = true → FInv w h b s cs.2 W2 H2 ∧ M W2 H2 < μ0) ∧ (cs.1 = false → FQ w h b s cs.2 W2 H2)) := by
   have hs1 := hm.1
+  have hB : AtEnd H s1 ∨ s1.«have» ≠ 0 → FBound (2 * dD s w h + ph2 s) (xq s) 0 b W H := by
+    intro hor _ s2 hs2
+    rw [hs1] at hs2; cases hs2
+    refine ⟨hc2, fun e => ?_⟩
+    have hat := hor.resolve_right fun x => x e
+    have e1 := hc1 e
+    have e2 := Phi_end (W := W) hat
+    have e3 := ph2_le_phx H s1
+    rw [dD_congr W H hfd hst] at e2
+    have e4 : xq s1 = xq s := by unfold xq; rw [hp, e, h00]
+    rw [e4] at e2
+    omega
   unfold fetchCond
   refine GSat.ite (fun hc => absurd hc (by decide)) (fun _ => ?_)
   refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
@@ -233,19 +343,19 @@ theorem fetch_cont {w : World} {h : Heap} {b : Nat} {s : GzState} {W : World} {H
   · intro hh
     have hh' : s1.«have» ≠ 0 := by simpa using hh
     exact GSat.pure ⟨fun e => absurd e (by simp), fun _ =>
-      ⟨fetchPost_of (Or.inr rfl) hm g hf hp hk hsz (fun _ => Or.inl hh'), fun _ => rfl, hi⟩⟩
+      ⟨fetchPost_of (Or.inr rfl) hm g hf hp hk hsz (fun _ => Or.inl hh'), fun _ => rfl, hi, hB (Or.inr hh')⟩⟩
   · intro hh
     have hh' : s1.«have» = 0 := by simpa using hh
     refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
     refine GSat.bind (GSat.lm ⟨_, H, rdZ_app hz _, GSat.pure ⟨fun hc => ⟨⟨rfl, s1, hs1, ?_, hh', g, hf, hp, hk, hfd,
-      hst, hsz, hi⟩, hdec hh' ?_⟩, fun hc => ⟨fetchPost_of (Or.inr rfl) hm g hf hp hk hsz (fun _ => Or.inr ?_),
-      fun _ => rfl, hi⟩⟩⟩)
+      hst, hsz, hi, hc1 hh'⟩, hdec hh' ?_⟩, fun hc => ?_⟩⟩)
     · obtain ⟨-, hv0, hout, hph⟩ := hm
       exact invR_restore hv0 hs1 hout (fun _ => hh') hph
     · simp only [Bool.or_eq_true, beq_iff_eq, bne_iff_ne, ne_eq] at hc
       exact hc
     · simp only [Bool.or_eq_false_iff, beq_eq_false_iff_ne, bne_eq_false_iff_eq, ne_eq] at hc
-      exact ⟨hc.1, z, by rw [hst]; exact hz, hc.2⟩
+      have hat : AtEnd H s1 := ⟨hc.1, z, by rw [hst]; exact hz, hc.2⟩
+      exact ⟨fetchPost_of (Or.inr rfl) hm g hf hp hk hsz (fun _ => Or.inr hat), fun _ => rfl, hi, hB (Or.inl hat)⟩
 
 theorem fph_look {H : Heap} {s : GzState} {ai : Nat} (h : s.how = LOOK) :
     fph H s ai = if s.direct = -1 then 4 else 1 := by
@@ -275,12 +385,14 @@ theorem loadLoopX_exit {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz
     GSat { w with gzs := upd w.gzs b (some { s with «have» := 0 }) } h
       (gdoWhile (loadBodyG (some b) (.ref (.heap cb) p) len true) (loadCondG (some b) len true) ⟨0, 0, .go⟩)
       (fun lp W H => ∃ k : UInt32, k.toNat ≤ len.toNat ∧ (lp.ret ≤ 0 ∨ len.toNat ≤ k.toNat) ∧ ∃ fs', FsRd w.fs fs' ∧
+        rdLeft fs' s.fd + k.toNat ≤ rdLeft w.fs s.fd ∧
         W = { w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k }) } ∧ HBuf h H cb p (p + len.toNat)) := by
   refine gsat_gdoWhile (fun (st : LoadLoop) W H => st.ctl = .go ∧ ∃ k : UInt32, k.toNat ≤ len.toNat ∧ ∃ fs', FsRd w.fs fs' ∧
+        rdLeft fs' s.fd + k.toNat ≤ rdLeft w.fs s.fd ∧
         W = { w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k }) } ∧ HBuf h H cb p (p + len.toNat))
     (fun _ W _ => match W.gzs b with | some s' => len.toNat - s'.«have».toNat | none => 0) _ ?_
-    ⟨rfl, 0, by simp, w.fs, FsRd.refl _, rfl, HBuf.refl _ _ _ _⟩ (by have := len.toNat_lt; simp [fuel]; omega)
-  intro st W H ⟨hgo, k, hle, fs', hfs, hW, x⟩
+    ⟨rfl, 0, by simp, w.fs, FsRd.refl _, by simp, rfl, HBuf.refl _ _ _ _⟩ (by have := len.toNat_lt; simp [fuel]; omega)
+  intro st W H ⟨hgo, k, hle, fs', hfs, hleft, hW, x⟩
   subst hW
   have hsW := gzX_upd hs x hcb fs' { s with «have» := k }
   obtain ⟨a1, ha1, hsz⟩ := x.size ha
@@ -300,11 +412,13 @@ theorem loadLoopX_exit {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz
   have hfs2 : FsRd w.fs (fs'.readCall s.fd (len - k).toUInt64).2.2 := hfs.trans (readCall_rd _ _ _)
   have hres := readCall_res fs' s.fd (len - k).toUInt64 (by rw [hn]; omega)
   rw [← hr, hn] at hres
+  have hl2 := readCall_left fs' s.fd (len - k).toUInt64 (by rw [hn]; omega)
+  rw [← hr] at hl2
   apply GSat.ite
   · intro hr0
     refine GSat.pure ?_
     unfold loadCondG
-    exact GSat.pure ⟨fun e => absurd e (by simp), fun _ => ⟨k, hle, Or.inl hr0, _, hfs2, rfl, x2⟩⟩
+    exact GSat.pure ⟨fun e => absurd e (by simp), fun _ => ⟨k, hle, Or.inl hr0, _, hfs2, by omega, rfl, x2⟩⟩
   · intro hr0
     have h0 : (0 : Int64) ≤ r := by
       rw [Int64.le_iff_toInt_le] at hr0 ⊢; simp at hr0 ⊢; omega
@@ -332,8 +446,8 @@ theorem loadLoopX_exit {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz
       exact absurd hc (by simp [hgo])
     · intro _
       refine GSat.bind (GSat.of_eq (rdG_app' hsW2 _) ?_)
-      refine GSat.pure ⟨fun _ => ⟨⟨hgo, _, by omega, _, hfs2, rfl, x2⟩, ?_⟩,
-        fun hc => ⟨_, by omega, Or.inr ?_, _, hfs2, rfl, x2⟩⟩
+      refine GSat.pure ⟨fun _ => ⟨⟨hgo, _, by omega, _, hfs2, by omega, rfl, x2⟩, ?_⟩,
+        fun hc => ⟨_, by omega, Or.inr ?_, _, hfs2, by omega, rfl, x2⟩⟩
       · simp only [upd_same]
         omega
       · simp only [decide_eq_false_iff_not] at hc
@@ -350,7 +464,7 @@ theorem gz_load_x {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w 
       (r.1 = -1 ∧ ∃ s', W.gz H b = some s' ∧ ErrOf s Z_ERRNO s' ∧ GzInvR W H (some b) ∧
         GStep w h W H b [] ∧ FsRd w.fs W.fs) ∨
       (r.1 = 0 ∧ ∃ k : UInt32, k.toNat ≤ len.toNat ∧ ∃ (fs' : Fs) (e : Int32), FsRd w.fs fs' ∧
-        (k.toNat < len.toNat → e = 1) ∧
+        rdLeft fs' s.fd + k.toNat ≤ rdLeft w.fs s.fd ∧ (k.toNat < len.toNat → e = 1) ∧
         W = { w with fs := fs', gzs := upd w.gzs b (some { s with «have» := k, eof := e }) } ∧
         HBuf h H cb p (p + len.toNat))) := by
   rw [gz_load_eq]
@@ -358,7 +472,7 @@ theorem gz_load_x {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w 
   simp only [ite_true]
   refine GSat.bind (GSat.bind (GSat.of_eq (wrG_app hs _) (GSat.pure ?_)))
   refine GSat.bind (GSat.mono (loadLoopX_exit hs ha len hp hcb) fun lp W1 H1 q => ?_)
-  obtain ⟨k, hk, hex, fs', hfs, rfl, x⟩ := q
+  obtain ⟨k, hk, hex, fs', hfs, hleft, rfl, x⟩ := q
   have hs1 := gzX_upd hs x hcb fs' { s with «have» := k }
   unfold loadTail
   apply GSat.ite
@@ -387,10 +501,10 @@ theorem gz_load_x {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w 
     apply GSat.ite
     · intro _
       refine GSat.bind (GSat.of_eq (wrG_app hs1 _) (GSat.pure ?_))
-      refine Or.inr ⟨rfl, k, hk, fs', 1, hfs, fun _ => rfl, ?_, x⟩
+      refine Or.inr ⟨rfl, k, hk, fs', 1, hfs, hleft, fun _ => rfl, ?_, x⟩
       simp only [InflateInv.upd_upd]
     · intro hn0
-      refine GSat.pure (Or.inr ⟨rfl, k, hk, fs', s.eof, hfs, fun hlt => ?_, rfl, x⟩)
+      refine GSat.pure (Or.inr ⟨rfl, k, hk, fs', s.eof, hfs, hleft, fun hlt => ?_, rfl, x⟩)
       exfalso
       rcases hex with hle | hle
       · have a1 : lp.ret.toInt ≤ 0 := by have := Int64.le_iff_toInt_le.mp hle; simpa using this
@@ -416,29 +530,33 @@ theorem mid_read {W : World} {H : Heap} {b : Nat} {s : GzState} (hm : GzMid W H 
   exact sh.read (modeOf (gz_upd_same hs _) hv0.2.1)
 
 /-- **One trip of the loop of `gz_fetch`** and its condition. -/
-theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : GzState} (hs0 : w.gz h b = some s)
-    {room : UInt32} (hroom : room ≠ 0) (hpr : s.pos.toInt + room.toNat ≤ GZ_OFF_MAX.toInt)
+theorem fetchBody_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hs0 : w.gz h b = some s)
+    (h00 : s.«have» = 0) {room : UInt32} (hroom : room ≠ 0) (hpr : s.pos.toInt + room.toNat ≤ GZ_OFF_MAX.toInt)
+    (hrm : room.toNat = 4294967295 ∨ s.pos.toInt + room.toNat = GZ_OFF_MAX.toInt)
     {c : Ctl × Int32} {W : World} {H : Heap} (hI : FInv w h b s c W H) :
     GSat W H (fetchBody (some b) (some s.strm) room c) (fun c1 W1 H1 => GSat W1 H1 (fetchCond (some b) (some s.strm) c1)
       (fun cs W2 H2 => (cs.1 = true → FInv w h b s cs.2 W2 H2 ∧ fmu b s.fd s.strm W2 H2 < fmu b s.fd s.strm W H) ∧
         (cs.1 = false → FQ w h b s cs.2 W2 H2))) := by
-  obtain ⟨rfl, s1, hs1, hv, h0, g, hf, hp, hk, hfd, hst, hsz, hi⟩ := hI
+  obtain ⟨rfl, s1, hs1, hv, h0, g, hf, hp, hk, hfd, hst, hsz, hi, hcr⟩ := hI
   obtain ⟨sh, hn⟩ := inv_of hs1 hv.1
   have hr := modeOf hs1 hv.2.1
   have R := sh.read hr
   obtain ⟨z, hz⟩ := sh.strm
   rw [hst] at hz
   have hμ := fmu_of (fd := s.fd) hs1 hz
+  have hD := dD_of (s := s) (W := W) hz
+  have hmx := gzmax
+  have hXs : xq s = (GZ_OFF_MAX.toInt - s.pos.toInt - ((s.«have».toNat : Nat) : Int)).toNat := rfl
+  have h00' : s.«have».toNat = 0 := by rw [h00]; rfl
   unfold fetchBody
   refine GSat.bind (GSat.of_eq (rdG_app' hs1 _) ?_)
   apply GSat.ite
   · intro hl
     have hlook : s1.how = LOOK := by simpa using hl
     -- `LOOK`: `gz_look`
-    refine GSat.bind (GSat.mono (GSat.and (gz_look_specI hv hs1 h0 hlook) (LX.ext W H b s1 hv hs1 h0 hlook))
-      fun r W1 H1 q => ?_)
+    refine GSat.bind (GSat.mono (gz_look_specX hv hs1 h0 hlook) fun r W1 H1 q => ?_)
     obtain ⟨⟨⟨hr1, g1, hf1, s', hs', hp', hk', -, hgz0, hv0, hout, hph, hrd0⟩, hid, -, -⟩, X⟩ := q
-    obtain ⟨hfd', hsz', hat0⟩ := X s' hs'
+    obtain ⟨hfd', hsz', hat0, -, hcp, hbud⟩ := X s' hs'
     have hm : GzMid W1 H1 b s' := ⟨hs', hv0, hout, hph⟩
     have g' : GStep w h W1 H1 b [] := g.trans g1 ⟨s, hs0⟩ ⟨s1, hs1⟩
     have hf' := hf.trans hf1
@@ -446,7 +564,7 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
     apply GSat.ite
     · intro _
       exact GSat.pure (fetch_ret _ _ (fun _ => hid) (Or.inl rfl) hm g' hf' (hp'.trans hp) (hk'.trans hk) (fun e => hsz' (hsz e))
-        (fun e => absurd e (by decide)))
+        (fun e => absurd e (by decide)) (fun e => absurd e (by decide)))
     · intro e
       have hr0 : r = 0 := hr1.resolve_left (by simpa using e)
       have hrd := hrd0 hr0
@@ -454,17 +572,29 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
           ((∀ z', H1.streams s1.strm = some z' → z'.avail_in ≠ 0) ∨ s1.direct = -1) :=
         fun e => (hgz0 hr0 e).resolve_left (by rw [hlook]; decide)
       have hat := hat0 hr0
+      obtain ⟨z', hz'⟩ := mid_strm hm
+      rw [hst'] at hz'
+      have hD' := dD_of (s := s) (W := W1) hz'
+      have hDs' := dD_congr W1 H1 (hfd'.trans hfd) hst'
+      have hdd := hrd z z' (by rw [hst]; exact hz) (by rw [hst]; exact hz')
+      rw [hfd] at hdd
+      have hlx := phx_look (H := H) hlook
       refine GSat.bind (GSat.of_eq (rdG_app' hs' _) ?_)
       apply GSat.ite
       · intro hl'
-        exact GSat.pure (fetch_ret _ _ (fun _ => hid) (Or.inr rfl) hm g' hf' (hp'.trans hp) (hk'.trans hk) (fun e => hsz' (hsz e))
-          (fun _ => Or.inr (hat (by simpa using hl'))))
+        have hlk' : s'.how = LOOK := by simpa using hl'
+        have h0' : s'.«have» = 0 := hcp (by rw [hlk']; decide)
+        refine GSat.pure (fetch_ret _ _ (fun _ => hid) (Or.inr rfl) hm g' hf' (hp'.trans hp) (hk'.trans hk) (fun e => hsz' (hsz e))
+          (fun _ => Or.inr (hat hlk')) (fun _ => ⟨fun hh => absurd h0' hh, fun _ => ?_⟩))
+        rw [Phi_end (hat hlk'), hDs']
+        have e4 : xq s' = xq s := by unfold xq; rw [hp', hp, h0', h00]
+        rw [e4]
+        have := ph2_le s'
+        omega
       · intro hl'
         have hl'' : s'.how ≠ LOOK := by simpa using hl'
-        obtain ⟨z', hz'⟩ := mid_strm hm
-        rw [hst'] at hz'
         refine GSat.pure (fetch_cont _ _ (fun _ => hid) hm g' hf' (hp'.trans hp) (hk'.trans hk) (hfd'.trans hfd) hst'
-          (fun e => hsz' (hsz e)) hz' (fun _ _ => ?_))
+          (fun e => hsz' (hsz e)) hz' (fun _ _ => ?_) h00 (fun _ => ?_) (fun hh => ?_))
         rw [hμ, fmu_of hs' hz', fph_look hlook]
         have hz1 : H.streams s1.strm = some z := by rw [hst]; exact hz
         have hz1' : H1.streams s1.strm = some z' := by rw [hst]; exact hz'
@@ -487,6 +617,29 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
             · omega
             · next hne => exact absurd hd1 hne
           · rw [fph_fresh e1' hhs ha]; split <;> omega
+        · rw [hD']
+          rcases (mid_read hm).how with e1 | e1 | e1
+          · exact absurd e1 hl''
+          · have e1' : s'.how = ZlibNg.Gz.COPY := e1
+            rw [phx_copy e1']; omega
+          · have e1' : s'.how = GZIP := e1
+            obtain ⟨hhs, hx⟩ := hgz e1'
+            by_cases ha : ∀ z2, H1.streams s'.strm = some z2 → z2.avail_in ≠ 0
+            · rw [phx_fresh e1' hhs ha]; omega
+            · have hd1 : s1.direct = -1 := hx.resolve_left fun f => ha fun z2 hz2 => f z2 (by
+                rw [hst]; rw [hst'] at hz2; exact hz2)
+              have := phx_look1 (H := H) hlook hd1
+              have := phx_le4 H1 s'
+              omega
+        · have e1 : s'.how = ZlibNg.Gz.COPY := by
+            exact Classical.byContradiction fun hne => hh (hcp hne)
+          have hb := hbud hr0 z z' (by rw [hst]; exact hz) (by rw [hst]; exact hz')
+          rw [hfd] at hb
+          have hx : xq s' + s'.«have».toNat = xq s := xq_have (hp'.trans hp) h00 hph.1
+          have hP := Phi_le W1 H1 s'
+          rw [hDs', hD', ph2_copy e1] at hP
+          have hk1 : s'.«have».toNat ≠ 0 := fun e => hh (UInt32.toNat_inj.mp (by simpa using e))
+          omega
   · intro hl
     apply GSat.ite
     · intro hc
@@ -514,7 +667,7 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
         hown) fun r W1 H1 q => ?_)
       obtain ⟨r1, r2⟩ := r
       dsimp only
-      rcases q with ⟨hr1, s', hs', herr, hv1, gL, hfL⟩ | ⟨hr1, k, hk1, fs', e, hfs, hke, rfl, x⟩
+      rcases q with ⟨hr1, s', hs', herr, hv1, gL, hfL⟩ | ⟨hr1, k, hk1, fs', e, hfs, hbl, hke, rfl, x⟩
       · simp only at hr1
         subst hr1
         refine GSat.ite (fun _ => GSat.pure ?_) (fun hc' => absurd rfl hc')
@@ -556,14 +709,31 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
           · show s1.pos.toInt + (k.toNat : Int) ≤ _; rw [hp]; omega
         have g3 : GStep W H { W with fs := fs', gzs := upd W.gzs b (some s3) } H1 b [] :=
           gstep_hbuf hs1 x hcb hown fs' s3 rfl rfl rfl rfl
-        refine fetch_ret _ _ (fun _ => idle_mk hs3 fun _ _ e => absurd (hcopy.symm.trans e) (by decide)) (Or.inr rfl) hm (g.trans g3 ⟨s, hs0⟩ ⟨s1, hs1⟩) (hf.trans hfs) hp hk
-          (fun _ => hsz1) (fun _ => ?_)
-        by_cases hk0 : k.toNat = 0
-        · right
+        have hz0 := R.copy_in hcopy z (by rw [hst]; exact hz)
+        have hz0' : z.avail_in.toNat = 0 := by rw [hz0]; rfl
+        have hDs : dD s3 { W with fs := fs', gzs := upd W.gzs b (some s3) } H1 = rdLeft fs' s.fd + z.avail_in.toNat := by
+          rw [dD_congr (s' := s3) _ _ hfd hst]; exact dD_of (z := z) (by rw [hstrH1]; exact hz)
+        have hcx := phx_copy (H := H) hcopy
+        have hc2 : ph2 s3 = 0 := ph2_copy hcopy
+        have hx : xq s3 + k.toNat = xq s := xq_have (s' := s3) hp h00 (by show s1.pos.toInt + (k.toNat : Int) ≤ _; rw [hp]; omega)
+        rw [hfd] at hbl
+        have hend : k.toNat = 0 → AtEnd H1 s3 := fun hk0 => by
           have he1 := hke (by rw [hlen]; omega)
           refine ⟨by show e ≠ 0; rw [he1]; decide, z, by rw [hstrH1]; show H.streams s1.strm = _; rw [hst]; exact hz, ?_⟩
-          exact R.copy_in hcopy z (by rw [hst]; exact hz)
-        · left; intro e0; exact hk0 (by show k.toNat = 0; rw [show k = 0 from e0]; rfl)
+          exact hz0
+        refine fetch_ret _ _ (fun _ => idle_mk hs3 fun _ _ e => absurd (hcopy.symm.trans e) (by decide)) (Or.inr rfl) hm (g.trans g3 ⟨s, hs0⟩ ⟨s1, hs1⟩) (hf.trans hfs) hp hk
+          (fun _ => hsz1) (fun _ => ?_) (fun _ => ⟨fun hh => ?_, fun hh => ?_⟩)
+        · by_cases hk0 : k.toNat = 0
+          · exact Or.inr (hend hk0)
+          · left; intro e0; exact hk0 (by show k.toNat = 0; rw [show k = 0 from e0]; rfl)
+        · have hk1' : k.toNat ≠ 0 := fun e0 => hh (UInt32.toNat_inj.mp (by simpa using e0))
+          refine Nat.le_trans (Phi_le' (Nat.le_of_eq hDs) (Nat.le_of_eq hc2)) ?_
+          omega
+        · have hk0 : k.toNat = 0 := by
+            have : s3.«have» = k := rfl
+            rw [← this, hh]; rfl
+          refine Nat.le_trans (Phi_end' (hend hk0) (Nat.le_of_eq hDs) (Nat.le_of_eq hc2)) ?_
+          omega
     · intro hc
       apply GSat.ite
       · intro hg
@@ -629,7 +799,7 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
           exact GSat.pure (fetch_err _ _ (fun _ => idle_mk hs' fun _ _ _ e => absurd (by rw [hshape]; exact hdir0) e) hv1 hs' gD' hf' hp' hk' (fun _ => hsz'))
         · intro e
           have hr0 : r = 0 := hr1.resolve_left (by simpa using e)
-          obtain ⟨z', hz1', hle, hhv, hnx, ht', hdmu, hhow', hfresh, hsame, -, -, -⟩ := hok hr0
+          obtain ⟨z', hz1', hle, hhv, hnx, ht', hdmu, hhow', hfresh, hsame, hDle, hDlt, hao0'⟩ := hok hr0
           have hst' : s'.strm = s.strm := by rw [hshape]; exact hst
           have hfd' : s'.fd = s.fd := by rw [hshape]; exact hfd
           have hdir : s1.direct = 0 := R.gzip_direct hgz
@@ -644,7 +814,26 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
               rw [hi, ho, hout']; rw [hao] at hhvle; omega
             · show s'.pos.toInt + (s'.«have».toNat : Int) ≤ _
               rw [hp']; rw [hao] at hhvle; omega
-          refine GSat.pure (fetch_cont _ _ (fun _ => idle_mk hs' fun _ _ _ e => absurd (by rw [hshape]; exact hdir0) e) hm gD' hf' hp' hk' hfd' hst' (fun _ => hsz') hzs (fun hh hc => ?_))
+          have hD3 : dD s1 W H3 = dD s W H := by
+            rw [dD_congr W H3 hfd hst]
+            exact (dD_of (s := s) (z := z2) (by rw [← hst]; exact hz3)).trans hD.symm
+          have hD1 : dD s1 W1 H1 = dD s W1 H1 := dD_congr W1 H1 hfd hst
+          have hDs' : dD s' W1 H1 = dD s W1 H1 := dD_congr W1 H1 hfd' hst'
+          rw [hD1, hD3] at hDle
+          have hkey : 2 * dD s W1 H1 + 4 ≤ 2 * dD s W H + phx H s1 := by
+            by_cases hfr : InflFresh H s1 ∧ ∀ z0, H.streams s1.strm = some z0 → z0.avail_in ≠ 0
+            · have hf3 : InflFresh H3 s1 := by
+                obtain ⟨z7, sb7, st7, h7, h8, h9, h10⟩ := hfr.1
+                rw [hz'] at h7; cases h7
+                exact ⟨z2, sb7, st7, hz3, h8, h9, h10⟩
+              have hai2 : z2.avail_in ≠ 0 := hfr.2 z hz'
+              have := hDlt hai2 hf3
+              rw [hD1, hD3] at this
+              rw [phx_fresh hgz hfr.1 hfr.2]; omega
+            · rw [phx_gz hgz hfr]; omega
+          have hph' : s'.pos.toInt + s'.«have».toNat ≤ GZ_OFF_MAX.toInt := hm.2.2.2.1
+          have hx : xq s' + s'.«have».toNat = xq s := xq_have hp' h00 hph'
+          refine GSat.pure (fetch_cont _ _ (fun _ => idle_mk hs' fun _ _ _ e => absurd (by rw [hshape]; exact hdir0) e) hm gD' hf' hp' hk' hfd' hst' (fun _ => hsz') hzs (fun hh hc => ?_) h00 (fun _ => ?_) (fun hh => ?_))
           have hl : s'.how = LOOK := by
             rcases hhow' with e1 | e1
             · exact e1
@@ -675,6 +864,27 @@ theorem fetchBody_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
           · rw [fph_gzip hgz hfr]
             have : ¬ ((0 : Int32) = -1) := by decide
             simp only [this, ↓reduceIte]; omega
+          · have := phx_le4 H1 s'; omega
+          · have hk1 : s'.«have».toNat ≠ 0 := fun e => hh (UInt32.toNat_inj.mp (by simpa using e))
+            have hP := Phi_le W1 H1 s'
+            rw [hDs'] at hP
+            by_cases hat : AtEnd H1 s'
+            · rw [Phi_end hat, hDs']
+              have := ph2_le s'
+              omega
+            · rcases hhow' with e1 | e1
+              · rw [ph2_look0 e1 (by rw [hshape]; exact hdir0)] at hP
+                omega
+              · rw [ph2_gz (e1.trans hgz)] at hP
+                have hao1 : z'.avail_out = 0 := by
+                  rcases hao0' e1 with e2 | ⟨e2, e3⟩
+                  · exact e2
+                  · exact absurd ⟨e2, z', by rw [hst']; exact hzs, e3⟩ hat
+                have hk2 : s'.«have».toNat = ao.toNat := by
+                  rw [hhv, hao1]; show z2.avail_out.toNat - 0 = _; simp [z2]
+                rw [hao] at hk2
+                have hs8 : 8 ≤ s1.size.toNat := by omega
+                omega
       · intro hg
         exfalso
         rcases R.how with e | e | e
@@ -689,14 +899,16 @@ def FetchPostI (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : W
   FetchPost w h b s r W H ∧ (LookIdle w h (some b) → LookIdle W H (some b))
 
 /-- The loop of `gz_fetch` and its end, for a room that is not 0 and fits above `x.pos`. -/
-theorem fetchLoop_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+theorem fetchLoop_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (h0 : s.«have» = 0) {room : UInt32} (hroom : room ≠ 0)
-    (hpr : s.pos.toInt + room.toNat ≤ GZ_OFF_MAX.toInt) :
-    GSat w h (fetchLoop (some b) (some s.strm) room) (FetchPostI w h b s) := by
+    (hpr : s.pos.toInt + room.toNat ≤ GZ_OFF_MAX.toInt)
+    (hrm : room.toNat = 4294967295 ∨ s.pos.toInt + room.toNat = GZ_OFF_MAX.toInt) :
+    GSat w h (fetchLoop (some b) (some s.strm) room) (fun r W H => FetchPostI w h b s r W H ∧
+      FBound (2 * dD s w h + ph2 s) (xq s) r b W H) := by
   obtain ⟨sh, -⟩ := inv_of hs hv.1
   obtain ⟨z, hz⟩ := sh.strm
   have hI : FInv w h b s (.go, 0) w h :=
-    ⟨rfl, s, hs, hv, h0, GStep.refl _ _ _ _, FsRd.refl _, rfl, rfl, rfl, rfl, id, id⟩
+    ⟨rfl, s, hs, hv, h0, GStep.refl _ _ _ _, FsRd.refl _, rfl, rfl, rfl, rfl, id, id, by have := phx_le h s; omega⟩
   have hfuel : fmu b s.fd s.strm w h < fuel := by
     rw [fmu_of hs hz]
     have := rdLeft_lt hv.2.2 s.fd
@@ -705,22 +917,27 @@ theorem fetchLoop_spec (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
     simp [fuel]; omega
   unfold fetchLoop
   refine GSat.bind (GSat.mono (gsat_gdoWhile (FInv w h b s) (fun _ W H => fmu b s.fd s.strm W H) (FQ w h b s)
-    (fun _ _ _ hI' => fetchBody_spec LX hs hroom hpr hI') hI hfuel) fun lp W H q => ?_)
-  obtain ⟨hpost, hgo, hid⟩ := q
+    (fun _ _ _ hI' => fetchBody_spec hs h0 hroom hpr hrm hI') hI hfuel) fun lp W H q => ?_)
+  obtain ⟨hpost, hgo, hid, hb⟩ := q
   apply GSat.ite
-  · intro _; exact GSat.pure ⟨hpost, hid⟩
+  · intro _; exact GSat.pure ⟨⟨hpost, hid⟩, hb⟩
   · intro hne
     have e := hgo (fun e => hne (by rw [e]; rfl))
-    rw [e] at hpost
-    exact GSat.pure ⟨hpost, hid⟩
+    rw [e] at hpost hb
+    exact GSat.pure ⟨⟨hpost, hid⟩, hb⟩
 
 theorem lit_readpos : gzLits.findIdx? (· == "read position does not fit in z_off64_t") = some 14 := by
   simp [gzLits, List.findIdx?_cons]
 
-/-- **`gz_fetch`** with `LookIdle`, given what it needs of `gz_look` (`LookExtra`). -/
-theorem gz_fetch_specI (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+/-- **`gz_fetch`** with `LookIdle` and the potential (`FetchMu`). -/
+theorem gz_fetch_specM {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (h0 : s.«have» = 0) :
-    GSat w h (gz_fetch (some b)) (FetchPostI w h b s) := by
+    GSat w h (gz_fetch (some b)) (fun r W H => FetchPostI w h b s r W H ∧ FetchMu w h b s r W H) := by
+  have hmu : ∀ r W H, FBound (2 * dD s w h + ph2 s) (xq s) r b W H → FetchMu w h b s r W H := by
+    intro r W H hb e hne s' hs'
+    rw [Phi_ne hne]
+    obtain ⟨b1, b2⟩ := hb e s' hs'
+    exact ⟨fun hh => by have := b1 hh; omega, fun hh => by have := b2 hh; omega⟩
   have P := (inv_of hs hv.1).1.pos
   obtain ⟨hA, hB⟩ := room_ok s.pos P.3 (by have := P.1; have := P.2; omega)
   rw [gz_fetch_eq]
@@ -735,27 +952,24 @@ theorem gz_fetch_specI (LX : LookExtra) {w : World} {h : Heap} {b : Nat} {s : Gz
         fun p W2 H2 q => GSat.bind (GSat.mono q fun _ W3 H3 q3 => ?_))
       obtain ⟨s2, hs2, herr, hv2, hfs2, g2, hstr⟩ := q3
       have es := errOf_shape herr h0
-      refine GSat.pure ⟨fetchPost_of (Or.inl rfl) (mid_of hv2 hs2) g2 (by rw [hfs2]; exact FsRd.refl _)
-        (by rw [es]) (by rw [es]) (fun e => by rw [es]; exact e) (fun e => absurd e (by decide)), fun hi => ?_⟩
+      refine GSat.pure ⟨⟨fetchPost_of (Or.inl rfl) (mid_of hv2 hs2) g2 (by rw [hfs2]; exact FsRd.refl _)
+        (by rw [es]) (by rw [es]) (fun e => by rw [es]; exact e) (fun e => absurd e (by decide)), fun hi => ?_⟩,
+        fun e => absurd e (by decide)⟩
       refine idle_mk hs2 fun z hz e1 e2 => ?_
       have hst2 : s2.strm = s.strm := by rw [es]
       rw [hstr, hst2] at hz
       exact idle_get hi hs hz (by rw [es] at e1; exact e1) (by rw [es] at e2; exact e2)
     · intro hz0
-      exact fetchLoop_spec LX hv hs h0 (fun e => hz0 (by rw [e]; rfl)) hpr
+      exact (fetchLoop_spec hv hs h0 (fun e => hz0 (by rw [e]; rfl)) (Int.le_of_eq hpr) (Or.inr hpr)).mono
+        fun r W H q => ⟨q.1, hmu r W H q.2⟩
   · intro hc
-    exact fetchLoop_spec LX hv hs h0 (by decide) (hB hc)
+    exact (fetchLoop_spec hv hs h0 (by decide) (hB hc) (Or.inl rfl)).mono fun r W H q => ⟨q.1, hmu r W H q.2⟩
 
-/-- **`gz_fetch`**, given what it needs of `gz_look` (`LookExtra`). -/
-theorem gz_fetch_spec_of (LX : LookExtra) : GzFetchSpec :=
-  fun _ _ _ _ hv hs h0 => (gz_fetch_specI LX hv hs h0).mono fun _ _ _ q => q.1
-
-/-- **`gz_fetch` keeps `LookIdle`**, given what it needs of `gz_look` (`LookExtra`). -/
-theorem gz_fetch_idle_of (LX : LookExtra) : GzFetchIdle := by
-  intro w h b s r W H hv hi hs h0 e
-  obtain ⟨r2, W2, H2, e2, -, q⟩ := (gz_fetch_specI LX hv hs h0).run
-  obtain ⟨-, rfl, rfl⟩ := gdet e2 e
-  exact q hi
+/-- **`gz_fetch`** with `LookIdle`. -/
+theorem gz_fetch_specI {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+    (hs : w.gz h b = some s) (h0 : s.«have» = 0) :
+    GSat w h (gz_fetch (some b)) (FetchPostI w h b s) :=
+  (gz_fetch_specM hv hs h0).mono fun _ _ _ q => q.1
 
 /-- **What `gz_fetch` needs of `gz_look`** (`gz_look_specX`). -/
 theorem gz_look_extra : LookExtra :=
@@ -764,9 +978,14 @@ theorem gz_look_extra : LookExtra :=
     ⟨x.1, x.2.1, x.2.2.1⟩⟩
 
 /-- **`gz_fetch`** on a read handle with `x.have == 0`. -/
-theorem gz_fetch_spec : GzFetchSpec := gz_fetch_spec_of gz_look_extra
+theorem gz_fetch_spec : GzFetchSpec :=
+  fun _ _ _ _ hv hs h0 => (gz_fetch_specI hv hs h0).mono fun _ _ _ q => q.1
 
 /-- **`gz_fetch` keeps `LookIdle`.** -/
-theorem gz_fetch_idle : GzFetchIdle := gz_fetch_idle_of gz_look_extra
+theorem gz_fetch_idle : GzFetchIdle := by
+  intro w h b s r W H hv hi hs h0 e
+  obtain ⟨r2, W2, H2, e2, -, q⟩ := (gz_fetch_specI hv hs h0).run
+  obtain ⟨-, rfl, rfl⟩ := gdet e2 e
+  exact q hi
 
 end ZlibNgF.Proof.GzMode

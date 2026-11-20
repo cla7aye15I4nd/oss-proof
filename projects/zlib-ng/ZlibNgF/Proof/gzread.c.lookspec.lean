@@ -200,15 +200,17 @@ abbrev LookPostI (w : World) (h : Heap) (b : Nat) (s : GzState) : Int32 → Worl
 
 /-- What `gz_fetch`, `gz_skip` and `gz_read` need of `gz_look` beyond `LookPost` (`s` the state at the call): the
 descriptor kept; the buffers kept; on `0` in `LOOK` the end of the input (`eof` set, no input); no output on `-1`;
-output only in `COPY`. -/
-def LookX (b : Nat) (s : GzState) (r : Int32) (W : World) (H : Heap) : Prop :=
+output only in `COPY`; on `0`, the read measure `rdLeft + avail_in` with the output `x.have` did not grow. -/
+def LookX (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : World) (H : Heap) : Prop :=
   ∀ s', W.gz H b = some s' → s'.fd = s.fd ∧ (s.size ≠ 0 → s'.size ≠ 0) ∧
     (r = 0 → s'.how = LOOK → s'.eof ≠ 0 ∧ ∃ z, H.streams s'.strm = some z ∧ z.avail_in = 0) ∧
-    (r = -1 → s'.«have» = 0) ∧ (s'.how ≠ ZlibNg.Gz.COPY → s'.«have» = 0)
+    (r = -1 → s'.«have» = 0) ∧ (s'.how ≠ ZlibNg.Gz.COPY → s'.«have» = 0) ∧
+    (r = 0 → ∀ z z', h.streams s.strm = some z → H.streams s.strm = some z' →
+      rdLeft W.fs s.fd + z'.avail_in.toNat + s'.«have».toNat ≤ rdLeft w.fs s.fd + z.avail_in.toNat)
 
 /-- `LookPostP` and `LookX`. -/
 def LookPostX (P : Prop) (w : World) (h : Heap) (b : Nat) (s : GzState) (r : Int32) (W : World) (H : Heap) : Prop :=
-  LookPostP P w h b s r W H ∧ LookX b s r W H
+  LookPostP P w h b s r W H ∧ LookX w h b s r W H
 
 theorem rd_same {w W : World} (fd : Int32) (e : W.fs = w.fs) {a a' : Nat} (hle : a' ≤ a) :
     rdLeft W.fs fd + a' ≤ rdLeft w.fs fd + a := by rw [e]; omega
@@ -242,7 +244,9 @@ theorem lookPostX_of {P : Prop} {w : World} {h : Heap} {b : Nat} {s : GzState} {
     (hend : r = 0 → s'.how = LOOK → s'.eof ≠ 0 ∧ ∃ z, H.streams s'.strm = some z ∧ z.avail_in = 0) :
     LookPostX P w h b s r W H :=
   ⟨lookPost_of hr g hf hv hs' hp hk hz hg hrd hi h0 hre, fun s2 hs2 => by
-    rw [hs'] at hs2; cases hs2; exact ⟨hfd, hsz, hend, fun _ => h0, fun _ => h0⟩⟩
+    rw [hs'] at hs2; cases hs2
+    refine ⟨hfd, hsz, hend, fun _ => h0, fun _ => h0, fun e z z' hz hz' => ?_⟩
+    have := hrd e z z' hz hz'; rw [h0]; simpa using this⟩
 
 theorem outSize_read {s : GzState} (hr : s.mode = GZ_READ) (d : Int32) :
     outSize { s with direct := d } = outSize s := by
@@ -504,8 +508,12 @@ theorem lookTail_specX {P : Prop} {w : World} {h : Heap} {b : Nat} {s : GzState}
     rw [this]; exact rd_same s.fd rfl (by simp)
   · rw [hsW] at hs2; cases hs2; exact hok p hdir
   · rw [hsW] at hs2; cases hs2
-    exact ⟨rfl, fun _ => hsz, fun _ e => absurd (show ZlibNg.Gz.COPY = LOOK from e) (by decide),
-      fun e => absurd e (by decide), fun e => absurd rfl e⟩
+    refine ⟨rfl, fun _ => hsz, fun _ e => absurd (show ZlibNg.Gz.COPY = LOOK from e) (by decide),
+      fun e => absurd e (by decide), fun e => absurd rfl e, fun _ z0 z2 hz0 hz2 => ?_⟩
+    have : z2.avail_in = 0 := by simp [H2] at hz2; rw [← hz2]
+    rw [hz] at hz0; cases hz0
+    show rdLeft w.fs s.fd + z2.avail_in.toNat + z.avail_in.toNat ≤ rdLeft w.fs s.fd + z.avail_in.toNat
+    rw [this]; simp
 
 open ZlibNg.Inflate in
 /-- The `if (magic)` tail of `gz_look` (see `lookTail_specX`). -/
@@ -586,8 +594,12 @@ theorem LookPostX.pre {P : Prop} {w W1 W : World} {h H1 H : Heap} {b : Nat} {s s
     (hrd : ∀ z, h.streams s.strm = some z → rdLeft W1.fs s.fd + z1.avail_in.toNat ≤ rdLeft w.fs s.fd + z.avail_in.toNat)
     (hsz : s.size ≠ 0 → s1.size ≠ 0) (q : LookPostX P W1 H1 b s1 r W H) : LookPostX P w h b s r W H :=
   ⟨LookPost.pre hs g hf hs1 hp hk hw hd hst hfd hz1 hrd q.1, fun s2 hs2 => by
-    obtain ⟨x1, x2, x3, x4, x5⟩ := q.2 s2 hs2
-    exact ⟨x1.trans hfd, fun e => x2 (hsz e), x3, x4, x5⟩⟩
+    obtain ⟨x1, x2, x3, x4, x5, x6⟩ := q.2 s2 hs2
+    refine ⟨x1.trans hfd, fun e => x2 (hsz e), x3, x4, x5, fun e z z' hz hz' => ?_⟩
+    have e1 := x6 e z1 z' (by rw [hst]; exact hz1) (by rw [hst]; exact hz')
+    rw [hfd] at e1
+    have e2 := hrd z hz
+    omega⟩
 
 open ZlibNg.Inflate in
 /-- `gz_look` once the buffers exist. When `P` holds, a transparent-capable handle has fewer than two bytes of
