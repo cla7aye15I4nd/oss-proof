@@ -146,8 +146,6 @@ theorem gzframe_fs {w w' : World} (h : Heap) (f : GzPtr) (hg : w'.gzs = w.gzs) :
 
 /-! ## String literals -/
 
-/-- What `gzLit` of a literal of the table does: it returns a pointer and, at the literal's first use, adds one
-static string at the next free key; nothing else changes. -/
 /-- Adding a static string at the next free key keeps every static string there. -/
 theorem consts_grow (h : Heap) (a : Array UInt8) (k : Nat) (b : Array UInt8) (hk : h.consts k = some b) :
     (upd h.consts h.consts.arr.size (some a)) k = some b := by
@@ -165,6 +163,8 @@ theorem gzLits_of_idx {lit : String} {i : Nat} (hi : gzLits.findIdx? (· == lit)
   rw [Array.getElem?_eq_getElem hlt]
   simpa using he
 
+/-- What `gzLit` of a literal of the table does: it returns a pointer and, at the literal's first use, adds one
+static string at the next free key; nothing else changes. -/
 theorem gzLit_step (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i) (w : World) (h : Heap) :
     ∃ p w' h', C.run ((gzLit lit).run w) h = .ok ((p, w'), h') ∧ w'.gzs = w.gzs ∧ w'.fs = w.fs ∧
       (h' = h ∨ ∃ a, h' = { h with consts := upd h.consts h.consts.arr.size (some a) }) ∧ (LitOk w h → LitOk w' h') := by
