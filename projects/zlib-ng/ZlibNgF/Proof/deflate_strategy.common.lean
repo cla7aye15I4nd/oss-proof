@@ -12,7 +12,7 @@ symbol buffer flushes the block.
 * `SLF h i b H`: the frame of a strategy call on stream `i` (block `b`) from its entry heap `h` to the heap `H`: the
   invariant, valid and set buffers, the CRC tables, a change of the stream record, the block and the output buffer
   only, the output of `H` a tail of the output at entry (`OutTail`), the fields of `StratKeeps` unchanged, and the
-  state at a level above 0, past its header, with `strstart - block_start` bounded by the tallied symbols (`GapOk`).
+  state at a level above 0, past its header, with no symbols when `block_start` is at `strstart` (`GapOk`).
 * `SLC h i b H`: `SLF` with no pending bytes.
 * `SLI h i b la ss H`: the loop invariant. The heap `H` is an `SH` heap whose state has the stale
   `lookahead` / `strstart`; with the locals `la` / `ss` written back it satisfies `SLC`, and `sym_next < sym_end`
@@ -23,10 +23,9 @@ The steps (`sli_fill`, `sli_tally_lit`, `sli_tally_dist`, `sli_flush`, `slc_inse
 stated with `Sat` over the translation's own statements, so a strategy proof walks its loop body and calls them;
 `slf_post` gives `StratPost` from `SLF` and the exit facts (`ExitOk`).
 
-`GapOk` is the part of `SymsOk` about `strstart - block_start`: at most `258 * (sym_next / 3 + 2) + 65536`, and no
-symbols when it is 0. It bounds `strstart - block_start` by `2^30` after a tally (`bs_lo`): a tally advances
-`strstart` by at most 258 and adds one symbol, a flush sets `block_start = strstart` and empties the symbol buffer,
-`fill_window` keeps the difference and the symbols.
+`GapOk` is the part of `SymsOk` about `block_start`: no symbols when it is at `strstart`. A tally advances `strstart`
+past `block_start` and adds one symbol, a flush sets `block_start = strstart` and empties the symbol buffer,
+`fill_window` keeps the symbols and does not bring `strstart` down to `block_start`.
 -/
 
 set_option autoImplicit false
@@ -42,11 +41,9 @@ open ZlibNg.DeflateP
 
 /-! ## Definitions -/
 
-/-- `strstart - block_start` is bounded by the tallied symbols: at most 258 bytes per symbol, one more symbol's worth,
-and a window. -/
+/-- No symbols wait when `block_start` is at `strstart`. -/
 def GapOk (st : DeflateState) : Prop :=
-  (st.strstart.toNat : Int) - st.block_start.toInt ≤ 258 * (st.sym_next.toNat / 3 + 2) + 65536 ∧
-    ((st.strstart.toNat : Int) = st.block_start.toInt → st.sym_next = 0)
+  (st.strstart.toNat : Int) = st.block_start.toInt → st.sym_next = 0
 
 /-- The state with the locals `lookahead` / `strstart` written back. -/
 abbrev FS (st : DeflateState) (la ss : UInt32) : DeflateState := { st with lookahead := la, strstart := ss }
@@ -129,7 +126,7 @@ theorem inv_SH {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
 theorem dcore_set {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {v : DView} {al : DeflateAllocs}
     (c : DCore H s z b v al) (ss la ins : UInt32) (bs : Int32)
     (hlook : ss.toNat + la.toNat ≤ v.window_size.toNat) (hbs : bs.toInt ≤ ss.toNat) (hins : ins ≤ ss)
-    (hlo : (ss.toNat : Int) - bs.toInt ≤ 2 ^ 30) :
+    (hlo : -(2 ^ 30 + 2 ^ 16) ≤ bs.toInt) :
     DCore H s z b { v with strstart := ss, lookahead := la, block_start := bs, insert := ins } al where
   zalloc := c.zalloc
   zfree := c.zfree
@@ -259,12 +256,12 @@ theorem slf_post {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs 
     obtain rfl : z = z' := Option.some.inj (hz.symm.trans hz')
     obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb')
     obtain rfl : st = st' := Option.some.inj (hst.symm.trans hst')
-    obtain ⟨hlv, -, hg1, hg2⟩ := F.st st hst
+    obtain ⟨hlv, -, hg2⟩ := F.st st hst
     obtain ⟨st0, h0, hk⟩ := F.keeps
     obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans hst1)
     have K := hk st hst
     obtain ⟨x1, x2, x3, x4⟩ := hs st hst
-    refine ⟨⟨x1, fun _ => hg1, fun e0 => ?_, fun _ e2 => ?_, hg2⟩, K, fun hf _ => x3 hf, x4⟩
+    refine ⟨⟨x1, fun e0 => ?_, fun _ e2 => ?_, hg2⟩, K, fun hf _ => x3 hf, x4⟩
     · rw [e0] at hlv; exact absurd hlv (by decide)
     · exact absurd (K.2.2.2.2.2.1.symm.trans e2) (hn st0 h0)
 
@@ -333,8 +330,7 @@ theorem slf_flush (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (h
     exact StratKeeps.trans (hw st hst) hK
   · intro st3 hst3
     obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)
-    refine ⟨by rw [hk4]; exact hlv, by rw [hk5]; exact (F.st st hst).2.1, ?_, fun _ => hsym⟩
-    rw [hk6, hk2, hss]; omega
+    exact ⟨by rw [hk4]; exact hlv, by rw [hk5]; exact (F.st st hst).2.1, fun _ => hsym⟩
   · obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)
     exact ⟨hsym, hsend, st, hst, hk1, hk2, hk3⟩
   · obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)
@@ -371,8 +367,8 @@ theorem sli_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Stra
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   have hD : DStateIs h (some i) b st1 := ⟨i, z, rfl, hz, hb, hst1⟩
   obtain ⟨hlv, hfx⟩ := hE b st1 hD
-  obtain ⟨hs1, hsym, hg1, -, -, hg2⟩ := hs1
-  have hgap : GapOk st1 := ⟨hg1 fun e => hfx e.2, hg2⟩
+  obtain ⟨hs1, hsym, -, -, hg2⟩ := hs1
+  have hgap : GapOk st1 := hg2
   refine ⟨st1, hst1, sli_of_slc ⟨⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; rfl⟩,
     ⟨st1, hst1, fun st h1 => by rw [hst1] at h1; cases h1; exact StratKeeps.refl _⟩, fun st h1 => ?_⟩,
@@ -441,7 +437,7 @@ theorem sli_fill {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss 
   obtain ⟨z5, z', st5, st', d', hz5, hst5, rfl, zr, fws⟩ := FI.shape
   obtain rfl : z = z5 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz5)
   obtain rfl : FS st la ss = st5 := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst5)
-  obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, hlt, hsum, hgap, hend, -⟩ :=
+  obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, hlt, hsum, -, hgap0, hend, -⟩ :=
     FI.post
   obtain rfl : i = i6 := Option.some.inj e6
   obtain rfl : z = z6 := Option.some.inj ((SH_streams _ _ _ _ _ _).symm.trans hz6)
@@ -474,12 +470,8 @@ theorem sli_fill {h H : Heap} {i b : Nat} {la ss : UInt32} (I : SLI h i b la ss 
       obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
       exact StratKeeps.trans (hw (FS st la ss) (SH_dstate _ _ _ _ _ _)) hK
     · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
-      obtain ⟨hg1, hg2⟩ := hg
-      refine ⟨by rw [hk2]; exact hlv, by rw [hk3]; exact hstat, ?_, fun e0 => ?_⟩
-      · rw [hk4]
-        simp only [] at hgap hg1
-        omega
-      · rw [hk4]; apply hg2; simp only [] at hgap e0 ⊢; omega
+      refine ⟨by rw [hk2]; exact hlv, by rw [hk3]; exact hstat, fun e0 => ?_⟩
+      rw [hk4]; exact hg (hgap0 e0)
     · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
       rw [hk4, hk5, hk6]; exact ⟨hp0, hsl⟩
   refine ⟨_, _, _, d', rfl, sli_of_slc C (SH_dstate _ _ _ _ _ _), ?_, fun hne => ?_, hend⟩
@@ -541,7 +533,6 @@ theorem sli_tally_core {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
   have hse' : st.sym_end.toNat = 3 * (st.lit_bufsize.toNat - 1) := hse
   have hsl' : st.sym_next.toNat < st.sym_end.toNat := UInt32.lt_iff_toNat_lt.mp hsl
   have hmod : st.sym_next.toNat % 3 = 0 := c.syms.2
-  have hg' : (ss.toNat : Int) - st.block_start.toInt ≤ 258 * (st.sym_next.toNat / 3 + 2) + 65536 := hg.1
   have h65 : st.window_size.toNat ≤ 65536 := by
     rw [hws', DeflateInit.wbuf_toNat _ (by omega)]; unfold DeflateAlloc.dWS; split <;> omega
   have hssn : (ss + n).toNat = ss.toNat + n.toNat := by rw [UInt32.toNat_add]; omega
@@ -553,16 +544,14 @@ theorem sli_tally_core {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateStat
     (show (ss + n).toNat + (la - n).toNat ≤ st.window_size.toNat by omega)
     (show st.block_start.toInt ≤ (ss + n).toNat by omega)
     (UInt32.le_iff_toNat_le.mpr (by omega))
-    (show ((ss + n).toNat : Int) - st.block_start.toInt ≤ 2 ^ 30 by omega)
+    c.bs_lo
   have F2 : SLF h i b (SH H0 i z b (FS { st with
       sym_next := st.sym_next + 3
       dyn_ltree := lt
       dyn_dtree := dt } (la - n) (ss + n)) (W4 d (sbo + st.sym_next.toNat) v)) := by
-    refine slf_SH F (fun al' hal' _ => ?_) rfl rfl rfl rfl ⟨?_, fun e0 => ?_⟩ (StratKeeps.refl _)
+    refine slf_SH F (fun al' hal' _ => ?_) rfl rfl rfl rfl (fun e0 => ?_) (StratKeeps.refl _)
     · obtain rfl : al = al' := Option.some.inj (hal.symm.trans (by simpa [Heap.dallocsOf, SH] using hal'))
       exact DCore.of_heap (by rw [SH_bytes, SH_bytes]) c2
-    · show ((ss + n).toNat : Int) - st.block_start.toInt ≤ 258 * ((st.sym_next + 3).toNat / 3 + 2) + 65536
-      rw [hssn, hsn3]; omega
     · exfalso
       have e1 : ((ss + n).toNat : Int) = st.block_start.toInt := e0
       rw [hssn] at e1; omega

@@ -82,8 +82,7 @@ theorem slf_flush_only (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M 
     exact StratKeeps.trans (hw st hst) hK
   · intro st3 hst3
     obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)
-    refine ⟨by rw [hk4]; exact hlv, by rw [hk5]; exact (F.st st hst).2.1, ?_, fun _ => hsym⟩
-    rw [hk6, hk2, hss]; omega
+    exact ⟨by rw [hk4]; exact hlv, by rw [hk5]; exact (F.st st hst).2.1, fun _ => hsym⟩
   · obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)
     exact ⟨hsym, hsend, st, hst, hk1, hk2, hk3⟩
   · obtain rfl : st' = st3 := Option.some.inj (hst'.symm.trans hst3)

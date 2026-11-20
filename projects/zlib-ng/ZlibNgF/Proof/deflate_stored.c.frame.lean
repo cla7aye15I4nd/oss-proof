@@ -196,7 +196,7 @@ theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   have hlv := hE b st1 ⟨i, z, rfl, hz, hb, hst1⟩
-  obtain ⟨-, -, hl0, -, -⟩ := hs1
+  obtain ⟨-, hl0, -, -⟩ := hs1
   obtain ⟨hbs, hsn, hla⟩ := hl0 hlv
   refine ⟨st1, hst1, hp0, ⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     ⟨z, z, hz, hz, Nat.le_refl _, Or.inl ⟨rfl, rfl⟩⟩,
@@ -238,15 +238,11 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   obtain ⟨hbs, hsn⟩ := F.st st hst
   have hlv : st.level = 0 := K.2.2.2.2.1.trans l0
   have hla' : st.lookahead = 0 := hla.trans la0
-  have hss := (strstart_toInt32 c).2
   obtain ⟨-, -, -, hl1, -, -, hse⟩ := c.sizes
-  simp only [dview] at hss hl1 hse
-  have hbs' : (0 : Int32).toInt ≤ st.block_start.toInt := Int32.le_iff_toInt_le.mp hbs
-  have e0 : (0 : Int32).toInt = 0 := rfl
-  refine ⟨⟨?_, fun _ => ?_, fun _ => ⟨hbs, hsn, hla'⟩, fun e => absurd (hlv.symm.trans e) (by decide),
+  simp only [dview] at hl1 hse
+  refine ⟨⟨?_, fun _ => ⟨hbs, hsn, hla'⟩, fun e => absurd (hlv.symm.trans e) (by decide),
     fun _ => hsn⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩⟩
-  · rw [hsn]; apply UInt32.lt_iff_toNat_lt.mpr; simp; omega
-  · omega
+  rw [hsn]; apply UInt32.lt_iff_toNat_lt.mpr; simp; omega
 
 /-- What `SF` gives about the current heap `H`: the stream record `z` (output at `ob + oo` with `X` the output block),
 the state `st` and the bytes `d` of block `b`, the window at `wo`, `pending_buf` at `pbo`, and the numbers. -/

@@ -201,7 +201,8 @@ def FWPost (H : Heap) (i : Nat) (z : ZStream) (b : Nat) (st0 : DeflateState) (d 
     FWS st0 st' ∧ WCore st' ∧ st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat ∧
     (262 ≤ st'.lookahead.toNat ∨ z'.avail_in = 0) ∧
     z'.avail_in.toNat + st'.lookahead.toNat = z.avail_in.toNat + st0.lookahead.toNat ∧
-    (st'.strstart.toNat : Int) - st'.block_start.toInt = (st0.strstart.toNat : Int) - st0.block_start.toInt
+    (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ (st0.strstart.toNat : Int) - st0.block_start.toInt ∧
+      ((st'.strstart.toNat : Int) = st'.block_start.toInt → (st0.strstart.toNat : Int) = st0.block_start.toInt)
 
 theorem fill_window_SH {st : DeflateState} {wo po ho : Nat} (f : InsertBatchFn)
     (hzb : z.state = some b) (hsm : st.strm = .val (some i)) (hib : st.insert_batch = .val f)
@@ -228,10 +229,11 @@ theorem fill_window_SH {st : DeflateState} {wo po ho : Nat} (f : InsertBatchFn)
       (z' = z ∧ z.avail_in = 0 ∨ InSrc H b z') ∧ FWS st st' ∧ WCore st' ∧
       st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat ∧ st'.lookahead.toNat < 262 ∧
       z'.avail_in.toNat + st'.lookahead.toNat = z.avail_in.toNat + st.lookahead.toNat ∧
-      (st'.strstart.toNat : Int) - st'.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt)
+      (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ (st.strstart.toNat : Int) - st.block_start.toInt ∧
+      ((st'.strstart.toNat : Int) = st'.block_start.toInt → (st.strstart.toNat : Int) = st.block_start.toInt))
     (fun _ H' => match H'.dstates b with | some s => 262 - s.lookahead.toNat | none => 0)
     (fun _ H' => FWPost H i z b st d (ho + 131072) H') ?_
-    ⟨rfl, z, st, d, rfl, WrIn.refl _ _ _, ZR.refl z, hin.imp (fun h => ⟨rfl, h⟩) id, FWS.refl st, C, hlook, hla, rfl, rfl⟩
+    ⟨rfl, z, st, d, rfl, WrIn.refl _ _ _, ZR.refl z, hin.imp (fun h => ⟨rfl, h⟩) id, FWS.refl st, C, hlook, hla, rfl, Int.le_refl _, id⟩
     ?_) ?_)
   · rintro _ _ ⟨rfl, z1, s1, d1, rfl, hd1w, zr1, in1, F1, C1, lk1, la1, sm1, df1⟩
     have hd1 := hd1w.1
@@ -250,7 +252,7 @@ theorem fill_window_SH {st : DeflateState} {wo po ho : Nat} (f : InsertBatchFn)
       refine Sat.pure ?_
       simp only [↓reduceIte]
       exact Sat.pure ⟨fun h => absurd h (by decide), fun _ => ⟨z1, s2, d2, rfl, hd2u, zr1, in1,
-        F1.trans F2, C2, lk2, Or.inr h0', by rw [la2]; exact sm1, by rw [df2]; exact df1⟩⟩
+        F1.trans F2, C2, lk2, Or.inr h0', by rw [la2]; exact sm1, ⟨Int.le_trans df2.1 df1.1, fun e => df1.2 (df2.2 e)⟩⟩⟩
     · rename_i h0
       have h0' : z1.avail_in ≠ 0 := by simpa using h0
       have in1' : InSrc H b z1 := by
@@ -264,8 +266,9 @@ theorem fill_window_SH {st : DeflateState} {wo po ho : Nat} (f : InsertBatchFn)
         (by rw [hsz2.1, hsz2.2]; exact hws) (by rw [hsz2.1]; exact hwo) (by rw [hsz2.2]; exact hw2) C2 lt2 (by rw [la2]; exact la1) h0'
         in1' (fun e => hc (by rw [← FWS.wrap (F1.trans F2)]; exact e))) ?_)
       rintro _ _ ⟨z3, s3, d3, rfl, hd3w, zr3, in3, ⟨F3, la3, ss3, fe3, C3, lk3, bs3⟩, sm3⟩
-      have df3 : (s3.strstart.toNat : Int) - s3.block_start.toInt = (st.strstart.toNat : Int) - st.block_start.toInt := by
-        rw [ss3, bs3, df2, df1]
+      have df3 : (s3.strstart.toNat : Int) - s3.block_start.toInt ≤ (st.strstart.toNat : Int) - st.block_start.toInt ∧
+          ((s3.strstart.toNat : Int) = s3.block_start.toInt → (st.strstart.toNat : Int) = st.block_start.toInt) := by
+        rw [ss3, bs3]; exact ⟨Int.le_trans df2.1 df1.1, fun e => df1.2 (df2.2 e)⟩
       have hd3u := wr_tr hd2u hd3w
       rw [la2] at sm3
       refine Sat.pure ?_
