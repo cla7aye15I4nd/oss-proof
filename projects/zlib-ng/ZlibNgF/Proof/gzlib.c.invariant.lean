@@ -25,7 +25,7 @@ so that a proof about one function opens only the clauses it needs.
   `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, `avail_in` bytes
   from `next_in` inside `in`, and the stream's `msg` is `NULL` or one of inflate's string literals (`gz_decomp` passes
   it to `gz_error`); without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
-  (`FreshStrm`); a pending skip and the bytes `gzungetc` pushed back
+  (`FreshStrm`) and `how` is `LOOK`; a pending skip and the bytes `gzungetc` pushed back
   after it keep `pos + skip + have ≤ GZ_OFF_MAX`;
 * writing: `x.have` is 0; without buffers `avail_in` is 0; with buffers and not `direct`, the deflate stream has the
   deflate invariant and the between-call facts (`gz_write_init`), no `gz_header` registered, `next_out + avail_out`
@@ -96,6 +96,8 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   skip_have : s.skip ≠ 0 → s.pos.toInt + s.skip.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt
   /-- before the buffers exist, `gz_read_init` can call `inflateInit2` on the stream -/
   fresh : s.size = 0 → FreshStrm h s
+  /-- before the buffers exist the stream type is not known yet (`gz_look` leaves `LOOK` only with buffers) -/
+  look : s.size = 0 → s.how = LOOK
 
 /-- The write buffers and the embedded stream `z` once the buffers exist (block `c`, `in` at `base`). -/
 structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop where
