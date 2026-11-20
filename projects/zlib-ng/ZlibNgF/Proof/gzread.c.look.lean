@@ -52,48 +52,49 @@ theorem alloc_aligned_ok {h : Heap} (size : UInt32) (hw : 8 + size.toNat + 64 < 
     have h1 : ((8 : UInt64) + size.toUInt64 + (64 : UInt32).toUInt64).toNat = 8 + size.toNat + 64 := by
       simp [UInt64.toNat_add]; omega
     rw [UInt64.toNat_toUInt32, h1]; omega
-  let c := h.nextBlk
   let A : Array UInt8 := Array.ofFn (n := 8 + size.toNat + 64) fun i => Junk.of (h.garbage h.nalloc i.val)
   have hA : A.size = 8 + size.toNat + 64 := Array.size_ofFn
-  let H1 : Heap := { h with bytes := upd h.bytes c (some A), savedPtrs := upd h.savedPtrs c none, nextBlk := c + 1, nalloc := h.nalloc + 1 }
+  let H1 : Heap := { h with bytes := upd h.bytes h.nextBlk (some A), savedPtrs := upd h.savedPtrs h.nextBlk none, nextBlk := h.nextBlk + 1, nalloc := h.nalloc + 1 }
   have e1 : allocB ((8 : UInt64) + size.toUInt64 + (64 : UInt32).toUInt64).toUInt32.toNat h =
-      .ok (.ref (.heap c) 0, H1) := by
+      .ok (.ref (.heap h.nextBlk) 0, H1) := by
     rw [hsz]; simp only [allocB, hok, ite_true]; rfl
-  have hg1 : Space.get H1 (BRef.heap c) = some A := by simp [Space.get, Heap.getBytes, H1, upd_same]
-  have hb1 : H1.bytes c = some A := by simp [H1, upd_same]
-  generalize hD : alD (h.baseAddr (.heap c)) = d
+  have hg1 : Space.get H1 (BRef.heap h.nextBlk) = some A := by simp [Space.get, Heap.getBytes, H1, upd_same]
+  have hb1 : H1.bytes h.nextBlk = some A := by simp [H1, upd_same]
+  generalize hD : alD (h.baseAddr (.heap h.nextBlk)) = d
   have hd64 : d.toNat < 64 := by rw [← hD]; exact alD_lt _
-  have e2 : ZlibNg.Zutil.ALIGN_DIFF (.ref (.heap c) 0) 64 H1 = .ok (d, H1) := by
+  have e2 : ZlibNg.Zutil.ALIGN_DIFF (.ref (.heap h.nextBlk) 0) 64 H1 = .ok (d, H1) := by
     rw [← hD]; rfl
-  have e3 : Ptr.add (.ref (.heap c) 0 : BPtr) (Int.ofNat d.toNat) H1 = .ok (.ref (.heap c) d.toNat, H1) := by
-    rw [Inftrees.add_ok hg1 (by omega) (by omega) (by rw [hA]; simp; omega)]; congr 3; simp
+  have e3 : Ptr.add (.ref (.heap h.nextBlk) 0 : BPtr) (Int.ofNat d.toNat) H1 = .ok (.ref (.heap h.nextBlk) d.toNat, H1) := by
+    have hk : Int.ofNat d.toNat = (d.toNat : Int) := rfl
+    rw [hk, Inftrees.add_ok hg1 (by omega) (by omega) (by rw [hA]; omega)]; congr 3; omega
   have h64 : (64 : UInt32).toNat = 64 := rfl
   unfold ZlibNg.Zutil.zng_alloc_aligned
   simp only [bind_app, e1, e2, e3]
-  have hn : ((Ptr.ref (BRef.heap c) 0 : BPtr) == .null) = false := rfl
+  have hn : ((Ptr.ref (BRef.heap h.nextBlk) 0 : BPtr) == .null) = false := rfl
   simp only [hn, Bool.false_eq_true, ite_false]
   by_cases h8 : d < 8
   · have h8' : d.toNat < 8 := UInt64.lt_iff_toNat_lt.mp h8
-    have e4 : Ptr.add (.ref (.heap c) d.toNat : BPtr) (Int.ofNat (64 : UInt32).toNat) H1 =
-        .ok (.ref (.heap c) (d.toNat + 64), H1) := by
-      rw [Inftrees.add_ok hg1 (by omega) (by omega) (by rw [hA, h64]; simp; omega)]; congr 3; rw [h64]; simp
-    have e5 : Ptr.add (.ref (.heap c) (d.toNat + 64) : BPtr) (-8) H1 = .ok (.ref (.heap c) (d.toNat + 56), H1) := by
+    have e4 : Ptr.add (.ref (.heap h.nextBlk) d.toNat : BPtr) (Int.ofNat (64 : UInt32).toNat) H1 =
+        .ok (.ref (.heap h.nextBlk) (d.toNat + 64), H1) := by
+      have h64' : Int.ofNat (64 : UInt32).toNat = 64 := rfl
+      rw [h64', Inftrees.add_ok hg1 (by omega) (by omega) (by rw [hA]; omega)]; congr 3; omega
+    have e5 : Ptr.add (.ref (.heap h.nextBlk) (d.toNat + 64) : BPtr) (-8) H1 = .ok (.ref (.heap h.nextBlk) (d.toNat + 56), H1) := by
       rw [Inftrees.add_ok hg1 (by omega) (by omega) (by rw [hA]; omega)]; congr 3; omega
     simp only [h8, ite_true, bind_app, e4, e5, storePtrSlot, hb1, show d.toNat + 56 + 8 ≤ A.size by omega,
       ite_true, pure_app]
-    have hO : alOff (h.baseAddr (.heap c)) = d.toNat + 64 := by
+    have hO : alOff (h.baseAddr (.heap h.nextBlk)) = d.toNat + 64 := by
       unfold alOff; rw [hD, if_pos h8, h64]
     rw [hO]
-    simp only [alH, H1, upd_upd, c, A, show d.toNat + 64 - 8 = d.toNat + 56 by omega]
+    simp only [alH, H1, InflateInv.upd_upd, h.nextBlk, A, show d.toNat + 64 - 8 = d.toNat + 56 by omega]
   · have h8' : ¬ d.toNat < 8 := fun e => h8 (UInt64.lt_iff_toNat_lt.mpr e)
-    have e5 : Ptr.add (.ref (.heap c) d.toNat : BPtr) (-8) H1 = .ok (.ref (.heap c) (d.toNat - 8), H1) := by
+    have e5 : Ptr.add (.ref (.heap h.nextBlk) d.toNat : BPtr) (-8) H1 = .ok (.ref (.heap h.nextBlk) (d.toNat - 8), H1) := by
       rw [Inftrees.add_ok hg1 (by omega) (by omega) (by rw [hA]; omega)]; congr 3; omega
     simp only [h8, ite_false, bind_app, pure_app, e5, storePtrSlot, hb1,
       show d.toNat - 8 + 8 ≤ A.size by omega, ite_true]
-    have hO : alOff (h.baseAddr (.heap c)) = d.toNat := by
+    have hO : alOff (h.baseAddr (.heap h.nextBlk)) = d.toNat := by
       unfold alOff; rw [hD, if_neg h8]
     rw [hO]
-    simp only [alH, H1, upd_upd, c, A]
+    simp only [alH, H1, InflateInv.upd_upd, h.nextBlk, A]
 
 /-! ## `inflateInit2(strm, 31)` on the stream of a read handle -/
 
