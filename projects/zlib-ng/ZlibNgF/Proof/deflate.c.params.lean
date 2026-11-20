@@ -21,7 +21,7 @@ set_option autoImplicit false
 
 namespace ZlibNgF.Proof.DeflateParams
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv ZlibNgF.Proof.DeflateInit
-open ZlibNgF.Proof.DeflateFacts (ChainOk chainLim posAt SymsOk DStateIs)
+open ZlibNgF.Proof.DeflateFacts (ChainOk chainLim posAt SymsOk DStateIs LazyOk TableAt LazyOk.clear)
 open ZlibNgF.Proof.DeflateSide (DSide SideAt FlushOk HdrOk)
 open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNgF.Proof.ChunkMem (fillFold fillFold_size fillFold_get)
@@ -109,6 +109,15 @@ theorem lvl_nat (l : Int32) (h0 : 0 ≤ l) (h9 : l ≤ 9) : ∃ k : Fin 10, l = 
 /-- Two levels with one compression function are both 0, both 1, or both in 3..6, or none. -/
 theorem groups {a c : Int32} (a0 : 0 ≤ a) (a9 : a ≤ 9) (c0 : 0 ≤ c) (c9 : c ≤ 9) (e : funcOf a = funcOf c) :
     (a = 0 ↔ c = 0) ∧ (a = 1 ↔ c = 1) ∧ ((3 ≤ a ∧ a ≤ 6) ↔ (3 ≤ c ∧ c ≤ 6)) := by
+  obtain ⟨ka, rfl⟩ := lvl_nat a a0 a9
+  obtain ⟨kc, rfl⟩ := lvl_nat c c0 c9
+  revert e
+  revert ka kc
+  decide
+
+/-- Two levels with one compression function are both in 7..9 (`deflate_slow`) or both outside. -/
+theorem groups_slow {a c : Int32} (a0 : 0 ≤ a) (a9 : a ≤ 9) (c0 : 0 ≤ c) (c9 : c ≤ 9) (e : funcOf a = funcOf c) :
+    (7 ≤ a ∧ a ≤ 9) ↔ (7 ≤ c ∧ c ≤ 9) := by
   obtain ⟨ka, rfl⟩ := lvl_nat a a0 a9
   obtain ⟨kc, rfl⟩ := lvl_nat c c0 c9
   revert e
@@ -283,6 +292,29 @@ theorem tail_syms {st : DeflateState} {level strategy : Int32} (S : SymsOk st) (
     refine ⟨q1, fun _ => ⟨by rw [Int32.le_iff_toInt_le, show (0 : Int32).toInt = 0 from rfl, ← eb]; omega, hs0, el⟩, fun _ _ => hs0, q4, fun e => ?_⟩
     exact absurd el (q5 e).2.2
 
+/-- With no lookahead and `block_start` at `strstart`, `LazyOk` leaves no pending match and no pending literal. -/
+theorem lazy_clear0 {st : DeflateState} (L : LazyOk st) (el : st.lookahead = 0)
+    (eb : (st.strstart.toNat : Int) = st.block_start.toInt) : st.prev_length < 3 ∧ st.match_available = 0 := by
+  refine ⟨UInt32.lt_iff_toNat_lt.mpr (Nat.lt_of_not_le fun h3 => ?_), Classical.byContradiction fun hm => ?_⟩
+  · have := (L.1 (UInt32.le_iff_toNat_le.mpr (by simpa using h3))).2.1
+    have e3 : (3 : UInt32).toNat = 3 := rfl
+    rw [el] at this; simp at this; omega
+  · have := (L.2.1 hm).2; omega
+
+/-- The tail keeps `LazyOk`: a change into or out of the levels of `deflate_slow` happens only with the same strategy
+and compression function (so no change of `TableAt 7 9`), or with no lookahead and `block_start` at `strstart`. -/
+theorem tail_lazy {st : DeflateState} {level strategy : Int32} (L : LazyOk st) (o0 : 0 ≤ st.level)
+    (o9 : st.level ≤ 9) (l0 : 0 ≤ level) (l9 : level ≤ 9) (sw : SwitchOk st level strategy)
+    (x1 x2 a1 a2 a4 : UInt32) (a3 : Int32) (lm : Ival LongestMatchFn) (ib : Ival InsertBatchFn) :
+    LazyOk (tailS st x1 x2 a1 a2 a4 a3 lm ib level strategy) := by
+  refine ⟨L.1, L.2.1, fun ht => ?_, L.2.2.2⟩
+  rcases sw with ⟨es, ef⟩ | ⟨el, eb⟩
+  · refine L.clear fun h7 => ht ?_
+    obtain ⟨b1, b2, b3, b4⟩ := h7
+    obtain ⟨g1, g2⟩ := (groups_slow o0 o9 l0 l9 ef).mp ⟨b1, b2⟩
+    exact ⟨g1, g2, by simp only [tailS]; rw [← es]; exact b3, by simp only [tailS]; rw [← es]; exact b4⟩
+  · exact lazy_clear0 (st := st) L el eb
+
 /-- `DSide`'s facts after the tail. -/
 theorem tail_side {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateState} {d d' : Array UInt8}
     {ho : Nat} {al : DeflateAllocs} {level strategy : Int32} (c : DCore H (some i) z b (dview st) al)
@@ -291,7 +323,7 @@ theorem tail_side {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflate
     SideAt (SH H i z b st' d') b st' := by
   have o := c.level
   simp only [dview] at o
-  obtain ⟨S1, S2, S3, S4, S5, S6⟩ := S
+  obtain ⟨S1, S2, S3, S4, S5, S6, S7⟩ := S
   obtain ⟨-, wo, po, -, -, -, -, hp, -⟩ := c.lay
   simp only [dview] at hp
   obtain ⟨hho0, -⟩ : ho + 131072 ≤ d.size ∧ True := by
@@ -301,7 +333,8 @@ theorem tail_side {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflate
     obtain rfl : ho = ho1 := by injection hh1 with e; injection e
     exact ⟨hho, trivial⟩
   obtain ⟨x1, x2, a1, a2, a4, a3, lm, ib, rfl, -, -, hbs⟩ := T
-  refine ⟨tail_syms S1 o.1 o.2 l0 l9 sw x1 x2 a1 a2 a4 a3 lm ib, S2, S3, ?_, S5, ?_⟩
+  refine ⟨tail_syms S1 o.1 o.2 l0 l9 sw x1 x2 a1 a2 a4 a3 lm ib, S2, S3, ?_, S5, ?_,
+    tail_lazy S7 o.1 o.2 l0 l9 sw x1 x2 a1 a2 a4 a3 lm ib⟩
   · have m : DeflateSide.HdrMove H (SH H i z b (tailS st x1 x2 a1 a2 a4 a3 lm ib level strategy) d') b b st :=
       DeflateSide.hdrMove_out rfl fun r hr => DeflateSetDict.space_SH_ne hr
     exact (S4.move m).of_state rfl rfl rfl rfl

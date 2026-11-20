@@ -93,14 +93,16 @@ and a `match_start` not above the one before, and `prev_length` does not grow. -
 def LazyK (st st' : DeflateState) : Prop :=
   (3 ≤ st'.prev_length → st'.prev_length = st.prev_length ∧
     (st.strstart.toNat : Int) - st.match_start.toNat = (st'.strstart.toNat : Int) - st'.match_start.toNat ∧
-    st'.match_start ≤ st.match_start) ∧ st'.prev_length ≤ st.prev_length
+    st'.match_start ≤ st.match_start) ∧ st'.prev_length ≤ st.prev_length ∧
+    (1 ≤ st.strstart.toNat → 1 ≤ st'.strstart.toNat)
 
 theorem LazyK.of_eq {st st' : DeflateState} (e1 : st'.prev_length = st.prev_length)
     (e2 : st'.match_start = st.match_start) (e3 : st'.strstart = st.strstart) : LazyK st st' :=
-  ⟨fun _ => ⟨e1, by rw [e2, e3], by rw [e2]; exact UInt32.le_refl _⟩, by rw [e1]; exact UInt32.le_refl _⟩
+  ⟨fun _ => ⟨e1, by rw [e2, e3], by rw [e2]; exact UInt32.le_refl _⟩, by rw [e1]; exact UInt32.le_refl _,
+    fun h => by rw [e3]; exact h⟩
 
 theorem LazyK.trans {a c e : DeflateState} (h1 : LazyK a c) (h2 : LazyK c e) : LazyK a e := by
-  refine ⟨fun h => ?_, UInt32.le_trans h2.2 h1.2⟩
+  refine ⟨fun h => ?_, UInt32.le_trans h2.2.1 h1.2.1, fun h => h2.2.2 (h1.2.2 h)⟩
   obtain ⟨p2, q2, r2⟩ := h2.1 h
   obtain ⟨p1, q1, r1⟩ := h1.1 (by rw [← p2]; exact h)
   exact ⟨p2.trans p1, q1.trans q2, UInt32.le_trans r2 r1⟩
@@ -108,8 +110,9 @@ theorem LazyK.trans {a c e : DeflateState} (h1 : LazyK a c) (h2 : LazyK c e) : L
 theorem LazyK.mk {st s0 : DeflateState} {sl : Nat} (hs : s0.strstart.toNat = st.strstart.toNat - sl)
     (h : (3 ≤ s0.prev_length → s0.prev_length = st.prev_length ∧
       (st.strstart.toNat : Int) - st.match_start.toNat = ((st.strstart.toNat - sl : Nat) : Int) - s0.match_start.toNat ∧
-      s0.match_start ≤ st.match_start) ∧ s0.prev_length ≤ st.prev_length) : LazyK st s0 := by
-  unfold LazyK; rw [hs]; exact h
+      s0.match_start ≤ st.match_start) ∧ s0.prev_length ≤ st.prev_length)
+    (h1 : 1 ≤ st.strstart.toNat → 1 ≤ st.strstart.toNat - sl) : LazyK st s0 := by
+  unfold LazyK; rw [hs]; exact ⟨h.1, h.2, h1⟩
 
 /-- What the slide part leaves: the state changed in the fields of `fill_window` only, with the same `lookahead`,
 `strstart` below `fill_end`, the window clauses, and the data within the window. -/
@@ -170,6 +173,10 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32) (hlev : le
         sub_toNat _ _ (by rw [sub_toNat _ _ (by rw [hML]; omega), hML]; omega),
         sub_toNat _ _ (by rw [hML]; omega), hML, ← hwk]
     clear_value sl
+    have hone : 1 ≤ st.strstart.toNat → 1 ≤ st.strstart.toNat - sl.toNat := by
+      intro h1
+      have h2 : sl.toNat ≤ st.strstart.toNat - (st.w_size.toNat - 262) := by rw [hsl]; exact Nat.sub_le _ _
+      omega
     rw [← hsl] at m2 m3 m4 m5 m6 m7
     have hn : (st1.strstart + st1.lookahead - sl).toNat = st.strstart.toNat + st.lookahead.toNat - sl.toNat := by
       rw [sub_toNat _ _ (by rw [UInt32.toNat_add, e_ss, e_la]; omega), UInt32.toNat_add, e_ss, e_la]; omega
@@ -267,7 +274,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32) (hlev : le
         split
         · rename_i hgi
           refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩ hss' hc0 (LazyK.mk hss' hlz)
+          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩ hss' hc0 (LazyK.mk hss' hlz hone)
           · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
           all_goals simp only [hss', hfe', hbs', hws1, hw1, e_la]
           all_goals (try simp only [BS])
@@ -275,7 +282,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32) (hlev : le
         · rename_i hgi
           have hgi' : st.insert.toNat ≤ st.strstart.toNat - sl.toNat := by
             rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, hss', e_in] at hgi; omega
-          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩ hss' hc0 (LazyK.mk hss' hlz)
+          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩ hss' hc0 (LazyK.mk hss' hlz hone)
           · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
           all_goals simp only [hss', hfe', hbs', hws1, hw1, e_la, e_in]
           all_goals (try simp only [BS])
@@ -339,7 +346,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32) (hlev : le
         split
         · rename_i hgi
           refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
-          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩ hss' hc0 (LazyK.mk hss' hlz)
+          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩ hss' hc0 (LazyK.mk hss' hlz hone)
           · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
           all_goals simp only [hss', hfe', hws1, hw1, e_la]
           all_goals (try simp only [BS])
@@ -347,7 +354,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32) (hlev : le
         · rename_i hgi
           have hgi' : st.insert.toNat ≤ st.strstart.toNat - sl.toNat := by
             rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, hss', e_in] at hgi; omega
-          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩ hss' hc0 (LazyK.mk hss' hlz)
+          refine hjp2 _ _ hd0 ⟨?_, e_la, ?_, ⟨⟨k, hk1, hk2, by rw [hw1]; exact hwk⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩ hss' hc0 (LazyK.mk hss' hlz hone)
           · subst hst1; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩
           all_goals simp only [hss', hfe', hws1, hw1, e_la, e_in]
           all_goals (try simp only [BS])

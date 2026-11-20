@@ -2,6 +2,7 @@ import ZlibNgF.Proof.«deflate.c.facts»
 import ZlibNgF.Proof.«deflate.c.prime»
 import ZlibNgF.Proof.«adler32_c.c.safety»
 import ZlibNgF.Proof.«inflate.c.steps»
+import ZlibNgF.Proof.«deflate.c.fill_window.facts»
 
 /-!
 # `deflateSetDictionary` (`ZlibNgF`)
@@ -27,6 +28,37 @@ open ZlibNgF.Proof.InffastBase (sat_cwhile_rank)
 open ZlibNgF.Proof.InflateAlloc (space_get_heap)
 open ZlibNgF.Proof.ChunkMem (fillFold fillFold_size fillFold_get)
 open ZlibNgF.Proof.DeflateAlloc (pure_bind_M ite_t ite_f)
+open ZlibNgF.Proof.InsertGrow (ChainOk.grow call_insert_batch_G Grow.refl)
+open ZlibNgF.Proof.SlideChain (ChainOk.st)
+open ZlibNgF.Proof.FillFacts (hlay_of HLay.of_bs fill_window_chainW insertBatchOf_ne)
+
+/-- The hash chains of every state of stream `i` in `h`. -/
+def ChainAt (h : Heap) (i : Nat) : Prop :=
+  ∀ b st d, DStateIs h (some i) b st → h.bytes b = some d → ChainOk b d st
+
+/-- An `SH` heap has the chains of its state and bytes. -/
+theorem chainAt_SH {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    (hzb : z.state = some b) (Ch : ChainOk b d st) : ChainAt (SH h i z b st d) i := by
+  intro b' st' d' hs hd
+  obtain ⟨i1, z1, e1, hz1, hb1, hst1⟩ := hs
+  obtain rfl := Option.some.inj e1
+  rw [SH_streams] at hz1
+  obtain rfl := Option.some.inj hz1
+  obtain rfl := Option.some.inj (hzb.symm.trans hb1)
+  rw [SH_dstate] at hst1
+  obtain rfl := Option.some.inj hst1
+  rw [SH_bytes] at hd
+  obtain rfl := Option.some.inj hd
+  exact Ch
+
+/-- `ChainOk` with a zero `head` (after `CLEAR_HASH`): no position is in the chains. -/
+theorem chainOk_zero {b ho po : Nat} {d : Array UInt8} {st : DeflateState}
+    (hh : st.head = .val (.ref (.heap b) ho)) (hp : st.prev = .val (.ref (.heap b) po))
+    (hz : ∀ j, ho ≤ j → j < ho + 131072 → d[j]! = 0) : ChainOk b d st := by
+  intro _ _
+  refine ⟨fun _ => False, ho, po, hh, hp, fun p hp => hp.elim, fun k hk hn => hn ?_, fun p hp => hp.elim⟩
+  simp only [posAt, hz (ho + 2 * k) (by omega) (by omega), hz (ho + 2 * k + 1) (by omega) (by omega)]
+  rfl
 
 /-! ## Frames -/
 
@@ -267,9 +299,10 @@ def SdK (st0 st : DeflateState) : Prop :=
     st.level = st0.level ∧ st.strategy = st0.strategy ∧ st.last_flush = st0.last_flush ∧ st.bi_valid = st0.bi_valid
 
 /-- What `deflateSetDictionary` leaves, from state `st0`: the fields of `SdK` and `wrap` kept, `block_start` at
-`strstart`, no lookahead. -/
+`strstart`, no lookahead, no pending match or literal. -/
 def SdPost (st0 st : DeflateState) : Prop :=
-  SdK st0 st ∧ st.wrap = st0.wrap ∧ st.block_start.toInt = st.strstart.toNat ∧ st.lookahead = 0
+  SdK st0 st ∧ st.wrap = st0.wrap ∧ st.block_start.toInt = st.strstart.toNat ∧ st.lookahead = 0 ∧
+    st.prev_length = 0 ∧ st.match_available = 0
 
 theorem SdK.mv {st0 st st' : DeflateState} (k : SdK st0 st) (e1 : st'.sym_next = st.sym_next)
     (e2 : st'.status = st.status) (e3 : st'.gzhead = st.gzhead) (e4 : st'.gzindex = st.gzindex)
@@ -284,18 +317,19 @@ def SdOut (i : Nat) (st0 : DeflateState) (H' : Heap) : Prop :=
 
 /-- The invariant of the insertion loop of `deflateSetDictionary` on stream `i` (block `b`), started from heap `H`
 (rank `m`: `avail_in`, plus one while the loop goes on). -/
-def LoopI (H : Heap) (i b : Nat) (st0 : DeflateState) (m : Nat) (_ : Unit) (H' : Heap) : Prop :=
+def LoopI (H : Heap) (i b : Nat) (st0 : DeflateState) (Cin : Prop) (m : Nat) (_ : Unit) (H' : Heap) : Prop :=
   DInvW H' (some i) ∧ DInput H' (some i) ∧ DFrame H H' [i] [b] [] [] ∧
     ∃ z' st', H'.streams i = some z' ∧ z'.state = some b ∧ H'.dstate b = some st' ∧ st'.wrap = 0 ∧
       m = z'.avail_in.toNat + (if 3 ≤ st'.lookahead.toNat then 1 else 0) ∧ pot z' st' ≤ 2 ^ 30 + 2 ^ 18 ∧
-      SdK st0 st'
+      SdK st0 st' ∧ (Cin → ∀ d', H'.bytes b = some d' → ChainOk b d' st')
 
 /-- `fill_window` inside the insertion loop. -/
 theorem fw_ok (W : WindowFacts) {H H1 : Heap} {i b : Nat} {z1 : ZStream} {st1 : DeflateState}
     (f1 : DFrame H H1 [i] [b] [] []) (hv1 : DInvW H1 (some i)) (hz1 : H1.streams i = some z1)
     (hb1 : z1.state = some b) (hst1 : H1.dstate b = some st1) (hi1 : DInput H1 (some i)) (hw1 : st1.wrap = 0)
-    (hl3 : st1.lookahead.toNat < 3) (hp1 : pot z1 st1 ≤ 2 ^ 30 + 2 ^ 18) {st0 : DeflateState} (hk1 : SdK st0 st1) :
-    Sat H1 (fill_window (some b)) (fun _ H2 => ∃ m', m' ≤ z1.avail_in.toNat ∧ LoopI H i b st0 m' () H2) := by
+    (hl3 : st1.lookahead.toNat < 3) (hp1 : pot z1 st1 ≤ 2 ^ 30 + 2 ^ 18) {st0 : DeflateState} (hk1 : SdK st0 st1)
+    {Cin : Prop} (hc1 : Cin → ∀ d1, H1.bytes b = some d1 → ChainOk b d1 st1) :
+    Sat H1 (fill_window (some b)) (fun _ H2 => ∃ m', m' ≤ z1.avail_in.toNat ∧ LoopI H i b st0 Cin m' () H2) := by
   obtain ⟨H2, e, hv2, hi2, f2, i2, z2, z2', b2, st2, st2', e2', hz2, hz2', hb2, hst2, hst2', hzz, hle2, hlk,
       hcons, hdiff, -, -, hw2, hs2, hg2, hl2, hst2s, -, -, hsn2, hgi2, hlf2, hbv2, -⟩ :=
     W.fill_window H1 (some i) b st1 hv1 ⟨i, z1, rfl, hz1, hb1, hst1⟩ hi1
@@ -307,7 +341,7 @@ theorem fw_ok (W : WindowFacts) {H H1 : Heap} {i b : Nat} {z1 : ZStream} {st1 : 
   have hs : stateIds H1 (some i) = [b] := by simp [stateIds, hz1, hb1]
   rw [hs] at f2
   refine ⟨(), H2, e, _, ?_, hv2, hi2, DFrame.trans f1 f2, z2', st2', hz2', by rw [hzz]; exact hb1, hst2',
-    by rw [hw2]; exact hw1, rfl, ?_, ?_⟩
+    by rw [hw2]; exact hw1, rfl, ?_, ?_, ?_⟩
   · split
     · rename_i h3
       have hne : st2'.lookahead ≠ st1.lookahead := fun e => by rw [e] at h3; omega
@@ -318,6 +352,11 @@ theorem fw_ok (W : WindowFacts) {H H1 : Heap} {i b : Nat} {z1 : ZStream} {st1 : 
   · obtain ⟨k1, k2, k3, k4, k5, k6, k7, k8⟩ := hk1
     exact ⟨hsn2.trans k1, hs2.trans k2, hg2.trans k3, hgi2.trans k4, hl2.trans k5, hst2s.trans k6, hlf2.trans k7,
       hbv2.trans k8⟩
+  · intro hc d2 hd2
+    obtain ⟨d1, hd1, -⟩ := sh_of hz1 hst1
+    exact fill_window_chainW H1 H2 (some i) b st1 d1 hv1 ⟨i, z1, rfl, hz1, hb1, hst1⟩ hd1 hi1
+      (fun h2 => absurd (hw1 ▸ h2) (by decide)) (by omega) (hc1 hc d1 hd1) e st2'
+      d2 ⟨i, z2', rfl, hz2', by rw [hzz]; exact hb1, hst2'⟩ hd2
 
 /-- The writes after the insertion of one loop trip, and `fill_window`. -/
 theorem body_rest (W : WindowFacts) {H H' : Heap} {i b : Nat} {z' : ZStream} {st' st'' : DeflateState}
@@ -328,14 +367,17 @@ theorem body_rest (W : WindowFacts) {H H' : Heap} {i b : Nat} {z' : ZStream} {st
     (hbs1 : st'.block_start.toInt ≤ st'.strstart.toNat) (hbs2 : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt) (hlook : st'.strstart.toNat + st'.lookahead.toNat ≤ 65536)
     (hins : st'.insert ≤ st'.strstart)
     (hv'' : DInvW (SH H' i z' b st'' d'') (some i)) (hst'' : st'' = { st' with ins_h := st''.ins_h })
-    {st0 : DeflateState} (hk : SdK st0 st') :
+    {st0 : DeflateState} (hk : SdK st0 st') {Cin : Prop}
+    (hcg : Cin → ChainOk b d'' { st'' with
+      strstart := st'.strstart + (st'.lookahead - (STD_MIN_MATCH - 1))
+      lookahead := STD_MIN_MATCH - 1 }) :
     Sat (SH H' i z' b st'' d'') (do
         wrD (some b) fun s => { s with strstart := st'.strstart + (st'.lookahead - (STD_MIN_MATCH - 1)) }
         wrD (some b) fun s => { s with lookahead := STD_MIN_MATCH - 1 }
         fill_window (some b)
         pure u)
       (fun s2 H2 => ∃ m', m' < z'.avail_in.toNat + (if 3 ≤ st'.lookahead.toNat then 1 else 0) ∧
-        LoopI H i b st0 m' s2 H2) := by
+        LoopI H i b st0 Cin m' s2 H2) := by
   have e2 : (STD_MIN_MATCH - 1 : UInt32) = 2 := rfl
   have e2n : (STD_MIN_MATCH - 1 : UInt32).toNat = 2 := by rw [e2]; rfl
   have hn2 : (st'.lookahead - (STD_MIN_MATCH - 1)).toNat = st'.lookahead.toNat - 2 := by
@@ -365,7 +407,8 @@ theorem body_rest (W : WindowFacts) {H H' : Heap} {i b : Nat} {z' : ZStream} {st
   rw [SH_SH] at hv3
   refine Sat.bind (Sat.mono (fw_ok W (DFrame.trans f' dframe_SH') hv3
     (SH_streams _ _ _ _ _ _) hb' (SH_dstate _ _ _ _ _ _) (input_SH hi' hz' hb') hw'
-    (by rw [e2n]; decide) ?_ (SdK.mv hk rfl rfl rfl rfl rfl rfl rfl rfl)) ?_)
+    (by rw [e2n]; decide) ?_ (SdK.mv hk rfl rfl rfl rfl rfl rfl rfl rfl)
+    (fun hc d1 hd1 => by rw [SH_bytes] at hd1; obtain rfl := Option.some.inj hd1; exact hcg hc)) ?_)
   · unfold pot; simp only []; rw [hsum, e2n]; omega
   · rintro _ H2 ⟨m', hm', hI2⟩
     refine Sat.pure ⟨m', ?_, hI2⟩
@@ -373,10 +416,11 @@ theorem body_rest (W : WindowFacts) {H H' : Heap} {i b : Nat} {z' : ZStream} {st
 
 /-- One trip of the insertion loop. -/
 theorem body_ok (W : WindowFacts) {H H' : Heap} {i b m : Nat} {sk : DeflateState} (ib : InsertBatchFn) (hl : Bool)
-    (hI : LoopI H i b sk m () H') {st' : DeflateState} (hst' : H'.dstate b = some st')
+    (hhl : hl = HASHLESS sk.level sk.strategy) (hib : sk.level ≠ 1 → ib ≠ .insert_knuth_batch_head) {Cin : Prop}
+    (hI : LoopI H i b sk Cin m () H') {st' : DeflateState} (hst' : H'.dstate b = some st')
     (hge : 3 ≤ st'.lookahead.toNat) :
-    Sat H' (sdBody (some b) ib hl ()) (fun s2 H2 => ∃ m', m' < m ∧ LoopI H i b sk m' s2 H2) := by
-  obtain ⟨hv', hi', f', z', st0, hz', hb', hst0, hw', rfl, hp', hk⟩ := hI
+    Sat H' (sdBody (some b) ib hl ()) (fun s2 H2 => ∃ m', m' < m ∧ LoopI H i b sk Cin m' s2 H2) := by
+  obtain ⟨hv', hi', f', z', st0, hz', hb', hst0, hw', rfl, hp', hk, hc'⟩ := hI
   obtain rfl : st' = st0 := Option.some.inj (hst'.symm.trans hst0)
   have e2 : (STD_MIN_MATCH - 1 : UInt32) = 2 := rfl
   have hp2 : (st'.strstart.toNat : Int) - st'.block_start.toInt + st'.lookahead.toNat + z'.avail_in.toNat ≤
@@ -394,8 +438,8 @@ theorem body_ok (W : WindowFacts) {H H' : Heap} {i b m : Nat} {sk : DeflateState
   rw [← e']
   unfold sdBody
   refine Sat.bind (Sat.of_eq ldDState_SH ?_); try dsimp only
-  by_cases hhl : (!hl) = true
-  · rw [ite_t hhl]
+  by_cases hhl' : (!hl) = true
+  · rw [ite_t hhl']
     obtain ⟨_, wo, _, _, _, _, hwo, -⟩ := cv.lay
     simp only [dview] at hwo
     refine Sat.bind (Sat.of_eq ldDState_SH ?_); try dsimp only
@@ -405,17 +449,57 @@ theorem body_ok (W : WindowFacts) {H H' : Heap} {i b m : Nat} {sk : DeflateState
       (st'.lookahead - (STD_MIN_MATCH - 1)) (by rw [e']; exact hv') (SH_streams _ _ _ _ _ _) hb'
       (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _) hwo (by rw [hn2]; omega) (by rw [hn2]; omega)
     rw [SH_SH] at e hv''
-    exact Sat.bind (Sat.of_eq e (body_rest W () f' hi' hz' hb' hw' hge hp2 hbs1 hbs2 (by omega) hins hv'' hst'' hk))
-  · rw [ite_f hhl]
-    exact body_rest W () f' hi' hz' hb' hw' hge hp2 hbs1 hbs2 (by omega) hins (by rw [e']; exact hv') rfl hk
+    have hcg : Cin → ChainOk b d'' { st'' with
+        strstart := st'.strstart + (st'.lookahead - (STD_MIN_MATCH - 1))
+        lookahead := STD_MIN_MATCH - 1 } := by
+      intro hc
+      obtain ⟨ih, rfl⟩ : ∃ ih, st'' = { st' with ins_h := ih } := ⟨_, hst''⟩
+      have C0 := hc' hc d' hd'
+      by_cases hl1 : st'.level = 1
+      · exact fun h1 _ => absurd hl1 h1
+      obtain ⟨wo2, po, ho, -, HL0, hwo2, -, -, -⟩ := hlay_of cv hd'
+      have HL := HLay.of_bs HL0
+      have hw2 : wo2 = wo := by
+        rw [HL.win] at hwo; injection hwo with e1; injection e1
+      subst hw2
+      have hp2' : ∃ k, st'.w_size.toNat = 2 ^ k := by obtain ⟨k, -, -, e⟩ := cv.wpow; exact ⟨k, e⟩
+      have hib' : ib ≠ .insert_knuth_batch_head := hib (by rw [← hk.2.2.2.2.1]; exact hl1)
+      obtain ⟨_, H3, e3, d3, x, rfl, -, g⟩ := call_insert_batch_G (H := H') (i := i) (z := z') HL hp2' ib hib'
+        st'.strstart (st'.lookahead - (STD_MIN_MATCH - 1)) (by rw [hn2]; have := HL.pw; have := HL.w1; simp only [] at hwo2; omega)
+        (by rw [hn2]; omega)
+      have e4 := e.symm.trans e3
+      injection e4 with e5; injection e5 with e5a e6
+      have e7 : d'' = d3 := by
+        have := congrArg (fun H => H.bytes b) e6; simp only [SH_bytes] at this; exact Option.some.inj this
+      subst e7
+      have hsum : (st'.strstart + (st'.lookahead - (STD_MIN_MATCH - 1))).toNat =
+          st'.strstart.toNat + (st'.lookahead.toNat - 2) := by
+        rw [u32_add_toNat _ _ (by rw [hn2]; omega), hn2]
+      have e2n : (STD_MIN_MATCH - 1 : UInt32).toNat = 2 := rfl
+      refine ChainOk.grow C0 (fun ho' po' hh hp => by
+          have e1 : ho' = ho := by rw [HL.head] at hh; injection hh with e; injection e with _ e; exact e.symm
+          have e2 : po' = po := by rw [HL.prev] at hp; injection hp with e; injection e with _ e; exact e.symm
+          subst e1 e2; exact g) rfl rfl rfl rfl rfl (by show _ ≤ (st'.strstart + _).toNat; rw [hsum]; omega)
+        (by unfold chainLim; show _ ≤ (st'.strstart + _).toNat + _; rw [hsum]; simp only [e2n]; split <;> omega)
+        (fun q hq _ => by
+          unfold chainLim; show q < (st'.strstart + _).toNat + _; rw [hsum]; rw [hn2] at hq; omega)
+    exact Sat.bind (Sat.of_eq e (body_rest W () f' hi' hz' hb' hw' hge hp2 hbs1 hbs2 (by omega) hins hv'' hst'' hk hcg))
+  · rw [ite_f hhl']
+    refine body_rest W () f' hi' hz' hb' hw' hge hp2 hbs1 hbs2 (by omega) hins (by rw [e']; exact hv') rfl hk ?_
+    intro _ _ h2
+    have h2' : HASHLESS st'.level st'.strategy = false := h2
+    rw [hk.2.2.2.2.1, hk.2.2.2.2.2.1, ← hhl] at h2'
+    rw [h2'] at hhl'
+    exact (hhl' rfl).elim
 
 /-- The final updates after the insertion loop. -/
 theorem tail_ok {H He : Heap} {i b : Nat} {ze : ZStream} {ste : DeflateState} {wrap0 : Int32}
     (hwr : wrap0 = 0 ∨ wrap0 = 1 ∨ wrap0 = 2 ∨ wrap0 = -1 ∨ wrap0 = -2) (next : BPtr) (avail : UInt32) (hve : DInvW He (some i))
     (fe : DFrame H He [i] [b] [] []) (hze : He.streams i = some ze) (hbe : ze.state = some b)
-    (hste : He.dstate b = some ste) {st0 : DeflateState} (hk : SdK st0 ste) (hw0 : wrap0 = st0.wrap) :
+    (hste : He.dstate b = some ste) {st0 : DeflateState} (hk : SdK st0 ste) (hw0 : wrap0 = st0.wrap) {Cin : Prop}
+    (hce : Cin → ∀ de, He.bytes b = some de → ChainOk b de ste) :
     Sat He (sdTail (some i) (some b) wrap0 next avail)
-      (fun _ H' => DInv H' (some i) ∧ DFrame H H' [i] [b] [] [] ∧ SdOut i st0 H') := by
+      (fun _ H' => DInv H' (some i) ∧ DFrame H H' [i] [b] [] [] ∧ SdOut i st0 H' ∧ (Cin → ChainAt H' i)) := by
   obtain ⟨de, hde, ee⟩ := sh_of hze hste
   obtain ⟨ale, -, ce, hb1, hb2⟩ := dinvW_at hve hze hbe hste
   have hlook := ce.look
@@ -438,7 +522,7 @@ theorem tail_ok {H He : Heap} {i b : Nat} {ze : ZStream} {ste : DeflateState} {w
   refine Sat.pure ⟨dinv_of_W_SH hve hze hbe hste hde rfl (fun al c =>
       DCore.mv (z' := { { ze with next_in := next } with avail_in := avail }) c rfl rfl (ste.strstart + ste.lookahead) 0 (ste.strstart + ste.lookahead).toInt32 ste.lookahead wrap0
         (by show _ ≤ ste.window_size.toNat; rw [hsum]; simp; omega) (by rw [hS, hsum]; exact Int.le_refl _)
-        (by rw [UInt32.le_iff_toNat_le, hsum]; omega) (by rw [hS, hsum]; omega) hwr), ?_, ?_⟩
+        (by rw [UInt32.le_iff_toNat_le, hsum]; omega) (by rw [hS, hsum]; omega) hwr), ?_, ?_, ?_⟩
   · exact DFrame.trans fe dframe_SH'
   · intro z' b' st' h1 h2 h3
     rw [SH_streams] at h1
@@ -446,7 +530,12 @@ theorem tail_ok {H He : Heap} {i b : Nat} {ze : ZStream} {ste : DeflateState} {w
     obtain rfl : b = b' := Option.some.inj (hbe.symm.trans h2)
     rw [SH_dstate] at h3
     obtain rfl := Option.some.inj h3
-    exact ⟨SdK.mv hk rfl rfl rfl rfl rfl rfl rfl rfl, hw0, hS, rfl⟩
+    exact ⟨SdK.mv hk rfl rfl rfl rfl rfl rfl rfl rfl, hw0, hS, rfl, rfl, rfl⟩
+  · intro hc
+    refine chainAt_SH hbe (ChainOk.grow (S := fun _ => False) (hce hc de hde)
+      (fun ho po _ _ => Grow.refl de ho po _ _) rfl rfl rfl rfl rfl ?_ ?_ (fun _ h => h.elim))
+    · show _ ≤ (ste.strstart + ste.lookahead).toNat; rw [hsum]; omega
+    · unfold chainLim; show _ ≤ (ste.strstart + ste.lookahead).toNat + _; rw [hsum]; split <;> omega
 
 /-- The insertion loop and the tail of `deflateSetDictionary` (`sdC`) from the invariant after the cut. -/
 theorem sdC_ok (W : WindowFacts) {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
@@ -455,13 +544,16 @@ theorem sdC_ok (W : WindowFacts) {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {s
     (ib : InsertBatchFn) (hl : Bool)
     {wrap0 : Int32} (hwr : wrap0 = 0 ∨ wrap0 = 1 ∨ wrap0 = 2 ∨ wrap0 = -1 ∨ wrap0 = -2) {r : BRef} {o : Nat} {data : Array UInt8}
     {dl : UInt32} (hrb : r ≠ .heap b) (hg : Space.get H r = some data) (hle : o + dl.toNat ≤ data.size)
-    (hdl : dl.toNat ≤ 32768) {st0 : DeflateState} (hk : SdK st0 st) (hw0' : wrap0 = st0.wrap) :
+    (hdl : dl.toNat ≤ 32768) {st0 : DeflateState} (hk : SdK st0 st) (hw0' : wrap0 = st0.wrap)
+    (hhl : hl = HASHLESS st0.level st0.strategy) (hib : st0.level ≠ 1 → ib ≠ .insert_knuth_batch_head) {Cin : Prop}
+    (hc0 : Cin → ChainOk b d st) :
     Sat H (sdC (some i) (some b) ib hl wrap0 (.ref r o) dl)
-      (fun _ H' => DInv H' (some i) ∧ DFrame H H' [i] [b] [] [] ∧ SdOut i st0 H') := by
+      (fun _ H' => DInv H' (some i) ∧ DFrame H H' [i] [b] [] [] ∧ SdOut i st0 H' ∧ (Cin → ChainAt H' i)) := by
   have hsts : H.dstates b = some st := by simpa [Heap.dstate, hd] using hst
   have e0 : SH H i z b st d = H := ZlibNgF.Proof.DeflateReset.SH_self hz hsts hd
   suffices S : Sat (SH H i z b st d) (sdC (some i) (some b) ib hl wrap0 (.ref r o) dl)
-      (fun _ H' => DInv H' (some i) ∧ DFrame H H' [i] [b] [] [] ∧ SdOut i st0 H') by rwa [e0] at S
+      (fun _ H' => DInv H' (some i) ∧ DFrame H H' [i] [b] [] [] ∧ SdOut i st0 H' ∧ (Cin → ChainAt H' i)) by
+    rwa [e0] at S
   unfold sdC
   refine Sat.bind (Sat.of_eq ldStream_SH ?_); try dsimp only
   refine Sat.bind (Sat.of_eq (wrZ_SH _) ?_); try dsimp only
@@ -480,17 +572,18 @@ theorem sdC_ok (W : WindowFacts) {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {s
   refine Sat.bind (Sat.mono (fw_ok W (DFrame.trans hrefl dframe_SH') (DInvW.of_inv hv3) (SH_streams _ _ _ _ _ _)
     hb (SH_dstate _ _ _ _ _ _) ⟨_, b, ⟨i, rfl, SH_streams _ _ _ _ _ _⟩, hb,
     .inr ⟨r, o, data, rfl, by rw [space_SH_ne hrb]; exact hg, hle⟩, fun off e => hrb (by injection e),
-    fun _ => by simp⟩ hw0 (by rw [hla0]; decide) (by unfold pot; simp only [hla0]; simp; omega) hk) ?_)
+    fun _ => by simp⟩ hw0 (by rw [hla0]; decide) (by unfold pot; simp only [hla0]; simp; omega) hk
+    (fun hc d1 hd1 => by rw [SH_bytes] at hd1; obtain rfl := Option.some.inj hd1; exact hc0 hc)) ?_)
   rintro _ H1 ⟨m1, -, hI1⟩
   have hI1' := hI1
-  refine Sat.bind (Sat.mono (sat_cwhile_rank (LoopI H i b st0)
-    (fun _ H' => ∃ m, LoopI H i b st0 m () H' ∧ ∀ st', H'.dstate b = some st' → st'.lookahead.toNat < 3) ?_ hI1 ?_) ?_)
+  refine Sat.bind (Sat.mono (sat_cwhile_rank (LoopI H i b st0 Cin)
+    (fun _ H' => ∃ m, LoopI H i b st0 Cin m () H' ∧ ∀ st', H'.dstate b = some st' → st'.lookahead.toNat < 3) ?_ hI1 ?_) ?_)
   · intro m u H' hI
     have hI0 := hI
     obtain ⟨-, -, -, z', st', -, -, hst', -, -, -⟩ := hI
     refine Sat.bind (Sat.of_eq (rdD_gen hst' _) ?_)
     refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨_, hI0, fun st2 h2 => ?_⟩⟩
-    · exact body_ok W ib hl hI0 hst' (UInt32.le_iff_toNat_le.mp (of_decide_eq_true hc))
+    · exact body_ok W ib hl hhl hib hI0 hst' (UInt32.le_iff_toNat_le.mp (of_decide_eq_true hc))
     · obtain rfl : st' = st2 := Option.some.inj (hst'.symm.trans h2)
       have h' : st'.lookahead < STD_MIN_MATCH := UInt32.not_le.mp (of_decide_eq_false hc)
       have e3 : STD_MIN_MATCH.toNat = 3 := rfl
@@ -499,8 +592,8 @@ theorem sdC_ok (W : WindowFacts) {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {s
   · obtain ⟨-, -, -, z', st', -, -, -, -, rfl, -⟩ := hI1'
     have := z'.avail_in.toNat_lt
     unfold fuel; split <;> omega
-  · rintro _ He ⟨m, ⟨hve, -, fe, ze, ste, hze, hbe, hste, -, -, -, hke⟩, -⟩
-    exact tail_ok hwr _ _ hve fe hze hbe hste hke hw0'
+  · rintro _ He ⟨m, ⟨hve, -, fe, ze, ste, hze, hbe, hste, -, -, -, hke, hce⟩, -⟩
+    exact tail_ok hwr _ _ hve fe hze hbe hste hke hw0' hce
 
 /-- The state after the cut of `deflateSetDictionary` is invariant. -/
 theorem inv_cut {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d d2 : Array UInt8}
@@ -585,9 +678,10 @@ theorem sdB_ok (W : WindowFacts) {h : Heap} {i : Nat} {z z1 : ZStream} {b : Nat}
     (hb : z.state = some b) (hdd : h.bytes b = some d) (hst : h.dstates b = some st) (hda : h.dallocs b = some al)
     (hz1 : z1 = { z with adler := z1.adler }) (hla : st.lookahead = 0) (ib : InsertBatchFn) {r : BRef} {o : Nat}
     {data : Array UInt8} (hrb : r ≠ .heap b) (hg : Space.get h r = some data) {n : UInt32}
-    (hle : o + n.toNat ≤ data.size) :
+    (hle : o + n.toNat ≤ data.size) (hib : st.level ≠ 1 → ib ≠ .insert_knuth_batch_head) :
     Sat (SH h i z1 b st d) (sdB (some i) (some b) ib st.wrap (.ref r o) n)
-      (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧ SdOut i st h') := by
+      (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧ SdOut i st h' ∧
+        (ChainOk b d st → ChainAt h' i)) := by
   obtain ⟨ho, d0, hd0, hh, hho⟩ := c.head
   obtain rfl : d = d0 := Option.some.inj (hdd.symm.trans hd0)
   simp only [dview] at hh hho
@@ -604,6 +698,11 @@ theorem sdB_ok (W : WindowFacts) {h : Heap} {i : Nat} {z z1 : ZStream} {b : Nat}
       bs.toInt ≤ ss.toNat → ins ≤ ss → ss ≤ st.strstart → -(2 ^ 30 + 2 ^ 16) ≤ bs.toInt →
       d2.size = d.size → (∀ j, (j < ho ∨ ho + 131072 ≤ j) → d2[j]! = d[j]!) → o2 + dl.toNat ≤ data.size →
       dl.toNat ≤ 32768 →
+      (ChainOk b d st → ChainOk b d2 { st with
+        wrap := 0
+        strstart := ss
+        block_start := bs
+        insert := ins }) →
       Sat (SH h i { z with adler := a } b
           { st with
             wrap := 0
@@ -611,19 +710,27 @@ theorem sdB_ok (W : WindowFacts) {h : Heap} {i : Nat} {z z1 : ZStream} {b : Nat}
             block_start := bs
             insert := ins } d2)
         (sdC (some i) (some b) ib (HASHLESS st.level st.strategy) st.wrap (.ref r o2) dl)
-        (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧ SdOut i st h') := by
-    intro ss bs ins d2 o2 dl h1 h2 h3 h4 hsz hout hl2 hdl
+        (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧ SdOut i st h' ∧
+          (ChainOk b d st → ChainAt h' i)) := by
+    intro ss bs ins d2 o2 dl h1 h2 h3 h4 hsz hout hl2 hdl hcc
     have hv0 := inv_cut c hz hb hdd hst hda a hla hh ss bs ins h1 h2 h3 h4 hsz hout
     refine Sat.mono (sdC_ok W hv0 (SH_streams _ _ _ _ _ _) hb (SH_dstate _ _ _ _ _ _) (SH_bytes _ _ _ _ _ _) rfl hla ib
-      _ hwr hrb (hgS _ _) hl2 hdl (st0 := st) ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ rfl) ?_
-    rintro _ _ ⟨hv', f, ho⟩
-    exact ⟨hv', DFrame.trans dframe_SH' f, ho⟩
+      _ hwr hrb (hgS _ _) hl2 hdl (st0 := st) ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ rfl rfl hib hcc) ?_
+    rintro _ _ ⟨hv', f, ho, hc⟩
+    exact ⟨hv', DFrame.trans dframe_SH' f, ho, hc⟩
   have hss := UInt32.le_refl st.strstart
   have hbs := c.bstart
   have hins := c.ins
   have hbl := c.bs_lo
   have hwsz := c.sizes
   simp only [dview] at hbs hins hbl hwsz
+  have hW0 : 0 < st.w_size.toNat := by have := c.w_size; simp only [dview] at this; omega
+  have hkeep : ChainOk b d st → ChainOk b d { st with
+      wrap := 0
+      strstart := st.strstart
+      block_start := st.block_start
+      insert := st.insert } := fun Ch =>
+    ChainOk.st Ch rfl rfl rfl rfl rfl rfl rfl hW0
   by_cases hge : n ≥ st.w_size
   · rw [ite_t hge]
     have hge' := UInt32.le_iff_toNat_le.mp hge
@@ -646,6 +753,11 @@ theorem sdB_ok (W : WindowFacts) {h : Heap} {i : Nat} {z z1 : ZStream} {b : Nat}
           (fun j hj => fillFold_get 0 ho (List.range' 0 (HASH_SIZE.toNat * 2)) d j (fun x hx => by
             have e : HASH_SIZE.toNat * 2 = 131072 := rfl
             rw [e] at hx; simp only [List.mem_range'_1] at hx; omega)) (by omega) hwsz.2.1
+          (fun _ => by
+            obtain ⟨_, _, po, _, _, _, _, hp, -⟩ := c.lay
+            exact chainOk_zero hh hp (fun j h1 h2 => ZlibNgF.Proof.DeflateAlloc.fillFold_in 0 ho _ d j
+              ⟨j - ho, by simp only [List.mem_range'_1]; exact ⟨Nat.zero_le _, by
+                show j - ho < 0 + 65536 * 2; omega⟩, by omega⟩ (by omega)))
       · rw [ite_f hhl]
         refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
         refine Sat.bind (Sat.of_eq (wrD_SH _) ?_); try dsimp only
@@ -654,28 +766,30 @@ theorem sdB_ok (W : WindowFacts) {h : Heap} {i : Nat} {z z1 : ZStream} {b : Nat}
         refine Sat.bind (Sat.of_eq (add_in (hgS _ _) (k := (n - st.w_size).toNat) (by omega)) ?_); try dsimp only
         refine Sat.bind (Sat.pure ?_)
         exact T 0 0 0 d _ _ (by decide) hz0 UInt32.zero_le (by decide) rfl (fun _ _ => rfl) (by dsimp only; omega)
-          hwsz.2.1
+          hwsz.2.1 (fun _ _ h2 => absurd (show HASHLESS st.level st.strategy = false from h2) (by simpa using hhl))
     · rw [ite_f hw0]
       refine Sat.bind (Sat.of_eq ldDState_SH ?_); try dsimp only
       refine Sat.bind (Sat.of_eq (add_in (hgS _ _) (k := (n - st.w_size).toNat) (by omega)) ?_); try dsimp only
       refine Sat.bind (Sat.pure ?_)
-      exact T _ _ _ d _ _ hbs hins hss hbl rfl (fun _ _ => rfl) (by dsimp only; omega) hwsz.2.1
+      exact T _ _ _ d _ _ hbs hins hss hbl rfl (fun _ _ => rfl) (by dsimp only; omega) hwsz.2.1 hkeep
   · rw [ite_f hge]
     refine Sat.bind (Sat.pure ?_)
     have hlt := UInt32.lt_iff_toNat_lt.mp (UInt32.not_le.mp hge)
-    exact T _ _ _ d _ _ hbs hins hss hbl rfl (fun _ _ => rfl) hle (by dsimp only; omega)
+    exact T _ _ _ d _ _ hbs hins hss hbl rfl (fun _ _ => rfl) hle (by dsimp only; omega) hkeep
 
 theorem setDict_noState {h : Heap} {s : StreamPtr} (hn : DNoState h s) (d : BPtr) (n : UInt32) :
     C.run (deflateSetDictionary s d n) h = .ok (Z_STREAM_ERROR, h) := by
   simp only [C.run, deflateSetDictionary, bind_app, stateCheck_noState hn, Bool.true_or, ↓reduceIte]; rfl
 
-/-- **`deflateSetDictionary`** on an invariant stream, given the window facts. -/
-theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {n : UInt32} (hv : DInv h s)
+/-- **`deflateSetDictionary`** on an invariant stream, given the window facts; it keeps the hash chains. -/
+theorem setDict_full (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {n : UInt32} (hv : DInv h s)
     (hd : NullOrRead h dict n.toNat) (hnb : ∀ b, StateBlock h s b → NotInBlock b dict) :
     ∃ r h', C.run (deflateSetDictionary s dict n) h = .ok (r, h') ∧ DInv h' s ∧
       DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
       (h' = h ∨ ∃ i z b st, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
-        st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h') := by
+        st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h') ∧
+      ((∀ b st d, DStateIs h s b st → h.bytes b = some d → ChainOk b d st) →
+        ∀ b st d, DStateIs h' s b st → h'.bytes b = some d → ChainOk b d st) := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
   have hnb' := hnb b ⟨z, ⟨i, rfl, L.hz⟩, L.hb⟩
   obtain ⟨d, hdd⟩ := L.hd
@@ -683,10 +797,10 @@ theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {
   rw [show stateIds h (some i) = [b] by simp [stateIds, L.hz, L.hb]]
   suffices S : Sat (SH h i z b st d) (deflateSetDictionary (some i) dict n)
       (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧
-        (h' = h ∨ (st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h'))) by
+        (h' = h ∨ (st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h')) ∧ (ChainOk b d st → ChainAt h' i)) by
     rw [ZlibNgF.Proof.DeflateReset.SH_self L.hz L.hst hdd] at S
-    obtain ⟨r, h', e, hv', f, ho⟩ := S
-    refine ⟨r, h', e, hv', f, ?_⟩
+    obtain ⟨r, h', e, hv', f, ho, hch⟩ := S
+    refine ⟨r, h', e, hv', f, ?_, fun D => hch (D b st d ⟨i, z, rfl, L.hz, L.hb, L.dstate⟩ hdd)⟩
     rcases ho with ho | ⟨hw2, hl0, ho⟩
     · exact Or.inl ho
     · exact Or.inr ⟨i, z, b, st, rfl, L.hz, L.hb, L.dstate, hw2, hl0, ho⟩
@@ -698,7 +812,7 @@ theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {
   by_cases hdn : dict = .null
   · simp only [hdn, beq_self_eq_true, ↓reduceIte]
     exact Sat.pure ⟨by rw [e0]; exact hv, by rw [e0]; exact ⟨InflateInit.frame_refl h _ _ _ _, fun _ _ _ => ⟨rfl, rfl⟩⟩,
-      Or.inl e0⟩
+      Or.inl e0, chainAt_SH L.hb⟩
   have hdn' : (dict == .null) = false := by
     cases dict with
     | null => exact absurd rfl hdn
@@ -710,10 +824,13 @@ theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {
   by_cases hchk : (st.wrap == 2 || st.wrap == 1 && st.status != INIT_STATE || st.lookahead != 0) = true
   · rw [ite_t hchk]
     exact Sat.pure ⟨by rw [e0]; exact hv, by rw [e0]; exact ⟨InflateInit.frame_refl h _ _ _ _, fun _ _ _ => ⟨rfl, rfl⟩⟩,
-      Or.inl e0⟩
+      Or.inl e0, chainAt_SH L.hb⟩
   rw [ite_f hchk]
   obtain ⟨ib, hib⟩ : ∃ f, (dview st).insert_batch = .val f := ⟨_, c.fns.2⟩
   have hib' : st.insert_batch = .val ib := hib
+  have hibl : st.level ≠ 1 → ib ≠ .insert_knuth_batch_head := fun hl e1 => insertBatchOf_ne hl (by
+    have e2 : st.insert_batch = .val (insertBatchOf st.level) := c.fns.2
+    rw [hib', e1] at e2; injection e2 with e3; exact e3.symm)
   rw [hib']
   refine Sat.bind (Sat.pure ?_); try dsimp only
   obtain ⟨r, o, data, rfl, hg, hle⟩ := hd.resolve_left hdn
@@ -726,9 +843,9 @@ theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {
   have hB : ∀ z1 : ZStream, z1 = { z with adler := z1.adler } →
       Sat (SH h i z1 b st d) (sdB (some i) (some b) ib st.wrap (.ref r o) n)
         (fun _ h' => DInv h' (some i) ∧ DFrame h h' [i] [b] [] [] ∧
-          (h' = h ∨ (st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h'))) :=
-    fun z1 hz1 => Sat.mono (sdB_ok W c L.hz L.hb hdd L.hst hda hz1 hla ib hrb hg hle) fun _ _ ⟨a1, a2, a3⟩ =>
-      ⟨a1, a2, Or.inr ⟨hw2, hla, a3⟩⟩
+          (h' = h ∨ (st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h')) ∧ (ChainOk b d st → ChainAt h' i)) :=
+    fun z1 hz1 => Sat.mono (sdB_ok W c L.hz L.hb hdd L.hst hda hz1 hla ib hrb hg hle hibl) fun _ _ ⟨a1, a2, a3, a4⟩ =>
+      ⟨a1, a2, Or.inr ⟨hw2, hla, a3⟩, a4⟩
   by_cases hw1 : (st.wrap == 1) = true
   · rw [ite_t hw1]
     refine Sat.bind (Sat.of_eq ldStream_SH ?_); try dsimp only
@@ -740,5 +857,30 @@ theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {
     exact hB _ rfl
   · rw [ite_f hw1]
     exact hB z rfl
+
+
+/-- **`deflateSetDictionary`** on an invariant stream, given the window facts. -/
+theorem setDict_inv (W : WindowFacts) {h : Heap} {s : StreamPtr} {dict : BPtr} {n : UInt32} (hv : DInv h s)
+    (hd : NullOrRead h dict n.toNat) (hnb : ∀ b, StateBlock h s b → NotInBlock b dict) :
+    ∃ r h', C.run (deflateSetDictionary s dict n) h = .ok (r, h') ∧ DInv h' s ∧
+      DFrame h h' (streamIds s) (stateIds h s) [] [] ∧
+      (h' = h ∨ ∃ i z b st, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ h.dstate b = some st ∧
+        st.wrap ≠ 2 ∧ st.lookahead = 0 ∧ SdOut i st h') := by
+  obtain ⟨r, h', e, a, f, o, -⟩ := setDict_full W hv hd hnb
+  exact ⟨r, h', e, a, f, o⟩
+
+/-- **`deflateSetDictionary` keeps the hash chains** (`ChainOk`): from the chains of the stream's state before, the
+chains of its state after. -/
+theorem setDict_chain {h h' : Heap} {s : StreamPtr} {dict : BPtr} {n : UInt32} {r : Int32} (hv : DInv h s)
+    (hd : NullOrRead h dict n.toNat) (hnb : ∀ b, StateBlock h s b → NotInBlock b dict)
+    (e : C.run (deflateSetDictionary s dict n) h = .ok (r, h'))
+    (D : ∀ b st d, DStateIs h s b st → h.bytes b = some d → ChainOk b d st) :
+    ∀ b st d, DStateIs h' s b st → h'.bytes b = some d → ChainOk b d st := by
+  obtain ⟨r0, h0, e0, -, -, -, ch⟩ := setDict_full ZlibNgF.Proof.FillFacts.windowFacts hv hd hnb
+  rw [e] at e0
+  injection e0 with e1
+  injection e1 with e1a e2
+  subst e2
+  exact ch D
 
 end ZlibNgF.Proof.DeflateSetDict

@@ -139,9 +139,10 @@ theorem hdr2_tail {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
 theorem fall_ok {E : Env} {f : Ctx → X Unit} {md : UInt32} (run : ModeRun E f (·.mode = md))
     (lo : HEAD ≤ md) (hi : md ≤ SYNC) (q : md < LENLENS ∨ LIT < md)
     {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
-    (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + rank md ≤ m) :
+    (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) + rank md ≤ m)
+    (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank md ≤ 2)) :
     SatX H l (do (MonadLiftT.monadLift (setMode E.c.st md) : X Unit); f E.c) (Post E m) := by
-  refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet md lo hi q) ?_))
+  refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet md lo hi q ho) ?_))
   intro _ H1 li1
   exact run _ _ _ _ li1 rfl m (by unfold μ; exact hμ)
 
@@ -149,13 +150,14 @@ theorem fall_ok {E : Env} {f : Ctx → X Unit} {md : UInt32} (run : ModeRun E f 
 theorem initfall_ok {E : Env} {f : Ctx → X Unit} {md : UInt32} (run : ModeRun E f (·.mode = md))
     (lo : HEAD ≤ md) (hi : md ≤ SYNC) (q : md < LENLENS ∨ LIT < md)
     {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
-    (hμ : 32 * (8 * l.have_.toNat + l.left.toNat) + rank md ≤ m) :
+    (hμ : 32 * (8 * l.have_.toNat + l.left.toNat) + rank md ≤ m)
+    (ho : l.out = E.O0 ∨ (rank S.mode ≤ 2 → rank md ≤ 2)) :
     SatX H l (do INITBITS; (MonadLiftT.monadLift (setMode E.c.st md) : X Unit); f E.c) (Post E m) := by
   refine SatX.bind (initbits_ok ?_)
   have e0 : (0 : UInt8).toNat = 0 := rfl
   exact fall_ok run lo hi q (li.setBits (l' := { l with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl
     (by show (0 : UInt8) ≤ 39; decide))
-    (by show 32 * (8 * l.have_.toNat + (0 : UInt8).toNat + l.left.toNat) + _ ≤ m; rw [e0]; omega)
+    (by show 32 * (8 * l.have_.toNat + (0 : UInt8).toNat + l.left.toNat) + _ ≤ m; rw [e0]; omega) ho
 
 /-- `SET_BAD(msg); break;` with the input bits conserved. -/
 theorem bad_ok {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z S) {m : Nat}
@@ -176,8 +178,8 @@ theorem needbits_then {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateSt
   refine SatX.bind (SatX.mono (needbits_ok eo li n hn) ?_)
   rintro r l1 H1 ⟨rfl, li1, p1, hb1, hr⟩
   rcases r with e | ⟨⟩
-  · obtain ⟨rfl, -⟩ := hr
-    exact ⟨z, S, li1⟩
+  · obtain ⟨rfl, -, h0⟩ := hr
+    exact ⟨⟨z, S, li1⟩, Why.have0 h0⟩
   exact hk l1 li1 hr (by rw [p1.1]) p1.2
 
 theorem run_EXLEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_EXTRA (·.mode = EXTRA)) :
@@ -206,11 +208,12 @@ theorem run_EXLEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_EXTRA (·.mod
     exact fall_ok hX (by decide) (by decide) (Or.inl (by decide))
       (li4.setBits (l' := { l1 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide))
       (by show 32 * (8 * l1.have_.toNat + (0 : UInt8).toNat + l1.left.toNat) + rank EXTRA ≤ m
-          rw [e0, rank_EXTRA, hleft]; omega)
+          rw [e0, rank_EXTRA, hleft]; omega) (Or.inl (li1.outEq (by rw [hm]; decide)))
   · refine hdr1_tail eo li (fun g => { g with extra := .null })
       (fun g => ⟨Or.inr rfl, rfl, Or.inl rfl, rfl, Or.inl rfl, rfl⟩) _ ?_
     intro H3 li3
     exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li3 (by rw [rank_EXTRA]; omega)
+      (Or.inl (li.outEq (by rw [hm]; decide)))
 
 theorem run_OS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_EXLEN (·.mode = EXLEN)) :
     ModeRun E inflate_OS (·.mode = OS) := by
@@ -230,7 +233,7 @@ theorem run_OS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_EXLEN (·.mode =
   refine crc2_tail eo li3 _ ?_
   intro H4 v4 li4 _
   exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) li4
-    (by rw [rank_EXLEN, hleft]; omega)
+    (by rw [rank_EXLEN, hleft]; omega) (Or.inl (li1.outEq (by rw [hm]; decide)))
 
 theorem run_TIME (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_OS (·.mode = OS)) :
     ModeRun E inflate_TIME (·.mode = TIME) := by
@@ -248,7 +251,7 @@ theorem run_TIME (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_OS (·.mode = 
   refine crc4_tail eo li3 _ ?_
   intro H4 v4 li4 _
   exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) li4
-    (by rw [rank_OS, hleft]; omega)
+    (by rw [rank_OS, hleft]; omega) (Or.inl (li1.outEq (by rw [hm]; decide)))
 
 theorem run_FLAGS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_TIME (·.mode = TIME)) :
     ModeRun E inflate_FLAGS (·.mode = FLAGS) := by
@@ -276,6 +279,6 @@ theorem run_FLAGS (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_TIME (·.mode
   refine crc2_tail eo li3 _ ?_
   intro H4 v4 li4 _
   exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) li4
-    (by rw [rank_TIME, hleft]; omega)
+    (by rw [rank_TIME, hleft]; omega) (Or.inl (li1.outEq (by rw [hm]; decide)))
 
 end ZlibNgF.Proof.InflateLoop
