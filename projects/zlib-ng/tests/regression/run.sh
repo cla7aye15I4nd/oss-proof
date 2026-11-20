@@ -49,6 +49,7 @@ cases=(
   "deflate-slow-match-start|0019|362,303|ERROR: AddressSanitizer OR runtime error OR round-trip MISMATCH|inflate 1 out 80393 of 80393 round-trip ok;inflate 1 out 86208 of 86208 round-trip ok"
   "gzdirect-pending-skip|0020||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 getc -1 tell 13"
   "gzgets-pending-skip|0021||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 gets null tell 3"
+  "gzwrite-zero-retry|0022|max,retry|runtime error: signed integer overflow OR ^retry seek 10000 write 0 tell 14096 write 3 tell 14099 close 0 bytes 14099 bad$|max seek 9223372036854775807 write 0 tell 9223372036854775807;retry seek 10000 write 0 tell 10000 write 3 tell 10003 close 0 bytes 10003 ok"
 )
 
 # Plain regression tests: defects of an earlier upstream release that upstream has since fixed, so no patch
@@ -76,6 +77,19 @@ open_cases=(
 guards=(
   "infback-window-overlap|0007|first-0007.patch|8 100 200 150,8 100 250 100,15 1000 32700 200,9 10 400 258,8 3 255 10|memcpy-param-overlap"
 )
+
+# 32-bit guards: like the guards, on a build whose size_t is 32 bits and whose file offsets are 64 bits
+# (-m32 -D_FILE_OFFSET_BITS=64, the usual large-file build of a 32-bit system). The verified source built so must run
+# the case without a report and print the expected line; the source with the earlier version of the patch must print
+# a line matching the defect. They need a compiler and C library for -m32 (on x86_64 Linux, gcc-multilib). Without
+# one they are skipped with a loud message, and when CI is set (as on the CI runners) a missing -m32 toolchain fails
+# the run instead.
+# case | patch prefix | earlier version | expected line with every current patch | extended regular expression the
+# earlier version's output must match
+wide32=(
+  "gzwrite-position-32bit|0017|first-0017.patch|pos32 seek 4294967295 write 1 tell 4294967296 err 0|^pos32 seek 4294967295 write 0 tell 4294967295 err -3$"
+)
+m32="-m32 -D_FILE_OFFSET_BITS=64"
 
 build() { # build <dir> [exclude-prefix]
   local dir=$1 ex=${2:-}
@@ -182,7 +196,70 @@ for entry in "${guards[@]}"; do
     fi
   done
 done
+sel32=()
+for entry in "${wide32[@]}"; do
+  IFS='|' read -r name patch earlier want defect <<<"$entry"
+  [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
+  sel32+=("$entry")
+  # the same case on the verified (LP64) build: the same line, no report
+  cc $san -I"$work/patched" "$here/$name/repro.c" "$work/patched/libz.a" -o "$work/$name-patched" || exit 2
+  echo "== $name (LP64)"
+  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched" 2>&1); rc=$?
+  if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|ERROR: AddressSanitizer"; then
+    echo "UNEXPECTED: status $rc: $out"; fail=1
+  elif printf '%s\n' "$out" | grep -qx "$want"; then
+    echo "ok: $want, no report"
+  else
+    echo "UNEXPECTED: no line '$want' in: $out"; fail=1
+  fi
+done
+skipped32=""
+if [ ${#sel32[@]} -gt 0 ]; then
+  printf '#include <stddef.h>\n#include <sys/types.h>\nint main(void) { return !(sizeof(size_t) == 4 && sizeof(off_t) == 8); }\n' \
+    > "$work/probe32.c"
+  if ! { cc $san $m32 "$work/probe32.c" -o "$work/probe32" >"$work/probe32.log" 2>&1 && "$work/probe32"; }; then
+    if [ -n "${CI:-}" ]; then
+      echo "MISSING: no working -m32 toolchain (size_t of 32 bits, off_t of 64), required when CI is set:"; cat "$work/probe32.log"
+      fail=1
+    else
+      skipped32="${#sel32[@]}"
+      echo "SKIPPED: ${#sel32[@]} 32-bit guard(s) NOT RUN: no working -m32 toolchain (on x86_64 Linux install gcc-multilib)"
+    fi
+    sel32=()
+  fi
+fi
+for entry in ${sel32[@]+"${sel32[@]}"}; do
+  IFS='|' read -r name patch earlier want defect <<<"$entry"
+  CFLAGS="$san $m32" bash "$tests/zlib-ng-build-current.sh" "$work/patched-m32" ||
+    CFLAGS="$san $m32" bash "$tests/build-zlib-ng.sh" "$src" "$work/patched-m32" >"$work/build-m32.log" 2>&1 ||
+    { tail -20 "$work/build-m32.log"; exit 2; }
+  dir="$work/earlier-m32-${earlier%.patch}"
+  if ! REPLACE="$patch=$here/$name/$earlier" CFLAGS="$san $m32" bash "$tests/zlib-ng-build-current.sh" "$dir"; then
+    REPLACE="$patch=$here/$name/$earlier" CFLAGS="$san $m32" bash "$tests/build-zlib-ng.sh" "$src" "$dir" \
+      >"$work/build-m32.log" 2>&1 || { tail -20 "$work/build-m32.log"; exit 2; }
+  fi
+  for b in patched-m32 "earlier-m32-${earlier%.patch}"; do
+    cc $san $m32 -I"$work/$b" "$here/$name/repro.c" "$work/$b/libz.a" -o "$work/$name-$b" || exit 2
+  done
+  echo "== $name (32-bit size_t, 64-bit offsets)"
+  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched-m32" 2>&1); rc=$?
+  if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|ERROR: AddressSanitizer"; then
+    echo "UNEXPECTED: with every patch: status $rc: $out"; fail=1
+  elif ! printf '%s\n' "$out" | grep -qx "size_t 4 off 8"; then
+    echo "UNEXPECTED: not a 32-bit size_t / 64-bit offset build: $out"; fail=1
+  elif printf '%s\n' "$out" | grep -qx "$want"; then
+    echo "ok: with every patch: $want, no report"
+  else
+    echo "UNEXPECTED: with every patch, no line '$want' in: $out"; fail=1
+  fi
+  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-earlier-m32-${earlier%.patch}" 2>&1); rc=$?
+  if printf '%s\n' "$out" | grep -qE "$defect"; then
+    echo "ok: with $earlier: $(printf '%s\n' "$out" | grep -m1 -E "$defect")"
+  else
+    echo "MISSING: with $earlier no line matching '$defect' (status $rc): $out"; fail=1
+  fi
+done
 if [ $fail -eq 0 ]; then
-  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes; every open defect still reproduces; every guard shows the earlier defect"
+  echo "PASS: every patch reproduction shows its defect without its patch and none with all of them; every plain regression test passes; every open defect still reproduces; every guard shows the earlier defect${skipped32:+; $skipped32 32-bit guard(s) SKIPPED (no -m32 toolchain)}"
 fi
 exit $fail

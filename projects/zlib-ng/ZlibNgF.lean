@@ -2,6 +2,7 @@ import ZlibNgF.Proof.«public-runtime-ub»
 import ZlibNgF.Proof.«public-zutil»
 import ZlibNgF.Proof.«adler32_c.c.kernel»
 import ZlibNgF.Proof.«adler32_c.c.safety»
+import ZlibNgF.Proof.«adler32_c.c.value»
 import ZlibNgF.Proof.«public-adler32»
 import ZlibNgF.Proof.«public-crc32»
 import ZlibNgF.Proof.«public-compress-bound»
@@ -11,6 +12,7 @@ import ZlibNgF.ZlibNg.«compress.c»
 import ZlibNgF.Spec.Safety.Deflate
 import ZlibNgF.Proof.«deflate.c.copy»
 import ZlibNgF.Proof.«deflate.c.params»
+import ZlibNgF.Proof.«deflate.c.body.trail»
 import ZlibNgF.Proof.«deflate.c.reach»
 import ZlibNgF.Proof.«trees_emit.h.emit»
 import ZlibNgF.Proof.«trees_emit.h.static»
@@ -137,12 +139,18 @@ import ZlibNgF.Proof.«insert_string_p.h.chain»
 import ZlibNgF.Proof.«insert_string_p.h.grow»
 import ZlibNgF.Proof.«insert_string_p.h.sli»
 import ZlibNgF.Proof.«insert_string_p.h.tail»
+import ZlibNgF.Proof.«insert_string_p.h.slw»
 import ZlibNgF.Proof.«compare256_c.c.safety»
 import ZlibNgF.Proof.«match_tpl.h.bits»
 import ZlibNgF.Proof.«match_tpl.h.safety»
 import ZlibNgF.Proof.«match_tpl.h.accept»
 import ZlibNgF.Proof.«match_tpl.h.top»
 import ZlibNgF.Proof.«deflate_fast.c.chain»
+import ZlibNgF.Proof.«deflate_fast.c.frame»
+import ZlibNgF.Proof.«deflate_fast.c.steps»
+import ZlibNgF.Proof.«deflate_fast.c.cont»
+import ZlibNgF.Proof.«deflate_fast.c.trip»
+import ZlibNgF.Proof.«deflate_fast.c.safety»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.find»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.insert»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.fizzle»
@@ -175,6 +183,8 @@ import ZlibNgF.Proof.«gzread.c.facts»
 import ZlibNgF.Proof.«gzread.c.load»
 import ZlibNgF.Proof.«gzread.c.look»
 import ZlibNgF.Proof.«gzlib.c.handles»
+import ZlibNgF.Proof.«gzwrite.c.needs»
+import ZlibNgF.Proof.«gzwrite.c.error»
 import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_strategy.chain»
 import ZlibNgF.Proof.«deflate_huff.c.safety»

@@ -244,8 +244,13 @@ Evidence: `nm` of `gzlib.c.o`, `gzread.c.o` and `gzwrite.c.o` in the `libz.a` of
   position `x.pos` overflowed after `gzseek` to near `2^63` on a descriptor whose `lseek` succeeds and which keeps
   delivering data (`gzread.c:356`): patch 0016 stops the readers at `GZ_OFF_MAX`; the writers' `x.pos` overflowed after
   `2^63` bytes in all, failed writes included (`gzwrite.c:210`): patch 0017 refuses a write past `GZ_OFF_MAX`
-  (`Z_DATA_ERROR`). Its reproduction needs about `2^32` calls, too long for `tests/regression/`; the differential test
-  covers the refusal (`gzfwrite` lengths above `GZ_OFF_MAX`, which are refused before the buffer is read). Open question, not a finding:
+  (`Z_DATA_ERROR`, comparing in `uint64_t` so that a 32-bit `size_t` does not truncate the room left; guard
+  `tests/regression/gzwrite-position-32bit`). Its reproduction needs `2^31 + 1` failing `gzfwrite` calls (minutes), too
+  long for `tests/regression/`; the differential test covers the refusal (`gzfwrite` lengths above `GZ_OFF_MAX`, which
+  are refused before the buffer is read). `gz_zero` added a batch of a seek's zeros to `x.pos` before writing it but took
+  it off `skip` only after success, so a failed write broke `x.pos + skip <= GZ_OFF_MAX` (`gztell` overflow at
+  `gzlib.c:496`; the batch written twice after `gzclearerr`): patch 0022 takes it off `skip` before the write, which
+  `GzWF`'s `pos_skip` clause needs on the write side. Open question, not a finding:
   `gzoffset64` computes `offset - avail_in` on an `lseek` result, which overflows for an `lseek` value below
   `INT64_MIN + avail_in`: `GzWF` admits only the `lseek` values POSIX allows (`-1` or not negative), a
   `deviations.md` row (Linux files with unsigned offsets fail their reads at such offsets).
