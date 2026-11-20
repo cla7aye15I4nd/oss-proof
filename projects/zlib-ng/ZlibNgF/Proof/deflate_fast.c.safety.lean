@@ -201,7 +201,7 @@ theorem fast_ok (T : TreesFacts) : StratOkC (TableAt 2 2) deflate_fast := by
           (r ≠ none → r = some (if last != 0 then .finish_started else .need_more))) → CK b H2 →
         ∀ v, (r = none → v = bs) → (r ≠ none → some v = r) →
         StratPost h (some i) flush v H2 ∧ CK b H2 := by
-      intro last bs hl0 hl1 hbs r H2 ⟨-, F2, hs2, hn2, hsm⟩ Ck2 v hv1 hv2
+      rintro last bs hl0 hl1 hbs r H2 ⟨-, F2, hs2, hn2, hsm⟩ Ck2 v hv1 hv2
       have hx : ∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
           st2.lookahead = 0 := fun st2 h2 => by
         obtain ⟨e1, e2, st, hst, e3, -⟩ := hs2 st2 h2
