@@ -345,19 +345,63 @@ theorem stateBlock_keep {h H : Heap} {i b : Nat} (h0 : ∃ z, h.streams i = some
   obtain ⟨z1, hz1, hb1⟩ := h1
   exact ⟨z1, ⟨i, rfl, hz1⟩, hb1⟩
 
+/-- The allowance in the potential after `FLUSH_BLOCK(s, window, last)`: none for a block with symbols (`last == 0`
+is only flushed with symbols), `2^18` for the last block (which may be empty). -/
+def lastSlack (last : Int32) : Nat := if last = 0 then 0 else 2 ^ 18
+
+theorem lastSlack_zero : lastSlack 0 = 0 := rfl
+
+/-- The potential of a strategy call from `SLFe` with an allowance within `finSlack bs` (`PsiPost`). -/
+theorem slf_psi {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (bs : BlockState) (he : e ≤ finSlack bs) :
+    PsiPost h (some i) bs H := by
+  intro i' b' e' hsb
+  obtain rfl := Option.some.inj e'
+  obtain ⟨z0, hz0, hb0⟩ := F.blk0
+  obtain ⟨z1, ⟨i1, e1, hz1⟩, hb1⟩ := hsb
+  obtain rfl := Option.some.inj e1
+  obtain rfl : z0 = z1 := Option.some.inj (hz0.symm.trans hz1)
+  obtain rfl : b = b' := Option.some.inj (hb0.symm.trans hb1)
+  exact F.psi.mono he
+
+/-- Closes `e ≤ finSlack bs` for the allowances of the strategies (`0`, `lastSlack` of a constant). -/
+macro "slack_tac" : tactic =>
+  `(tactic| first
+    | exact Nat.zero_le _
+    | decide
+    | (simp only [lastSlack, finSlack]; decide)
+    | (simp [lastSlack, finSlack]))
+
+/-- The allowance of the last flush of a strategy's tail, which returns `bs` (`finish_done` after a last block). -/
+theorem lastSlack_tail {last : Int32} {bs : BlockState} (h : last ≠ 0 → bs = .finish_done) :
+    lastSlack last ≤ finSlack bs := by
+  unfold lastSlack
+  by_cases h0 : last = 0
+  · rw [if_pos h0]; exact Nat.zero_le _
+  · rw [if_neg h0, h h0]; decide
+
+theorem lastSlack_le (last : Int32) :
+    lastSlack last ≤ finSlack (if last != 0 then .finish_started else .need_more) := by
+  unfold lastSlack finSlack
+  by_cases h : last = 0
+  · simp [h]
+  · have : (last != 0) = true := by simpa using h
+    simp [h, this]
+
 /-- `StratPost` from `SLF`, the exit facts, and `LazyOk` after from `LazyOk` at entry, for a strategy entered at a
 level other than 1 or with a strategy other than `Z_FIXED`. -/
 theorem slf_postL {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState)
     (hx : ExitIO H i flush bs) (hn : ∀ st0, h.dstate b = some st0 → st0.level = 1 → st0.strategy ≠ Z_FIXED)
     (hL : ∀ st0, h.dstate b = some st0 → LazyOk st0 → ∀ st, H.dstate b = some st →
       LazyOk st ∧ (bs = .block_done → st.match_available = 0))
-    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
+    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) (he : e ≤ finSlack bs := by slack_tac) :
+    StratPost h (some i) flush bs H := by
   obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
     stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
-    fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0), fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
+    fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0), fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_,
+    slf_psi F bs he⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
@@ -375,18 +419,6 @@ theorem slf_postL {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush
     · rw [e0] at hlv; exact absurd hlv (by decide)
     · exact absurd (K.2.2.2.2.2.1.symm.trans e2) (hn st0 h0 (K.2.2.2.2.1.symm.trans e1))
 
-/-- The potential of a strategy call from `SLFe` with an allowance within `finSlack bs` (`PsiPost`). -/
-theorem slf_psi {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (bs : BlockState) (he : e ≤ finSlack bs) :
-    PsiPost h (some i) bs H := by
-  intro i' b' e' hsb
-  obtain rfl := Option.some.inj e'
-  obtain ⟨z0, hz0, hb0⟩ := F.blk0
-  obtain ⟨z1, ⟨i1, e1, hz1⟩, hb1⟩ := hsb
-  obtain rfl := Option.some.inj e1
-  obtain rfl : z0 = z1 := Option.some.inj (hz0.symm.trans hz1)
-  obtain rfl : b = b' := Option.some.inj (hb0.symm.trans hb1)
-  exact F.psi.mono he
-
 /-- The entry facts of a strategy other than `deflate_slow` that `slf_post` needs: a strategy other than `Z_FIXED`,
 and a state outside the levels of `deflate_slow`. -/
 def NotSlow (h : Heap) (b : Nat) : Prop :=
@@ -396,20 +428,15 @@ def NotSlow (h : Heap) (b : Nat) : Prop :=
 other than `Z_FIXED` (`LazyOk` is kept by `StratKeeps`). -/
 theorem slf_post {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState)
     (hn : NotSlow h b) (hx : ExitIO H i flush bs)
-    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
-  refine slf_postL F flush bs hx (fun st0 h0 _ => (hn st0 h0).1) (fun st0 h0 L st hst => ?_) hs
+    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) (he : e ≤ finSlack bs := by slack_tac) :
+    StratPost h (some i) flush bs H := by
+  refine slf_postL F flush bs hx (fun st0 h0 _ => (hn st0 h0).1) (fun st0 h0 L st hst => ?_) hs he
   obtain ⟨st1, h1, hk⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
   obtain ⟨L', hm⟩ := (hk st hst).lazy L (hn st0 h0).2
   exact ⟨L', fun _ => hm⟩
 
 /-! ## `FLUSH_BLOCK` -/
-
-/-- The allowance in the potential after `FLUSH_BLOCK(s, window, last)`: none for a block with symbols (`last == 0`
-is only flushed with symbols), `2^18` for the last block (which may be empty). -/
-def lastSlack (last : Int32) : Nat := if last = 0 then 0 else 2 ^ 18
-
-theorem lastSlack_zero : lastSlack 0 = 0 := rfl
 
 /-- A larger allowance. -/
 theorem SLFe.mono {e e' : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (he : e ≤ e') : SLFe e' h i b H :=
@@ -1116,10 +1143,10 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
     exact ⟨(C.2 st hst).1, (hw st hst).trans (hw0 st0 h0)⟩
   have fl : ∀ (last : Int32) (bs : BlockState), 0 ≤ last → last ≤ 1 →
       (bs = .block_done ∨ bs = .finish_done) → ExitIO H i flush bs → (last ≠ 0 → flush = Z_FINISH) →
-      (last = 0 → ∀ st, H.dstate b = some st → st.sym_next ≠ 0) → Sat H (do
+      (last = 0 → ∀ st, H.dstate b = some st → st.sym_next ≠ 0) → (last ≠ 0 → bs = .finish_done) → Sat H (do
         if let some r ← FLUSH_BLOCK (some b) (.ref (.heap b) wo) last then return r
         return bs) (fun r H' => StratPost h (some i) flush r H') := by
-    intro last bs hl0 hl1 hbs hxio hlf hs0
+    intro last bs hl0 hl1 hbs hxio hlf hs0 hlb
     refine Sat.bind (Sat.mono (slf_flush T last hl0 hl1 C.1 hp hs0) ?_)
     rintro r H2 ⟨hav2, F2, hs2, hn2, hsm, hcf⟩
     have hx : ∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧ st2.lookahead = 0 :=
@@ -1131,7 +1158,7 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
       refine Sat.pure (slf_post F2 _ _ hn ⟨fun e => cf_of_avIn (by rw [hav2]; exact hin), hxio.2.1,
         fun _ e => by rcases hbs with rfl | rfl <;> rcases e with e | e <;> cases e⟩ (fun st2 h2 =>
         ⟨(hx st2 h2).2.1, fun _ => hn2 rfl st2 h2, fun _ => (hx st2 h2).1, fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩,
-          fun _ => (hx st2 h2).1⟩))
+          fun _ => (hx st2 h2).1⟩) (lastSlack_tail hlb))
     | some v =>
       obtain ⟨rfl⟩ := Option.some.inj (hsm (by simp))
       have hx2 : ExitIO H2 i flush (if last != 0 then .finish_started else .need_more) := by
@@ -1140,14 +1167,14 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
         · have : (last != 0) = true := by simpa using hl
           rw [this]; simp only [ite_true]; rw [hlf hl]; exact exitIO_fin (.inl rfl) (fun _ => hcf (by simp))
       refine Sat.pure (slf_post F2 _ _ hn hx2 (fun st2 h2 => ⟨(hx st2 h2).2.1, fun e => ?_, fun _ => (hx st2 h2).1,
-        fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩, fun _ => (hx st2 h2).1⟩))
+        fun _ => ⟨(hx st2 h2).1, (hx st2 h2).2.2⟩, fun _ => (hx st2 h2).1⟩) (lastSlack_le last))
       split at e <;> rcases e with e | e <;> cases e
   unfold strat_tail
   by_cases hf : flush == Z_FINISH
   · simp only [hf, ↓reduceIte]
     have hf' : flush = Z_FINISH := by simpa using hf
     exact fl 1 .finish_done (by decide) (by decide) (.inr rfl) (by rw [hf']; exact exitIO_fin (.inr rfl) (fun e => by cases e))
-      (fun _ => hf') (fun e => absurd e (by decide))
+      (fun _ => hf') (fun e => absurd e (by decide)) (fun _ => rfl)
   · simp only [hf, Bool.false_eq_true, ↓reduceIte]
     obtain ⟨z, st, -, hz, hb, hst, -, -⟩ := C.1.live
     obtain ⟨i', z', b', st', al, e, L, -, -⟩ := live C.1.inv
@@ -1159,7 +1186,7 @@ theorem slc_tail (T : TreesFacts) {h H : Heap} {i b wo : Nat} (flush : Int32) (C
     by_cases hs : (st.sym_next != 0) = true
     · simp only [hs, ↓reduceIte]
       exact fl 0 .block_done (by decide) (by decide) (.inl rfl) (exitIO_bd (cf_of_avIn hin)) (fun e => absurd rfl e)
-        (fun _ st2 h2 => by obtain rfl := Option.some.inj (hst.symm.trans h2); simpa using hs)
+        (fun _ st2 h2 => by obtain rfl := Option.some.inj (hst.symm.trans h2); simpa using hs) (fun e => absurd rfl e)
     · simp only [hs, Bool.false_eq_true, ↓reduceIte]
       have h0 : st.sym_next = 0 := by simpa using hs
       refine Sat.pure (slf_post C.1 _ _ hn (exitIO_bd (cf_of_avIn hin)) fun st2 h2 => ?_)

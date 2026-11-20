@@ -22,9 +22,10 @@ open ZlibNg.DeflateP
 /-- `slf_post` for a strategy entered at level 2 (any strategy, `Z_FIXED` included). -/
 theorem slf_post_l {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState)
     (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2) (hx : ExitIO H i flush bs)
-    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
+    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) (he : e ≤ finSlack bs := by slack_tac) :
+    StratPost h (some i) flush bs H := by
   refine slf_postL F flush bs hx (fun st0 h0 e => absurd ((hn st0 h0).symm.trans e) (by decide))
-    (fun st0 h0 L st hst => ?_) hs
+    (fun st0 h0 L st hst => ?_) hs he
   obtain ⟨st1, h1, hk⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
   have hT : ¬ TableAt 7 9 st0 := fun ht => by

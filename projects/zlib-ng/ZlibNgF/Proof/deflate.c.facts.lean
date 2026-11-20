@@ -190,11 +190,12 @@ def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' :
     (flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → ∀ z z', StreamAt h s z → StreamAt h' s z' →
       z.avail_out ≠ 0 → z'.avail_in < z.avail_in ∨ z'.avail_out < z.avail_out) ∧
     (bs = .block_done ∨ bs = .finish_done → ∃ b st, DStateIs h' s b st ∧ st.pending = 0) ∧
-    ∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
+    (∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt h' s z' → z'.avail_out ≠ 0) → st'.sym_next = 0) ∧
       (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0) ∧
       (bs = .block_done → st'.sym_next = 0) ∧
-      (LazyOk st → LazyOk st' ∧ (bs = .block_done → st'.match_available = 0))
+      (LazyOk st → LazyOk st' ∧ (bs = .block_done → st'.match_available = 0))) ∧
+    PsiPost h s bs h'
 
 /-- A strategy `f` that `deflate` dispatches to on states with `dispatch`: from `StratPre` and `dispatch`, no fault
 and `StratPost`. -/

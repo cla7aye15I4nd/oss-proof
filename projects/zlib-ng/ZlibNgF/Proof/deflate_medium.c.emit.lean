@@ -45,9 +45,10 @@ theorem slf_lv {h H : Heap} {i b : Nat} (F : SLF h i b H) (hl : MedLv h b) {st :
 included: the level is not 1, and `LazyOk` is kept by `StratKeeps` outside the levels of `deflate_slow`). -/
 theorem slf_postM {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState) (hl : MedLv h b)
     (hx : ExitIO H i flush bs)
-    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
+    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) (he : e ≤ finSlack bs := by slack_tac) :
+    StratPost h (some i) flush bs H := by
   refine slf_postL F flush bs hx (fun st0 h0 e1 => absurd (e1 ▸ (hl st0 h0).1 : (3 : Int32) ≤ 1) (by decide))
-    (fun st0 h0 L st hst => ?_) hs
+    (fun st0 h0 L st hst => ?_) hs he
   obtain ⟨st1, h1, hk⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
   have hT : ¬ TableAt 7 9 st0 := fun ht => absurd (Int32.le_trans ht.1 (hl st0 h0).2) (by decide)

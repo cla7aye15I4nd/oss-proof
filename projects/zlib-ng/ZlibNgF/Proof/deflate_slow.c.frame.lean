@@ -568,14 +568,15 @@ theorem slf_postW {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush
       (bs = .block_done ∨ bs = .finish_done → st.pending = 0) ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt H (some i) z' → z'.avail_out ≠ 0) → st.sym_next = 0) ∧
       (bs = .finish_started ∨ bs = .finish_done → st.sym_next = 0 ∧ st.lookahead = 0) ∧
-      (bs = .block_done → st.sym_next = 0)) : StratPost h (some i) flush bs H := by
+      (bs = .block_done → st.sym_next = 0)) (he : e ≤ finSlack bs := by slack_tac) :
+    StratPost h (some i) flush bs H := by
   obtain ⟨z, st, al, hz, hb, hst, -, -⟩ := F.live
   obtain ⟨z0, hz0, hb0⟩ := F.blk0
   have hsi : stateIds h (some i) = [b] := by simp [stateIds, hz0, hb0]
   refine ⟨F.inv, F.io, F.set, ?_, fun _ e => by obtain rfl := Option.some.inj e; exact F.out,
     stateBlock_keep F.blk0 F.blk, fun _ e => by obtain rfl := Option.some.inj e; exact F.inp, hx.1, hx.2.1,
     fun hf e z0 z' _ hz' hn0 => .inr (lt_of_out0 (hx.2.2 hf e z' hz') hn0),
-    fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_⟩
+    fun e => ⟨b, st, ⟨i, z, rfl, hz, hb, hst⟩, ((hs st hst).2.1 e)⟩, ?_, slf_psi F bs he⟩
   · rw [hsi]; exact F.frame
   · rintro b1 st1 st' ⟨i1, z1, e1, hz1, hb1, hst1⟩ ⟨i', z', e, hz', hb', hst'⟩
     obtain rfl : i = i' := Option.some.inj e
