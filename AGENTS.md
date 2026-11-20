@@ -159,7 +159,7 @@ triage checklists, and anti-patterns.
    private internal symbols), paired with a revert-to-fail regression test. Never leak internal
    patch numbering or repository jargon into upstream PRs.
 6. **Memory, Git, and multi-agent discipline.**
-   - Build with at most four parallel jobs (`-j 4`, or `-j 1` under a local memory guard) under a
+   - Build with at most four parallel jobs (`LEAN_NUM_THREADS=4`, or `LEAN_NUM_THREADS=1` under a local memory guard) under a
      16 GB limit, and run heavy builds one at a time per host; offload heavy builds to configured
      build hosts (configured outside the repository) or PR CI rather than saturating the local
      workstation.

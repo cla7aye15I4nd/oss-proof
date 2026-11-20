@@ -36,6 +36,6 @@ chunk handlers it runs: `IHDR`, `PLTE`, `tRNS`, `iCCP`, `eXIf`, `tEXt` / `zTXt` 
 ## Local commands
 
 ```bash
-lake --dir projects/libpng build -j 4 --wfail LibpngF LibpngF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/libpng build --wfail LibpngF LibpngF.Results
 python3 framework/check_project.py libpng --skip-build
 ```

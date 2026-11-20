@@ -43,6 +43,6 @@ whole scope of this project.
 ## Local commands
 
 ```bash
-lake --dir projects/libvips build -j 4 --wfail LibvipsF LibvipsF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/libvips build --wfail LibvipsF LibvipsF.Results
 python3 framework/check_project.py libvips --skip-build
 ```

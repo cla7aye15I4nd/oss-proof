@@ -40,7 +40,7 @@ and libvips' source manager.
 ## Local commands
 
 ```bash
-lake --dir projects/mozjpeg build -j 4 --wfail MozjpegF MozjpegF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/mozjpeg build --wfail MozjpegF MozjpegF.Results
 python3 framework/check_project.py mozjpeg --skip-build
 python3 framework/run_difftest.py mozjpeg
 ```

@@ -64,8 +64,8 @@ the functional goals explicitly proved for a library.
 ## Check it yourself
 
 ```bash
-# Build and kernel-check zlib (largest modules need 8 to 9 GB RAM each; cap parallelism at -j 4)
-lake --dir projects/zlib build -j 4 --wfail ZlibF
+# Build and kernel-check zlib (largest modules need 8 to 9 GB RAM each; cap parallelism via LEAN_NUM_THREADS=4)
+LEAN_NUM_THREADS=4 lake --dir projects/zlib build --wfail ZlibF
 (cd projects/zlib && lake env leanchecker --fresh ZlibF.Results)
 
 # Run the shared verification gate (options, forbidden constructs, runtime UB policy, layers, kernel env, coverage, patches)

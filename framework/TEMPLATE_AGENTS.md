@@ -40,9 +40,9 @@ mechanically):
 
 ## Local commands
 
-From repository root (Python 3.11+, max `-j 4` under 16 GB RAM):
+From repository root (Python 3.11+, `LEAN_NUM_THREADS=4` under 16 GB RAM):
 
 ```bash
-lake --dir projects/<id> build -j 4 --wfail <Package> <Package>.Results
+LEAN_NUM_THREADS=4 lake --dir projects/<id> build --wfail <Package> <Package>.Results
 python3 framework/check_project.py <id> --skip-build
 ```

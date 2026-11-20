@@ -186,7 +186,7 @@ parallel while the mathematical core is solved separately.
 
 ### 5.1 Build & Memory Discipline
 
-- Always bound local parallelism with `-j 4` (or `-j 1` on workstations running a local memory guard)
+- Always bound local parallelism with `LEAN_NUM_THREADS=4` (or `LEAN_NUM_THREADS=1` on workstations running a local memory guard)
   and keep every Lean build under a **16 GB** memory cap.
 - Run heavy builds **one at a time** per host; serialize concurrent local builds with a host-wide
   lockfile rather than letting multiple `lean` processes thrash RAM or get SIGTERMed.

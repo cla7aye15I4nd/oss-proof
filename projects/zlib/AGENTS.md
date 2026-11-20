@@ -68,8 +68,8 @@ Read `docs/en/overview.md` first, then `docs/en/spec/safety.md`. Proof explanati
 From repository root:
 
 ```bash
-# Build ZlibF (largest modules crc32.c.lean and inftrees.c.lean need 8-9 GB RAM each; max -j 4)
-lake --dir projects/zlib build -j 4 --wfail ZlibF ZlibF.Results
+# Build ZlibF (largest modules crc32.c.lean and inftrees.c.lean need 8-9 GB RAM each; cap LEAN_NUM_THREADS=4)
+LEAN_NUM_THREADS=4 lake --dir projects/zlib build --wfail ZlibF ZlibF.Results
 
 # Run full project verification gate
 python3 framework/check_project.py zlib --skip-build

@@ -35,8 +35,8 @@ See [`PROOF_PLAYBOOK.md`](PROOF_PLAYBOOK.md) for the proof-authoring methodology
 # Source, option, lakefile, toolchain, layer, string-literal, and patch checks (no build needed)
 python3 framework/check_project.py --source-only
 
-# Bounded local build + verification gate for one project (max -j 4 under 16 GB RAM)
-lake --dir projects/zlib build -j 4 --wfail ZlibF ZlibF.Results
+# Bounded local build + verification gate for one project (cap LEAN_NUM_THREADS=4 under 16 GB RAM)
+LEAN_NUM_THREADS=4 lake --dir projects/zlib build --wfail ZlibF ZlibF.Results
 python3 framework/check_project.py zlib --skip-build
 
 # ASan + UBSan differential tests for one project
