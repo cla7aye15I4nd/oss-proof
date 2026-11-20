@@ -267,4 +267,328 @@ theorem slowLit_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {
       (congrArg UInt32.toNat k5) hl1 (by rw [k12]; exact Int.le_of_eq hb12)
       (fun ha => hpz3 _ _ (SH_streams _ _ _ _ _ _) (SH_dstate _ _ _ _ _ _) ha) e1 Ch3 hml3 (by rw [hav]; exact hm)
 
+/-! ## The pending match -/
+
+/-- `slowDist3`: `prev_length` and `match_available` cleared, `strstart` past the match (`ss'`), `FLUSH_BLOCK` on a full
+symbol buffer. The frame holds of the state with `strstart = ss'` (the lookahead is already lowered). -/
+theorem slowDist3_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sE : DeflateState}
+    {dE : Array UInt8} {level : Int32} (flush : Int32) (M0 : Nat) (mov_fwd ss' : UInt32) (bflush : Bool)
+    (E : Env h b wo level) (hss' : sE.strstart + (mov_fwd + 1) = ss')
+    (F : SLF h i b (SH H0 i z b (FS sE sE.lookahead ss') dE)) (hp0 : sE.pending = 0)
+    (hbf : bflush = false → sE.sym_next < sE.sym_end) (Ch : ChainOk b dE { sE with strstart := ss' })
+    (hm : z.avail_in.toNat + sE.lookahead.toNat + 1 ≤ M0) :
+    Sat (SH H0 i z b sE dE) (slowDist3 (some b) (.ref (.heap b) wo) mov_fwd bflush)
+      (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
+  obtain ⟨hwin, hT, hlf, -⟩ := env_st E F
+  unfold slowDist3
+  refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sE with prev_length := 0 }) rfl) ?_)
+  refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sE with prev_length := 0, match_available := 0 }) rfl) ?_)
+  refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sE with prev_length := 0, match_available := 0, strstart := ss' })
+    (by subst hss'; rfl)) ?_)
+  have F' := slf_view (st' := { sE with prev_length := 0, match_available := 0, strstart := ss' }) F rfl rfl rfl hT
+  have Lf : LazyOk { sE with prev_length := 0, match_available := 0, strstart := ss' } :=
+    LazyOk.of_clear (show (0 : UInt32) < 3 by decide) rfl
+  have Cf : ChainOk b dE { sE with prev_length := 0, match_available := 0, strstart := ss' } :=
+    chain_keep F Ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (Nat.le_refl _) fun _ _ _ _ => rfl
+  have hp : ∀ st, (SH H0 i z b { sE with prev_length := 0, match_available := 0, strstart := ss' } dE).dstate b =
+      some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo) := fun st hst => by
+    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst); exact ⟨hp0, hwin⟩
+  cases bflush with
+  | false =>
+    refine Sat.pure ⟨⟨slc_of F' hp0 (hbf rfl), fun st d hst hd => ?_⟩, ?_⟩
+    · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst)
+      obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd)
+      exact ⟨Cf, Lf⟩
+    · simp only [RM, avIn_SH, laOf_SH]
+      show z.avail_in.toNat + sE.lookahead.toNat + 1 < M0 + 1
+      omega
+  | true =>
+    refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T 0 (by decide) (by decide) F' hp)
+      (slf_flush_keep T 0 (by decide) (by decide) F' hp)) ?_)
+    rintro r H2 ⟨⟨hav, F2, hs2, hn2, hsm⟩, hk2⟩
+    obtain ⟨H1, z2, s2, d2, rfl⟩ := slf_sh F2
+    obtain ⟨st2, hst2, K, hpb2⟩ := hk2 _ (SH_dstate _ _ _ _ _ _)
+    obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst2)
+    obtain ⟨k1, -, k3, k4, k5, k6, k7, k8, -, k10, k11, -⟩ := fbkeeps_fields K
+    obtain ⟨pbo, hpb⟩ : ∃ pbo, sE.pending_buf = .val (.ref (.heap b) pbo) := by
+      obtain ⟨-, -, -, pbo, -, -, -, -, hpb, -⟩ := slf_lay F'; exact ⟨pbo, hpb⟩
+    obtain ⟨d4, d5, hd4, hd5, -, hq⟩ := hpb2 pbo hpb
+    obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd4)
+    obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd5)
+    have C2 : ChainOk b d2 s2 := chain_keep F' Cf hT rfl rfl rfl rfl k7 k8 k10 k11 k6
+      (by rw [k4]; exact Nat.le_refl _) fun pbo' hpb' j hj => by
+        have hpb'' : sE.pending_buf = _ := hpb'
+        rw [hpb] at hpb''
+        obtain rfl : pbo = pbo' := by injection hpb'' with e; injection e
+        exact hq j (Or.inl hj)
+    have L2 : LazyOk s2 := LazyOk.of_clear (by rw [k1]; exact (show (0 : UInt32) < 3 by decide)) (by rw [k3])
+    have hav' : z2.avail_in.toNat = z.avail_in.toNat := by simpa [avIn] using hav
+    cases r with
+    | none =>
+      refine Sat.pure ⟨⟨⟨F2, fun st hst => ⟨hn2 rfl st hst, (hs2 st hst).2.1⟩⟩, fun st d hst hd => ?_⟩, ?_⟩
+      · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst)
+        obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd)
+        exact ⟨C2, L2⟩
+      · simp only [RM, avIn_SH, laOf_SH]
+        rw [k5, hav']
+        show z.avail_in.toNat + sE.lookahead.toNat + 1 < M0 + 1
+        omega
+    | some v =>
+      obtain ⟨rfl⟩ := Option.some.inj (hsm (by simp))
+      refine Sat.pure ⟨⟨slf_postW F2 flush _ (fun st0 h0 => (tab_lv (E.tab st0 h0).1).2.1)
+        (fun _ _ _ st hst => ?_) (fun st hst => ?_), fun st d hst hd => ?_⟩, by simp [RM]⟩
+      · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst)
+        exact ⟨L2, fun e => by simp at e⟩
+      · obtain ⟨e1, e2, -⟩ := hs2 st hst
+        refine ⟨e2, ?_, fun _ _ => e1, ?_, ?_⟩
+        · intro e; simp at e
+        · intro e; simp at e
+        · intro e; simp at e
+      · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans hst)
+        obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hd)
+        exact C2
+
+/-- At the levels of `deflate_slow` the chain limit is `strstart`. -/
+theorem chainLim_hi {X : DeflateState} (h7 : 7 ≤ X.level) : chainLim X = X.strstart.toNat := by
+  have hn : ¬ (3 ≤ X.level ∧ X.level ≤ 6) := fun ⟨_, h6⟩ => by
+    have a := Int32.le_iff_toInt_le.mp h7
+    have c := Int32.le_iff_toInt_le.mp h6
+    have e7 : (7 : Int32).toInt = 7 := rfl
+    have e6 : (6 : Int32).toInt = 6 := rfl
+    omega
+  unfold chainLim
+  simp only [hn, ↓reduceIte, Nat.add_zero]
+
+theorem chainLim_le {X X' : DeflateState} (h7 : 7 ≤ X.level) (e : X'.level = X.level)
+    (hs : X.strstart.toNat ≤ X'.strstart.toNat) : chainLim X ≤ chainLim X' := by
+  rw [chainLim_hi h7, chainLim_hi (by rw [e]; exact h7)]; exact hs
+
+theorem chainLim_gt {X : DeflateState} {q : Nat} (h7 : 7 ≤ X.level) (hq : q < X.strstart.toNat) : q < chainLim X := by
+  rw [chainLim_hi h7]; exact hq
+
+/-- The `insert_batch` of levels 7-9 is not `insert_knuth_batch_head`. -/
+theorem ib_ne {level : Int32} (h7 : 7 ≤ level) : insertBatchOf level ≠ .insert_knuth_batch_head := by
+  unfold insertBatchOf
+  split
+  · decide
+  · have hn : (level == 1) = false := by
+      have a := Int32.le_iff_toInt_le.mp h7
+      have e7 : (7 : Int32).toInt = 7 := rfl
+      simp only [beq_eq_false_iff_ne, ne_eq]
+      intro e; rw [e] at a; exact absurd a (by decide)
+    simp only [hn, Bool.false_eq_true, ↓reduceIte, ne_eq]
+    decide
+
+/-- `slowIns`: the positions after `strstart` inside the match are inserted (`insert_batch`, or the tail forms that
+skip all but the last `tail_cnt`), then `slowDist3`. -/
+theorem slowIns_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sD : DeflateState}
+    {dD : Array UInt8} {level : Int32} (flush : Int32) (M0 : Nat) (max_insert mov_fwd ss' : UInt32) (bflush : Bool)
+    (laA : Nat) (E : Env h b wo level) (hss' : sD.strstart + (mov_fwd + 1) = ss')
+    (hss'n : ss'.toNat = sD.strstart.toNat + mov_fwd.toNat + 1) (hmv1 : 1 ≤ mov_fwd.toNat)
+    (hmv : mov_fwd.toNat ≤ 257) (hmi : max_insert.toNat + 3 = sD.strstart.toNat + laA)
+    (hgt : sD.strstart.toNat < max_insert.toNat) (hws : sD.strstart.toNat + laA ≤ sD.window_size.toNat)
+    (F : SLF h i b (SH H0 i z b (FS sD sD.lookahead ss') dD)) (hp0 : sD.pending = 0)
+    (hbf : bflush = false → sD.sym_next < sD.sym_end) (Ch : ChainOk b dD { sD with strstart := sD.strstart + 1 })
+    (hm : z.avail_in.toNat + sD.lookahead.toNat + 1 ≤ M0) :
+    Sat (SH H0 i z b sD dD) (slowIns (some b) (.ref (.heap b) wo) (insertBatchOf level) level max_insert mov_fwd bflush)
+      (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
+  obtain ⟨hwin, hT, hlf, hlv⟩ := env_st E F
+  obtain ⟨-, h65, -, -, w1, -, -, -⟩ := slf_nums F
+  have h65' : sD.window_size.toNat ≤ 65536 := h65
+  have w1' : 512 ≤ sD.w_size.toNat := w1
+  have h7 : 7 ≤ sD.level := (tab_lv hT).2.2
+  have h7' : 7 ≤ level := by rw [← hlv]; exact h7
+  have hss1 := toNat_add1 (x := sD.strstart) (by omega)
+  have post : ∀ (x : UInt32) (d' : Array UInt8) (S : Nat → Prop), (∀ q, S q → q < ss'.toNat) →
+      ZlibNgF.Proof.InsertLoop.GrowSt b sD dD d' S →
+      SLF h i b (SH H0 i z b (FS { sD with ins_h := x } sD.lookahead ss') d') →
+      Sat (SH H0 i z b { sD with ins_h := x } d') (slowDist3 (some b) (.ref (.heap b) wo) mov_fwd bflush)
+        (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
+    intro x d' S hS g F'
+    refine slowDist3_ok T flush M0 mov_fwd ss' bflush E hss' F' hp0 hbf ?_ hm
+    refine ZlibNgF.Proof.InsertGrow.ChainOk.grow Ch g rfl rfl rfl rfl rfl
+      (by show (sD.strstart + 1).toNat ≤ ss'.toNat; omega) (chainLim_le h7 rfl ?_) fun q hq _ => chainLim_gt h7 (hS q hq)
+    show (sD.strstart + 1).toNat ≤ ss'.toNat; omega
+  have hJ : ∀ cnt : UInt32, 1 ≤ cnt.toNat → cnt.toNat ≤ mov_fwd.toNat →
+      cnt.toNat + sD.strstart.toNat ≤ max_insert.toNat →
+      Sat (SH H0 i z b sD dD) (slowIns2 (some b) (.ref (.heap b) wo) (insertBatchOf level) level mov_fwd bflush cnt)
+        (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
+    intro cnt hc1 hc2 hc3
+    unfold slowIns2
+    refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+    extract_lets match_dist tail_cnt jp
+    by_cases ht : tail_cnt ≥ cnt
+    · rw [ite_eq_left_of_eq_true _ _ (eq_true ht)]
+      refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+      refine Sat.bind (Sat.mono (slf_call_insert_batch F hwin (insertBatchOf level) (ib_ne h7') (sD.strstart + 1) cnt
+        (by rw [hss1]; omega) (by rw [hss1]; omega)) ?_)
+      rintro _ _ ⟨d', x, rfl, F', g⟩
+      exact post x d' _ (fun q hq => by rw [hss1] at hq; omega) g F'
+    · rw [ite_eq_right_of_eq_false _ _ (eq_false ht)]
+      have ht' : tail_cnt.toNat ≤ cnt.toNat := by
+        have := UInt32.lt_iff_toNat_lt.mp (UInt32.not_le.mp ht); omega
+      by_cases hr : level ≥ ZlibNg.Deflate.MIN_ROLL_LEVEL
+      · rw [ite_eq_left_of_eq_true _ _ (eq_true hr)]
+        refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+        refine Sat.bind (Sat.mono (slf_insert_roll_tail F hwin (sD.strstart + 1) cnt tail_cnt ht' (by omega)
+          (by rw [hss1]; omega) (by rw [hss1]; omega)) ?_)
+        rintro _ _ ⟨d', x, rfl, F', g⟩
+        exact post x d' _ (fun q hq => by rw [hss1] at hq; omega) g F'
+      · rw [ite_eq_right_of_eq_false _ _ (eq_false hr)]
+        refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+        refine Sat.bind (Sat.mono (slf_insert_knuth_tail F hwin (sD.strstart + 1) cnt tail_cnt ht' (by omega)
+          (by rw [hss1]; omega) (by rw [hss1]; omega)) ?_)
+        rintro _ _ ⟨d', x, rfl, F', g⟩
+        exact post x d' _ (fun q hq => by rw [hss1] at hq; omega) g F'
+  have hsub : (max_insert - sD.strstart).toNat = max_insert.toNat - sD.strstart.toNat :=
+    UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by omega))
+  unfold slowIns
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+  dsimp only
+  by_cases hc : mov_fwd > max_insert - sD.strstart
+  · rw [ite_eq_left_of_eq_true _ _ (eq_true hc)]
+    refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+    have := UInt32.lt_iff_toNat_lt.mp hc
+    exact hJ _ (by omega) (by omega) (by omega)
+  · rw [ite_eq_right_of_eq_false _ _ (eq_false hc)]
+    have := UInt32.le_iff_toNat_le.mp (UInt32.not_lt.mp hc)
+    exact hJ _ hmv1 (Nat.le_refl _) (by omega)
+
+/-- `slowDist2`: after the tally of the pending match of length `pl` (`n = pl - 1` positions after `strstart - 1`),
+`prev_length` and `lookahead` lowered, the insertions when `max_insert > strstart`, then `slowDist3`. -/
+theorem slowDist2_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sB : DeflateState}
+    {dB : Array UInt8} {level : Int32} (flush : Int32) (M0 : Nat) (max_insert : UInt32) (bflush : Bool)
+    (E : Env h b wo level)
+    (F : SLF h i b (SH H0 i z b (FS sB (sB.lookahead - (sB.prev_length - 1)) (sB.strstart + (sB.prev_length - 1))) dB))
+    (hp0 : sB.pending = 0) (hbf : bflush = false → sB.sym_next < sB.sym_end)
+    (Ch : ChainOk b dB { sB with strstart := sB.strstart + 1 })
+    (hpl3 : 3 ≤ sB.prev_length.toNat) (hpl : sB.prev_length.toNat ≤ 258)
+    (hpla : sB.prev_length.toNat ≤ sB.lookahead.toNat + 1)
+    (hmi : max_insert.toNat + 3 = sB.strstart.toNat + sB.lookahead.toNat)
+    (hws : sB.strstart.toNat + sB.lookahead.toNat ≤ sB.window_size.toNat)
+    (hm : z.avail_in.toNat + sB.lookahead.toNat ≤ M0) :
+    Sat (SH H0 i z b sB dB) (slowDist2 (some b) (.ref (.heap b) wo) (insertBatchOf level) level max_insert bflush)
+      (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
+  obtain ⟨hwin, hT, hlf, hlv⟩ := env_st E F
+  have h7 : 7 ≤ sB.level := (tab_lv hT).2.2
+  have hp1 : (sB.prev_length - 1).toNat = sB.prev_length.toNat - 1 := toNat_sub1 (by omega)
+  have hp2 : (sB.prev_length - 1 - 1).toNat = sB.prev_length.toNat - 2 := by
+    rw [toNat_sub1 (by omega), hp1]; omega
+  have hla' : (sB.lookahead - (sB.prev_length - 1)).toNat = sB.lookahead.toNat - (sB.prev_length.toNat - 1) := by
+    rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by omega)), hp1]
+  have h65 : sB.window_size.toNat ≤ 65536 := (slf_nums F).2.1
+  have hss' : (sB.strstart + (sB.prev_length - 1)).toNat = sB.strstart.toNat + (sB.prev_length.toNat - 1) := by
+    rw [UInt32.toNat_add, hp1]; omega
+  unfold slowDist2
+  refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sB with prev_length := sB.prev_length - 1 }) rfl) ?_)
+  refine Sat.bind (Sat.of_eq (wrD_SH' _ (st' := { sB with
+    prev_length := sB.prev_length - 1, lookahead := sB.lookahead - (sB.prev_length - 1) }) rfl) ?_)
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+  refine Sat.bind (Sat.of_eq (rdD_SH _) ?_)
+  dsimp only
+  have F' := slf_view (st' := FS { sB with
+    prev_length := sB.prev_length - 1, lookahead := sB.lookahead - (sB.prev_length - 1) }
+    (sB.lookahead - (sB.prev_length - 1))
+    (sB.strstart + (sB.prev_length - 1))) F rfl rfl rfl hT
+  have e1 : sB.strstart + (sB.prev_length - 1 - 1 + 1) = sB.strstart + (sB.prev_length - 1) := by
+    rw [UInt32.sub_add_cancel]
+  by_cases hc : max_insert > sB.strstart
+  · rw [ite_eq_left_of_eq_true _ _ (eq_true hc)]
+    have hc' := UInt32.lt_iff_toNat_lt.mp hc
+    exact slowIns_ok T flush M0 max_insert _ _ bflush sB.lookahead.toNat E e1 (by
+        show (sB.strstart + (sB.prev_length - 1)).toNat = sB.strstart.toNat + (sB.prev_length - 1 - 1).toNat + 1
+        rw [hss', hp2]; omega)
+      (by show 1 ≤ (sB.prev_length - 1 - 1).toNat; rw [hp2]; omega)
+      (by show (sB.prev_length - 1 - 1).toNat ≤ 257; rw [hp2]; omega) hmi hc' hws F' hp0 hbf
+      (chain_keep F Ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (Nat.le_refl _) fun _ _ _ _ => rfl)
+      (by show _ + (sB.lookahead - (sB.prev_length - 1)).toNat + 1 ≤ M0; rw [hla']; omega)
+  · rw [ite_eq_right_of_eq_false _ _ (eq_false hc)]
+    exact slowDist3_ok T flush M0 _ _ bflush E e1 F' hp0 hbf
+      (chain_keep F Ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (by
+        show (sB.strstart + 1).toNat ≤ (sB.strstart + (sB.prev_length - 1)).toNat
+        rw [hss', toNat_add1 (by omega)]; omega) fun _ _ _ _ => rfl)
+      (by show _ + (sB.lookahead - (sB.prev_length - 1)).toNat + 1 ≤ M0; rw [hla']; omega)
+
+open ZlibNgF.Proof.Tally (tally_dist_SH incF) in
+/-- `slowDist`: the pending match (`prev_length = pl >= 3`, at `strstart - 1`, distance `strstart - 1 - prev_match`)
+is tallied, then `slowDist2`. -/
+theorem slowDist_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sA : DeflateState}
+    {dA : Array UInt8} {level : Int32} {ml : UInt32} {M0 : Nat} (flush : Int32)
+    (P : CPre h i b wo level ml M0 H0 z sA dA) (hc : 3 ≤ sA.prev_length) :
+    Sat (SH H0 i z b sA dA) (slowDist (some b) (.ref (.heap b) wo) (insertBatchOf level) level sA)
+      (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
+  obtain ⟨hwin, hT, hlf, -⟩ := env_st P.env P.slc.1
+  obtain ⟨hlook, h65, -, -, w1, w2, -, -⟩ := slf_nums P.slc.1
+  obtain ⟨hp0, hsym⟩ := P.slc.2 sA (SH_dstate _ _ _ _ _ _)
+  obtain ⟨a1, a2, a3, a4⟩ := P.pend hc
+  have hc' : 3 ≤ sA.prev_length.toNat := by have := UInt32.le_iff_toNat_le.mp hc; simpa using this
+  have hm := P.meas
+  have hmd : (MAX_DIST sA).toNat = sA.w_size.toNat - 262 := by
+    unfold MAX_DIST
+    rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by show 262 ≤ _; omega))]; rfl
+  have hs1 : (sA.strstart - 1).toNat = sA.strstart.toNat - 1 := toNat_sub1 (by omega)
+  have hdist : (sA.strstart - 1 - sA.prev_match).toNat = sA.strstart.toNat - 1 - sA.prev_match.toNat := by
+    have hle : sA.prev_match ≤ sA.strstart - 1 := UInt32.le_iff_toNat_le.mpr (by rw [hs1]; omega)
+    rw [UInt32.toNat_sub_of_le _ _ hle, hs1]
+  have hlen : (sA.prev_length - STD_MIN_MATCH).toNat = sA.prev_length.toNat - 3 :=
+    UInt32.toNat_sub_of_le _ _ hc
+  have hn : (sA.prev_length - 1).toNat = sA.prev_length.toNat - 1 := toNat_sub1 (by omega)
+  obtain ⟨sbo, hsb, hk, hlt, hdt⟩ := slf_sym P.slc.1 (UInt32.le_of_lt hsym)
+  obtain ⟨wo', po, ho, pbo, L, -, -, -, hpb, hhp, hsb2⟩ := slf_lay P.slc.1
+  rw [hsb] at hsb2
+  obtain rfl : sbo = pbo + sA.lit_bufsize.toNat + 8 := by injection hsb2 with e; injection e
+  unfold slowDist
+  refine Sat.bind (Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and
+    (tally_dist_SH (H := H0) (i := i) (z := z) (b := b) (st := sA) (d := dA) _ _ (by rw [hlen]; omega)
+      (by rw [hdist]; omega) (by rw [hdist]; omega) hsb hk hlt hdt)
+    (slf_tally_dist (st := sA) (la := sA.lookahead) (ss := sA.strstart) P.slc.1 hp0 (UInt32.le_of_lt hsym)
+      (sA.strstart - 1 - sA.prev_match) (sA.prev_length - STD_MIN_MATCH) (sA.prev_length - 1)
+      (by rw [hlen]; omega) (by rw [hdist]; omega) (by rw [hdist]; omega) (by rw [hn]; omega) (by rw [hn]; omega)
+      (by rw [hn]; omega))) ?_)
+  rintro r H' ⟨⟨rfl, hr⟩, -, W, ⟨sbo', hi, da, db, hda, hdb, hsb', hw⟩, -, hle', -⟩
+  obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hda)
+  obtain rfl := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hdb)
+  have hsb3 := hsb' sA (SH_dstate _ _ _ _ _ _)
+  rw [hsb] at hsb3
+  obtain rfl : pbo + sA.lit_bufsize.toNat + 8 = sbo' := by injection hsb3 with e; injection e
+  obtain ⟨F2, hp2⟩ := slw_norm W
+  have h3 := slf_sym_step P.slc.1 hsym
+  refine slowDist2_ok T flush M0 _ r P.env F2 hp0 (fun e => ?_) ?_ (by exact hc') (by exact a1) (by exact a2) ?_
+    (by exact hlook) (by exact hm)
+  · subst e
+    have hne : sA.sym_next + 3 ≠ sA.sym_end := fun e => by simp [e] at hr
+    have b1 := UInt32.le_iff_toNat_le.mp h3
+    have b2 : (sA.sym_next + 3).toNat ≠ sA.sym_end.toNat := fun e => hne (UInt32.toNat_inj.mp e)
+    show sA.sym_next + 3 < sA.sym_end
+    exact UInt32.lt_iff_toNat_lt.mpr (by omega)
+  · exact chain_keep P.slc.1 P.ch hT rfl rfl rfl rfl rfl rfl rfl rfl rfl (Nat.le_refl _) fun pbo' hpb' j hj => by
+      rw [hpb] at hpb'
+      obtain rfl : pbo = pbo' := by injection hpb' with e; injection e
+      exact hw.2 j (Or.inl (by omega))
+  · show (sA.strstart + sA.lookahead - STD_MIN_MATCH).toNat + 3 = _
+    rw [UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by
+      rw [UInt32.toNat_add]; show 3 ≤ _; rw [Nat.mod_eq_of_lt (by omega)]; omega)), UInt32.toNat_add,
+      Nat.mod_eq_of_lt (by omega)]
+    show sA.strstart.toNat + sA.lookahead.toNat - 3 + 3 = sA.strstart.toNat + sA.lookahead.toNat; omega
+
+/-- `slowC`: the emission after the match search, by the three branches. -/
+theorem slowC_ok (T : TreesFacts) {h H0 : Heap} {i b wo : Nat} {z : ZStream} {sA : DeflateState}
+    {dA : Array UInt8} {level : Int32} {ml : UInt32} {M0 : Nat} (flush : Int32)
+    (P : CPre h i b wo level ml M0 H0 z sA dA) :
+    Sat (SH H0 i z b sA dA) (slowC (some b) (.ref (.heap b) wo) (insertBatchOf level) level ml)
+      (fun c H2 => RI h i b flush c H2 ∧ RM i b c H2 < M0 + 1) := by
+  unfold slowC
+  refine Sat.bind (Sat.of_eq ldDState_SH ?_)
+  by_cases hc : (decide (sA.prev_length ≥ STD_MIN_MATCH) && decide (ml ≤ sA.prev_length)) = true
+  · rw [ite_eq_left_of_eq_true _ _ (eq_true hc)]
+    simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
+    exact slowDist_ok T flush P hc.1
+  · rw [ite_eq_right_of_eq_false _ _ (eq_false hc)]
+    have hn : ¬ (3 ≤ sA.prev_length ∧ ml ≤ sA.prev_length) := fun ⟨a, c⟩ => hc (by simp [STD_MIN_MATCH]; exact ⟨a, c⟩)
+    by_cases hm : (sA.match_available != 0) = true
+    · rw [ite_eq_left_of_eq_true _ _ (eq_true hm)]
+      exact slowLit_ok T flush P hn (by simpa using hm)
+    · rw [ite_eq_right_of_eq_false _ _ (eq_false hm)]
+      exact slowElse_ok flush P hn
+
 end ZlibNgF.Proof.SlowEmit

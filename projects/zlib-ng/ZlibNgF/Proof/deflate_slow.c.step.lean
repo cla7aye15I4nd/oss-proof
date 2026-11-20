@@ -27,12 +27,9 @@ def slowDist3 (st : StatePtr) (window : BPtr) (mov_fwd : UInt32) (bflush : Bool)
     | none => pure ()
   return .cont
 
-/-- The insertion of the positions inside a match (`deflate_slow.c:107-120`), then `slowDist3`. -/
-def slowIns (st : StatePtr) (window : BPtr) (insert_batch : InsertBatchFn) (level : Int32)
-    (max_insert mov_fwd : UInt32) (bflush : Bool) : M Ctl := do
-  let mut insert_cnt : UInt32 := mov_fwd
-  if insert_cnt > max_insert - (← rdD st (·.strstart)) then
-    insert_cnt := max_insert - (← rdD st (·.strstart))
+/-- The insertion of `insert_cnt` positions after `strstart` (`deflate_slow.c:112-120`), then `slowDist3`. -/
+def slowIns2 (st : StatePtr) (window : BPtr) (insert_batch : InsertBatchFn) (level : Int32) (mov_fwd : UInt32)
+    (bflush : Bool) (insert_cnt : UInt32) : M Ctl := do
   let s ← ldDState st
   let match_dist : UInt32 := s.strstart - 1 - s.prev_match
   -- uint32_t tail_cnt = MAX(match_dist + 2, 64);
@@ -44,6 +41,14 @@ def slowIns (st : StatePtr) (window : BPtr) (insert_batch : InsertBatchFn) (leve
   else
     insert_knuth_batch_tail_static st window ((← rdD st (·.strstart)) + 1) insert_cnt tail_cnt
   slowDist3 st window mov_fwd bflush
+
+/-- The insertion of the positions inside a match (`deflate_slow.c:107-120`), then `slowDist3`. -/
+def slowIns (st : StatePtr) (window : BPtr) (insert_batch : InsertBatchFn) (level : Int32)
+    (max_insert mov_fwd : UInt32) (bflush : Bool) : M Ctl := do
+  let mut insert_cnt : UInt32 := mov_fwd
+  if insert_cnt > max_insert - (← rdD st (·.strstart)) then
+    insert_cnt := max_insert - (← rdD st (·.strstart))
+  slowIns2 st window insert_batch level mov_fwd bflush insert_cnt
 
 /-- The emission of a match after its tally (`deflate_slow.c:101-126`). -/
 def slowDist2 (st : StatePtr) (window : BPtr) (insert_batch : InsertBatchFn) (level : Int32) (max_insert : UInt32)
