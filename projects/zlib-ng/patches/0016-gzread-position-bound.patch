@@ -16,7 +16,7 @@
     end of the input file has been reached and all data has been processed.  */
  static int gz_fetch(gz_state *state) {
      PREFIX3(stream) *strm = &(state->strm);
-+    unsigned room = state->size << 1;
++    unsigned room = (unsigned)-1;
      Assert(state->x.have == 0, "Invalid state->x.have");
  
 +    /* produce no output past the largest position x.pos can hold: the
@@ -39,14 +39,14 @@
              break;
          case COPY:      /* -> COPY */
 -            if (gz_load(state, state->out, state->size << 1, &(state->x.have))
-+            if (gz_load(state, state->out, room, &(state->x.have))
++            if (gz_load(state, state->out, MIN(state->size << 1, room), &(state->x.have))
                      == -1)
                  return -1;
              state->x.next = state->out;
              return 0;
          case GZIP:      /* -> GZIP or LOOK (if end of gzip stream) */
 -            strm->avail_out = state->size << 1;
-+            strm->avail_out = room;
++            strm->avail_out = MIN(state->size << 1, room);
              strm->next_out = state->out;
              if (gz_decomp(state) == -1)
                  return -1;

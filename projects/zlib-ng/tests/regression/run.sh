@@ -29,7 +29,7 @@ mkdir -p "$work"
 # is '|'): memcpy from NULL with length 0 is reported by UBSan only where the C library declares it nonnull.
 cases=(
   "inflate-copy-pointer-equality|0003||invalid-pointer-pair|inflateCopy 0"
-  "gzseek-offset-overflow|0004|cur,set,pos,lseek|runtime error: signed integer overflow|seek2 -1;set unget 120 seek -1 tell -1 getc 120;pos getc 0 seek 9223372036854775806 seek -1 tell 9223372036854775806;lseek getc 0 seek 9223372036854775797 getc 0 seek 0 tell 0"
+  "gzseek-offset-overflow|0004|cur,set,pos|runtime error: signed integer overflow|seek2 -1;set unget 120 seek -1 tell -1 getc 120;pos getc 0 seek 9223372036854775806 seek -1 tell 9223372036854775806"
   "gzseek-refusal-state|0004|read,write,unget,raw|none|read seek 100 -1 tell 0 getc 97;write seek 10 -1 tell 0 putc 122 close 0 length 1;unget unget 120 121 tell -2 seek -1 tell -1 getc 120 97;raw unget 120 121 tell -2 seek -1 tell -1 getc 120 97"
   "deflatebound-gzip-extra-length|0006||bound-ok 0|bound-ok 1"
   "inflate-window-copy|0007|300,1|invalid-pointer-pair|inflate 1 1;inflate 1 1"

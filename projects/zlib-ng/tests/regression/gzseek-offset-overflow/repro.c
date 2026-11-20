@@ -8,7 +8,9 @@
  *   pos:   a transparent reader of /dev/zero, gzseek(INT64_MAX - 1, SEEK_SET), gzseek(5, SEEK_CUR): the test of the
  *          raw area computes x.pos + offset, which overflows.
  *   lseek: a transparent reader of /dev/zero with output buffered at a position near INT64_MAX, gzseek(0, SEEK_SET):
- *          the lseek offset offset - x.have overflows. With the patch the seek rewinds instead.
+ *          the lseek offset offset - x.have overflows, on upstream and with the first version of patch 0016. The
+ *          current patch 0016 keeps x.pos + x.have <= GZ_OFF_MAX, which rules this out, so run.sh does not run it;
+ *          it is kept to show the overflow on such a build. With patch 0004 the seek rewinds instead.
  * The last two need Linux /dev/zero, whose lseek returns 0 without moving and whose reads never end; on a system
  * whose /dev/zero lseek does not behave so, the repro answers lseek on its descriptor as Linux does. */
 #include <stdio.h>
