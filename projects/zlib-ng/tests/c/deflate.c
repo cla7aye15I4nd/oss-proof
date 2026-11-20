@@ -28,7 +28,8 @@
  * <data>, <dict>: "-" (empty), "null" (NULL pointer, no bytes), "hex:<digits>" or "gen:<kind>:<len>:<seed>" (see
  * gen_data). <hdr>: "-" (no header object) or "<text>/<time>/<xflags>/<os>/<extra>/<name>/<comment>/<hcrc>" where
  * <extra>, <name>, <comment> are -1 (NULL) or a length (extra: extra_len bytes; name, comment: that many non-zero
- * characters and a NUL). */
+ * characters and a NUL), optionally followed by "/<extra_len>": the value stored in extra_len instead of <extra>
+ * (the buffer keeps <extra> bytes; extra_max stays <extra>). */
 #include "common.h"
 #include <stdint.h>
 #include "zlib.h"
@@ -95,13 +96,13 @@ static void run_def(char **tok, int nt) {
     unsigned char *hx = NULL, *hn = NULL, *hc = NULL;
     int havehdr = strcmp(tok[8], "-") != 0;
     if (havehdr) {
-        long long t, tm, xf, os, ex, nm, cm, hc_;
-        if (sscanf(tok[8], "%lld/%lld/%lld/%lld/%lld/%lld/%lld/%lld", &t, &tm, &xf, &os, &ex, &nm, &cm, &hc_) != 8) {
-            printf("BADINPUT\n"); return;
-        }
+        long long t, tm, xf, os, ex, nm, cm, hc_, el;
+        int nf = sscanf(tok[8], "%lld/%lld/%lld/%lld/%lld/%lld/%lld/%lld/%lld", &t, &tm, &xf, &os, &ex, &nm, &cm, &hc_, &el);
+        if (nf != 8 && nf != 9) { printf("BADINPUT\n"); return; }
+        if (nf == 8) el = ex;
         hdr.text = (int)t; hdr.time = (uLong)tm; hdr.xflags = (int)xf; hdr.os = (int)os; hdr.hcrc = (int)hc_;
         if (ex >= 0) { hx = malloc(ex ? (size_t)ex : 1); for (long long i = 0; i < ex; i++) hx[i] = (unsigned char)(i * 7 + 1);
-                       hdr.extra = hx; hdr.extra_len = (uInt)ex; hdr.extra_max = (uInt)ex; }
+                       hdr.extra = hx; hdr.extra_len = (uInt)el; hdr.extra_max = (uInt)ex; }
         if (nm >= 0) { hn = malloc((size_t)nm + 1); for (long long i = 0; i < nm; i++) hn[i] = (unsigned char)('a' + i % 26);
                        hn[nm] = 0; hdr.name = hn; hdr.name_max = (uInt)nm + 1; }
         if (cm >= 0) { hc = malloc((size_t)cm + 1); for (long long i = 0; i < cm; i++) hc[i] = (unsigned char)('A' + i % 26);

@@ -463,7 +463,7 @@ def countStr (str : BPtr) (wraplen : UInt64) : M UInt64 := do
   return wraplen
 
 /-- `z_size_t Z_EXPORT PREFIX(deflateBound_z)(PREFIX3(stream) *strm, z_size_t sourceLen)` (`deflate.c:707-787`,
-patch 0003: `2 + (extra_len & 0xffff)` in `z_size_t`). -/
+patch 0003: `2 + (extra_len & 0xffff)` in 32-bit `unsigned`, then widened by `+=`). -/
 def deflateBound_z (strm : StreamPtr) (sourceLen : UInt64) : M UInt64 := do
   let complen : UInt64 := sourceLen + ((sourceLen + 7) >>> 3) + ((sourceLen + 63) >>> 6) + 5
   if ← deflateStateCheck strm then
@@ -480,7 +480,7 @@ def deflateBound_z (strm : StreamPtr) (sourceLen : UInt64) : M UInt64 := do
       if gh != none then
         let g ← ldHeader gh
         let wraplen := GZIP_WRAPLEN
-        let wraplen := if g.extra != .null then wraplen + (2 + (g.extra_len &&& 0xffff).toUInt64) else wraplen
+        let wraplen := if g.extra != .null then wraplen + (2 + (g.extra_len &&& 0xffff)).toUInt64 else wraplen
         let g ← ldHeader gh
         let wraplen ← if g.name != .null then countStr g.name wraplen else pure wraplen
         let g ← ldHeader gh
