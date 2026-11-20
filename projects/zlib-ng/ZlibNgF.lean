@@ -187,6 +187,8 @@ import ZlibNgF.Proof.«gzread.c.init»
 import ZlibNgF.Proof.«gzread.c.lookspec»
 import ZlibNgF.Proof.«gzread.c.ungetc»
 import ZlibNgF.Proof.«gzread.c.readspec»
+import ZlibNgF.Proof.«gzread.c.getc»
+import ZlibNgF.Proof.«gzread.c.gets»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
 import ZlibNgF.Proof.«deflate.c.psi»

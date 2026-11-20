@@ -30,7 +30,8 @@ theorem invR_setZS {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
     (hz : h.streams s.strm = some z) (hzs : z.state = some sb) (hz's : z'.state = some sb)
     (hinv : InflateInv.Inv (InflateInv.setZS h s.strm z' sb st') (some s.strm)) (hhd : st'.head = .val none)
     (hin : ∀ c base, GzBufs h s c base → z'.avail_in = 0 ∨ Inside c base 0 (inSize s) z'.next_in z'.avail_in.toNat)
-    (hmsg : z'.msg = .null ∨ ∃ k, z'.msg = .ref (.str k) 0 ∧ k < strTable.size) :
+    (hmsg : z'.msg = .null ∨ ∃ k, z'.msg = .ref (.str k) 0 ∧ k < strTable.size)
+    (hcp : s.how = ZlibNg.Gz.COPY → z'.avail_in = 0) :
     GzInvR w (InflateInv.setZS h s.strm z' sb st') (some b) ∧ GStep w h w (InflateInv.setZS h s.strm z' sb st') b [] := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
   have hr := modeOf hs hv.2.1
@@ -43,7 +44,7 @@ theorem invR_setZS {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
   have shH : GzShape H s := by
     refine ⟨sh.mode, sh.path, ⟨z', hzH⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos, ⟨sh.msg.1, sh.msg.2⟩,
       fun _ => ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun e => absurd e hsz, fun e => absurd e hsz, R.pos_have, R.look_pos,
-        R.gzip_direct⟩,
+        R.gzip_direct, fun e z2 hz2 => by rw [hzH] at hz2; cases hz2; exact hcp e⟩,
       fun e => absurd (hr.symm.trans e) read_ne_write, fun e => absurd e hsz⟩
     obtain ⟨c, base, z0, hB, -, hz0, hhv, -, -⟩ := R.bufs hsz
     refine ⟨c, base, z', ⟨hB.size, hB.buffers, hB.inp, hB.out, hB.fits, hB.hdr⟩, hinv, hzH, hhv, hin c base hB, fun hp hrg => ?_, hmsg⟩
@@ -196,7 +197,7 @@ theorem outSize_read {s : GzState} (hr : s.mode = GZ_READ) (d : Int32) :
 theorem invR_look {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (nx : Ival BPtr) (hw : Int32) (hhow : hw = LOOK ∨ hw = ZlibNg.Gz.COPY ∨ hw = GZIP)
     (d e : Int32) (hlook : s.size = 0 → hw = LOOK) (hlk : hw = LOOK → d ≠ 0 → s.pos.toInt ≤ 0)
-    (hgd : hw = GZIP → d = 0) :
+    (hgd : hw = GZIP → d = 0) (hcp : hw = ZlibNg.Gz.COPY → ∀ z, h.streams s.strm = some z → z.avail_in = 0) :
     GzInvR { w with gzs := upd w.gzs b (some { s with «have» := 0, next := nx, how := hw, direct := d, eof := e }) } h
       (some b) ∧
     GStep w h { w with gzs := upd w.gzs b (some { s with «have» := 0, next := nx, how := hw, direct := d, eof := e }) }
@@ -211,7 +212,7 @@ theorem invR_look {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w 
   have sh' : GzShape h s' := by
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size, ⟨P.1, P.2, P.3, P.4⟩,
       ⟨sh.msg.1, sh.msg.2⟩, fun _ => ⟨hhow, fun hsz => ?_, fun _ => rfl, fun _ => ?_,
-        fun hz => (R.fresh hz).of_strm rfl, hlook, ?_, fun h1 h2 => ?_, hgd⟩, fun e' => absurd (hr.symm.trans e') read_ne_write,
+        fun hz => (R.fresh hz).of_strm rfl, hlook, ?_, fun h1 h2 => ?_, hgd, hcp⟩, fun e' => absurd (hr.symm.trans e') read_ne_write,
         fun hz => sh.dead hz⟩
     · obtain ⟨c, base, z, hB, hi, hz, -, hai, hreg, hmsg⟩ := R.bufs hsz
       refine ⟨c, base, z, ⟨hB.size, hB.buffers, hB.inp, fun e' => ?_, ?_, hB.hdr⟩, hi, hz, Or.inl rfl, hai, hreg, hmsg⟩
@@ -254,6 +255,7 @@ theorem resetTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
   obtain ⟨hv1, g1⟩ := invR_setZS hv hs hsz hz L.hb (show (InflateReset.rkZ z1 st.wrap).state = some sb from L.hb) inv2
     rfl (fun c' base' hB' => by
       have e1 := hB'.buffers; rw [hB.buffers] at e1; cases e1; exact hai) (Or.inl rfl)
+    (fun e => (R.copy_in e _ hz : z1.avail_in = 0))
   generalize hH : InflateInv.setZS h s.strm (InflateReset.rkZ z1 st.wrap) sb (InflateReset.rkS sb (InflateReset.rS st)) = H at hv1 g1 er
   have hsH : w.gz H b = some s := by rw [← hH]; exact hs
   refine GSat.bind (GSat.lm ⟨_, H, er, ?_⟩)
@@ -261,7 +263,7 @@ theorem resetTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
   refine GSat.bind (GSat.of_eq (wrG_app (gz_upd_same hsH _) _) ?_)
   refine GSat.pure ?_
   obtain ⟨hv2, g2⟩ := invR_look hv1 hsH s.next GZIP (Or.inr (Or.inr rfl)) 0 s.eof (fun e => absurd e hsz)
-    (fun e => absurd e (by decide)) (fun _ => rfl)
+    (fun e => absurd e (by decide)) (fun _ => rfl) (fun e => absurd e (by decide))
   simp only [InflateInv.upd_upd]
   have es : ({ ({ s with how := GZIP } : GzState) with direct := 0 } : GzState) =
       { s with «have» := 0, next := s.next, how := GZIP, direct := 0, eof := s.eof } := by
@@ -318,7 +320,7 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
     -- not a gzip stream and not transparent: no input, end of file
     let z' : ZStream := { z with avail_in := 0 }
     refine GSat.bind (GSat.lm ⟨(), { h with streams := upd h.streams s.strm (some z') }, wrZ_app hz _, ?_⟩)
-    have hv1 := invR_strm (z' := z') hv hs hsz hz rfl (fun _ _ _ => Or.inl rfl)
+    have hv1 := invR_strm (z' := z') hv hs hsz hz rfl (fun _ _ _ => Or.inl rfl) (fun _ => rfl)
     have g1 := gstep_strm hs z' hz rfl
     have hs1 : w.gz { h with streams := upd h.streams s.strm (some z') } b = some s := hs
     refine GSat.bind (GSat.of_eq (wrG_app hs1 _) ?_)
@@ -326,6 +328,7 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
     refine GSat.pure ?_
     obtain ⟨hv2, g2⟩ := invR_look hv1 hs1 s.next s.how R.how s.direct 1 R.look
       (fun h1 h2 => by have := R.look_pos h1 h2; rw [h0] at this; simpa using this) R.gzip_direct
+      (fun _ z2 hz2 => by simp at hz2; rw [← hz2])
     simp only [InflateInv.upd_upd]
     have es : ({ ({ s with eof := 1 } : GzState) with «have» := 0 } : GzState) =
         { s with «have» := 0, next := s.next, how := s.how, direct := s.direct, eof := 1 } := rfl
@@ -379,10 +382,11 @@ theorem lookTail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
   have hvA : GzInvR { w with fs := w.fs } H1 (some b) := invR_hbuf hv hs hx hcb hpath hst (FsRd.refl _)
   have hvA' : GzInvR w H1 (some b) := hvA
   have hsA : w.gz H1 b = some s := by rw [x.gz hcb]; exact hs
-  have hvB := invR_strm (z' := z') hvA' hsA hsz hz1 rfl (fun _ _ _ => Or.inl rfl)
+  have hvB := invR_strm (z' := z') hvA' hsA hsz hz1 rfl (fun _ _ _ => Or.inl rfl) (fun _ => rfl)
   have hsB : w.gz H2 b = some s := hsA
   obtain ⟨hvC, gC⟩ := invR_look hvB hsB (.val (.ref (.heap c) (base + inSize s))) ZlibNg.Gz.COPY
     (Or.inr (Or.inl rfl)) 1 s.eof (fun e => absurd e hsz) (fun e => absurd e (by decide)) (fun e => absurd e (by decide))
+    (fun _ z2 hz2 => by simp [H2] at hz2; rw [← hz2])
   have gA : GStep w h w H1 b [] := by
     have := gstep_hbuf hs hx hcb hown w.fs s rfl rfl rfl rfl
     rw [DeflateReset.upd_self w.gzs b s (gzs_of hs)] at this
@@ -468,7 +472,7 @@ theorem lookRest_spec {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
   refine GSat.bind (GSat.lm ⟨_, h, rdZ_app hz _, ?_⟩)
   apply GSat.ite
   · intro _
-    refine GSat.bind (GSat.mono (gz_avail_spec hv hs h0 hsz) fun r W H q => ?_)
+    refine GSat.bind (GSat.mono (gz_avail_spec hv hs h0 hsz (by rw [hlook]; decide)) fun r W H q => ?_)
     obtain ⟨hr1, hv1, g1, hf1, s1, hs1, e1⟩ := q
     have h01 : s1.«have» = 0 := by rw [e1]; exact h0
     have hsz1 : s1.size ≠ 0 := by rw [e1]; exact hsz
@@ -629,7 +633,7 @@ theorem consume_spec {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState}
       · refine Or.inr ⟨hsz, fun c' base' hb2 => ?_⟩
         have e1 := hb2.buffers; rw [hb.buffers] at e1; cases e1
         exact ⟨_, rfl, kk + n.toNat, by rw [Nat.add_assoc], by omega, by rw [hm1]; omega⟩) hkh
-    (by rw [e2, hm1]; have := hph.1; omega) (fun h1 h2 => by rw [e2, hm1]; have := hph.2 h1 h2; omega) R.gzip_direct
+    (by rw [e2, hm1]; have := hph.1; omega) (fun h1 h2 => by rw [e2, hm1]; have := hph.2 h1 h2; omega) R.gzip_direct R.copy_in
   simp only [InflateInv.upd_upd] at hvF ⊢
   have hsF : ({ W with gzs := upd W.gzs b (some sF) } : World).gz H b = some sF := gz_upd_same hs' sF
   exact hk _ sF hsF hvF (gstep_st hs' W.fs rfl rfl rfl rfl) rfl
@@ -653,7 +657,7 @@ theorem invR_restore {W : World} {H : Heap} {b : Nat} {s' : GzState}
     · exact Or.inl e
     · exact Or.inr ⟨hsz, fun c base hb => f c base ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩⟩
   have hv := invR_seek hv0 hs0 s'.«have» s'.next s'.pos s'.skip s'.how (sh.read hr).how P.1 P.2 P.3 hout' hkh
-    (sh.read hr).look hph.1 hph.2 (sh.read hr).gzip_direct
+    (sh.read hr).look hph.1 hph.2 (sh.read hr).gzip_direct (sh.read hr).copy_in
   simp only [InflateInv.upd_upd] at hv
   have es : ({ s0 with «have» := s'.«have», next := s'.next, pos := s'.pos, skip := s'.skip, how := s'.how } :
       GzState) = s' := by cases s'; rfl

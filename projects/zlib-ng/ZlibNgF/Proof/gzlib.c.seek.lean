@@ -32,7 +32,8 @@ theorem shape_avail0 {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzSh
   refine ⟨?_, by simp only [ownL, hst]⟩
   have R := sh.read hr
   refine ⟨sh.mode, ownStr_keep sh.path fun _ _ => rfl, ⟨{ z with avail_in := 0 }, by simp [avail0]⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos,
-    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => ?_, R.look, R.pos_have, R.look_pos, R.gzip_direct⟩,
+    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => ?_, R.look, R.pos_have, R.look_pos, R.gzip_direct,
+      fun _ z' hz' => by simp [avail0] at hz'; rw [← hz']⟩,
     fun e => absurd (hr.symm.trans e) read_ne_write, fun hz c hc => sh.dead hz c (by rw [hst] at hc; exact hc)⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
@@ -110,7 +111,8 @@ theorem reset_keep {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzShap
       ⟨by rw [hsk]; decide, by rw [hpo, hsk]; decide, by rw [hpo]; decide, fun _ => by rw [hpo]; decide⟩,
       ⟨sh1.msg.msg, sh1.msg.mem⟩, fun _ => ⟨Or.inl rfl, fun hsz => ?_, fun _ => rfl, fun e => absurd rfl e, fun hz => (R.fresh hz).of_strm rfl, fun _ => rfl,
         by show (0 : Int64).toInt + ((0 : UInt32).toNat : Int) ≤ _; decide,
-        fun _ _ => by show (0 : Int64).toInt + ((0 : UInt32).toNat : Int) ≤ _; decide, fun e => absurd (e.symm.trans (rfl : (rstSt s).how = LOOK)) (by decide : GZIP ≠ LOOK)⟩,
+        fun _ _ => by show (0 : Int64).toInt + ((0 : UInt32).toNat : Int) ≤ _; decide, fun e => absurd (e.symm.trans (rfl : (rstSt s).how = LOOK)) (by decide : GZIP ≠ LOOK),
+        fun e => absurd (e.symm.trans (rfl : (rstSt s).how = LOOK)) (by decide : ZlibNg.Gz.COPY ≠ LOOK)⟩,
       fun e => absurd (hr.symm.trans e) read_ne_write, fun hz => sh1.dead hz⟩
     obtain ⟨c, base, z0, hb, hi, hz0, -, hai, hreg, hmsg⟩ := R.bufs hsz
     exact ⟨c, base, z0, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hi, hz0, Or.inl rfl, hai, hreg, hmsg⟩
