@@ -135,6 +135,7 @@ theorem run_HCRC (E : Env) (eo : EnvOK E) : ModeRun E inflate_HCRC (·.mode = HC
   unfold inflate_HCRC
   refine hcrcHead_ok eo li (by omega) _ ?_
   intro l1 H1 S1 li1 hm1 hT hleft
+  have hO1 : l1.out = E.O0 := li1.outEq (by rw [hm1, hm]; decide)
   refine hcrcHdr_ok eo li1 _ ?_
   intro H2 li2
   refine SatX.bind (SatX.lift_eq li2.ldState ?_)
@@ -142,7 +143,7 @@ theorem run_HCRC (E : Env) (eo : EnvOK E) : ModeRun E inflate_HCRC (·.mode = HC
   have fin : ∀ H3 z3 S3, LI E l1 H3 z3 S3 →
       SatX H3 l1 (MonadLiftT.monadLift (setMode E.c.st TYPE) : X Unit) (Post E m) := by
     intro H3 z3 S3 li3
-    refine SatX.lift (Sat.mono (li3.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide))) ?_)
+    refine SatX.lift (Sat.mono (li3.setQuiet TYPE (by decide) (by decide) (Or.inl (by decide)) (Or.inl hO1)) ?_)
     intro _ H4 li4
     refine post_ok li4 ?_
     unfold μ; dsimp only; rw [rank_TYPE, hleft]; omega
@@ -163,7 +164,9 @@ theorem run_TYPE (E : Env) (hX : ModeRun E inflate_TYPEDO (fun S => S.mode = TYP
   intro l H z S li hm m hμ
   unfold inflate_TYPE
   split
-  · exact SatX.bind (SatX.throw ⟨z, S, li⟩)
+  · rename_i h
+    have h' : E.flush = Z_BLOCK ∨ E.flush = Z_TREES := by simpa [Env.c] using h
+    exact SatX.bind (SatX.throw ⟨⟨z, S, li⟩, h'.elim Why.block Why.trees⟩)
   · exact hX l H z S li (Or.inr hm) m hμ
 
 theorem run_DICT (E : Env) (hX : ModeRun E inflate_TYPE (·.mode = TYPE)) :
@@ -177,7 +180,7 @@ theorem run_DICT (E : Env) (hX : ModeRun E inflate_TYPE (·.mode = TYPE)) :
   split
   · refine SatX.bind (SatX.mono li.restore ?_)
     rintro r l1 H1 ⟨rfl, rfl, z1, S1, li1, -⟩
-    exact SatX.bind (SatX.throw ⟨⟨li1.inv, li1.frame, _, _, li1.hz, li1.hb, li1.hs, li1.head⟩, by decide⟩)
+    exact SatX.bind (SatX.throw ⟨⟨li1.inv, li1.frame, _, _, li1.hz, li1.hb, li1.hs, li1.head⟩, by decide, by decide⟩)
   · refine SatX.bind (SatX.lift (Sat.mono (li.wrS (fun s => { s with check := ADLER32_INITIAL_VALUE })
       (fun _ _ c => c) rfl) ?_))
     intro _ H1 li1
@@ -185,6 +188,7 @@ theorem run_DICT (E : Env) (hX : ModeRun E inflate_TYPE (·.mode = TYPE)) :
       rfl rfl rfl) ?_))
     intro _ H2 li2
     exact fall_ok hX (by decide) (by decide) (Or.inl (by decide)) li2 (by rw [rank_TYPE]; omega)
+      (Or.inl (li.outEq (by rw [hm]; decide)))
 
 theorem run_DICTID (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_DICT (·.mode = DICT)) :
     ModeRun E inflate_DICTID (·.mode = DICTID) := by
@@ -202,7 +206,7 @@ theorem run_DICTID (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_DICT (·.mod
   refine SatX.bind (SatX.lift (Sat.mono (li2.wrZ (fun z => { z with adler := v }) rfl rfl rfl) ?_))
   intro _ H2 li3
   exact initfall_ok hX (by decide) (by decide) (Or.inl (by decide)) li3
-    (by rw [rank_DICT, hleft]; omega)
+    (by rw [rank_DICT, hleft]; omega) (Or.inl (li1.outEq (by rw [hm]; decide)))
 
 /-! ## The fixed tables -/
 
@@ -306,12 +310,13 @@ theorem fixedModeOK (b : Nat) (S : InflateState) :
     · exact absurd (show LEN_ = DISTEXT from e) (by decide)
     · exact absurd (show LEN_ = MATCH from e) (by decide)
 
-theorem LI.setLen_ {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z (fixF S)) :
+theorem LI.setLen_ {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState} (li : LI E l H z (fixF S))
+    (ho : l.out = E.O0) :
     Sat H (setMode (some E.b) LEN_) (fun _ H' => LI E l H' z { fixF S with mode := LEN_ }) :=
   li.wrS (fun s => { s with mode := LEN_ }) (fun _ _ c => { c with
     mode_lo := by show HEAD ≤ LEN_; decide
     mode_hi := by show LEN_ ≤ SYNC; decide
-    modes := fixedModeOK _ S }) rfl
+    modes := fixedModeOK _ S }) rfl (Or.inl ho)
 
 theorem rank_CHECK : rank CHECK = 2 := by decide
 
@@ -362,6 +367,7 @@ theorem run_TYPEDO (E : Env) (eo : EnvOK E) :
     have hb2 : l2.bits.toNat = l1.bits.toNat - 1 := by rw [← hl2]; exact e1
     have hh2 : l2.have_ = l1.have_ := by rw [← hl2]
     have hlf2 : l2.left = l1.left := by rw [← hl2]
+    have hO2 : l2.out = E.O0 := by rw [← hl2]; exact li1.outEq (by omega)
     refine SatX.bind (bits_ok 2 (by decide) ?_)
     dsimp (config := { zeta := false }) only
     have e2 : ∀ H' z' S', LI E l2 H' z' S' →
@@ -379,21 +385,24 @@ theorem run_TYPEDO (E : Env) (eo : EnvOK E) :
       obtain ⟨li'', hlt⟩ := e2 H' z' S' li'
       exact dropbits_ok 2 (by decide) (post_ok li'' hlt)
     split
-    · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet STORED (by decide) (by decide) (Or.inl (by decide))) ?_))
+    · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet STORED (by decide) (by decide) (Or.inl (by decide))
+        (Or.inl hO2)) ?_))
       intro _ H4 li4
       exact fin _ _ _ li4
     split
     · refine SatX.bind (SatX.lift (Sat.mono (li3.fixed hq) ?_))
       intro _ H4 li4
-      refine SatX.bind (SatX.lift (Sat.mono li4.setLen_ ?_))
+      refine SatX.bind (SatX.lift (Sat.mono (li4.setLen_ hO2) ?_))
       intro _ H5 li5
       dsimp (config := { zeta := false }) only
       split
-      · refine SatX.bind (dropbits_ok 2 (by decide) ?_)
-        exact SatX.throw ⟨_, _, (e2 _ _ _ li5).1⟩
+      · rename_i h
+        refine SatX.bind (dropbits_ok 2 (by decide) ?_)
+        exact SatX.throw ⟨⟨_, _, (e2 _ _ _ li5).1⟩, Why.trees (by simpa [Env.c] using h)⟩
       · exact fin _ _ _ li5
     split
-    · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet TABLE (by decide) (by decide) (Or.inl (by decide))) ?_))
+    · refine SatX.bind (SatX.lift (Sat.mono (li3.setQuiet TABLE (by decide) (by decide) (Or.inl (by decide))
+        (Or.inl hO2)) ?_))
       intro _ H4 li4
       exact fin _ _ _ li4
     · refine SatX.bind (SatX.lift (Sat.mono (li3.setBad "invalid block type"
