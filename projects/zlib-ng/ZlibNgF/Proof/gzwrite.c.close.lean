@@ -812,8 +812,8 @@ theorem comp_part_ok (G : DeflateGz) {w W1 : World} {h H1 : Heap} {b : Nat} {s s
   exact fin W2 H2 s2 hv2 hs2 g2 R2 fx.fd _
 
 /-- **`gzclose_w` of a write handle** returns, stays in the frame of the file, and releases every block the file
-owned at entry, given the obligations of the deflate side (`DeflateGz`). The proposition is `CloseW` of
-`Proof/public-gz-open.lean`, stated here without that import. -/
+owned at entry, given the obligations of the deflate side (`DeflateGz`, proved as `DeflateGz.deflateGz`). The goals
+of `gzclose` and `gzclose_w` use it with `deflateGz` (`Proof/public-gzlib.lean`, `Proof/public-gzwrite.lean`). -/
 theorem closeW_of (G : DeflateGz) : ∀ (w : World) (h : Heap) (b : Nat) (s : GzState), GzWF w h →
     GzInvWS w h (some b) → w.gz h b = some s →
     ∃ r w' h', GzRun (gzclose_w (some b)) w h r w' h' ∧ GzFrame w h w' h' (some b) [] ∧

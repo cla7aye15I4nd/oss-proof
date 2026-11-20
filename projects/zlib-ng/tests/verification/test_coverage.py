@@ -60,11 +60,11 @@ class CoverageTests(unittest.TestCase):
 
     def test_status_needs_reason_or_goal(self):
         m = copy.deepcopy(self.manifest)
-        del self.api(m, "gzbuffer")["reason"]
+        del self.api(m, "compressBound_z")["reason"]
         self.rejects("needs a reason", m)
         m = copy.deepcopy(self.manifest)
-        self.api(m, "gzbuffer")["status"] = "skipped"
-        self.rejects("status of gzbuffer", m)
+        self.api(m, "compressBound_z")["status"] = "skipped"
+        self.rejects("status of compressBound_z", m)
         m = copy.deepcopy(self.manifest)
         self.api(m, "inflate")["status"] = "not-applicable"
         self.rejects("only a Windows-only function", m)
@@ -86,7 +86,7 @@ class CoverageTests(unittest.TestCase):
 
     def test_not_done_with_proved_goal_is_stale(self):
         lists = copy.deepcopy(self.lists)
-        lists["proved"].append(v.SAFETY + "gzbuffer_safety")
+        lists["proved"].append(v.SAFETY + "compressBound_z_safety")
         self.rejects("its safety goal is proved", lists=lists)
 
     def test_translation_binding(self):
