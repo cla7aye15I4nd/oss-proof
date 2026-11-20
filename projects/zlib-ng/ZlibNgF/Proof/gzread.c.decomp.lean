@@ -1030,4 +1030,62 @@ theorem rest_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : N
               · simpa using hc
               · exact absurd hc hne
 
+open ZlibNg.Inflate in
+/-- One trip of the loop of `gz_decomp`. -/
+theorem body_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : Nat} {s : GzState} {bo oo had : Nat}
+    {P0 : Prop} (hP0 : P0 → InflFresh h s) (hP1 : P0 → ∀ z0, h.streams s.strm = some z0 → z0.avail_in ≠ 0)
+    (hw0 : ∃ s0, w.gz h b = some s0) (hsz : s.size ≠ 0) (h0 : s.«have» = 0)
+    {st : DecompLoop} {W : World} {H : Heap} (hI : DInv w h b s bo oo had P0 st W H) :
+    GSat W H (decompBody (some b) (some s.strm) st) (fun st1 W1 H1 => GSat W1 H1 (decompCond (some s.strm) st1)
+      (fun cs W2 H2 => (cs.1 = true → DInv w h b s bo oo had P0 cs.2 W2 H2 ∧ dmu s W2 H2 < dmu s W H) ∧
+        (cs.1 = false → DExit w h b s bo oo had P0 cs.2 W2 H2))) := by
+  obtain ⟨hgo, hret, s', z, m, hout, hμ0, hfr⟩ := hI
+  have m' := m
+  obtain ⟨hv, g, hfs, hs', hsh, hz, hle, hno, ht⟩ := m'
+  have hsz' : s'.size ≠ 0 := by rw [hsh]; exact hsz
+  have h0' : s'.«have» = 0 := by rw [hsh]; exact h0
+  have hstrm : s'.strm = s.strm := by rw [hsh]
+  have hfd : s'.fd = s.fd := by rw [hsh]
+  have fr : FreshBlocks H := hv.2.2.2.1.1
+  rw [decompBody_eq]
+  refine GSat.bind (GSat.lm ⟨_, H, rdZ_app hz _, ?_⟩)
+  apply GSat.ite
+  · intro hai0
+    have hai0' : z.avail_in = 0 := by simpa using hai0
+    have A := gz_avail_budget hv hs' h0' hsz' (z0 := z) (by rw [hstrm]; exact hz)
+    refine GSat.bind (GSat.mono A fun r W1 H1 q => ?_)
+    obtain ⟨⟨hr, hv1, g1, hfs1, s1, hs1, hsh1⟩, hB⟩ := q
+    have g' : GStep w h W1 H1 b [(.ref (.heap bo) oo, had)] := g.trans (GStep.widen g1 _) hw0 ⟨s', hs'⟩
+    have hsh1' := shape_trans hsh hsh1
+    apply GSat.ite
+    · intro _
+      refine GSat.pure ?_
+      unfold decompCond
+      exact GSat.ite (fun _ => GSat.pure ⟨fun e => absurd e (by simp), fun _ => Or.inl ⟨rfl, g', hfs.trans hfs1, s1,
+        hs1, hv1, hsh1'⟩⟩) (fun hc => absurd rfl hc)
+    · intro hr0
+      have hr0' : r = 0 := by
+        rcases hr with e | e
+        · exact absurd (by rw [e]; rfl) hr0
+        · exact e
+      obtain ⟨s2, z1, hs2, hz1, ez1, hbud, hie⟩ := hB hr0'
+      rw [hstrm] at hz1; rw [hfd] at hbud
+      rw [hs1] at hs2; cases hs2
+      have hd1 := dmu_of (W := W1) hz1
+      have hd0 := dmu_of (W := W) hz
+      have mid : DMid w h b s bo oo had W1 H1 s1 z1 := by
+        refine ⟨hv1, g', hfs.trans hfs1, hs1, hsh1', hz1, by rw [ez1]; exact hle, by rw [ez1]; exact hno,
+          OutTgt.step ht g1 hv1 hs1 (by rw [hsh1]) (by rw [hsh1]; rfl) (by rw [hsh1]; rfl) fr (by rw [hsh1]; exact hsz')⟩
+      have hle1 : dmu s W1 H1 ≤ dmu s W H := by
+        rw [hd1, hd0]; rw [ez1] at hbud ⊢; simp only at hbud ⊢; omega
+      refine rest_spec G M hP0 hw0 hsz h0 hgo hret mid (by rw [ez1]; exact hout)
+        (fun e => by rcases hie with h1 | h1; exact absurd e h1; exact h1) hle1 (Nat.le_trans hle1 hμ0) ?_
+      intro hp
+      rcases hfr hp with hlt | ⟨rfl, rfl⟩
+      · exact Or.inl (by omega)
+      · exact absurd hai0' (hP1 hp z hz)
+  · intro hai0
+    have hin : z.avail_in ≠ 0 := by simpa using hai0
+    exact rest_spec G M hP0 hw0 hsz h0 hgo hret m hout (fun e => absurd e hin) (Nat.le_refl _) hμ0 hfr
+
 end ZlibNgF.Proof.GzDecomp
