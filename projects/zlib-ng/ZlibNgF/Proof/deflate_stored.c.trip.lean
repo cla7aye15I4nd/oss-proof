@@ -146,8 +146,26 @@ theorem dcore_flush {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' :
       bi_used := st'.bi_used })
     (hp : st'.pending = st.pending) (hq : st'.pending_out = st.pending_out) (h0 : 0 ≤ st'.bi_valid)
     (h8 : st'.bi_valid < 8) : DCore H s z b (dview st') al := by
+  have hz : st'.bi_valid.toInt.toNat / 8 = 0 := by
+    have a := Int32.le_iff_toInt_le.mp h0
+    have a' := Int32.lt_iff_toInt_lt.mp h8
+    rw [show (0 : Int32).toInt = 0 from rfl] at a
+    rw [show (8 : Int32).toInt = 8 from rfl] at a'
+    omega
+  have hz' : (dview st).bi_valid.toInt.toNat / 8 = st.bi_valid.toInt.toNat / 8 := rfl
   rw [he, hp, hq]
-  exact { c with bits := ⟨h0, h8⟩ }
+  exact { c with
+    bits := ⟨h0, h8⟩
+    lay := by
+      obtain ⟨d, wo, po, ho, pbo, hd, hwo, hp', hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, hroom⟩ := c.lay
+      refine ⟨d, wo, po, ho, pbo, hd, hwo, hp', hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, ?_⟩
+      simp only [dview] at hroom ⊢
+      omega
+    psym := fun hn => by
+      obtain ⟨p1, p2, a1, a2, q⟩ := c.psym hn
+      refine ⟨p1, p2, a1, a2, ?_⟩
+      simp only [dview] at q ⊢
+      omega }
 
 theorem min32_toNat (a b : UInt32) : (MIN32 a b).toNat = min a.toNat b.toNat := by
   unfold MIN32; split

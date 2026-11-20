@@ -49,13 +49,20 @@ theorem dcore_pend {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' : 
     (hbs : st'.block_start.toInt ≤ st.strstart.toNat)
     (hlo : -(2 ^ 30 + 2 ^ 16) ≤ st'.block_start.toInt) (hsym : st.sym_next = 0) :
     DCore H s z b (dview st') al := by
+  have hz : st'.bi_valid.toInt.toNat / 8 = 0 := by
+    have a := Int32.le_iff_toInt_le.mp h0
+    have a' := Int32.lt_iff_toInt_lt.mp h8
+    rw [show (0 : Int32).toInt = 0 from rfl] at a
+    rw [show (8 : Int32).toInt = 8 from rfl] at a'
+    omega
   obtain ⟨d, wo, po, ho, pbo', hd, hwo, hp, hh, hpb', h1, h2, h3, h4, hsb, -⟩ := c.lay
   simp only [dview] at hpb'
   rw [hpb] at hpb'
   obtain rfl : pbo = pbo' := by injection hpb' with e1; injection e1 with e1
   rw [he]
   exact { c with
-    lay := ⟨d, wo, po, ho, pbo, hd, hwo, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, hroom⟩
+    lay := ⟨d, wo, po, ho, pbo, hd, hwo, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, by
+      simp only [dview]; omega⟩
     pout := hpz
     bits := ⟨h0, h8⟩
     psym := fun hn => absurd hsym hn
