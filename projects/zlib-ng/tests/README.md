@@ -95,8 +95,10 @@ Plain regression tests (defects of 2.3.3 that the `develop` branch fixes; each m
 source without a sanitizer report): `adler32-null-len-1`, `crc32-combine-negative-len-hang` (the
 `g` and `c` runs), `gzbuffer-aligned-alloc-overflow`.
 
-Open defects (undefined behaviour of the verified source with no patch yet; each must still show its report,
-and the run fails once it stops reproducing): none in `regression/`.
+Open defects (defects of the verified source with no patch yet: undefined behaviour, or a wrong result with no
+memory error; each must still show its report or wrong result, and the run fails once it stops reproducing):
+`deflatereset-fixed-block-open` (`deflateReset` while a `Z_FIXED` level-1 static block is open: the next stream
+continues the block without its header, and `inflate` rejects it with `Z_DATA_ERROR`).
 
 Guards (an earlier, defective version of one of our patches, built in place of the current one; the case's
 reproduction must still show its defect there): `infback-window-overlap` with `first-0007.patch`, the first
