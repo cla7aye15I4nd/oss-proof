@@ -197,7 +197,7 @@ theorem run_default (E : Env) (M : UInt32) (hM : M = SYNC ∨ M = 16210) :
   have e : modeFn M E.c = throw (Ex.ret Z_STREAM_ERROR) := by
     rcases hM with rfl | rfl <;> rfl
   rw [e]
-  exact SatX.throw ⟨⟨li.inv, li.frame, _, li.hz, li.hb⟩, by decide⟩
+  exact SatX.throw ⟨⟨li.inv, li.frame, _, _, li.hz, li.hb, li.hs, li.head⟩, by decide⟩
 
 /-! ## The input buffer -/
 

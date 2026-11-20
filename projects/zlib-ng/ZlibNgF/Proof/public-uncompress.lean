@@ -259,7 +259,7 @@ theorem step_inflate {C : Cx} (ok : C.OK) {left len : UInt64} {H : Heap} (hj : J
   have hio := hj.io ok
   obtain ⟨z, st, hz, hb, hst, hhd, hv, fJ, ⟨dn, hdn⟩, ⟨d, hd, hds⟩, ⟨p, hpo, hp1, hp2⟩, hin⟩ := hj
   have hcrc : H.crcTable = ZlibNg.Crc32Tbl.crc_table := fJ.2.2.2.2.2.2.1.trans ok.crc
-  obtain ⟨r, H3, e, hv3, f3, hp3, hk3⟩ := InflateTop.inflate_ok 0 hv hio hcrc
+  obtain ⟨r, H3, e, hv3, f3, hp3, hk3, -⟩ := InflateTop.inflate_ok 0 hv hio hcrc
   refine Sat.bind ⟨r, H3, e, Sat.pure ?_⟩
   have hnext : C.h0.nextBlk ≤ H.nextBlk := fJ.2.2.2.2.2.2.2.2.2
   rw [InflateReach.stateIds_of hz hb, InflateTop.headerIds_eq hz hb hst hhd,

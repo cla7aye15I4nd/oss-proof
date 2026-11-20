@@ -191,7 +191,7 @@ def OutOnly (h h' : Heap) (b ob oo n : Nat) : Prop :=
     ∀ j, (c = ob → j < oo ∨ oo + n ≤ j) → data'[j]! = data[j]!
 
 /-- What `flush_pending` leaves (see the module comment): `len = min(pending + bi_valid / 8, avail_out)` bytes
-moved. -/
+moved, and fewer than 8 bits in `bi_buf` (`zng_tr_flush_bits`). -/
 def FlushPost (h h' : Heap) (i b : Nat) (z : ZStream) (st : DeflateState) : Prop :=
   ∃ (len : Nat) (z' : ZStream) (st' : DeflateState), h'.streams i = some z' ∧ h'.dstate b = some st' ∧
     len = min (st.pending.toNat + st.bi_valid.toInt.toNat / 8) z.avail_out.toNat ∧
@@ -209,7 +209,8 @@ def FlushPost (h h' : Heap) (i b : Nat) (z : ZStream) (st : DeflateState) : Prop
     (∀ ob off, z.next_out = .ref (.heap ob) off → z'.next_out = .ref (.heap ob) (off + len)) ∧
     DFrame h h' [i] [b] [] [(z.next_out, len)] ∧
     (∀ ob oo, z.next_out = .ref (.heap ob) oo → OutOnly h h' b ob oo len) ∧
-    (∀ pbo, st.pending_buf = .val (.ref (.heap b) pbo) → PbufOnly h h' b pbo (4 * st.lit_bufsize.toNat + 9))
+    (∀ pbo, st.pending_buf = .val (.ref (.heap b) pbo) → PbufOnly h h' b pbo (4 * st.lit_bufsize.toNat + 9)) ∧
+    st'.bi_valid < 8
 
 /-- The frame of `OH`: stream `i`, block `b`, and the first `n` bytes from offset `oo` of block `ob`. -/
 theorem dframe_OH {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d ad : Array UInt8}
@@ -352,7 +353,8 @@ theorem flush_work {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateSta
   · refine ⟨L, { z with next_out := no, avail_out := av, total_out := tt },
       { st with pending := P, pending_out := Q, bi_buf := bb, bi_valid := bv }, by simp [OH], OH_dstate hob,
       by rw [hL, hnp], by simp only []; omega, rfl, hav, rfl,
-      fun ob' off' h' => ?_, by rw [hno]; exact dframe_OH hob had d1 poo, fun ob' oo' h' => ?_, fun pbo' hpb' => ?_⟩
+      fun ob' off' h' => ?_, by rw [hno]; exact dframe_OH hob had d1 poo, fun ob' oo' h' => ?_, fun pbo' hpb' => ?_,
+      Int32.lt_iff_toInt_lt.mpr (by rw [show (8 : Int32).toInt = 8 from rfl]; exact hb8')⟩
     · rw [hno] at h'
       injection h' with e1 e2; injection e1 with e1
       subst e1; subst e2; exact hno'
