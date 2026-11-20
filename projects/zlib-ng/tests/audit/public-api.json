@@ -539,7 +539,11 @@
       "scope": "lp64-linux",
       "source": "ZlibNgF/ZlibNg/gzlib.c.lean",
       "implementation": "ZlibNg.Gz.gzopen",
-      "safety_goal": "ZlibNgF.Spec.Safety.Goal.gzopen_safety"
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.gzopen_safety",
+      "other_goals": [
+        "ZlibNgF.Spec.Safety.Goal.gzopen_read_nonvacuous",
+        "ZlibNgF.Spec.Safety.Goal.gzopen_write_nonvacuous"
+      ]
     },
     {
       "function": "gzseek",

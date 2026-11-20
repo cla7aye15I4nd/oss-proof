@@ -1,4 +1,4 @@
-<!-- source-sha256: 6ff59835d8bf1dce3db24f08077e1e3d8c7ad486f09d5679bb7949c7aa3ed0d3 -->
+<!-- source-sha256: 408bfd875b236b654756f359afb7df154cde47a634e0b59b3e210671d9a73851 -->
 # 结论的状态
 
 整体库验证状态：**未完成**。
@@ -22,6 +22,6 @@
 | `inflateBack`、`inflateBackEnd`：安全性 | 公开 C 接口 | 完成 |
 | `compress`、`compress2`、`compress_z`、`compress2_z` 安全性 | 公开 C 接口 | 未完成 |
 | `uncompress`、`uncompress2`、`uncompress_z`、`uncompress2_z` 安全性 | 公开 C 接口 | 完成 |
-| `gzopen`、`gzopen64`、`gzdopen`：安全性 | 公开 C 接口 | 完成 |
+| `gzopen`、`gzopen64`、`gzdopen`：安全性；某次 `gzopen` 调用在每种模式下都返回可达的文件 | 公开 C 接口 | 完成 |
 | 其他 `gz*` 文件函数安全性 | 公开 C 接口 | 未完成 |
 | `deflate` / `inflate` 往返性质 | 功能 | 未完成 |
