@@ -71,6 +71,23 @@ theorem inflateGz : InflateGz :=
 /-- `InflateMsg` holds (`inflate.c.extra`). -/
 theorem inflateMsg : InflateMsg := ⟨InflateExtra.inflate_msg⟩
 
+open ZlibNg.Inflate in
+/-- What `gz_fetch` and `gz_read` need of `inflate` for their termination: from a just reset state (`HEAD`, no bits
+held, not the last block) with input, every return other than `Z_STREAM_ERROR` consumed input, so a gzip member
+costs input before it gives output or ends. -/
+structure InflateFreshIn : Prop where
+  fresh_in : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO h (some i) →
+    h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
+    ∀ z sb st, h.streams i = some z → z.state = some sb → h.istate sb = some st →
+    st.mode = ZlibNg.Inflate.HEAD → st.bits = 0 → st.last = 0 → z.avail_in ≠ 0 → r ≠ Z_STREAM_ERROR →
+    ∀ z', h'.streams i = some z' → z'.avail_in < z.avail_in
+
+/-- `InflateFresh` holds (`inflate.c.extra`). -/
+theorem inflateFresh : InflateFresh := ⟨InflateExtra.inflate_fresh_end⟩
+
+/-- `InflateFreshIn` holds (`inflate.c.extra`). -/
+theorem inflateFreshIn : InflateFreshIn := ⟨InflateExtra.inflate_fresh_in⟩
+
 /-! ## The read measure -/
 
 /-- The bytes that reads of descriptor `fd` may still deliver: the read oracle's `budget`, and the bytes of the file
