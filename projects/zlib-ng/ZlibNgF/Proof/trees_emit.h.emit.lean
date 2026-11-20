@@ -85,6 +85,7 @@ theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room gr
   have hpb' : st'.pending_buf = st.pending_buf := congrArg DView.pending_buf hv
   have hpo' : st'.pending_out = st.pending_out := congrArg DView.pending_out hv
   have hsn : st'.sym_next = st.sym_next := congrArg DView.sym_next hv
+  have z0 : (0 : Int32).toInt = 0 := rfl
   have hsz := w.1
   refine ⟨_, e, ⟨i, z, b, st', al, rfl, SH_streams _ _ _ _ _ _, hb, SH_dstate _ _ _ _ _ _,
     by simp [Heap.dallocsOf, SH, hda], Int32.le_iff_toInt_le.mpr (by simpa using v0'),
