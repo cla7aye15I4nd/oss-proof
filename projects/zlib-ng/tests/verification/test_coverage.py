@@ -34,6 +34,20 @@ class CoverageTests(unittest.TestCase):
     def api(self, manifest, function):
         return next(a for a in manifest["apis"] if a["function"] == function)
 
+    def not_done(self, manifest, function):
+        """A synthetic fixture: the copy `manifest` lists `function` as not done (the real inventory is not
+        changed), and its goals leave the lists of the copy `lists` returned with it."""
+        api = self.api(manifest, function)
+        goals = [api["safety_goal"]] + api.get("other_goals", [])
+        for key in ("source", "implementation", "safety_goal", "other_goals"):
+            api.pop(key, None)
+        api["status"] = "not-done"
+        api["reason"] = "synthetic not-done entry"
+        lists = copy.deepcopy(self.lists)
+        for key in ("proved", "required"):
+            lists[key] = [g for g in lists[key] if g not in goals]
+        return lists
+
     def test_header_inventory(self):
         names = v.public_names(self.header)
         self.assertEqual(len(names), len(set(names)))
@@ -58,13 +72,24 @@ class CoverageTests(unittest.TestCase):
         m["apis"].append(copy.deepcopy(self.api(m, "gzbuffer")))
         self.rejects("duplicated=\\['gzbuffer'\\]", m)
 
+    def test_not_done_entry_passes(self):
+        m = copy.deepcopy(self.manifest)
+        lists = self.not_done(m, "compressBound_z")
+        counts = self.check(m, lists)
+        self.assertEqual(counts["not-done"], 1)
+
     def test_status_needs_reason_or_goal(self):
         m = copy.deepcopy(self.manifest)
+        lists = self.not_done(m, "compressBound_z")
         del self.api(m, "compressBound_z")["reason"]
-        self.rejects("needs a reason", m)
+        self.rejects("needs a reason", m, lists)
         m = copy.deepcopy(self.manifest)
+        lists = self.not_done(m, "compressBound_z")
         self.api(m, "compressBound_z")["status"] = "skipped"
-        self.rejects("status of compressBound_z", m)
+        self.rejects("status of compressBound_z", m, lists)
+        m = copy.deepcopy(self.manifest)
+        del self.api(m, "compressBound_z")["safety_goal"]
+        self.rejects("compressBound_z", m)
         m = copy.deepcopy(self.manifest)
         self.api(m, "inflate")["status"] = "not-applicable"
         self.rejects("only a Windows-only function", m)
@@ -85,9 +110,10 @@ class CoverageTests(unittest.TestCase):
         self.rejects("names its own safety goal", m)
 
     def test_not_done_with_proved_goal_is_stale(self):
-        lists = copy.deepcopy(self.lists)
+        m = copy.deepcopy(self.manifest)
+        lists = self.not_done(m, "compressBound_z")
         lists["proved"].append(v.SAFETY + "compressBound_z_safety")
-        self.rejects("its safety goal is proved", lists=lists)
+        self.rejects("its safety goal is proved", m, lists)
 
     def test_translation_binding(self):
         m = copy.deepcopy(self.manifest)

@@ -111,4 +111,19 @@ def Goal.compressBound_functional : Prop :=
         + 9 ∧
       sourceLen.toNat < r.toNat
 
+/-- `z_size_t compressBound_z(z_size_t sourceLen)`: the same exact `deflate_quick` + zlib-wrapper bound
+(`compress.c:104-110`) for all `sourceLen ≤ 0xe38e38e38e38e377`; above it the sum wraps and the function
+returns `(z_size_t)-1` (`docs/en/deviations.md`). -/
+def Goal.compressBound_z_functional : Prop :=
+  ∀ (h : C.Heap) (sourceLen : UInt64),
+    sourceLen.toNat ≤ 0xe38e38e38e38e377 →
+    ∃ r,
+      C.run (ZlibNg.Compress.compressBound_z sourceLen) h = .ok (r, h) ∧
+      r.toNat = sourceLen.toNat
+        + (if sourceLen.toNat = 0 then 1 else 0)
+        + (if sourceLen.toNat < 9 then 1 else 0)
+        + (sourceLen.toNat + 7) / 8
+        + 9 ∧
+      sourceLen.toNat < r.toNat
+
 end ZlibNgF.Spec.Functional

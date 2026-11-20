@@ -767,9 +767,14 @@
     },
     {
       "function": "compressBound_z",
-      "status": "not-done",
+      "status": "done",
       "scope": "lp64-linux",
-      "reason": "Translated in compress.c.lean; no safety goal is stated yet."
+      "source": "ZlibNgF/ZlibNg/compress.c.lean",
+      "implementation": "ZlibNg.Compress.compressBound_z",
+      "safety_goal": "ZlibNgF.Spec.Safety.Goal.compressBound_z_safety",
+      "other_goals": [
+        "ZlibNgF.Spec.Functional.Goal.compressBound_z_functional"
+      ]
     },
     {
       "function": "compress_z",

@@ -1,7 +1,10 @@
-<!-- source-sha256: 25dd6c6fa2e5ab4e50414b7c7afef013492763b4fc2da779871cac661fdbe5e9 -->
+<!-- source-sha256: 2655c9166bec371829e475d9d51fec3ced5d383ebb57cdbb94e127185d60c680 -->
 # 结论的状态
 
 整体库验证状态：**未完成**。
+
+本构建中 `zlib.h` 全部公开函数的安全性已完成。`deflate` / `inflate` 往返性质尚未完成。`gzopen_w` 仅用于 Windows，
+不属于本构建。
 
 | 领域 | 类别 | 状态 |
 | --- | --- | --- |
@@ -13,8 +16,7 @@
 | `adler32_combine`、`adler32_combine64`：安全性与合并值 | 公开 C 接口 | 完成 |
 | `get_crc_table`、`crc32`、`crc32_z`：安全性 | 公开 C 接口 | 完成 |
 | `crc32_combine`、`crc32_combine64`、`crc32_combine_gen`、`crc32_combine_gen64`、`crc32_combine_op`：安全性与拒绝值 | 公开 C 接口 | 完成 |
-| `compressBound`：安全性与精确值 | 公开 C 接口 | 完成 |
-| `compressBound_z`：安全性 | 公开 C 接口 | 未完成 |
+| `compressBound`、`compressBound_z`：安全性与精确值 | 公开 C 接口 | 完成 |
 | `deflateInit_`、`deflateInit2_`：安全性 | 公开 C 接口 | 完成 |
 | `deflate`、`deflateEnd`、`deflateParams`、`deflateTune`、`deflatePrime`、`deflateSetDictionary`、`deflateGetDictionary`、`deflateSetHeader`、`deflatePending`、`deflateUsed`、`deflateBound`、`deflateBound_z`、`deflateReset`、`deflateResetKeep`、`deflateCopy`：安全性 | 公开 C 接口 | 完成 |
 | `inflateInit_`、`inflateInit2_`、`inflateUndermine`：安全性 | 公开 C 接口 | 完成 |

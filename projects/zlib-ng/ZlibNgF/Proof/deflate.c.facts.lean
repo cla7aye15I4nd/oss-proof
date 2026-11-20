@@ -5,9 +5,10 @@ import ZlibNgF.Proof.«deflate.c.psi»
 /-!
 # Callee facts of `deflate` (`ZlibNgF`)
 
-The safety of `deflate` and `deflateParams` is proved from two hypothesis structures, each field of which is a
-theorem still to prove about the translated C code (no field is an assumption of a registered goal: a goal is
-registered only once both structures are proved):
+The safety of `deflate` and `deflateParams` is proved from two structures, each field of which is a theorem about
+the translated C code. Both are proved: `StrategyFacts` by `DeflatePublic.strategyFacts` (`Proof/public-deflate.lean`)
+and `TreesFacts` by `TreesFactsP.treesFacts` (`Proof/trees.c.facts.lean`), so no field is an assumption of a
+registered goal:
 
 * `StrategyFacts`: the seven strategies (`deflate_stored`, `deflate_quick`, `deflate_fast`, `deflate_medium`,
   `deflate_medium_fizzle`, `deflate_slow`, `deflate_huff`, `deflate_rle`), in the state in which `deflate` calls
