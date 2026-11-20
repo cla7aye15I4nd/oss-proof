@@ -195,7 +195,7 @@ theorem qf_bits {h H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : Deflat
     QF h i b (SH H0 i z b st' d') := by
   have hsym := F.sym st (SH_dstate _ _ _ _ _ _)
   refine qf_SH F (fun al _ c => ?_) (by rw [he]) (by rw [he]) (by rw [he]; exact hsym)
-    (by rw [he]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩)
+    (by rw [he]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩)
   have c1 := ZlibNgF.Proof.StoredF.dcore_mv (H' := SH H0 i z b st' d') c (SH_bytes _ _ _ _ _ _)
     (SH_bytes _ _ _ _ _ _) hs (by simpa [dview] using hsym) rfl rfl
   exact dcore_bits c1 ((congrArg dview he).trans rfl) hpb hpo hroom h0 h64 hbs hlo hsym

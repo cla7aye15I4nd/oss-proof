@@ -21,7 +21,7 @@ set_option autoImplicit false
 
 namespace ZlibNgF.Proof.DeflateParams
 open C ZlibNgF.Spec ZlibNg.Inflate ZlibNg.Deflate ZlibNgF.Proof.DeflateInv ZlibNgF.Proof.DeflateInit
-open ZlibNgF.Proof.DeflateFacts (ChainOk chainLim posAt SymsOk DStateIs)
+open ZlibNgF.Proof.DeflateFacts (ChainOk chainLim posAt SymsOk DStateIs LazyOk TableAt LazyOk.clear)
 open ZlibNgF.Proof.DeflateSide (DSide SideAt FlushOk HdrOk)
 open ZlibNgF.Proof.InflateSync (Sat Sat.bind Sat.pure Sat.of_eq Sat.mono)
 open ZlibNgF.Proof.ChunkMem (fillFold fillFold_size fillFold_get)
@@ -293,7 +293,7 @@ theorem tail_syms {st : DeflateState} {level strategy : Int32} (S : SymsOk st) (
     exact absurd el (q5 e).2.2
 
 /-- With no lookahead and `block_start` at `strstart`, `LazyOk` leaves no pending match and no pending literal. -/
-theorem LazyOk.clear0 {st : DeflateState} (L : LazyOk st) (el : st.lookahead = 0)
+theorem lazy_clear0 {st : DeflateState} (L : LazyOk st) (el : st.lookahead = 0)
     (eb : (st.strstart.toNat : Int) = st.block_start.toInt) : st.prev_length < 3 ∧ st.match_available = 0 := by
   refine ⟨UInt32.lt_iff_toNat_lt.mpr (Nat.lt_of_not_le fun h3 => ?_), Classical.byContradiction fun hm => ?_⟩
   · have := (L.1 (UInt32.le_iff_toNat_le.mpr (by simpa using h3))).2.1
@@ -313,7 +313,7 @@ theorem tail_lazy {st : DeflateState} {level strategy : Int32} (L : LazyOk st) (
     obtain ⟨b1, b2, b3, b4⟩ := h7
     obtain ⟨g1, g2⟩ := (groups_slow o0 o9 l0 l9 ef).mp ⟨b1, b2⟩
     exact ⟨g1, g2, by simp only [tailS]; rw [← es]; exact b3, by simp only [tailS]; rw [← es]; exact b4⟩
-  · exact L.clear0 el eb
+  · exact lazy_clear0 L el eb
 
 /-- `DSide`'s facts after the tail. -/
 theorem tail_side {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateState} {d d' : Array UInt8}
