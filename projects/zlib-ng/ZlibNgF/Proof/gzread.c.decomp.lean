@@ -1,4 +1,4 @@
-import ZlibNgF.Proof.«gzread.c.load»
+import ZlibNgF.Proof.«gzread.c.init»
 import ZlibNgF.Proof.«gzread.c.facts»
 
 /-!
@@ -50,6 +50,15 @@ structure InflateFresh : Prop where
     ∀ z sb st, h.streams i = some z → z.state = some sb → h.istate sb = some st →
     st.mode = ZlibNg.Inflate.HEAD → st.bits = 0 → st.last = 0 → r = Z_STREAM_END →
     ∀ z', h'.streams i = some z' → z'.avail_in < z.avail_in
+
+open ZlibNg.Inflate in
+/-- What `gz_decomp` needs of `inflate` for its `Z_DATA_ERROR` message: `inflate` leaves the stream's `msg` as it was
+or sets it to one of its string literals. -/
+structure InflateMsg : Prop where
+  msg : ∀ h i flush r h', InflateInv.Inv h (some i) → StreamIO h (some i) →
+    h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
+    ∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧
+      (z'.msg = z.msg ∨ ∃ k, z'.msg = .ref (.str k) 0 ∧ k < strTable.size)
 
 /-! ## The read measure -/
 
@@ -372,5 +381,408 @@ theorem gz_avail_budget {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzI
       · intro _; exact tail h (HBuf.refl _ _ _ _)
     · intro he; exact GSat.pure (done0 (by simpa using he))
 
+
+/-! ## The output target of `gz_decomp` and the buffers of `inflate` -/
+
+/-- The output target of `gz_decomp`: `n` bytes at offset `oo` of heap block `bo`, inside the `out` buffer of the file
+(`gz_fetch`) or outside every block of the file (`gz_read`, the caller's buffer). -/
+def OutTgt (w : World) (h : Heap) (b : Nat) (s : GzState) (bo oo n : Nat) : Prop :=
+  (∃ c base, GzBufs h s c base ∧ bo = c ∧ base + inSize s ≤ oo ∧ oo + n ≤ base + inSize s + outSize s) ∨
+  (bo ∉ GzOwned w h (some b) ∧ ∃ d, h.bytes bo = some d ∧ oo + n ≤ d.size)
+
+theorem owned_st {W : World} {H : Heap} {b : Nat} {s : GzState} (hs : W.gz H b = some s) {z : ZStream}
+    (hz : H.streams s.strm = some z) {sb : Nat} (hsb : z.state = some sb) : sb ∈ GzOwned W H (some b) := by
+  simp [GzOwned, hs, hz, hsb]
+
+theorem owned_buf {W : World} {H : Heap} {b : Nat} {s : GzState} (hs : W.gz H b = some s) {c base : Nat}
+    (hB : s.buffers = .val (.ref (.heap c) base)) : c ∈ GzOwned W H (some b) := by
+  simp [GzOwned, hs, hB]
+
+/-- The buffers of the stream of a read handle are valid for `inflate` when it has input and its output lies in the
+target. -/
+theorem streamIO_gz {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvR W H (some b))
+    (hs : W.gz H b = some s) (hsz : s.size ≠ 0) {z : ZStream} (hz : H.streams s.strm = some z)
+    (hin : z.avail_in ≠ 0) {bo oo n k : Nat} (ht : OutTgt W H b s bo oo n)
+    (hno : z.next_out = .ref (.heap bo) (oo + k)) (hk : k + z.avail_out.toNat ≤ n) :
+    StreamIO H (some s.strm) := by
+  obtain ⟨sh, hn⟩ := inv_of hs hv.1
+  have hr := modeOf hs hv.2.1
+  obtain ⟨c, base, z0, hB, hI, hz0, -, hai, hreg, -⟩ := (sh.read hr).bufs hsz
+  rw [hz] at hz0; cases hz0
+  obtain ⟨hcb, hpath, hst, hown⟩ := buf_facts hs hn hsz hB
+  obtain ⟨i, z1, sb, st, al, e, hz1, hsb, hst1, hal, core⟩ := hI
+  cases e
+  rw [hz] at hz1; cases hz1
+  have hsbS : sb ∈ stBlk H s := stBlk_of hz hsb
+  have hsbO : sb ∈ GzOwned W H (some b) := owned_st hs hz hsb
+  have hcsb : c ≠ sb := fun e => hst (e ▸ hsbS)
+  have hhead : st.head = .val none := by
+    rcases core.head with e | ⟨k', g, e, -⟩
+    · exact e
+    · have := hreg (some k') ⟨sb, st, ⟨z, ⟨_, rfl, hz⟩, hsb⟩, hst1, e⟩; cases this
+  obtain ⟨ki, hni, -, hki⟩ := hai.resolve_left hin
+  obtain ⟨d, hd, hds⟩ := hB.fits
+  -- the output range
+  have hout : ∃ dO, H.bytes bo = some dO ∧ oo + n ≤ dO.size ∧ bo ≠ sb ∧
+      (bo ≠ c ∨ base + inSize s ≤ oo) := by
+    rcases ht with ⟨c', base', hB', e1, h1, h2⟩ | ⟨hno', dO, hdO, hsz'⟩
+    · have e2 := hB'.buffers; rw [hB.buffers] at e2; cases e2
+      subst e1
+      exact ⟨d, hd, by omega, hcsb, Or.inr h1⟩
+    · refine ⟨dO, hdO, hsz', fun e => hno' (e ▸ hsbO), Or.inl fun e => hno' (e ▸ owned_buf hs hB.buffers)⟩
+  obtain ⟨dO, hdO, hdOs, hbsb, hbc⟩ := hout
+  refine ⟨z, sb, none, ⟨_, rfl, hz⟩, hsb, ⟨sb, st, ⟨z, ⟨_, rfl, hz⟩, hsb⟩, hst1, hhead⟩, Or.inl rfl,
+    Or.inr ⟨.heap c, base + ki, d, hni, hd, by omega⟩, Or.inr ⟨bo, oo + k, dO, hno, hdO, by omega⟩, ?_, ?_⟩
+  · intro x y u v hxy hu hv'
+    have hd1 : Disjoint z.next_in z.avail_in.toNat z.next_out z.avail_out.toNat := by
+      rw [hni, hno]; simp only [Disjoint]
+      rcases hbc with e | e
+      · exact Or.inl fun e' => e (by cases e'; rfl)
+      · exact Or.inr (Or.inl (by omega))
+    have hd2 : Disjoint z.next_out z.avail_out.toNat z.next_in z.avail_in.toNat := by
+      rw [hni, hno]; simp only [Disjoint]
+      rcases hbc with e | e
+      · exact Or.inl fun e' => e (by cases e'; rfl)
+      · exact Or.inr (Or.inr (by omega))
+    simp only [headerRanges] at hu hv'
+    rcases x with _ | _ | x <;> rcases y with _ | _ | y <;> simp at hu hv' hxy
+    · subst hu; subst hv'; exact hd1
+    · subst hu; subst hv'; exact hd2
+  · intro r hr'
+    simp only [headerRanges, List.mem_cons, List.not_mem_nil, or_false] at hr'
+    rcases hr' with rfl | rfl
+    · intro off e; rw [hni] at e; cases e; exact hcsb rfl
+    · intro off e; rw [hno] at e; cases e; exact hbsb rfl
+
+/-- The inflate state of the stream of `s` is just reset (`inflateReset`): mode `HEAD`, no bits held, not the last
+block. -/
+def InflFresh (H : Heap) (s : GzState) : Prop :=
+  ∃ z sb st, H.streams s.strm = some z ∧ z.state = some sb ∧ H.istate sb = some st ∧
+    st.mode = ZlibNg.Inflate.HEAD ∧ st.bits = 0 ∧ st.last = 0
+
+/-! ## One call of `inflate` on a read handle -/
+
+/-- A frame protects fewer bytes when every byte outside `W'` is outside `W`. -/
+theorem frame_wcover {h h' : Heap} {S B G : List Nat} {W W' : List (BPtr × Nat)} (f : Frame h h' S B G W)
+    (hW : ∀ c j, (∀ w ∈ W', ∀ off, w.1 = .ref (.heap c) off → j < off ∨ off + w.2 ≤ j) →
+      ∀ w ∈ W, ∀ off, w.1 = .ref (.heap c) off → j < off ∨ off + w.2 ≤ j) : Frame h h' S B G W' := by
+  obtain ⟨s1, g1, i1, b1, n1, c1, r1, x1, a1, k1⟩ := f
+  refine ⟨s1, g1, i1, fun c hc hn data hd => ?_, n1, c1, r1, x1, a1, k1⟩
+  obtain ⟨d2, f2, s2, q2⟩ := b1 c hc hn data hd
+  exact ⟨d2, f2, s2, fun j hj hw => q2 j hj (hW c j hw)⟩
+
+/-- A block outside the library blocks and the write ranges keeps its bytes. -/
+theorem frame_keep_blk {h h' : Heap} {S L G : List Nat} {W : List (BPtr × Nat)} (f : Frame h h' S L G W) {c : Nat}
+    (hc : c < h.nextBlk) (hl : c ∉ L) (hw : ∀ w ∈ W, ∀ off, w.1 ≠ .ref (.heap c) off) {d : Array UInt8}
+    (hd : h.bytes c = some d) : h'.bytes c = some d := by
+  obtain ⟨d', e, sz, q⟩ := f.2.2.2.1 c hc hl d hd
+  rw [e]; congr 1
+  apply Array.ext sz
+  intro j h1 h2
+  have := q j h2 fun w hw' off he => absurd he (hw w hw' off)
+  rwa [getElem!_pos d' j h1, getElem!_pos d j h2] at this
+
+/-- A live block outside the library blocks stays live with its size. -/
+theorem frame_live {h h' : Heap} {S L G : List Nat} {W : List (BPtr × Nat)} (f : Frame h h' S L G W) {c : Nat}
+    (hc : c < h.nextBlk) (hl : c ∉ L) {d : Array UInt8} (hd : h.bytes c = some d) :
+    ∃ d', h'.bytes c = some d' ∧ d'.size = d.size := by
+  obtain ⟨d', e, sz, -⟩ := f.2.2.2.1 c hc hl d hd
+  exact ⟨d', e, sz⟩
+
+open ZlibNg.Inflate in
+/-- **`inflate(strm, Z_NO_FLUSH)` on a read handle** with input and its output in the target: the handle stays a
+read handle (the state of the file is not touched), the call is a step that writes only the target, and the stream
+moved `next_in` and `next_out` by the bytes it consumed and wrote. -/
+theorem inflate_gz (G : InflateGz) (M : InflateMsg) {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvR W H (some b))
+    (hs : W.gz H b = some s) (hsz : s.size ≠ 0) (h0 : s.«have» = 0) {z : ZStream} (hz : H.streams s.strm = some z)
+    (hin : z.avail_in ≠ 0) (hout : z.avail_out ≠ 0) {bo oo n k : Nat} (ht : OutTgt W H b s bo oo n)
+    (hno : z.next_out = .ref (.heap bo) (oo + k)) (hk : k + z.avail_out.toNat ≤ n) :
+    GSat W H (lm (inflate (some s.strm) ZlibNg.Deflate.Z_NO_FLUSH)) (fun r W' H' => W' = W ∧
+      GzInvR W H' (some b) ∧ W.gz H' b = some s ∧ GStep W H W H' b [(.ref (.heap bo) oo, n)] ∧
+      (r = Z_OK ∨ r = Z_STREAM_END ∨ r = Z_NEED_DICT ∨ r = Z_BUF_ERROR ∨ r = Z_DATA_ERROR ∨ r = Z_STREAM_ERROR) ∧
+      (r = Z_OK → ∃ z', H'.streams s.strm = some z' ∧
+        z'.avail_in.toNat + z'.avail_out.toNat < z.avail_in.toNat + z.avail_out.toNat) ∧
+      (∃ z', H'.streams s.strm = some z' ∧ z'.state = z.state ∧ z'.avail_out ≤ z.avail_out ∧
+        z'.next_out = .ref (.heap bo) (oo + k + (z.avail_out - z'.avail_out).toNat) ∧
+        z'.avail_in ≤ z.avail_in ∧ (r ≠ Z_BUF_ERROR)) ∧
+      (InflateFresh → InflFresh H s → r = Z_STREAM_END → ∀ z', H'.streams s.strm = some z' →
+        z'.avail_in < z.avail_in)) := by
+  have hio := streamIO_gz hv hs hsz hz hin ht hno hk
+  obtain ⟨sh, hn⟩ := inv_of hs hv.1
+  have hr := modeOf hs hv.2.1
+  have R := sh.read hr
+  obtain ⟨c, base, z0, hB, hI, hz0, -, hai, hreg, hmsg0⟩ := R.bufs hsz
+  rw [hz] at hz0; cases hz0
+  obtain ⟨hcb, hpath, hst, hown⟩ := buf_facts hs hn hsz hB
+  have hI' := hI
+  obtain ⟨i, z1, sb, st, al, e, hz1, hsb, hst1, hal, core⟩ := hI'
+  cases e
+  rw [hz] at hz1; cases hz1
+  have hhead : st.head = .val none := by
+    rcases core.head with e | ⟨k', g, e, -⟩
+    · exact e
+    · have := hreg (some k') ⟨sb, st, ⟨z, ⟨_, rfl, hz⟩, hsb⟩, hst1, e⟩; cases this
+  have hw := hv.2.2
+  have hcrc : H.crcTable = ZlibNg.Crc32Tbl.crc_table := hw.1.1
+  have fr : FreshBlocks H := hw.2.1.1
+  obtain ⟨r, H', e, hInv', F, -, -, hreg'⟩ := InflateTop.inflate_ok ZlibNg.Deflate.Z_NO_FLUSH hI hio hcrc
+  obtain ⟨hdst, hdal, -, hfr', hsaved, -⟩ := GzRead.inflateExtra.ok H s.strm _ r H' hI hio hcrc e
+  have hsid : stateIds H (some s.strm) = [sb] := InflateReach.stateIds_of hz hsb
+  have hhid : headerIds H (some s.strm) = [] := by
+    have := InflateTop.headerIds_eq hz hsb hst1 hhead; simpa using this
+  have hor : outputRanges H (some s.strm) = [(z.next_out, z.avail_out.toNat)] := by
+    rw [InflateTop.outputRanges_eq hz hsb hst1 hhead]; rfl
+  rw [hsid, hhid, hor] at F
+  obtain ⟨ki, hni, -, hki⟩ := hai.resolve_left hin
+  obtain ⟨z', hz', hzs, hinat, hao, bo', oo', e1, e2⟩ := G.io' H s.strm _ r H' hI hio hcrc e z hz
+    (by rw [hno]; exact fun e => by cases e) (Or.inr (by rw [hni]; exact fun e => by cases e))
+  rw [hno] at e1; cases e1
+  have hres := G.res H s.strm _ r H' hI hio hcrc e
+  have hnb : r ≠ Z_BUF_ERROR := InflateExtra.inflate_no_buf_error hI hio hcrc e hz hin hout
+  have hprog : r = Z_OK → ∃ z', H'.streams s.strm = some z' ∧
+      z'.avail_in.toNat + z'.avail_out.toNat < z.avail_in.toNat + z.avail_out.toNat := by
+    intro hr0
+    obtain ⟨z2, h1, -, -, h4⟩ := InflateExtra.inflate_ok_progress hI hio hcrc e hz hr0
+    exact ⟨z2, h1, h4⟩
+  -- the input after the call
+  obtain ⟨hain, hnx⟩ := hinat
+  rw [hni] at hnx
+  simp only at hnx
+  -- blocks
+  have hlt : ∀ c', (∃ d, H.bytes c' = some d) → c' < H.nextBlk := fun c' hc' => live_lt fr hc'
+  have hsbS : sb ∈ stBlk H s := stBlk_of hz hsb
+  have hsbO : sb ∈ GzOwned W H (some b) := owned_st hs hz hsb
+  have hcsb : c ≠ sb := fun e => hst (e ▸ hsbS)
+  obtain ⟨db, hdb⟩ := gz_live hs
+  have hbsb : b ≠ sb := by
+    intro e'; subst e'
+    have hm : b ∈ ownL H b s := by simp [ownL]
+    have hm2 : b ∈ (if s.size = 0 then [] else blkOf s.buffers ++ stBlk H s) := by simp [hsz, hsbS]
+    have e3 : ownL H b s = ([b] ++ blkOf s.path ++ blkOf s.msg) ++ (if s.size = 0 then [] else blkOf s.buffers ++ stBlk H s) := rfl
+    rw [e3] at hn
+    exact (List.nodup_append.mp hn).2.2 b (by simp) b hm2 rfl
+  -- the target block is not the state block, and a block of the file other than the buffers is not the target
+  have hbo : bo ≠ sb ∧ ∀ c', c' ∈ GzOwned W H (some b) → c' ≠ c → c' ≠ bo := by
+    rcases ht with ⟨c', base', hB', e1, -, -⟩ | ⟨hno', -⟩
+    · have e2 := hB'.buffers; rw [hB.buffers] at e2; cases e2
+      subst e1
+      exact ⟨hcsb, fun c'' _ hne => hne⟩
+    · exact ⟨fun e' => hno' (e' ▸ hsbO), fun c'' hc'' _ e' => hno' (e' ▸ hc'')⟩
+  have hwr : ∀ c', c' ≠ bo → ∀ w ∈ [(z.next_out, z.avail_out.toNat)], ∀ off, w.1 ≠ .ref (.heap c') off := by
+    intro c' hc' w hw' off e'
+    simp only [List.mem_singleton] at hw'; subst hw'
+    rw [hno] at e'; cases e'; exact hc' rfl
+  have keepB : ∀ c', c' ≠ sb → c' ≠ bo → ∀ d, H.bytes c' = some d → H'.bytes c' = some d := fun c' h1 h2 d hd =>
+    frame_keep_blk F (hlt c' ⟨d, hd⟩) (by simp [h1]) (hwr c' h2) hd
+  have liveB : ∀ c', c' ≠ sb → ∀ d, H.bytes c' = some d → ∃ d', H'.bytes c' = some d' ∧ d'.size = d.size :=
+    fun c' h1 d hd => frame_live F (hlt c' ⟨d, hd⟩) (by simp [h1]) hd
+  have hstH' : stBlk H' s = stBlk H s := by simp [stBlk, hz, hz', hzs]
+  have hown' : ownL H' b s = ownL H b s := by simp only [ownL, hstH']
+  -- the state of the file
+  have hsH' : W.gz H' b = some s := by
+    obtain ⟨db', hdb', -⟩ := liveB b hbsb db hdb
+    unfold World.gz at hs ⊢; rw [hdb']; rw [hdb] at hs; exact hs
+  -- the blocks of `path` and `msg` are neither the state block nor the target
+  have hpm : ∀ x ∈ blkOf s.path ++ blkOf s.msg, x ≠ sb ∧ x ≠ bo := by
+    intro x hx
+    have e3 : ownL H b s = ([b] ++ (blkOf s.path ++ blkOf s.msg)) ++ (blkOf s.buffers ++ stBlk H s) := by
+      simp [ownL, hsz]
+    have hn' := hn; rw [e3] at hn'
+    have hd := (List.nodup_append.mp hn').2.2 x (List.mem_append_right _ hx)
+    have hxc : x ≠ c := fun e' => hd c (by simp [hB.buffers, blkOf]) e'
+    refine ⟨fun e' => hd sb (List.mem_append_right _ hsbS) e', hbo.2 x (ownL_owned hs x ?_) hxc⟩
+    rw [e3]; exact List.mem_append_left _ (List.mem_append_right _ hx)
+  have hbytesEq : ∀ x, x ≠ sb → x ≠ bo → (∃ d, H.bytes x = some d) → H'.bytes x = H.bytes x := by
+    intro x h1 h2 ⟨d, hd⟩; rw [keepB x h1 h2 d hd, hd]
+  obtain ⟨s1, g1, i1, b1, n1, c1, r1, x1, a1, k1⟩ := F
+  have hshape : GzShape H' s := by
+    refine ⟨sh.mode, ?_, ⟨z', hz'⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos, ⟨?_, sh.msg.mem⟩, fun _ => ?_,
+      fun hw' => absurd (hr.symm.trans hw') read_ne_write, fun hz0 => absurd hz0 hsz⟩
+    · refine ownStr_keep sh.path fun x hx => ?_
+      obtain ⟨h1, h2⟩ := hpm x (List.mem_append_left _ hx)
+      obtain ⟨pc, nn, ep, r0, off0, d0, e0, hd0, -⟩ := sh.path
+      rw [ep] at hx; simp [blkOf] at hx; subst hx; cases e0
+      exact hbytesEq _ h1 h2 ⟨d0, hd0⟩
+    · rcases sh.msg.msg with em | ⟨mc, d, em, hd⟩
+      · exact Or.inl em
+      · have hx : mc ∈ blkOf s.path ++ blkOf s.msg := by simp [em, blkOf]
+        obtain ⟨d', e', -⟩ := liveB mc (hpm mc hx).1 d hd
+        exact Or.inr ⟨mc, d', em, e'⟩
+    · refine ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun hz0 => absurd hz0 hsz⟩
+      obtain ⟨d, hd, hds⟩ := hB.fits
+      obtain ⟨d', e', sz'⟩ := liveB c hcsb d hd
+      have hsv : H'.savedPtrs c = H.savedPtrs c := hsaved c fun z2 hz2 => by
+        rw [hz] at hz2; cases hz2; rw [hsb]; exact fun e4 => hcsb (Option.some.inj e4).symm
+      refine ⟨c, base, z', ⟨hB.size, hB.buffers, hB.inp, hB.out, ⟨d', e', by rw [sz']; exact hds⟩, hB.hdr.1,
+        by rw [hsv]; exact hB.hdr.2⟩, hInv', hz', Or.inl h0, ?_, fun hp hr' => hreg hp (hreg' hp hr'), ?_⟩
+      · by_cases ha0 : z'.avail_in = 0
+        · exact Or.inl ha0
+        · right
+          have hsub : (z.avail_in - z'.avail_in).toNat = z.avail_in.toNat - z'.avail_in.toNat :=
+            UInt32.toNat_sub_of_le _ _ hain
+          have hle : z'.avail_in.toNat ≤ z.avail_in.toNat := UInt32.le_iff_toNat_le.mp hain
+          refine ⟨ki + (z.avail_in - z'.avail_in).toNat, by rw [hnx, Nat.add_assoc], Nat.zero_le _, ?_⟩
+          rw [hsub]; omega
+      · obtain ⟨z3, hz3, hm3⟩ := M.msg H s.strm _ r H' hI hio hcrc e z hz
+        rw [hz'] at hz3; cases hz3
+        rcases hm3 with hm3 | hm3
+        · rw [hm3]; exact hmsg0
+        · exact Or.inr hm3
+  have hw' : GzWFr W H' := by
+    obtain ⟨hc, ⟨hfr, hdf⟩, hgz, hst', hb', hnd, hlk, hL⟩ := hw
+    refine ⟨⟨by rw [r1]; exact hc.1, by rw [x1]; exact hc.2⟩, ⟨hfr' hfr, fun c' hc' => by
+      rw [hdst, hdal]; exact hdf c' (Nat.le_trans k1 hc')⟩, fun c' hc' => hgz c' (Nat.le_trans k1 hc'),
+      fun c' s2 e' => ?_, hb', hnd, hlk, LitOk.ext hL rfl fun k a e4 => by rw [c1]; exact e4⟩
+    have hs2 : W.gz H c' = some s2 := by
+      have hsbl : ∃ d, H.bytes sb = some d := by
+        unfold Heap.istate at hst1; split at hst1
+        · next d hd => exact ⟨d, hd⟩
+        · cases hst1
+      unfold World.gz at e' ⊢
+      cases hH' : H'.bytes c' with
+      | none => rw [hH'] at e'; cases e'
+      | some d' =>
+        rw [hH'] at e'
+        cases hH : H.bytes c' with
+        | some d => exact e'
+        | none =>
+          by_cases hlt' : c' < H.nextBlk
+          · have hne : c' ∉ [sb] := by
+              intro m; simp at m; subst m; obtain ⟨d, hd⟩ := hsbl; rw [hH] at hd; cases hd
+            rw [n1 c' hlt' hne hH] at hH'; cases hH'
+          · rw [hgz c' (by omega)] at e'; cases e'
+    obtain ⟨z2, hz2⟩ := hst' c' s2 hs2
+    by_cases hi : s2.strm = s.strm
+    · rw [hi]; exact ⟨z', hz'⟩
+    · exact ⟨z2, by rw [s1 _ (by simp [hi])]; exact hz2⟩
+  have hInvR : GzInvR W H' (some b) :=
+    ⟨⟨b, s, rfl, hsH', hshape, by rw [hown']; exact hn⟩, ⟨b, s, rfl, hsH', hr⟩, hw'⟩
+  have hstep : GStep W H W H' b [(.ref (.heap bo) oo, n)] := by
+    refine ⟨⟨⟨?_, fun c' _ _ => ⟨by simp [hdst], by simp [hdal]⟩⟩, fun k a e4 => by rw [c1]; exact e4,
+      fun b' _ _ => rfl⟩, fun c' hc' _ => ?_, fun s1' s2' e1' e2' => ?_⟩
+    · simp only [hs]
+      have F2 : Frame H H' [s.strm] (GzOwned W H (some b)) [] [(.ref (.heap bo) oo, n)] := by
+        refine frame_wcover (InflateLoop.Frame.mono ⟨s1, g1, i1, b1, n1, c1, r1, x1, a1, k1⟩ (fun _ m => m)
+          (fun x m => by simp at m; subst m; exact hsbO) (fun _ m => m) (fun _ m => m)) ?_
+        intro c' j hcov w hw0 off he
+        simp only [List.mem_singleton] at hw0; subst hw0
+        simp only at he
+        rw [hno] at he; cases he
+        have := hcov _ (List.mem_singleton_self _) oo rfl
+        simp only at this ⊢; omega
+      rwa [show ({ H' with consts := H.consts } : Heap) = H' by rw [← c1]]
+    · have : GzOwned W H' (some b) = GzOwned W H (some b) := by simp [GzOwned, hsH', hs, hz', hz, hzs]
+      rw [this] at hc'; exact hc'
+    · rw [hs] at e1'; rw [hsH'] at e2'; cases e1'; cases e2'; rfl
+  refine ⟨r, W, H', by simp [e], rfl, hInvR, hsH', hstep, hres, hprog, ⟨z', hz', hzs, hao, e2, hain, hnb⟩, ?_⟩
+  intro FF ⟨z5, sb5, st5, hz5, hsb5, hst5, hm5, hb5, hl5⟩ hse z6 hz6
+  rw [hz] at hz5; cases hz5
+  exact FF.fresh_end H s.strm _ r H' hI hio hcrc e z sb5 st5 hz hsb5 hst5 hm5 hb5 hl5 hse z6 hz6
+
+/-! ## `gz_error` keeps the stream -/
+
+theorem GSat.and {α : Type} {w : World} {h : Heap} {m : G α} {P Q : α → World → Heap → Prop} (p : GSat w h m P)
+    (q : GSat w h m Q) : GSat w h m (fun r W H => P r W H ∧ Q r W H) := by
+  obtain ⟨r, W, H, e, hp⟩ := p
+  obtain ⟨r', W', H', e', hq⟩ := q
+  rw [e] at e'; cases e'
+  exact ⟨r, W, H, e, hp, hq⟩
+
+/-- `gz_error` on a read handle does not change the heap's streams. -/
+theorem gz_error_strm {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+    (hs : w.gz h b = some s) (e : Int32) (msg : BPtr) (hmsg : msg = .null ∨ CStr h msg)
+    (hmk : ∀ c o, msg ≠ .ref (.heap c) o) :
+    GSat w h (gz_error (some b) e msg) (fun _ _ H => H.streams = h.streams) := by
+  have hlit : LitOk w h := hv.2.2.lit
+  obtain ⟨⟨b0, s0, e0, hs0, sh, hn⟩, -, hw⟩ := hv
+  cases e0; rw [hs] at hs0; cases hs0
+  obtain ⟨db, hdb⟩ := gz_live hs
+  have fr : FreshBlocks h := hw.2.1.1
+  have hdb1 : (freeMsg h s).bytes b = some db := freeMsg_bytes_b hn hdb
+  have hs1 : ({ w with gzs := upd w.gzs b (some (errSt s e)) } : World).gz (freeMsg h s) b = some (errSt s e) := by
+    unfold World.gz; rw [hdb1]; simp
+  obtain ⟨sh1, -⟩ := err0_keep sh hn e
+  have fr1 : FreshBlocks (freeMsg h s) := (HLess.free h s).freshB fr
+  obtain ⟨r, W, H, eq, -, -, -, -, -, x, -, -⟩ := errTail_spec hs1 fr1
+    (LitOk.ext (w := w) hlit rfl fun k a e' => by rw [freeMsg_consts]; exact e') sh1.path rfl e rfl msg
+    (hmsg.imp_right fun hp => cstr_free hp hmk)
+  exact ⟨r, W, H, by rw [gz_error_run hs sh.msg (msg_ne_b hn) e msg]; exact eq,
+    x.streams.trans (freeMsg_streams h s)⟩
+
+/-- `gz_error(state, e, msg)` on a read handle, with the stream kept. -/
+theorem err_strm {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
+    (hs : w.gz h b = some s) (e : Int32) (msg : BPtr) (hmsg : msg = .null ∨ CStr h msg)
+    (hmk : ∀ c o, msg ≠ .ref (.heap c) o) :
+    GSat w h (gz_error (some b) e msg) (fun _ W H => ∃ s', W.gz H b = some s' ∧ ErrOf s e s' ∧
+      GzInvR W H (some b) ∧ W.fs = w.fs ∧ GStep w h W H b [] ∧ H.streams = h.streams) :=
+  GSat.mono (GSat.and (gz_error_inv hv hs e msg hmsg hmk) (gz_error_strm hv hs e msg hmsg hmk))
+    fun _ _ _ q => by
+      obtain ⟨⟨s', a1, a2, a3, -, a5, a6⟩, a7⟩ := q
+      exact ⟨s', a1, a2, a3, a5, a6, a7⟩
+
+/-- `gz_error(state, e, lit)` with a literal of the table on a read handle, with the stream kept. -/
+theorem errlit_strm {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvR W H (some b))
+    (hs : W.gz H b = some s) (e : Int32) (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i)
+    (hn : NoNul lit) :
+    GSat W H (gzLit lit >>= fun p => gz_error (some b) e p) (fun _ W' H' =>
+      ∃ s', W'.gz H' b = some s' ∧ ErrOf s e s' ∧ GzInvR W' H' (some b) ∧ W'.fs = W.fs ∧ GStep W H W' H' b [] ∧
+        H'.streams = H.streams) := by
+  refine GSat.bind (GSat.mono (gzLit_spec lit i hi (GzReach.gzLits_of_idx hi) hn hv.2.2.lit) fun p W2 H2 q => ?_)
+  obtain ⟨hg, hf, x, hL, hcs, hmk⟩ := q
+  obtain ⟨hs2, hv2, g2⟩ := ext_step hv hs hg hf x hL
+  refine GSat.mono (err_strm hv2 hs2 e p (Or.inr ⟨_, hcs⟩) hmk) fun _ W' H' q => ?_
+  obtain ⟨s', h1, h2, h3, h5, h6, h7⟩ := q
+  exact ⟨s', h1, h2, h3, by rw [h5, hf], g2.trans h6 ⟨s, hs⟩ ⟨s, hs2⟩, h7.trans x.streams⟩
+
+/-! ## `gz_decomp` -/
+
+open ZlibNg.Inflate ZlibNg.Deflate in
+/-- The body of the loop of `gz_decomp` (copied from the translation). -/
+def decompBody (state : GzPtr) (strm : StreamPtr) (s : DecompLoop) : G DecompLoop := do
+  if (← lm (rdZ strm (·.avail_in))) == 0 then
+    if (← gz_avail state) == -1 then
+      return { s with ctl := .ret }
+  if (← lm (rdZ strm (·.avail_in))) == 0 then
+    gz_error state Z_BUF_ERROR (← (gzLit "unexpected end of file"))
+    return { s with ctl := .brk }
+  let ret ← lm (inflate strm Z_NO_FLUSH)
+  if ret == Z_STREAM_ERROR || ret == Z_NEED_DICT then
+    gz_error state Z_STREAM_ERROR (← (gzLit "internal error: inflate stream corrupt"))
+    return { s with ret := ret, ctl := .ret }
+  if ret == Z_MEM_ERROR then
+    gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
+    return { s with ret := ret, ctl := .ret }
+  if ret == Z_DATA_ERROR then
+    let m ← lm (rdZ strm (·.msg))
+    gz_error state Z_DATA_ERROR (← if m == .null then (gzLit "compressed data error") else lm (rdZ strm (·.msg)))
+    return { s with ret := ret, ctl := .ret }
+  return { s with ret := ret }
+
+open ZlibNg.Inflate in
+/-- The condition of the loop of `gz_decomp` (copied from the translation). -/
+def decompCond (strm : StreamPtr) (s : DecompLoop) : G (Bool × DecompLoop) := do
+  if s.ctl != .go then return (false, s)
+  return ((← lm (rdZ strm (·.avail_out))) != 0 && s.ret != Z_STREAM_END, s)
+
+open ZlibNg.Inflate in
+/-- The part of `gz_decomp` after the loop (copied from the translation). -/
+def decompTail (state : GzPtr) (strm : StreamPtr) (had : UInt32) (lp : DecompLoop) : G Int32 := do
+  if lp.ctl == .ret then
+    return -1
+  let ao ← lm (rdZ strm (·.avail_out))
+  wrG state fun s => { s with «have» := had - ao }
+  let nx ← lm ((← lm (rdZ strm (·.next_out))).add (-(Int.ofNat (← rdG state (·.«have»)).toNat)))
+  wrG state fun s => { s with next := .val nx }
+  if lp.ret == Z_STREAM_END then
+    wrG state fun s => { s with how := LOOK }
+  return 0
+
+open ZlibNg.Inflate in
+theorem gz_decomp_eq (state : GzPtr) : gz_decomp state = (do
+    let strm ← strmOf state
+    let had ← lm (rdZ strm (·.avail_out))
+    let lp ← gdoWhile (decompBody state strm) (decompCond strm) ⟨Z_OK, .go⟩
+    decompTail state strm had lp) := by
+  unfold gz_decomp decompBody decompCond decompTail; rfl
 
 end ZlibNgF.Proof.GzDecomp
