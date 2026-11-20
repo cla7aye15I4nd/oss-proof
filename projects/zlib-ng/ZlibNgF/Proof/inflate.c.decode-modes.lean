@@ -797,7 +797,7 @@ theorem LI.afterFast {E : Env} (eo : EnvOK E) {l : IL} {H2 h' : Heap} {z : ZStre
         length := len
         was := was
         offset := off })
-    (hmode : m' = LEN ∨ m' = TYPE ∨ m' = BAD ∨ (m' = MATCH ∧ 1 ≤ off.toNat)) (hbits : bits < 8)
+    (hmode : m' = LEN ∨ m' = TYPE ∨ m' = BAD ∨ (m' = MATCH ∧ 1 ≤ off.toNat)) (hbits : bits ≤ 39)
     (hbb : h'.bytes E.b = H2.bytes E.b) (hia : h'.iallocs E.b = H2.iallocs E.b)
     (hoth : ∀ c, c ≠ E.bo → h'.bytes c = H2.bytes c)
     (hbo : ∀ d, H2.bytes E.bo = some d → ∃ d', h'.bytes E.bo = some d' ∧ d'.size = d.size)
@@ -837,7 +837,7 @@ theorem LI.afterFast {E : Env} (eo : EnvOK E) {l : IL} {H2 h' : Heap} {z : ZStre
   have hai' : ai.toNat ≤ l.have_.toNat := hai
   have hao' : ao.toNat ≤ l.left.toNat := hao
   have hlo' : l.left.toNat ≤ l.out.toNat := hlo
-  have hb8 : bits.toNat < 8 := hbits
+  have hb8 : bits.toNat ≤ 39 := hbits
   have hIn : InAt E.inp E.A0 (Ptr.ref ri (o0 + (E.A0.toNat - l.have_.toNat) + (l.have_ - ai).toNat)) ai := by
     refine ⟨UInt32.le_trans hai li.inAt.1, ?_⟩
     rw [hinp]
@@ -916,10 +916,9 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
   split
   · rename_i hc
     simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
-    obtain ⟨⟨h15, h3⟩, h8⟩ := hc
+    obtain ⟨h15, h3⟩ := hc
     have h15' : 15 ≤ l.have_.toNat := UInt32.le_iff_toNat_le.mp h15
     have h3' : 3 ≤ l.left.toNat := UInt32.le_iff_toNat_le.mp h3
-    have h8' : l.bits.toNat < 8 := UInt8.lt_iff_toNat_lt.mp h8
     refine SatX.bind (SatX.mono li.restoreX ?_)
     rintro r l1 H2 ⟨hr, hl1, li2⟩
     subst hr
@@ -946,7 +945,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
           length := len
           was := was
           offset := off } →
-        (m' = LEN ∨ m' = TYPE ∨ m' = BAD ∨ (m' = MATCH ∧ 1 ≤ off.toNat)) → bits < 8 →
+        (m' = LEN ∨ m' = TYPE ∨ m' = BAD ∨ (m' = MATCH ∧ 1 ≤ off.toNat)) → bits ≤ 39 →
         8 * ai.toNat + bits.toNat + ao.toNat + (if m' = BAD then 0 else 1) ≤
           8 * l.have_.toNat + l.bits.toNat + l.left.toNat →
         h'.bytes E.b = H2.bytes E.b → h'.iallocs E.b = H2.iallocs E.b →
@@ -967,7 +966,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
       dsimp only
       refine SatX.bind (SatX.lift_eq (li3.rdS (·.mode)) ?_)
       have hb8 : (bits.toUInt8).toNat = bits.toNat := by
-        rw [UInt32.toNat_toUInt8]; exact Nat.mod_eq_of_lt (by have : bits.toNat < 8 := hbits; omega)
+        rw [UInt32.toNat_toUInt8]; exact Nat.mod_eq_of_lt (by have : bits.toNat ≤ 39 := hbits; omega)
       have hμ3 := fast_mu (N := 8 * l.have_.toNat + l.bits.toNat + l.left.toNat)
         (N' := 8 * ai.toNat + bits.toNat + ao.toNat) m' (by omega) hμ'
       dsimp only
@@ -980,8 +979,6 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
         unfold μ; dsimp only; rw [hb8]; exact hμ3
     clear_value jp jpi
     have hzst : H2.istate E.b = some { S with hold := l.hold, bits := l.bits.toUInt32 } := li2.hs
-    have hbl : l.bits.toUInt32 < 8 := by
-      rw [UInt32.lt_iff_toNat_lt, UInt8.toNat_toUInt32]; exact h8'
     have hrd : ReadSlice H2 l.next l.have_.toNat := ⟨ri, _, d, hni, hgd, by omega⟩
     have hwr : WriteSlice H2 (.ref (.heap E.bo) ob) l.out.toNat := ⟨E.bo, ob, dout, rfl, hdo, by omega⟩
     have hdisj : Disjoint l.next l.have_.toNat (.ref (.heap E.bo) ob) l.out.toNat := by
@@ -1002,7 +999,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
       have hge' : 260 ≤ l.left.toNat := UInt32.le_iff_toNat_le.mp hge
       obtain ⟨h', ai, ao, m', hold, bits, len, was, off, msg, e, hai, hao, hz', hs', hmode, hbits, hmeas, hbb, hia,
         hoth, hbo, hfr, hmsg⟩ := ZlibNgF.Proof.InffastFacts.fastFacts.fast false H2 E.i E.b _ _ l.out ri _ E.bo ob li2.inv
-          li2.hz li2.hb hzst hm hbl h15 hge hlo hni hrd hput hwr hdisj hnib hbne
+          li2.hz li2.hb hzst hm h15 hge hlo hni hrd hput hwr hdisj hnib hbne
       simp only [Bool.false_eq_true, ↓reduceIte] at e
       refine SatX.bind (SatX.lift (Sat.of_eq e ?_))
       refine hjp _ h' ai ao m' bits len was off hold msg hai hao hz' hs' ?_ hbits ?_ hbb hia hoth hbo hfr hmsg
@@ -1018,7 +1015,7 @@ theorem run_LEN (E : Env) (eo : EnvOK E) (hX : ModeRun E inflate_LENEXT (·.mode
         have := UInt32.not_le.mp hlt; exact UInt32.lt_iff_toNat_lt.mp this
       obtain ⟨h', ai, ao, m', hold, bits, len, was, off, msg, e, hai, hao, hz', hs', hmode, hbits, hmeas, hbb, hia,
         hoth, hbo, hfr, hmsg⟩ := ZlibNgF.Proof.InffastFacts.fastFacts.fast true H2 E.i E.b _ _ l.out ri _ E.bo ob li2.inv
-          li2.hz li2.hb hzst hm hbl h15 ⟨h3, UInt32.lt_iff_toNat_lt.mpr hlt'⟩ hlo hni hrd hput hwr hdisj hnib hbne
+          li2.hz li2.hb hzst hm h15 ⟨h3, UInt32.lt_iff_toNat_lt.mpr hlt'⟩ hlo hni hrd hput hwr hdisj hnib hbne
       simp only [↓reduceIte] at e
       refine SatX.bind (SatX.lift (Sat.of_eq e ?_))
       refine hjp _ h' ai ao m' bits len was off hold msg hai hao hz' hs' ?_ hbits ?_ hbb hia hoth hbo hfr hmsg

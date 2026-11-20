@@ -4,13 +4,14 @@ import ZlibNgF.Proof.«inflate.c.invariant»
 /-!
 # `inflate_fast_c` / `inflate_fast_safe_c`: the whole call (`ZlibNgF`)
 
-`inflate_fast_post`: from the entry state that `LEN` of `inflate` guarantees (fewer than 8 bits held, at least 15 input
-bytes, at least 260 / 3 output bytes, the window and the decoding tables of the state), `INFLATE_FAST` runs without
-fault and ends in `FastPost`: the exact stream and state records it leaves, the exit modes, `bits < 8`, the progress
-inequality, and the frame (only the output bytes `[next_out, next_out + avail_out)`, the stream record and the state
-change). The entry code establishes `EnvOK`; the main loop is `loop_step`; the epilogue moves `in` back by
-`bits >> 3` bytes, which stays inside the input because `bits ≤ 8 * (in - next_in) + bits0` and `bits0 < 8`
-(patch 0007).
+`inflate_fast_post`: from the entry state that `LEN` of `inflate` guarantees (fewer than 64 bits held, at least 15
+input bytes, at least 260 / 3 output bytes, the window and the decoding tables of the state), `INFLATE_FAST` runs
+without fault and ends in `FastPost`: the exact stream and state records it leaves, the exit modes, fewer than 8 bits
+held or fewer than at entry, the progress inequality, and the frame (only the output bytes `[next_out, next_out +
+avail_out)`, the stream record and the state change). The entry code establishes `EnvOK`; the main loop is
+`loop_step`; the epilogue (patch 0007) moves `in` back by `MIN(bits >> 3, in - next_in)` bytes, so never before
+`next_in`. When the second operand is the smaller, all loaded bytes go back and `bits - 8 * (in - next_in) < bits0`
+because at least one bit was consumed (`bits + 1 ≤ 8 * (in - next_in) + bits0`).
 -/
 
 set_option autoImplicit false
@@ -29,12 +30,35 @@ theorem sat_bind_eq {α β : Type} {H H' : Heap} {m : M α} {f : α → M β} {a
     (e : m H = .ok (a, H')) (k : Sat H' (f a) Q) : Sat H (m >>= f) Q :=
   Sat.bind ⟨a, H', e, k⟩
 
-theorem u8_of_lt8 (x : UInt32) (h : x < 8) : x.toUInt8.toNat = x.toNat := by
+theorem u8_of_lt64 (x : UInt32) (h : x < 64) : x.toUInt8.toNat = x.toNat := by
   rw [UInt32.lt_iff_toNat_lt] at h
   simp only [UInt32.toNat_toUInt8]; simp at h; omega
 
 theorem shr3 : ∀ x : UInt8, (x.toUInt32 >>> 3).toNat = x.toNat / 8 := by decide
-theorem md8 : ∀ x : UInt8, (x - ((x.toUInt32 >>> 3) <<< 3).toUInt8).toNat = x.toNat % 8 := by decide
+
+/-- `bits -= (bits_t)(len << 3)` for `len ≤ bits >> 3`. -/
+theorem sub_shl3 (x : UInt8) (n : UInt32) (h : n.toNat ≤ x.toNat / 8) :
+    (x - (n <<< 3).toUInt8).toNat = x.toNat - 8 * n.toNat := by
+  have hx := x.toNat_lt
+  have e1 : (n <<< 3).toUInt8.toNat = 8 * n.toNat := by
+    rw [UInt32.toNat_toUInt8, UInt32.toNat_shiftLeft]
+    simp only [Nat.shiftLeft_eq]
+    have : n.toNat < 32 := by omega
+    simp
+    omega
+  rw [UInt8.toNat_sub_of_le _ _ (by rw [UInt8.le_iff_toNat_le, e1]; omega), e1]
+
+/-- `MIN(a, b)` (`zbuild.h`: `((a) > (b) ? (b) : (a))`) is one of its operands and at most each. -/
+theorem min_cases (a b : UInt32) :
+    ((if a > b then b else a).toNat = a.toNat ∨ (if a > b then b else a).toNat = b.toNat) ∧
+    (if a > b then b else a).toNat ≤ a.toNat ∧ (if a > b then b else a).toNat ≤ b.toNat := by
+  by_cases hab : b < a
+  · have h1 := UInt32.lt_iff_toNat_lt.mp hab
+    have e : (if a > b then b else a) = b := by simp [hab]
+    rw [e]; omega
+  · have h1 : ¬ b.toNat < a.toNat := fun h => hab (UInt32.lt_iff_toNat_lt.mpr h)
+    have e : (if a > b then b else a) = a := by simp [hab]
+    rw [e]; omega
 
 open ZlibNgF.Spec in
 /-- The frame of a run that changed the output bytes `[o0, o0 + n)` of block `ob`, the stream record `i` and the state
@@ -81,7 +105,7 @@ def FastPost (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateSta
       was := was
       offset := off } ∧
     (m = ZlibNg.Inflate.LEN ∨ m = ZlibNg.Inflate.TYPE ∨ m = ZlibNg.Inflate.BAD ∨
-      (safe = true ∧ m = ZlibNg.Inflate.MATCH ∧ 1 ≤ off.toNat)) ∧ bits < 8 ∧
+      (safe = true ∧ m = ZlibNg.Inflate.MATCH ∧ 1 ≤ off.toNat)) ∧ (bits < 8 ∨ bits < st.bits) ∧
     8 * ai.toNat + bits.toNat + ao.toNat + (if m = ZlibNg.Inflate.BAD then 0 else 1) ≤
       8 * z.avail_in.toNat + st.bits.toNat + z.avail_out.toNat ∧
     h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧ (∀ c, c ≠ bo → h'.bytes c = h.bytes c) ∧
@@ -95,7 +119,7 @@ def FastPost (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateSta
 theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState) (start : UInt32)
     (ri : BRef) (oi bo oo : Nat) (A D : Array UInt8) (hmode : st.mode = ZlibNg.Inflate.LEN)
     (hz : h.streams i = some z) (hzs : z.state = some b) (hst : h.istate b = some st)
-    (hbits : st.bits < 8) (hbo : bo ≠ b) (bd : Array UInt8) (hbd : h.bytes b = some bd) (wb woff : Nat)
+    (hbits : st.bits < 64) (hbo : bo ≠ b) (bd : Array UInt8) (hbd : h.bytes b = some bd) (wb woff : Nat)
     (wd : Array UInt8)
     (hW : wb ≠ bo ∨ (wb = bo ∧ woff = oo ∧ safe = true ∧ start = st.wsize ∧ st.wnext = 0))
     (hwv : st.window = .val (B wb woff)) (hwd : h.bytes wb = some wd) (hws : woff + st.wsize.toNat ≤ wd.size)
@@ -142,8 +166,8 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
     refine sat_bind_eq (a := 1 <<< st.lenbits) (H' := h) (by simp [shl32, hlb']) ?_
     refine sat_bind_eq (a := 1 <<< st.distbits) (H' := h) (by simp [shl32, hdb']) ?_
     refine sat_bind_eq (a := h.garbage (2 ^ 42 + 1)) (H' := h) rfl ?_
-    have hb8' : st.bits.toNat < 8 := by rw [UInt32.lt_iff_toNat_lt] at hbits; simpa using hbits
-    have hb8 : st.bits.toUInt8.toNat = st.bits.toNat := u8_of_lt8 _ hbits
+    have hb8' : st.bits.toNat < 64 := by rw [UInt32.lt_iff_toNat_lt] at hbits; simpa using hbits
+    have hb8 : st.bits.toUInt8.toNat = st.bits.toNat := u8_of_lt64 _ hbits
     have hS : start.toNat < 2 ^ 32 := start.toNat_lt
     let e : FE := ⟨bo, D.size, oo + (start.toNat - z.avail_out.toNat), oo + start.toNat, oo, ri, oi,
       oi + z.avail_in.toNat, st.bits.toNat, wb, woff, i, b, st, z, rl, ol, Tl, st.lenbits.toNat, rd, od, Td,
@@ -213,53 +237,66 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
     have hAG : Space.get { G1 with istates := upd G1.istates b (some st'), streams := upd G1.streams i (some z') } ri
         = some A' := by cases ri <;> exact hA'
     have hβ := shr3 lf.bits
-    have hm8 := md8 lf.bits
-    have hβ8 : lf.bits.toNat / 8 ≤ p - oi := by omega
+    have hav32 : z.avail_in.toNat < 2 ^ 32 := z.avail_in.toNat_lt
+    have hE : p ≤ oi + z.avail_in.toNat := by omega
     rw [hp]
-    refine Sat.bind (Sat.mono (sat_add_g hAG (off := p) (by omega) _ (p - lf.bits.toNat / 8)
-      (by rw [hβ]; simp; omega) (by omega)) ?_)
+    -- `MIN((unsigned)(bits >> 3), (unsigned)(in - strm->next_in))`: `in` and `next_in` in the input object
+    refine sat_bind_eq (ZlibNgF.Proof.InflateInv.ldStream_app (z := z') (by simp)) ?_
+    have hzni : z'.next_in = .ref ri oi := by rcases hzz with rfl | ⟨q, -, rfl⟩ <;> exact hni
+    rw [hzni]
+    refine Sat.bind (Sat.mono (sat_diff_r hAG (o1 := p) (o2 := oi) (by omega) (by omega) (by omega)) ?_)
+    rintro dd H2 ⟨rfl, hH2⟩
+    rw [hH2]
+    have hdn : (Int64.ofInt ((p : Int) - (oi : Int))).toUInt64.toUInt32.toNat = p - oi := by
+      rw [UInt64.toNat_toUInt32, toNat_ofInt_nonneg _ (by omega) (by omega)]; omega
+    generalize (Int64.ofInt ((p : Int) - (oi : Int))).toUInt64.toUInt32 = mb at hdn ⊢
+    obtain ⟨hLc, hLa, hLb⟩ := min_cases (lf.bits.toUInt32 >>> 3) mb
+    generalize (if (lf.bits.toUInt32 >>> 3) > mb then mb else lf.bits.toUInt32 >>> 3) = len at hLc hLa hLb ⊢
+    rw [hβ] at hLc hLa
+    rw [hdn] at hLc hLb
+    have hbits' := sub_shl3 lf.bits len hLa
+    refine Sat.bind (Sat.mono (sat_add_g hAG (off := p) (by omega) _ (p - len.toNat)
+      (by simp; omega) (by omega)) ?_)
     rintro q H2 ⟨rfl, hH2⟩
     rw [hH2]
-    have h64 : (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32 < 64 := by
-      rw [UInt32.lt_iff_toNat_lt]; simp only [UInt8.toNat_toUInt32, hm8]; simp; omega
-    refine sat_bind_eq (a := (1 : UInt64) <<< (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32.toUInt64)
+    have h64 : (lf.bits - (len <<< 3).toUInt8).toUInt32 < 64 := by
+      rw [UInt32.lt_iff_toNat_lt]; simp only [UInt8.toNat_toUInt32, hbits']; simp; omega
+    refine sat_bind_eq (a := (1 : UInt64) <<< (lf.bits - (len <<< 3).toUInt8).toUInt32.toUInt64)
       (by simp only [shl64, h64, ↓reduceIte]; rfl) ?_
     refine sat_bind_eq (ZlibNgF.Proof.InflateInv.ldStream_app (z := z') (by simp)) ?_
-    have hE : p ≤ oi + z.avail_in.toNat := by omega
-    refine Sat.bind (Sat.mono (sat_lt hAG (o1 := p - lf.bits.toNat / 8) (o2 := oi + (z.avail_in.toNat - 14))
+    refine Sat.bind (Sat.mono (sat_lt hAG (o1 := p - len.toNat) (o2 := oi + (z.avail_in.toNat - 14))
       (by omega) (by omega)) ?_)
     rintro cb H3 ⟨rfl, hH3⟩
     rw [hH3]
-    have hav32 : z.avail_in.toNat < 2 ^ 32 := z.avail_in.toNat_lt
-    by_cases hlt : p - lf.bits.toNat / 8 < oi + (z.avail_in.toNat - 14)
-    have hc : decide (p - lf.bits.toNat / 8 < oi + (z.avail_in.toNat - 14)) = true := by simpa using hlt
+    by_cases hlt : p - len.toNat < oi + (z.avail_in.toNat - 14)
+    have hc : decide (p - len.toNat < oi + (z.avail_in.toNat - 14)) = true := by simpa using hlt
     rw [hc]; simp only [↓reduceIte]
-    refine Sat.bind (Sat.mono (sat_diff_r hAG (o1 := oi + (z.avail_in.toNat - 14)) (o2 := p - lf.bits.toNat / 8)
+    refine Sat.bind (Sat.mono (sat_diff_r hAG (o1 := oi + (z.avail_in.toNat - 14)) (o2 := p - len.toNat)
       (by omega) (by omega) (by omega)) ?_)
     rintro d H4 ⟨rfl, hH4⟩
     rw [hH4]
     have hai : ((INFLATE_FAST_MIN_HAVE - 1).toUInt64 + (Int64.ofInt (((oi + (z.avail_in.toNat - 14) : Nat) : Int) -
-        ((p - lf.bits.toNat / 8 : Nat) : Int))).toUInt64).toUInt32.toNat = oi + z.avail_in.toNat - (p - lf.bits.toNat / 8) := by
+        ((p - len.toNat : Nat) : Int))).toUInt64).toUInt32.toNat = oi + z.avail_in.toNat - (p - len.toNat) := by
       rw [UInt64.toNat_toUInt32, UInt64.toNat_add, toNat_ofInt_nonneg _ (by omega) (by omega)]
       simp [INFLATE_FAST_MIN_HAVE]; omega
     generalize ((INFLATE_FAST_MIN_HAVE - 1).toUInt64 + (Int64.ofInt (((oi + (z.avail_in.toNat - 14) : Nat) : Int) -
-        ((p - lf.bits.toNat / 8 : Nat) : Int))).toUInt64).toUInt32 = ai at hai ⊢
+        ((p - len.toNat : Nat) : Int))).toUInt64).toUInt32 = ai at hai ⊢
     refine sat_bind_eq (a := ai) rfl ?_
     rotate_left
-    have hc : decide (p - lf.bits.toNat / 8 < oi + (z.avail_in.toNat - 14)) = false := by simpa using hlt
+    have hc : decide (p - len.toNat < oi + (z.avail_in.toNat - 14)) = false := by simpa using hlt
     rw [hc]; simp only [Bool.false_eq_true, ↓reduceIte]
-    refine Sat.bind (Sat.mono (sat_diff_r hAG (o1 := p - lf.bits.toNat / 8) (o2 := oi + (z.avail_in.toNat - 14))
+    refine Sat.bind (Sat.mono (sat_diff_r hAG (o1 := p - len.toNat) (o2 := oi + (z.avail_in.toNat - 14))
       (by omega) (by omega) (by omega)) ?_)
     rintro d H4 ⟨rfl, hH4⟩
     rw [hH4]
-    have hd14 : (Int64.ofInt (((p - lf.bits.toNat / 8 : Nat) : Int) -
-        ((oi + (z.avail_in.toNat - 14) : Nat) : Int))).toUInt64.toNat = p - lf.bits.toNat / 8 - (oi + (z.avail_in.toNat - 14)) := by
+    have hd14 : (Int64.ofInt (((p - len.toNat : Nat) : Int) -
+        ((oi + (z.avail_in.toNat - 14) : Nat) : Int))).toUInt64.toNat = p - len.toNat - (oi + (z.avail_in.toNat - 14)) := by
       rw [toNat_ofInt_nonneg _ (by omega) (by omega)]; omega
-    have hai : ((INFLATE_FAST_MIN_HAVE - 1).toUInt64 - (Int64.ofInt (((p - lf.bits.toNat / 8 : Nat) : Int) -
-        ((oi + (z.avail_in.toNat - 14) : Nat) : Int))).toUInt64).toUInt32.toNat = oi + z.avail_in.toNat - (p - lf.bits.toNat / 8) := by
+    have hai : ((INFLATE_FAST_MIN_HAVE - 1).toUInt64 - (Int64.ofInt (((p - len.toNat : Nat) : Int) -
+        ((oi + (z.avail_in.toNat - 14) : Nat) : Int))).toUInt64).toUInt32.toNat = oi + z.avail_in.toNat - (p - len.toNat) := by
       rw [UInt64.toNat_toUInt32, UInt64.toNat_sub_of_le _ _ (by rw [UInt64.le_iff_toNat_le, hd14]; simp [INFLATE_FAST_MIN_HAVE]; omega), hd14]
       simp [INFLATE_FAST_MIN_HAVE]; omega
-    generalize ((INFLATE_FAST_MIN_HAVE - 1).toUInt64 - (Int64.ofInt (((p - lf.bits.toNat / 8 : Nat) : Int) -
+    generalize ((INFLATE_FAST_MIN_HAVE - 1).toUInt64 - (Int64.ofInt (((p - len.toNat : Nat) : Int) -
         ((oi + (z.avail_in.toNat - 14) : Nat) : Int))).toUInt64).toUInt32 = ai at hai ⊢
     refine sat_bind_eq (a := ai) rfl ?_
     all_goals
@@ -280,19 +317,19 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
       have hbb : G1.bytes b = h.bytes b := r1.bytes_ne hbo.symm
       refine sat_bind_eq (by simp only [ldState, Heap.istate, hbb, hbd, upd_same]; rfl) ?_
       refine ⟨(), _, by simp only [stState, Heap.istate, hbb, hbd, upd_same]; rfl, ?_, ?_⟩
-      have hbf : (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32.toNat = lf.bits.toNat % 8 := by
-        simp only [UInt8.toNat_toUInt32, hm8]
+      have hbf : (lf.bits - (len <<< 3).toUInt8).toUInt32.toNat = lf.bits.toNat - 8 * len.toNat := by
+        simp only [UInt8.toNat_toUInt32, hbits']
       have hao' : z.avail_out.toNat ≤ start.toNat := hso
       refine ⟨ai, ao, st'.mode,
-        (lf.hold &&& (1 : UInt64) <<< (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32.toUInt64 - 1).toUInt32.toUInt64,
-        (lf.bits - ((lf.bits.toUInt32 >>> 3) <<< 3).toUInt8).toUInt32, st'.length, st'.was, st'.offset, z'.msg,
+        (lf.hold &&& (1 : UInt64) <<< (lf.bits - (len <<< 3).toUInt8).toUInt32.toUInt64 - 1).toUInt32.toUInt64,
+        (lf.bits - (len <<< 3).toUInt8).toUInt32, st'.length, st'.was, st'.offset, z'.msg,
         ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · rw [hbf, hai]; omega
       · rw [UInt32.le_iff_toNat_le]; omega
       · rw [UInt32.le_iff_toNat_le]; omega
       · show (upd (upd G1.streams i (some z')) i (some _)) i = some _
         rw [upd_same]
-        have h1 : oi + (z.avail_in - ai).toNat = p - lf.bits.toNat / 8 := by
+        have h1 : oi + (z.avail_in - ai).toNat = p - len.toNat := by
           rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; omega)]; omega
         have h2 : oo + (start - ao).toNat = po := by
           rw [UInt32.toNat_sub_of_le _ _ (by rw [UInt32.le_iff_toNat_le]; omega)]; omega
@@ -306,7 +343,9 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
         · exact Or.inr (Or.inr (Or.inl rfl))
         · exact Or.inr (Or.inl rfl)
         · exact Or.inr (Or.inr (Or.inr ⟨hsf, rfl, hd1⟩))
-      · rw [UInt32.lt_iff_toNat_lt, hbf]; simp; omega
+      · rcases hLc with hL | hL
+        · left; rw [UInt32.lt_iff_toNat_lt, hbf]; simp; omega
+        · right; rw [UInt32.lt_iff_toNat_lt, hbf]; omega
       · rw [hbf, hai, hao]
         split <;> omega
       · exact hbb
@@ -354,7 +393,7 @@ theorem inflate_fast_post_w (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (
 theorem inflate_fast_post (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState) (start : UInt32)
     (ri : BRef) (oi bo oo : Nat) (A D : Array UInt8) (hmode : st.mode = ZlibNg.Inflate.LEN)
     (hz : h.streams i = some z) (hzs : z.state = some b) (hst : h.istate b = some st)
-    (hbits : st.bits < 8) (hbo : bo ≠ b) (woff : Nat) (wd : Array UInt8)
+    (hbits : st.bits < 64) (hbo : bo ≠ b) (woff : Nat) (wd : Array UInt8)
     (hwv : st.window = .val (B b woff)) (hwd : h.bytes b = some wd) (hws : woff + st.wsize.toNat ≤ wd.size)
     (hwh : st.whave ≤ st.wsize) (hwn : st.wnext ≤ st.whave)
     (lc dc : CodePtr) (hlc : st.lencode = .val lc) (hdc : st.distcode = .val dc)

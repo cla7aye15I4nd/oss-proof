@@ -9,10 +9,10 @@ structure. These are statements about translated C functions, to be proved as th
 * `TableFacts`: `zng_inflate_table` (`inftrees.c`) as `CODELENS` and `LENLENS` call it: no fault, it writes only the
   `codes` and `work` arrays of the state (the entries before the table start unchanged), and on success the region
   `[o, o')` it returns is a `CodeTable` (`Proof/inflate.c.tables.lean`) with the returned root bits;
-* `FastFacts`: `inflate_fast_c` / `inflate_fast_safe_c` (`inffast_tpl.h`) as `LEN` calls them (patch 0007: fewer than
-  8 bits held): no fault, they advance `next_in` / `next_out` by what they consume / produce, write only the output
+* `FastFacts`: `inflate_fast_c` / `inflate_fast_safe_c` (`inffast_tpl.h`) as `LEN` calls them (with the bits the
+  invariant allows, at most 39; patch 0007 moves `next_in` back by no more than the call loaded): no fault, they advance `next_in` / `next_out` by what they consume / produce, write only the output
   buffer `[next_out, next_out + avail_out)` (no other byte block changes, and the output block keeps its size), the stream record and the state's `mode`, `hold`, `bits`, `length`,
-  `was`, `offset`; they leave `LEN`, `TYPE` or `BAD`, or (the safe variant, a match longer than the room left,
+  `was`, `offset`; they leave at most 39 bits held and `LEN`, `TYPE` or `BAD`, or (the safe variant, a match longer than the room left,
   `inffast_tpl.h:207-213`) `MATCH` with a nonzero `offset`; they never increase the input bits plus output bytes
   still available, and unless `BAD` consume a bit or produce a byte;
 * `CopyFacts`: `chunkmemset_safe_c` (`chunkset_tpl.h`) as `MATCH` calls it, for a distance `1 ≤ d < 2 ^ 63` back
@@ -58,14 +58,14 @@ structure TableFacts : Prop where
 
 /-- `inflate_fast_c` (`safe = false`, at least 260 output bytes) and `inflate_fast_safe_c` (`safe = true`, 3 to 259
 output bytes) as `LEN` calls them after `RESTORE()`: a state in `LEN` with the invariant (so with its tables,
-`ModeOK`), fewer than 8 bits held, at least 15 input bytes at `next_in`, and an output buffer that started `start -
+`ModeOK`, at most 39 bits held), at least 15 input bytes at `next_in`, and an output buffer that started `start -
 avail_out` bytes before `next_out` (the bytes written by this `inflate` call, which a match may copy from), with the
 input, the output buffer and the state's block disjoint. -/
 structure FastFacts : Prop where
   fast : ∀ (safe : Bool) (h : Heap) (i b : Nat) (z : ZStream) (st : InflateState) (start : UInt32) (ri : BRef)
       (oi bo oo : Nat),
     Inv h (some i) → h.streams i = some z → z.state = some b → h.istate b = some st →
-    st.mode = LEN → st.bits < 8 → 15 ≤ z.avail_in →
+    st.mode = LEN → 15 ≤ z.avail_in →
     (if safe then 3 ≤ z.avail_out ∧ z.avail_out < 260 else 260 ≤ z.avail_out) → z.avail_out ≤ start →
     z.next_in = .ref ri oi → ReadSlice h z.next_in z.avail_in.toNat →
     z.next_out = .ref (.heap bo) (oo + (start - z.avail_out).toNat) → WriteSlice h (.ref (.heap bo) oo) start.toNat →
@@ -88,7 +88,7 @@ structure FastFacts : Prop where
         length := len
         was := was
         offset := off } ∧
-      (m = LEN ∨ m = TYPE ∨ m = BAD ∨ (safe = true ∧ m = MATCH ∧ 1 ≤ off.toNat)) ∧ bits < 8 ∧
+      (m = LEN ∨ m = TYPE ∨ m = BAD ∨ (safe = true ∧ m = MATCH ∧ 1 ≤ off.toNat)) ∧ bits ≤ 39 ∧
       8 * ai.toNat + bits.toNat + ao.toNat + (if m = BAD then 0 else 1) ≤
         8 * z.avail_in.toNat + st.bits.toNat + z.avail_out.toNat ∧
       h'.bytes b = h.bytes b ∧ h'.iallocs b = h.iallocs b ∧ (∀ c, c ≠ bo → h'.bytes c = h.bytes c) ∧

@@ -45,7 +45,7 @@ theorem tabAt_fast' {H : Heap} {b : Nat} {st : InflateState} (hst : H.istate b =
 open ZlibNgF.Spec ZlibNgF.Proof.InflateInv in
 /-- **`FastFacts`**: `inflate_fast_c` / `inflate_fast_safe_c` as `LEN` calls them. -/
 theorem fastFacts : ZlibNgF.Proof.InflateFacts.FastFacts := by
-  refine ⟨fun safe h i b z st start ri oi bo oo hinv hz hzs hst hmode hbits hin15 hroom hstart hni hrd hno hwr _ _
+  refine ⟨fun safe h i b z st start ri oi bo oo hinv hz hzs hst hmode hin15 hroom hstart hni hrd hno hwr _ _
     hbo => ?_⟩
   have hinv' := hinv
   obtain ⟨i', z0, b0, st0, al, hi, hz0, hb0, hst0, -, core⟩ := hinv'
@@ -53,6 +53,8 @@ theorem fastFacts : ZlibNgF.Proof.InflateFacts.FastFacts := by
   rw [hz] at hz0; cases hz0
   rw [hzs] at hb0; cases hb0
   rw [hst] at hst0; cases hst0
+  have hb39 : st.bits ≤ 39 := core.bits
+  have hbits : st.bits < 64 := by rw [UInt32.le_iff_toNat_le] at hb39; rw [UInt32.lt_iff_toNat_lt]; simp at hb39 ⊢; omega
   obtain ⟨woff, wd, hwv, -, hwd, hws⟩ := core.window
   have hwb := core.wbufsize
   have hwz := core.wsize
@@ -79,10 +81,14 @@ theorem fastFacts : ZlibNgF.Proof.InflateFacts.FastFacts := by
     cases safe
     · exact hroom
     · exact hroom.1
-  obtain ⟨_, h', e, ai, ao, m, hold, bits, len, was, off, msg, -, rest⟩ := InffastMain.inflate_fast_post safe h i b z st
+  obtain ⟨_, h', e, ai, ao, m, hold, bits, len, was, off, msg, -, r1, r2, r3, r4, r5, r6, rest⟩ :=
+    InffastMain.inflate_fast_post safe h i b z st
     start ri oi bo oo A D hmode hz hzs hst hbits hbo woff wd hwv hwd hws' core.whave core.wnext_le lc dc hlc hdc htab
     (hnb lc _ core.lencode hlc) (hnb dc _ core.distcode hdc) hin15 hstart hroom' hni hA hAs hno hD hDs
-  refine ⟨h', ai, ao, m, hold, bits, len, was, off, msg, ?_, rest⟩
+  have r6' : bits ≤ 39 := by
+    rw [UInt32.le_iff_toNat_le] at hb39 ⊢
+    rcases r6 with r6 | r6 <;> rw [UInt32.lt_iff_toNat_lt] at r6 <;> simp at r6 hb39 ⊢ <;> omega
+  refine ⟨h', ai, ao, m, hold, bits, len, was, off, msg, ?_, r1, r2, r3, r4, r5, r6', rest⟩
   cases safe <;> exact e
 
 end ZlibNgF.Proof.InffastFacts

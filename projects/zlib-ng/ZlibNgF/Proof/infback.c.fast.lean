@@ -7,7 +7,7 @@ import ZlibNgF.Proof.«inflate.c.callees»
 With at least 15 input bytes and 3 bytes of room, `LEN` stores the locals into the stream and the state (`RESTORE`),
 calls `inflate_fast_safe_c(strm, state->wsize)` with its output inside the caller's window (`next_out == window +
 (wsize - left)`, so `beg == window`), and loads them back (`LOAD`). `inflate_fast_post_w` (same-block case) gives the
-records it leaves: fewer than 8 bits held, at least one input bit consumed, a new mode among `LEN`, `TYPE`, `BAD` and
+records it leaves: fewer than 8 bits held (as on entry), at least one input bit consumed, a new mode among `LEN`, `TYPE`, `BAD` and
 `MATCH` with a non-zero distance, only window bytes written, nothing allocated.
 -/
 
@@ -131,7 +131,8 @@ theorem len_fast {E : BEnv} (cb : E.CB) {l : IL} {H : Heap} {t : Nat} {z : ZStre
   refine SatX.bind (liftEq (InflateInv.ldStream_app hz3) ?_)
   refine SatX.bind (liftEq (InflateInv.ldState_app hs3') ?_)
   refine SatX.modify (SatX.pure ?_)
-  have hb32 : bits.toNat < 8 := by rw [UInt32.lt_iff_toNat_lt] at hbits; simpa using hbits
+  have hb32 : bits.toNat < 8 := by
+    rcases hbits with hbits | hbits <;> rw [UInt32.lt_iff_toNat_lt] at hbits <;> simp at hbits <;> omega
   have hai' : ai.toNat ≤ l.have_.toNat := UInt32.le_iff_toNat_le.mp hai
   have hao' : ao.toNat ≤ l.left.toNat := UInt32.le_iff_toNat_le.mp hao
   have hb8' : bits.toUInt8.toNat = bits.toNat := by
