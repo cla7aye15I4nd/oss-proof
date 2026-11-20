@@ -48,6 +48,7 @@ cases=(
   "fixed-block-start-overflow|0018|f|runtime error: signed integer overflow|deflate 1 2151677952|180"
   "deflate-slow-match-start|0019|362,303|ERROR: AddressSanitizer OR runtime error OR round-trip MISMATCH|inflate 1 out 80393 of 80393 round-trip ok;inflate 1 out 86208 of 86208 round-trip ok"
   "gzdirect-pending-skip|0020||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 getc -1 tell 13"
+  "gzgets-pending-skip|0021||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 gets null tell 3"
   "gzwrite-zero-retry|0022|max,retry|runtime error: signed integer overflow OR ^retry seek 10000 write 0 tell 14096 write 3 tell 14099 close 0 bytes 14099 bad$|max seek 9223372036854775807 write 0 tell 9223372036854775807;retry seek 10000 write 0 tell 10000 write 3 tell 10003 close 0 bytes 10003 ok"
 )
 

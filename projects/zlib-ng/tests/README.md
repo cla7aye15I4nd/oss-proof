@@ -89,6 +89,7 @@ print the expected result.
 | `fixed-block-start-overflow` | 0018 | signed overflow of `block_start` in `fill_window` after `2^31` bytes of one `Z_FIXED` level-1 stream (about 20 s) |
 | `deflate-slow-match-start` | 0019 | level 8 `deflate_slow` takes a match at or after `strstart` (levels 5 then 8 after `Z_FULL_FLUSH`): the wrapped distance makes `d_code` read far outside `dist_code` (AddressSanitizer), and without a sanitizer the stream decodes to wrong data |
 | `gzdirect-pending-skip` | 0020 | `gzseek` to `INT64_MAX`, `gzdirect`, `gzgetc`, `gztell` on a file that is not gzip: signed overflow of `x.pos + skip` in `gztell64` |
+| `gzgets-pending-skip` | 0021 | `gzseek` to `INT64_MAX` and `gzdirect` on a file of 3 bytes that is not gzip, the file grows, then `gzgets` and `gztell`: signed overflow of `x.pos + skip` in `gztell64` |
 | `gzwrite-zero-retry` | 0022 | on a transparent writer whose descriptor is a full non-blocking pipe: `gzseek` to `INT64_MAX`, a failed `gzwrite`, `gztell`: signed overflow of `x.pos + skip` in `gztell64` (run `max`); `gzseek` to 10000, a failed `gzwrite`, the pipe drained, `gzclearerr`, `gzwrite` again: 14099 bytes in the file and `gztell` 14099 instead of 10003 (run `retry`) |
 
 Every case above uses documented calls only (**public API**); none sets the library's internal state itself

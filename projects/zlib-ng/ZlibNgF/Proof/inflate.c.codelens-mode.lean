@@ -26,13 +26,13 @@ theorem pullbyte_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {
     SatX H l PULLBYTE (fun r l' H' => H' = H ∧ match r with
       | .ok () => LI E l' H z S ∧ Pulled l l' ∧ l'.bits.toNat = l.bits.toNat + 8 ∧
           l'.have_.toNat + 1 = l.have_.toNat
-      | .error e => e = .leave ∧ l' = l) := by
+      | .error e => e = .leave ∧ l' = l ∧ l.have_ = 0) := by
   unfold PULLBYTE
   refine SatX.bind (SatX.get ?_)
   dsimp only
   by_cases h0 : l.have_ = 0
   · simp only [h0, beq_self_eq_true, ↓reduceIte]
-    exact SatX.bind (SatX.throw ⟨rfl, rfl, rfl⟩)
+    exact SatX.bind (SatX.throw ⟨rfl, rfl, rfl, trivial⟩)
   · have h0' : (l.have_ == 0) = false := by simpa using h0
     simp only [h0', Bool.false_eq_true, ↓reduceIte]
     obtain ⟨r, o, d, hnx, hg, hsz⟩ := li.inBytes eo h0
@@ -79,7 +79,7 @@ theorem decode_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S 
         8 * l'.have_.toNat + l'.bits.toNat = 8 * l.have_.toNat + l.bits.toNat ∧
         match res with
         | .ok () => EntryOK l'.here 25 false ∧ l'.here.bits ≤ l'.bits
-        | .error e => e = .leave) := by
+        | .error e => e = .leave ∧ l'.have_ = 0) := by
   have hn15 : lb.toNat ≤ 15 := t.n_le
   unfold xloopBrk
   refine xwhileBrk_rank (fun l' H' => H' = H ∧ LI E l' H z S ∧ l'.left = l.left ∧
@@ -112,7 +112,7 @@ theorem decode_ok {E : Env} (eo : EnvOK E) {l : IL} {H : Heap} {z : ZStream} {S 
     rintro res l3 H3 ⟨hH3, hres⟩
     rw [hH3]
     match res, hres with
-    | .error e, ⟨he, hl3⟩ => rw [he, hl3]; exact ⟨rfl, li2, hl1, hb1, rfl⟩
+    | .error e, ⟨he, hl3, h0⟩ => rw [he, hl3]; exact ⟨rfl, li2, hl1, hb1, rfl, h0⟩
     | .ok (), ⟨li3, p3, hb3, hh3⟩ =>
       refine SatX.pure ⟨⟨rfl, li3, ?_, ?_⟩, ?_⟩
       · rw [p3.1]; exact hl1
@@ -307,7 +307,7 @@ theorem repK_ok {E : Env} {m : Nat} {l0 : IL} {l : IL} {H : Heap} {z : ZStream} 
   rintro r l3 H3 ⟨hH3, li3, p3, -, hr⟩
   rw [hH3]
   match r, hr with
-  | .error e, ⟨he, _⟩ => rw [he]; exact ⟨z, S, li3⟩
+  | .error e, ⟨he, _, h0⟩ => rw [he]; exact ⟨⟨z, S, li3⟩, Why.have0 h0⟩
   | .ok (), hr =>
   rw [hn] at hr
   have hl3 : l3.left = l.left := by rw [p3.1]
@@ -364,7 +364,7 @@ theorem rep16_ok {E : Env} {m : Nat} {l0 : IL} {l : IL} {H : Heap} {z : ZStream}
   rintro r l3 H3 ⟨hH3, li3, p3, -, hr⟩
   rw [hH3]
   match r, hr with
-  | .error e, ⟨he, _⟩ => rw [he]; exact ⟨z, S, li3⟩
+  | .error e, ⟨he, _, h0⟩ => rw [he]; exact ⟨⟨z, S, li3⟩, Why.have0 h0⟩
   | .ok (), hr =>
   rw [hn] at hr
   have hl3 : l3.left = l.left := by rw [p3.1]
@@ -485,7 +485,7 @@ theorem bad_withS {E : Env} {l : IL} {H : Heap} {z : ZStream} {S : InflateState}
     (hh : S'.head = S.head) (hμ : 32 * (8 * l.have_.toNat + l.bits.toNat + l.left.toNat) < m) (msg : String)
     {i : Nat} (hi : strTable.findIdx? (· == msg) = some i) :
     SatX (withS H E.b S') l (do (MonadLiftT.monadLift (SET_BAD E.c msg) : X Unit); pure ()) (Post E m) := by
-  have li1 := li.withS { S' with mode := BAD } keep hh
+  have li1 := li.withS { S' with mode := BAD } keep hh (Or.inr fun _ => show rank BAD ≤ 2 by decide)
   have hs : Sat (withS H E.b S') (SET_BAD E.c msg) (fun _ H' => ∃ z', LI E l H' z' { S' with mode := BAD }) := by
     unfold SET_BAD
     refine Sat.bind (Sat.of_eq (wrS_withS li.hs S' _) ?_)
@@ -541,7 +541,7 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
         rintro res l2 H2 ⟨hH2, li2, hl2, hb2, hres⟩
         rw [hH2]
         match res, hres with
-        | .error e, he => rw [he]; exact ⟨z, S1, li2⟩
+        | .error e, ⟨he, h0⟩ => rw [he]; exact ⟨⟨z, S1, li2⟩, Why.have0 h0⟩
         | .ok (), ⟨hent, hbits⟩ =>
         refine SatX.bind (SatX.get ?_)
         refine SatX.bind (SatX.lift_eq (a := (.ref (.lens E.b) 0 : WPtr)) rfl ?_)
@@ -629,7 +629,7 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
     next := .val (.ref (.codes E.b) 0)
     lencode := .val (.ref (.codes E.b) 0)
     lenbits := MAX_LEN_ROOT_BITS }
-  obtain ⟨ret, o', lb, codes', work', e, hcs, hws, -, -, hok, herr⟩ :=
+  obtain ⟨ret, o', lb, codes', work', e, hcs, hws, -, hr3, hok, herr⟩ :=
     Inftrees.table_run (withS H1 E.b S4) E.b S4 ZlibNg.Inftrees.LENS 0 S1.nlen 0 10 (istate_withS hs1 _)
       c1.codes_size c1.lens_size c1.work_size (Or.inr (Or.inl ⟨rfl, rfl, n1, n2, rfl, rfl⟩))
       (fun j hj => by
@@ -644,7 +644,8 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
     exact congrArg (fun H' => Except.ok (_, H')) (withS_withS H1 E.b S4 _)
   refine SatX.bind (SatX.lift (Sat.of_eq e' ?_))
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
-  have li1r : LI E { l1 with ret := ret } H1 z1 S1 := li1.locals rfl rfl rfl rfl rfl rfl
+  have li1r : LI E { l1 with ret := ret } H1 z1 S1 :=
+    li1.setRet ret (by rcases hr3 with e | e | e <;> rw [e] <;> decide)
   refine SatX.bind (SatX.modify (SatX.ite (fun hne => ?_) (fun hne => ?_)))
   · have h0 : ret ≠ 0 := by simpa using hne
     obtain rfl := herr h0
@@ -677,7 +678,7 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
   refine SatX.bind (SatX.lift_eq (addLens_withS hs1 S6 (k := S1.nlen.toNat) (by rw [hsz6]; omega)) ?_)
   refine SatX.bind (SatX.lift_eq (a := (.ref (.codes E.b) o' : CodePtr)) rfl ?_)
   refine SatX.bind (SatX.lift_eq (a := (.ref (.work E.b) 0 : WPtr)) rfl ?_)
-  obtain ⟨ret2, o'', db, codes'', work'', e2, hcs2, hws2, hkeep2, -, hok2, herr2⟩ :=
+  obtain ⟨ret2, o'', db, codes'', work'', e2, hcs2, hws2, hkeep2, hr32, hok2, herr2⟩ :=
     Inftrees.table_run (withS H1 E.b S6) E.b S6 ZlibNg.Inftrees.DISTS S1.nlen.toNat S1.ndist o' 9
       (istate_withS hs1 _) hcs c1.lens_size hws
       (Or.inr (Or.inr ⟨rfl, n1, n2, d1, d2, ho1', rfl⟩))
@@ -693,7 +694,8 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
     exact congrArg (fun H' => Except.ok (_, H')) (withS_withS H1 E.b S6 _)
   refine SatX.bind (SatX.lift (Sat.of_eq e2' ?_))
   refine SatX.bind (SatX.lift (Sat.of_eq (wrS_withS hs1 _ _) ?_))
-  have li1r2 : LI E { { l1 with ret := ret } with ret := ret2 } H1 z1 S1 := li1.locals rfl rfl rfl rfl rfl rfl
+  have li1r2 : LI E { { l1 with ret := ret } with ret := ret2 } H1 z1 S1 :=
+    li1r.setRet ret2 (by rcases hr32 with e | e | e <;> rw [e] <;> decide)
   refine SatX.bind (SatX.modify (SatX.ite (fun hne2 => ?_) (fun hne2 => ?_)))
   · have h02 : ret2 ≠ 0 := by simpa using hne2
     have ho := herr2 h02
@@ -720,9 +722,11 @@ theorem run_CODELENS (E : Env) (eo : EnvOK E) (hL : ModeRun E inflate_LEN_ (·.m
       distbits := db
       mode := LEN_ }
     (fun _ _ c => core_CLlen c hcs2 hws2 (by show o' ≤ 1924; omega) ho2' lb db hct1' hct2) rfl
+    (Or.inl (li1.outEq (by rw [hm1]; decide)))
   dsimp (config := { zeta := false }) only
   split
-  · exact SatX.bind (SatX.throw ⟨_, _, liF⟩)
+  · rename_i h
+    exact SatX.bind (SatX.throw ⟨⟨_, _, liF⟩, Why.trees (by simpa [Env.c] using h)⟩)
   · refine hL _ _ _ _ liF rfl m ?_
     unfold μ; dsimp only; rw [rank_LEN_]; omega
 

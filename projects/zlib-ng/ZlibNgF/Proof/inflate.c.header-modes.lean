@@ -132,7 +132,8 @@ theorem headZ2_ok {E : Env} {m : Nat} {l : IL} {H : Heap} {z : ZStream} {S : Inf
       exact key _ _ _ li3 hm
     · simp only [h0, Bool.false_eq_true, ↓reduceIte]
       exact key _ _ _ li2 hm
-  intro H2 z2 S2 li3 _
+  intro H2 z2 S2 li3 hm2
+  have hO : l2.out = E.O0 := li3.outEq (by rw [hm2]; decide)
   refine SatX.bind (SatX.lift (Sat.mono (li3.wrS (fun s => { s with flags := 0 }) (fun _ _ c => c) rfl) ?_))
   intro _ H3 li4
   refine SatX.bind (SatX.lift (Sat.mono (li4.wrS (fun s => { s with check := ADLER32_INITIAL_VALUE })
@@ -148,7 +149,7 @@ theorem headZ2_ok {E : Env} {m : Nat} {l : IL} {H : Heap} {z : ZStream} {S : Inf
     have lo : HEAD ≤ md := by rcases hmd with rfl | rfl <;> decide
     have hi : md ≤ SYNC := by rcases hmd with rfl | rfl <;> decide
     have q : md < LENLENS ∨ LIT < md := by rcases hmd with rfl | rfl <;> decide
-    refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet md lo hi q) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li6.setQuiet md lo hi q (Or.inl hO)) ?_))
     intro _ H6 li7
     refine initbits_ok (post_ok (li7.setBits rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide)) ?_)
     have := rank_le md
@@ -198,7 +199,8 @@ theorem run_HEAD (E : Env) (eo : EnvOK E) : ModeRun E inflate_HEAD (fun S => S.m
   dsimp only
   by_cases hw : (S.wrap == 0) = true
   · simp only [hw, ↓reduceIte]
-    refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet TYPEDO (by decide) (by decide) (Or.inl (by decide))) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li.setQuiet TYPEDO (by decide) (by decide) (Or.inl (by decide))
+      (Or.inl (li.outEq (by rw [hm]; decide)))) ?_))
     intro _ H1 li1
     refine SatX.pure (post_ok li1 ?_)
     unfold μ; simp only [rank_TYPEDO]; omega
@@ -206,8 +208,8 @@ theorem run_HEAD (E : Env) (eo : EnvOK E) : ModeRun E inflate_HEAD (fun S => S.m
   refine SatX.bind (SatX.mono (needbits_ok eo li 16 (by decide)) ?_)
   rintro r l1 H1 ⟨rfl, li1, p1, hb1, hr⟩
   rcases r with e | ⟨⟩
-  · obtain ⟨rfl, -⟩ := hr
-    exact ⟨z, S, li1⟩
+  · obtain ⟨rfl, -, h0⟩ := hr
+    exact ⟨⟨z, S, li1⟩, Why.have0 h0⟩
   have h16 : 16 ≤ l1.bits.toNat := hr
   have hT : 8 * l1.have_.toNat + l1.bits.toNat = 8 * l.have_.toNat + l.bits.toNat := p1.2
   have hleft : l1.left = l.left := by rw [p1.1]
@@ -240,7 +242,8 @@ theorem run_HEAD (E : Env) (eo : EnvOK E) : ModeRun E inflate_HEAD (fun S => S.m
     rw [hl4]
     refine SatX.bind (initbits_ok ?_)
     have li5 := li4.setBits (l' := { l1 with hold := 0, bits := 0 }) rfl rfl rfl rfl rfl (by show (0 : UInt8) ≤ 39; decide)
-    refine SatX.bind (SatX.lift (Sat.mono (li5.setQuiet FLAGS (by decide) (by decide) (Or.inl (by decide))) ?_))
+    refine SatX.bind (SatX.lift (Sat.mono (li5.setQuiet FLAGS (by decide) (by decide) (Or.inl (by decide))
+      (Or.inl (li1.outEq (by rw [hm]; decide)))) ?_))
     intro _ H5 li6
     refine SatX.pure (post_ok li6 ?_)
     have := rank_le FLAGS
