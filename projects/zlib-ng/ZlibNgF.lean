@@ -141,6 +141,7 @@ import ZlibNgF.Proof.«match_tpl.h.bits»
 import ZlibNgF.Proof.«match_tpl.h.safety»
 import ZlibNgF.Proof.«match_tpl.h.accept»
 import ZlibNgF.Proof.«match_tpl.h.top»
+import ZlibNgF.Proof.«deflate_fast.c.chain»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.find»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.insert»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.fizzle»
