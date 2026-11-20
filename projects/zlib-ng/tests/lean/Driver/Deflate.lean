@@ -126,14 +126,19 @@ def parseOp (op : String) : Except String Op := do
   | 'E' => return .E
   | _ => throw s!"bad op {op}"
 
-/-- The header spec: `(text, time, xflags, os, extra, name, comment, hcrc)`. -/
-abbrev HdrSpec := Int32 × Int × Int32 × Int32 × Int × Int × Int × Int32
+/-- The header spec: `(text, time, xflags, os, extra, name, comment, hcrc, extra_len)`; `extra` is the buffer length
+or -1, `extra_len` the value stored in the field (the optional ninth field; `extra` when absent). -/
+abbrev HdrSpec := Int32 × Int × Int32 × Int32 × Int × Int × Int × Int32 × Int
 
 def parseHdr (s : String) : Except String (Option HdrSpec) := do
   if s == "-" then return none
   match s.splitOn "/" with
   | [t, tm, xf, os, ex, nm, cm, hc] =>
-    return some (← i32 t, ← parseInt tm, ← i32 xf, ← i32 os, ← parseInt ex, ← parseInt nm, ← parseInt cm, ← i32 hc)
+    let ex ← parseInt ex
+    return some (← i32 t, ← parseInt tm, ← i32 xf, ← i32 os, ex, ← parseInt nm, ← parseInt cm, ← i32 hc, ex)
+  | [t, tm, xf, os, ex, nm, cm, hc, el] =>
+    return some (← i32 t, ← parseInt tm, ← i32 xf, ← i32 os, ← parseInt ex, ← parseInt nm, ← parseInt cm, ← i32 hc,
+      ← parseInt el)
   | _ => throw "bad header"
 
 def deflateLoop (s : StreamPtr) (inlen : Nat) (outcap : Nat) (n : Int32)
@@ -162,13 +167,13 @@ def runDef (level method wbits memlevel strategy : Int32) (data dict : Option (A
   let dictB ← mkBlock (dict.getD #[])
   let outB ← mkBlock (Array.replicate outcap 0)
   let mut hp : HeaderPtr := none
-  if let some (t, tm, xf, os, ex, nm, cm, hc) := hdr then
+  if let some (t, tm, xf, os, ex, nm, cm, hc, el) := hdr then
     let eb ← if ex < 0 then pure .null else mkBlock (Array.ofFn (n := ex.toNat) fun i => UInt8.ofNat (i.val * 7 + 1))
     let nb ← if nm < 0 then pure .null else
       mkBlock ((Array.ofFn (n := nm.toNat) fun i => UInt8.ofNat (97 + i.val % 26)).push 0)
     let cb ← if cm < 0 then pure .null else
       mkBlock ((Array.ofFn (n := cm.toNat) fun i => UInt8.ofNat (65 + i.val % 26)).push 0)
-    let g : GzHeader := { text := t, time := UInt64.ofInt tm, xflags := xf, os := os, extra := eb, extra_len := (if ex < 0 then 0 else UInt32.ofInt ex), extra_max := (if ex < 0 then 0 else UInt32.ofInt ex), name := nb, name_max := (if nm < 0 then 0 else UInt32.ofInt (nm + 1)), comment := cb, comm_max := (if cm < 0 then 0 else UInt32.ofInt (cm + 1)), hcrc := hc, done := 0 }
+    let g : GzHeader := { text := t, time := UInt64.ofInt tm, xflags := xf, os := os, extra := eb, extra_len := (if ex < 0 then 0 else UInt32.ofInt el), extra_max := (if ex < 0 then 0 else UInt32.ofInt ex), name := nb, name_max := (if nm < 0 then 0 else UInt32.ofInt (nm + 1)), comment := cb, comm_max := (if cm < 0 then 0 else UInt32.ofInt (cm + 1)), hcrc := hc, done := 0 }
     hp ← newHeader g
   let s1 ← newStream {}
   let s2 ← newStream {}

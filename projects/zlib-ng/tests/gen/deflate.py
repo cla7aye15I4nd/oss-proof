@@ -140,6 +140,15 @@ for case in range(100 if QUICK else 250):
     d(rng.randint(0, 9), rng.choice((31, 25, 15)), mem, 0, data("t", n), n, script, hdr=hdr,
       outcap=n + max(ex, 0) + max(nm, 0) + max(cm, 0) + 200)
 
+# 7b. extra_len beyond 16 bits (patch 0003): deflate writes only the low 16 bits, deflateBound counts the same; the
+# buffer always holds 65535 bytes, so every value's low 16 bits stay inside it.
+for el in (0, 1, 0xffff, 0x10000, 0x10001, 0xfffffffe, 0xffffffff):
+    for wb in (31, 25):
+        n = rng.choice((0, 5, 400))
+        hdr = "0/0/0/3/65535/-1/-1/0/%d" % el
+        d(rng.choice((1, 6)), wb, 8, 0, data("t", n), n, ["H", "B0", "b0", "B%d" % n, "b%d" % n] + finish(),
+          hdr=hdr, outcap=n + 65535 + 300)
+
 # 8. Invalid arguments, calls after end and after errors, tiny avail_out.
 for args in ((10, 8, 15, 8, 0), (-2, 8, 15, 8, 0), (6, 7, 15, 8, 0), (6, 8, 7, 8, 0), (6, 8, 16, 8, 0),
              (6, 8, -16, 8, 0), (6, 8, 32, 8, 0), (6, 8, 15, 0, 0), (6, 8, 15, 10, 0), (6, 8, 15, 8, 5),
