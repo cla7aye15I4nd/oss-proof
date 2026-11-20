@@ -192,6 +192,7 @@ import ZlibNgF.Proof.«gzread.c.gets»
 import ZlibNgF.Proof.«gzread.c.idlespec»
 import ZlibNgF.Proof.«gzread.c.pushback»
 import ZlibNgF.Proof.«gzread.c.fetch»
+import ZlibNgF.Proof.«gzread.c.wrap»
 import ZlibNgF.Proof.«gzlib.c.handles»
 import ZlibNgF.Proof.«gzwrite.c.needs»
 import ZlibNgF.Proof.«deflate.c.psi»
@@ -243,3 +244,7 @@ import ZlibNgF.Proof.«deflate_quick.c.static»
 import ZlibNgF.Proof.«public-deflate»
 import ZlibNgF.Proof.«gzwrite.c.compdone»
 import ZlibNgF.Proof.«public-compress»
+import ZlibNgF.Proof.«public-gz-open»
+import ZlibNgF.Proof.«public-gzlib»
+import ZlibNgF.Proof.«public-gzread»
+import ZlibNgF.Proof.«public-gzwrite»
