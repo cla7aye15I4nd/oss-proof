@@ -1,4 +1,5 @@
 import ZlibNgF.Proof.«gzread.c.close»
+import ZlibNgF.Proof.«gzlib.c.seek64»
 
 /-!
 # The induction over reachable files, and the goals proved on every handle (`ZlibNgF`)
@@ -24,10 +25,6 @@ structure GReadPending : Prop where
   ungetc : KeepsR SUngetc
   gets : KeepsR SGets
   direct : KeepsR SDirect
-  seek64R : KeepsR SSeek64
-  seekR : KeepsR SSeek
-  seek64W : KeepsW SSeek64
-  seekW : KeepsW SSeek
 
 theorem step_keeps (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {w' : World} {h' : Heap} {f : GzPtr}
     (hv : GzInvR w h f ∨ GzInvWS w h f) (hs : GzStep w h w' h' f) : GzInvR w' h' f ∨ GzInvWS w' h' f := by
@@ -50,8 +47,8 @@ theorem step_keeps (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {
     · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x))))))
     · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x)))))))
     · exact wstep_keepsR _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr x)))))))
-    · exact R.seek64R _ _ _ _ _ hv x
-    · exact R.seekR _ _ _ _ _ hv x
+    · exact seek64R_keeps _ _ _ _ _ hv x
+    · exact seekR_keeps _ _ _ _ _ hv x
     · exact rewind_keepsR _ _ _ _ _ hv x
     · exact tell64_keeps.1 _ _ _ _ _ hv x
     · exact tell_keeps.1 _ _ _ _ _ hv x
@@ -78,8 +75,8 @@ theorem step_keeps (W : GWriteSteps) (R : GReadPending) {w : World} {h : Heap} {
     · exact W.step _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x))))))
     · exact W.step _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl x)))))))
     · exact W.step _ _ _ _ _ hv (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr x)))))))
-    · exact R.seek64W _ _ _ _ _ hv x
-    · exact R.seekW _ _ _ _ _ hv x
+    · exact seek64W_keeps _ _ _ _ _ hv x
+    · exact seekW_keeps _ _ _ _ _ hv x
     · exact rewind_keepsW _ _ _ _ _ hv x
     · exact tell64_keeps.2 _ _ _ _ _ hv x
     · exact tell_keeps.2 _ _ _ _ _ hv x
@@ -218,5 +215,27 @@ theorem gzclose_r_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzclose_
     refine ⟨_, _, _, gzclose_r_write hs hw, gzframe_refl w h _ [], fun ⟨b', s', e, hs', hm⟩ => ?_⟩
     cases e; rw [hs] at hs'; cases hs'
     exact absurd (hm.symm.trans hw) read_ne_write
+
+theorem gzseek64_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzseek64_safety := by
+  intro w h f off wh _ hh
+  rcases handle W R hh with rfl | hv | hv
+  · exact ⟨-1, w, h, rfl, gzframe_refl w h none []⟩
+  · obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+    obtain ⟨r, w', h', e, -, g⟩ := gzseek64_read hv hs off wh
+    exact ⟨r, w', h', e, g.frame⟩
+  · obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+    obtain ⟨r, w', h', e, -, g⟩ := gzseek64_write hv hs off wh
+    exact ⟨r, w', h', e, g.frame⟩
+
+theorem gzseek_safety_of (W : GWriteSteps) (R : GReadPending) : Goal.gzseek_safety := by
+  intro w h f off wh _ hh
+  rcases handle W R hh with rfl | hv | hv
+  · exact ⟨-1, w, h, rfl, gzframe_refl w h none []⟩
+  · obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+    obtain ⟨r, w', h', e, -, g⟩ := gzseek_of (gzseek64_read hv hs off wh)
+    exact ⟨r, w', h', e, g.frame⟩
+  · obtain ⟨b, s, rfl, hs, -, -⟩ := hv.1
+    obtain ⟨r, w', h', e, -, g⟩ := gzseek_of (gzseek64_write hv hs off wh)
+    exact ⟨r, w', h', e, g.frame⟩
 
 end ZlibNgF.Proof.GzMode
