@@ -121,6 +121,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
     have hCF := cg_cf G1
     have hw5 : st.w_size = st1.w_size := hCF.2.2.2.2.symm
     have hmd := DeflateFastChain.maxDist_toNat st (by rw [hw5]; exact w1)
+    have hw5' : st.w_size.toNat = st1.w_size.toNat := by rw [hw5]
     have hle1 := sli_symle I1
     have hss1 := (hH1 st1 (SH_dstate _ _ _ _ _ _)).2
     have hla1' := (hH1 st1 (SH_dstate _ _ _ _ _ _)).1
@@ -161,7 +162,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {mi
       set_option pp.oneline false in set_option pp.deepTerms false in set_option pp.deepTerms.threshold 4 in
         run_tac do
           let g ← Lean.Elab.Tactic.getMainTarget
-          let m := g.getAppArgs[1]!
+          let m := g.getAppArgs[2]!
           Lean.logInfo m!"KIND {m.ctorName} HEAD {m.getAppFn.ctorName} {m.getAppFn} NARGS {m.getAppNumArgs}"
       (try simp -zeta only [])
       extract_lets jpI
