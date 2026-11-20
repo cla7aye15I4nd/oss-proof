@@ -89,7 +89,7 @@ theorem group_zero (wt P A B : Nat → Nat) (ch : ScanCharges wt P A B) (prev : 
       exact ⟨by omega, fun h => by have : 138 * B i ≤ c * B i := Nat.mul_le_mul_right _ h; omega⟩
 
 /-- `g n + g (n + 1) + … + g (n + k - 1)`. -/
-def rsum (g : Nat → Nat) (n : Nat) : Nat → Nat
+noncomputable def rsum (g : Nat → Nat) (n : Nat) : Nat → Nat
   | 0 => 0
   | k + 1 => g n + rsum g (n + 1) k
 
