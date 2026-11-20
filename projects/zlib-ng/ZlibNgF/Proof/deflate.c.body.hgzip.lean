@@ -162,7 +162,8 @@ theorem gzEnd_ok {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d0
     (G : GzPre h i b z st d0 H0 pbo) {k : Nat} {g : GzHeader} (hgz : st.gzhead = .val (some k))
     (hg : H0.gzheaders k = some g) (a : UInt64) {q : UInt32} (hq : q.toNat ≤ 60) {H : Heap}
     (P : PB H0 i { z with adler := a } b st d0 pbo q H) :
-    Sat H (gzEnd (some b)) (fun r H' => HRet h i b (HKs EXTRA_STATE) r H') := by
+    Sat H (gzEnd (some b))
+      (fun r H' => HRet h i b (fun st' => HKs EXTRA_STATE st' ∧ st'.last_flush = st.last_flush) r H') := by
   obtain ⟨d, rfl, hs, hl⟩ := P
   unfold gzEnd
   have hlb := G.lb
@@ -175,7 +176,7 @@ theorem gzEnd_ok {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d0
       fun e => absurd e (by show ¬ (EXTRA_STATE = NAME_STATE); decide)⟩⟩
   refine Sat.pure ⟨R', nofun, fun _ st' hst' => ?_⟩
   rw [SH_dstate] at hst'; obtain rfl := Option.some.inj hst'
-  refine .inr ⟨rfl, G.sym, G.pout, ?_⟩
+  refine ⟨.inr ⟨rfl, G.sym, G.pout, ?_⟩, rfl⟩
   show q < st.pending_buf_size
   rw [UInt32.lt_iff_toNat_lt, G.pbs]; omega
 
@@ -202,7 +203,8 @@ theorem gzHcrc_ok {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d
     (G : GzPre h i b z st d0 H0 pbo) {k : Nat} {g : GzHeader} (hgz : st.gzhead = .val (some k))
     (hg : H0.gzheaders k = some g) (a : UInt64) {q : UInt32} (hq : q.toNat ≤ 60) {H : Heap}
     (P : PB H0 i { z with adler := a } b st d0 pbo q H) :
-    Sat H (gzHcrc (some b) (some i) (some k)) (fun r H' => HRet h i b (HKs EXTRA_STATE) r H') := by
+    Sat H (gzHcrc (some b) (some i) (some k))
+      (fun r H' => HRet h i b (fun st' => HKs EXTRA_STATE st' ∧ st'.last_flush = st.last_flush) r H') := by
   have P0 := P
   obtain ⟨d, rfl, hs, hl⟩ := P0
   unfold gzHcrc
@@ -227,7 +229,8 @@ theorem gzSome_ok {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d
     (G : GzPre h i b z st d0 H0 pbo) {k : Nat} {g : GzHeader} (hgz : st.gzhead = .val (some k))
     (hg : H0.gzheaders k = some g) {H : Heap}
     (P : PB H0 i { z with adler := CRC32_INITIAL_VALUE } b st d0 pbo (0 + 1 + 1 + 1) H) :
-    Sat H (gzSome (some b) (some i) (some k)) (fun r H' => HRet h i b (HKs EXTRA_STATE) r H') := by
+    Sat H (gzSome (some b) (some i) (some k))
+      (fun r H' => HRet h i b (fun st' => HKs EXTRA_STATE st' ∧ st'.last_flush = st.last_flush) r H') := by
   have hr : pbo + 64 ≤ d0.size := by have := G.room; omega
   unfold gzSome
   refine pb_hdr P hg ?_
@@ -256,7 +259,8 @@ theorem gzSome_ok {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d
 theorem gzNone_ok {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d0 : Array UInt8} {pbo : Nat}
     (G : GzPre h i b z st d0 H0 pbo) {H : Heap}
     (P : PB H0 i { z with adler := CRC32_INITIAL_VALUE } b st d0 pbo (0 + 1 + 1 + 1) H) :
-    Sat H (gzNone (some b) (some i)) (fun r H' => HRet h i b (HKs EXTRA_STATE) r H') := by
+    Sat H (gzNone (some b) (some i))
+      (fun r H' => HRet h i b (fun st' => HKs EXTRA_STATE st' ∧ st'.last_flush = st.last_flush) r H') := by
   have hr : pbo + 64 ≤ d0.size := by have := G.room; omega
   have hlb := G.lb
   unfold gzNone
@@ -274,12 +278,13 @@ theorem gzNone_ok {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d
     st.gzindex hs hl (by have : (0 + 1 + 1 + 1 + 4 + 1 + 1 + 1 : UInt32).toNat = 10 := rfl; omega) (by decide)
     (by decide) (by decide) (hdrOk_busy (Or.inl rfl))
   exact Sat.mono (flush_ret R' (SH_dstate _ _ _ _ _ _)) fun r H' q' => q'.mono fun st' ⟨k1, k2⟩ => by
-    rw [k2]; exact .inl ⟨rfl, k1, G.sym⟩
+    rw [k2]; exact ⟨.inl ⟨rfl, k1, G.sym⟩, rfl⟩
 
 /-- The `GZIP_STATE` part of `deflateHeaders`. -/
 theorem gzip_ok {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st)
     (hs : st.status = GZIP_STATE) (hp0 : st.pending = 0) :
-    Sat H (headersGzip (some b) (some i)) (HRet h i b (HKs EXTRA_STATE)) := by
+    Sat H (headersGzip (some b) (some i))
+      (HRet h i b fun st' => HKs EXTRA_STATE st' ∧ st'.last_flush = st.last_flush) := by
   obtain ⟨z, st1, al, d, hz, hb, hst1, hal, hd, e, c⟩ := R.live
   obtain rfl := Option.some.inj (hst.symm.trans hst1)
   have hw2 : st.wrap = 2 := (R.side st hst).2.2.1.1 (Or.inl hs)
