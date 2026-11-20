@@ -361,6 +361,7 @@ theorem copy_run {h : Heap} {i j : Nat} {z zd : ZStream} {b : Nat} {st : Deflate
       ins := c.ins
       wpow := c.wpow
       lmod := c.lmod
+      lpow := c.lpow
       scratch := c.scratch
       blk := c.blk
       fe_mod := c.fe_mod

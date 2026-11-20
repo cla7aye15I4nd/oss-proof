@@ -29,6 +29,7 @@ import ZlibNgF.Proof.«trees.c.buildspec»
 import ZlibNgF.Math.TreesRadix
 import ZlibNgF.Proof.«trees.c.sort»
 import ZlibNgF.Proof.«trees.c.build»
+import ZlibNgF.Proof.«deflate.c.side»
 import ZlibNgF.Proof.«deflate_p.h.flush»
 import ZlibNgF.ZlibNg.«infback.c»
 import ZlibNgF.Spec.Safety.Gz

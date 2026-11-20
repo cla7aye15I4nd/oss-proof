@@ -58,8 +58,8 @@ theorem caller_inv {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (hc : DCallerSt
 /-- Every public step keeps the invariant, given the pending preservation lemmas. -/
 theorem step_inv (P : DPending) {h h' : Heap} {s : StreamPtr} (hv : DInv h s) (hs : DeflateStep h h' s) :
     DInv h' s := by
-  rcases hs with ⟨flush, r, hcg, hio, e⟩ | ⟨level, strategy, r, hcg, hio, e⟩ | ⟨d, n, r, hd, hnb, e⟩ |
-    ⟨d, hasLen, r, hd, hnb, e⟩ | ⟨hp, r, _, _, e⟩ | ⟨hp, hb, r, e⟩ | ⟨hb, r, e⟩ | ⟨bits, value, r, hpr, e⟩ |
+  rcases hs with ⟨flush, r, hcg, hio, e⟩ | ⟨level, strategy, r, hcg, hio, e⟩ | ⟨d, n, r, -, hd, hnb, e⟩ |
+    ⟨d, hasLen, r, hd, hnb, -, e⟩ | ⟨hp, r, _, _, e⟩ | ⟨hp, hb, r, e⟩ | ⟨hb, r, e⟩ | ⟨bits, value, r, hpr, e⟩ |
     ⟨g, l, n, c, r, e⟩ | ⟨n, r, e⟩ | ⟨n, r, e⟩ | ⟨r, e⟩ | ⟨r, e⟩ | ⟨dst, r, hdst, hne, e⟩
   · exact P.deflate h h' s flush r hv hcg hio e
   · exact P.params h h' s level strategy r hv hcg hio e

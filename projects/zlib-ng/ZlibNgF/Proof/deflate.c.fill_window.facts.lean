@@ -111,6 +111,7 @@ theorem dcore_fw {h H : Heap} {i : Nat} {z z' : ZStream} {b : Nat} {st st' : Def
     ins := UInt32.le_iff_toNat_le.mpr C.ins
     wpow := C.wpow
     lmod := c.lmod
+    lpow := c.lpow
     scratch := c.scratch
     blk := c.blk
     fe_mod := C.fe_mod
@@ -200,7 +201,7 @@ theorem fill_window_ok2 (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState)
     have hle' : ai.toNat ≤ z.avail_in.toNat := hle
     refine ⟨i, z, _, b, st, _, rfl, hz0, SH_streams _ _ _ _ _ _, hb0, hst0, SH_dstate _ _ _ _ _ _, rfl, hle,
       fun hne => ?_, show la.toNat + ai.toNat ≤ st.lookahead.toNat + z.avail_in.toNat by omega, df, hend,
-      rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+      rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
     have hne' : la ≠ st.lookahead := hne
     have : ¬ la.toNat = st.lookahead.toNat := fun e' => hne' (UInt32.toNat_inj.mp e')
     show ai.toNat < z.avail_in.toNat

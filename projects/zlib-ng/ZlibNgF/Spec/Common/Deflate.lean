@@ -23,8 +23,9 @@ must be those the earlier call used. That is the only caller-owned data that saf
 pairwise disjoint where one of them is written, and outside the library's own block; `deflateGetDictionary` writes
 into a buffer of at least 32768 bytes, the size `zlib.h` names as always enough; `deflateCopy` with distinct source
 and destination; `deflateSetHeader` registers a header for the stream only before the first `deflate` call (status
-`GZIP_STATE`), and `deflatePrime` is called only before any pending output was flushed (`PrimeReady`), as `zlib.h`
-requires.
+`GZIP_STATE`), `deflatePrime` is called only before any pending output was flushed (`PrimeReady`), and
+`deflateSetDictionary` only with no tallied symbols (`DictReady`), as `zlib.h` requires; the buffer of
+`deflateGetDictionary` does not overlap the registered header's buffers.
 -/
 
 set_option autoImplicit false
@@ -116,15 +117,24 @@ def BeforeFirstDeflate (h : Heap) (s : StreamPtr) : Prop :=
 def PrimeReady (h : Heap) (s : StreamPtr) : Prop :=
   ∃ b st, DStateOf h s b st ∧ st.pending_out = st.pending_buf
 
+/-- No symbol is tallied in the deflate state of `s` (`sym_next == 0`). `zlib.h` allows `deflateSetDictionary`
+only before the first `deflate` call or, for raw deflate, right after a completed block (all input consumed and all
+output delivered with `Z_BLOCK`, `Z_PARTIAL_FLUSH`, `Z_SYNC_FLUSH` or `Z_FULL_FLUSH`), when this holds; the call sets
+`block_start` to `strstart`, which in the middle of a block would detach the tallied symbols from their window
+bytes. -/
+def DictReady (h : Heap) (s : StreamPtr) : Prop :=
+  ∃ b st, DStateOf h s b st ∧ st.sym_next = 0
+
 /-- One public deflate call on stream `s` with valid arguments that returns (any result); `deflateEnd` is not a
 step (it ends the stream). -/
 def DeflateStep (h h' : Heap) (s : StreamPtr) : Prop :=
   (∃ flush r, CrcGlobals h ∧ DStreamIO h s ∧ C.run (ZlibNg.Deflate.deflate s flush) h = .ok (r, h')) ∨
   (∃ level strategy r, CrcGlobals h ∧ DStreamIO h s ∧
     C.run (ZlibNg.Deflate.deflateParams s level strategy) h = .ok (r, h')) ∨
-  (∃ d n r, NullOrRead h d n.toNat ∧ (∀ b, StateBlock h s b → NotInBlock b d) ∧
+  (∃ d n r, DictReady h s ∧ NullOrRead h d n.toNat ∧ (∀ b, StateBlock h s b → NotInBlock b d) ∧
     C.run (ZlibNg.Deflate.deflateSetDictionary s d n) h = .ok (r, h')) ∨
   (∃ d hasLen r, NullOrWrite h d 32768 ∧ (∀ b, StateBlock h s b → NotInBlock b d) ∧
+    (∀ k, DRegisteredHeader h s (some k) → ∀ r, DHeaderRange h k r → Disjoint d 32768 r.1 r.2) ∧
     C.run (ZlibNg.Deflate.deflateGetDictionary s d hasLen) h = .ok (r, h')) ∨
   (∃ hp r, BeforeFirstDeflate h s ∧ (∀ k, hp = some k → DHeaderOk h k) ∧
     C.run (ZlibNg.Deflate.deflateSetHeader s hp) h = .ok (r, h')) ∨

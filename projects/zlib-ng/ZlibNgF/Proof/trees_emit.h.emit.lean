@@ -150,6 +150,7 @@ theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room gr
       fe_hi := c.fe_hi
       bs_lo := c.bs_lo
       lmod := c.lmod
+      lpow := c.lpow
       scratch := c.scratch
       blk := c.blk
       descs := c.descs }
@@ -166,7 +167,7 @@ theorem emit_of {s : StreamPtr} {b : Nat} {pre : DeflateState → Prop} {room gr
       obtain rfl := Option.some.inj e2
       rw [SH_streams] at hz2; obtain rfl := Option.some.inj hz2
       rw [SH_dstate] at hst2; obtain rfl := Option.some.inj hst2
-      exact ⟨hk, by omega⟩
+      exact ⟨hk, by omega, by rw [hsn]; exact UInt32.le_refl _⟩
     · intro i2 z2 e2 hz2
       obtain rfl := Option.some.inj e2
       rw [hz] at hz2; obtain rfl := Option.some.inj hz2
