@@ -24,7 +24,9 @@ hypothesis here (as `DPending`) until they are theorems.
   `gz_header`; a successful `deflateInit2_` puts the state into a fresh block.
 * `prog`: a potential `ψ flush` of the deflate state (at most `2^48`) that bounds the output still owed for that flush
   without further input: a call lowers it by the bytes it produces, may raise it by at most `G ≤ 2^28` per input byte
-  consumed, plus 5 when it fills the output (`CallOk`; 0 for `deflateParams`). With the gz buffer of `8 ≤ S ≤ 2^30`
+  consumed, plus 5 when it fills the output (`CallOk`; 0 for `deflateParams`). These facts are asked only of
+  streams with no `gz_header` registered (`gz*` never calls `deflateSetHeader`): the header bytes still owed live in
+  the caller's `gz_header`, which no function of the state can bound. With the gz buffer of `8 ≤ S ≤ 2^30`
   bytes, the loop of `gz_comp` ends by `(2^31 + 2^30) avail_in + 3 ψ + 2 (S - avail_out')` (`avail_out'` is `S` when
   `avail_out` is 0), below `2^64` even for `avail_in < 2^32`; that of `gzsetparams` by `2^50 reset + 2 ψ + [avail_out
   = 0]`.
@@ -85,15 +87,18 @@ def DeflateGz : Prop :=
     C.run (deflateReset s) h = .ok (r, h') → ∃ z', StreamAt h' s z' ∧ BufSame z z' ∧ DKeep h h' s) ∧
   ∃ (ψ : Int32 → DeflateState → Nat) (G : Nat), G ≤ 2 ^ 28 ∧
     -- the bound
-    (∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (f : Int32), DInv h s → DStateOf h s b st →
+    (∀ (h : Heap) (s : StreamPtr) (b : Nat) (st : DeflateState) (f : Int32), DInv h s → DRegisteredHeader h s none →
+      DStateOf h s b st →
       ψ f st ≤ 2 ^ 48) ∧
     -- `deflate`
     (∀ (h h' : Heap) (s : StreamPtr) (flush r : Int32), DInv h s → DSide h s → CrcGlobals h → DStreamIO h s →
+      DRegisteredHeader h s none →
       C.run (deflate s flush) h = .ok (r, h') →
       CallOk (ψ flush) G 5 h h' s ∧ DKeep h h' s ∧ (flush ≠ Z_FINISH → r ≠ Z_STREAM_ERROR →
         ∀ z', StreamAt h' s z' → z'.avail_in = 0 ∨ z'.avail_out = 0)) ∧
     -- `deflateParams`
     (∀ (h h' : Heap) (s : StreamPtr) (level strategy r : Int32), DInv h s → DSide h s → CrcGlobals h →
+      DRegisteredHeader h s none →
       DStreamIO h s → C.run (deflateParams s level strategy) h = .ok (r, h') → CallOk (ψ Z_BLOCK) G 0 h h' s ∧ DKeep h h' s)
 
 end ZlibNgF.Proof.GzWriteNeeds
