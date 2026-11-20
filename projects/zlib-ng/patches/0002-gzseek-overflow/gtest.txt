@@ -1,0 +1,7 @@
+# GoogleTest cases this series adds or changes, run by tests/patch-gtest.sh.
+# <gtest filter> <fails without this patch: yes|no> [VAR=value ...]
+gzip.seek_offset_overflow yes
+gzip.seek_failure_keeps_position yes
+gzip.seek_from_negative_position yes
+# Not observable on a run: the unset pointer plus zero is undefined by the letter of C17; no sanitizer reports it.
+gzip.seek_before_first_read no
