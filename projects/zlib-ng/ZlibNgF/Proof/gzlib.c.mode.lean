@@ -113,7 +113,7 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
     · exact Or.inl e
     · exact Or.inr (ownBlk_keep hm fun c hc => hk.bytes c (by simp only [ownL, List.mem_append]; exact Or.inl (Or.inr hc)))
   · have R := sh.read hr
-    refine ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have⟩
+    refine ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => (R.fresh hz0).of_streams hk.strm⟩
     obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg⟩ := R.bufs hsz
     obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hi
     cases e
@@ -433,7 +433,7 @@ theorem shape_congr {h : Heap} {s s' : GzState} (sh : GzShape h s) (a : Agree s 
     a.posOf sh.pos, hm, fun hr => ?_, fun hw => ?_, fun hz c hc => ?_⟩
   · have R := sh.read (by rw [← a.mode]; exact hr)
     refine ⟨by rw [a.how]; exact R.how, fun hsz => ?_, by rw [a.size, a.hv]; exact R.nobuf,
-      by rw [a.skip, a.pos, a.hv]; exact R.skip_have⟩
+      by rw [a.skip, a.pos, a.hv]; exact R.skip_have, fun hz => (R.fresh (by rw [← a.size]; exact hz)).of_strm a.strm⟩
     obtain ⟨c, base, z, hb, hi, hz, hhv, hai, hreg⟩ := R.bufs (by rw [← a.size]; exact hsz)
     refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hi, by rw [a.strm]; exact hz, ?_, ?_, ?_⟩
     · rw [a.hv, a.next, a.inS, a.outS]; exact hhv
@@ -843,7 +843,7 @@ theorem buffer_keeps : KeepsR SBuffer ∧ KeepsW SBuffer := by
       refine Or.inr ⟨v, e1, e2, ?_, hn⟩
       exact ⟨sh.mode, sh.path, sh.strm, h8, h30, Or.inl hz, ⟨sh.pos.1, sh.pos.2, sh.pos.3, sh.pos.4⟩,
         ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => ⟨(sh.read hr).how, fun e => absurd hz e, (sh.read hr).nobuf,
-          (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd hz e⟩, fun _ => sh.dead hz⟩
+          (sh.read hr).skip_have, (sh.read hr).fresh⟩, fun _ => ⟨fun e => absurd hz e⟩, fun _ => sh.dead hz⟩
   refine ⟨fun w h w' h' f hv hst => ?_, fun w h w' h' f hv hst => ?_⟩
   · obtain ⟨b, s, rfl, hs, sh, hn⟩ := hv.1
     rcases key w h w' h' b s hs sh hn hst with ⟨e1, e2⟩ | ⟨v, e1, e2, sh', hn'⟩ <;> rw [e1, e2]

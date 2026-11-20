@@ -32,7 +32,7 @@ theorem shape_avail0 {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzSh
   refine ⟨?_, by simp only [ownL, hst]⟩
   have R := sh.read hr
   refine ⟨sh.mode, ownStr_keep sh.path fun _ _ => rfl, ⟨{ z with avail_in := 0 }, by simp [avail0]⟩, sh.want_lo, sh.want_hi, sh.size, sh.pos,
-    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have⟩,
+    ⟨?_, sh.msg.mem⟩, fun _ => ⟨R.how, fun hsz => ?_, R.nobuf, R.skip_have, fun hz0 => ?_⟩,
     fun e => absurd (hr.symm.trans e) read_ne_write, fun hz c hc => sh.dead hz c (by rw [hst] at hc; exact hc)⟩
   · rcases sh.msg.msg with e | hm
     · exact Or.inl e
@@ -48,6 +48,9 @@ theorem shape_avail0 {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzSh
     exact InflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst1, hal, core⟩
       ⟨s.strm, z, { z with avail_in := 0 }, sb, rfl, hz, by simp [avail0], hsb, rfl, rfl, rfl, rfl,
         fun k g _ hg => ⟨g, hg⟩, rfl, Nat.le_refl _⟩
+  · obtain ⟨z0, hz0', a1, a2, -⟩ := R.fresh hz0
+    rw [hz] at hz0'; cases hz0'
+    exact ⟨{ z with avail_in := 0 }, by simp [avail0], a1, a2, rfl⟩
 
 /-! ## `gz_reset` of a read handle -/
 
