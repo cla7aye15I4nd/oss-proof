@@ -170,6 +170,26 @@ theorem cg_tally {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S : Nat → 
   obtain rfl : po = po' := by injection hp with e; injection e
   exact ⟨hl ho L.head, L.ph, by omega⟩
 
+/-- The chain fields of the state under `CG`. -/
+theorem cg_cf {b : Nat} {st0 : DeflateState} {d0 : Array UInt8} {S : Nat → Prop} {H0 : Heap} {i : Nat}
+    {z : ZStream} {st : DeflateState} {d : Array UInt8} (G : CG b st0 d0 S (SH H0 i z b st d)) : CF st0 st := by
+  obtain ⟨st1, d1, h1, -, -, c⟩ := G
+  obtain rfl : st1 = st := Option.some.inj (h1.symm.trans (SH_dstate _ _ _ _ _ _))
+  exact c
+
+/-- Room for one more symbol under `SLI`. -/
+theorem sli_symle {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {la ss : UInt32}
+    (I : SLI h i b la ss (SH H0 i z b st d)) : st.sym_next ≤ st.sym_end := by
+  obtain ⟨H1, z1, st1, d1, e, C⟩ := I
+  obtain ⟨rfl, rfl, rfl⟩ := SH_inj e
+  exact UInt32.le_of_lt (C.2 _ (SH_dstate _ _ _ _ _ _)).2
+
+/-- `SymLe` of an `SH` heap. -/
+theorem symle_SH {H0 : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
+    (h : st.sym_next ≤ st.sym_end) : SymLe b (SH H0 i z b st d) := fun st1 h1 => by
+  obtain rfl : st1 = st := Option.some.inj (h1.symm.trans (SH_dstate _ _ _ _ _ _))
+  exact h
+
 /-- A store into the state of an `SH` heap, its result named. -/
 theorem wrD_eq {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState} {d : Array UInt8}
     (f : DeflateState → DeflateState) (st' : DeflateState) (e : f st = st') :
