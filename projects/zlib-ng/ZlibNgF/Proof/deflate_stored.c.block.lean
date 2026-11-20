@@ -169,7 +169,7 @@ theorem blk_ok {h H : Heap} {i b wo : Nat} (F : SF h i b H) (hp0 : ∀ st, H.dst
   refine hk _ (sf_next F S.hz S.hst S.hno S.hX (L := L) hX4 hXo hLA rfl (Or.inl ⟨rfl, rfl⟩) (Nat.le_refl _) hno' hav'
     (fun al _ c => dcore_mv (dcore_pend c he S.hpb hpo' hle' hroom' hpz' hb0' hb8' hbs1 hbs2 S.sym)
       S.hd (SH_bytes _ _ _ _ _ _) hd4 hsy rfl rfl) ?_ ?_)
-  · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl⟩
+  · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩, rfl, rfl, rfl⟩
   · refine ⟨Int32.le_iff_toInt_le.mpr (by rw [hbs', hnb]; show (0 : Int) ≤ _; omega), ?_, hb8'⟩
     rw [he]; exact S.sym
 

@@ -46,7 +46,7 @@ theorem slf_flush_only (T : TreesFacts) {h H : Heap} {i b wo : Nat} (window : M 
   have hk : st'.lookahead = st.lookahead ∧ st'.strstart = st.strstart ∧ st'.window = st.window ∧
       st'.level = st.level ∧ st'.status = st.status ∧ st'.block_start = st.strstart.toInt32 ∧
       st'.sym_end = st.sym_end := by
-    rw [hst2e, hK1]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩
+    rw [hst2e, hK1]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   obtain ⟨hk1, hk2, hk3, hk4, hk5, hk6, hk7⟩ := hk
   have hK : StratKeeps st st' := by rw [hst2e, hK1]; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ => ⟨UInt32.le_refl _, rfl⟩⟩
   have hsend : st'.sym_next < st'.sym_end := by

@@ -590,6 +590,7 @@ theorem resetKeep_side {h h' : Heap} {s : StreamPtr} {r : Int32} (hv : DInv h s)
     refine UInt32.lt_iff_toNat_lt.mpr (Nat.lt_of_not_le fun h3 => ?_)
     have L := (hs b st1 ⟨i, z, rfl, hz, hzb, hst1⟩).2.2.2.2.2.2
     have := (L.1 (UInt32.le_iff_toNat_le.mpr (by simpa using h3))).2.1
+    have e3 : (3 : UInt32).toNat = 3 := rfl
     rw [hl] at this; simp at this; omega
   unfold HdrState
   rcases k3 with e3 | e3 <;> rw [e3] <;> decide

@@ -297,6 +297,7 @@ theorem LazyOk.clear0 {st : DeflateState} (L : LazyOk st) (el : st.lookahead = 0
     (eb : (st.strstart.toNat : Int) = st.block_start.toInt) : st.prev_length < 3 ∧ st.match_available = 0 := by
   refine ⟨UInt32.lt_iff_toNat_lt.mpr (Nat.lt_of_not_le fun h3 => ?_), Classical.byContradiction fun hm => ?_⟩
   · have := (L.1 (UInt32.le_iff_toNat_le.mpr (by simpa using h3))).2.1
+    have e3 : (3 : UInt32).toNat = 3 := rfl
     rw [el] at this; simp at this; omega
   · have := (L.2.1 hm).2; omega
 
