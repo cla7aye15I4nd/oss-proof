@@ -1,14 +1,20 @@
-From 3577723e0f57906afec10010df3572f9c2bb1b13 Mon Sep 17 00:00:00 2001
+From d5882950af7866232967a4e2d4f798c6fba22a06 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 02:00:18 -0800
 Subject: [PATCH] Bound the position lowered by gzungetc()
 
-A failed push keeps the lowered x.pos, and after gzclearerr() pushes start
-again, so x.pos-- overflows after about 2^63 pushes. Return -1 without pushing
-once x.pos <= -GZ_OFF_MAX.
+gzungetc() lowers x.pos for each character pushed back. A push into a full
+buffer fails with Z_DATA_ERROR, which drops the pushed characters but keeps
+the lowered x.pos, and after gzclearerr() pushing starts again, so x.pos
+goes down without a bound and x.pos-- overflows after about 2^63 pushes.
+Return -1 without pushing once x.pos <= -GZ_OFF_MAX (not the minimum value:
+gzseek() negates a negative position).
+
+The bound takes about 2^63 calls to reach. Add a test of the cycle below it.
 ---
- gzread.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ gzread.c                       |  4 ++++
+ test/test_gzfile_api_errors.cc | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 33 insertions(+)
 
 diff --git a/gzread.c b/gzread.c
 index a56544b..bc06d95 100644
@@ -25,3 +31,40 @@ index a56544b..bc06d95 100644
      /* if output buffer empty, put byte at end (allows more pushing) */
      if (state->x.have == 0) {
          state->x.have = 1;
+diff --git a/test/test_gzfile_api_errors.cc b/test/test_gzfile_api_errors.cc
+index 88f8597..57c9792 100644
+--- a/test/test_gzfile_api_errors.cc
++++ b/test/test_gzfile_api_errors.cc
+@@ -1109,3 +1109,32 @@ TEST(gzfile_api_errors, write_buffer_alloc_failure) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_MEM_ERROR);
+     remove("gzapi_err_alloc.gz");
+ }
++
++/* gzungetc() after gzclearerr() following a rejected push:
++ * - the rejected push drops the pushed characters, but the position they
++ *   lowered stays lowered, so each cycle moves gztell() down by 16;
++ * - pushing keeps working after gzclearerr(). */
++TEST(gzfile_api_errors, ungetc_overflow_clearerr_cycles) {
++    const uint8_t data[5] = {'h', 'e', 'l', 'l', 'o'};
++    ASSERT_TRUE(write_gzip_file("gzapi_err_ungetc.gz", data, sizeof(data)));
++
++    gzFile file = PREFIX(gzopen)("gzapi_err_ungetc.gz", "rb");
++    ASSERT_NE(file, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzbuffer)(file, 8), 0);
++
++    for (int cycle = 1; cycle <= 3; cycle++) {
++        for (int i = 0; i < 16; i++)
++            EXPECT_EQ(PREFIX(gzungetc)(0x41 + i, file), 0x41 + i);
++        EXPECT_EQ(PREFIX(gzungetc)(0xff, file), -1);
++        int errnum = Z_OK;
++        PREFIX(gzerror)(file, &errnum);
++        EXPECT_EQ(errnum, Z_DATA_ERROR);
++        EXPECT_EQ(PREFIX(gztell)(file), -16 * cycle);
++        PREFIX(gzclearerr)(file);
++    }
++    EXPECT_EQ(PREFIX(gzungetc)('z', file), 'z');
++    EXPECT_EQ(PREFIX(gzgetc)(file), 'z');
++    EXPECT_EQ(PREFIX(gztell)(file), -48);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++    remove("gzapi_err_ungetc.gz");
++}
