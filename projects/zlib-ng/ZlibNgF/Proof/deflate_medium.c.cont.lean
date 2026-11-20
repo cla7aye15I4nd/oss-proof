@@ -56,7 +56,6 @@ theorem cont_trip_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32}
     (bf : Bool) (hl : MedLv h b) (hm2 : 2 ≤ mic.toNat) (hm3 : mic.toNat ≤ 258) (hd1 : 1 ≤ dist.toNat)
     (hd2 : dist.toNat ≤ 32768)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
     (P : PE h i b W A bf H)
     (hc : ∀ st, H.dstate b = some st → 262 ≤ st.lookahead.toNat ∧ dist.toNat ≤ st.strstart.toNat) :
     Sat H (deflate_medium_cont_trip (some b) (.ref (.heap b) wo) mic dist bf) (fun x H2 =>
@@ -109,7 +108,7 @@ theorem cont_trip_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32}
   have hss3 : (st2.strstart + cl).toNat = st.strstart.toNat + cl.toNat := by rw [hss2]; exact hss
   by_cases hb : (bf || r) = true
   · simp only [hb, ite_true]
-    refine Sat.bind (Sat.mono (pf_flush T PF3 flush hw0 hn) ?_)
+    refine Sat.bind (Sat.mono (pf_flush T PF3 flush hw0 hl) ?_)
     rintro r2 H4 ⟨hnone, hsome⟩
     cases r2 with
     | some r' =>
@@ -156,7 +155,6 @@ theorem cont_loop_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32}
     (bf : Bool) (hl : MedLv h b) (hm2 : 2 ≤ mic.toNat) (hm3 : mic.toNat ≤ 258) (hd1 : 1 ≤ dist.toNat)
     (hd2 : dist.toNat ≤ 32768)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED)
     (P : PE h i b W A bf H)
     (hc : ∀ st, H.dstate b = some st → 262 ≤ st.lookahead.toNat ∧ dist.toNat ≤ st.strstart.toNat) :
     Sat H (cwhile (fun (x : Ctl × Bool) => pure (x.1 matches .cont, x))
@@ -167,7 +165,7 @@ theorem cont_loop_ok (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32}
   · rintro ⟨c, bf1⟩ H1 hI
     refine Sat.pure ⟨fun hc1 => ?_, fun hc1 => ⟨hI, ?_⟩⟩
     · cases c with
-      | cont => exact cont_trip_ok T flush mic dist bf1 hl hm2 hm3 hd1 hd2 hw0 hn hI.1 hI.2
+      | cont => exact cont_trip_ok T flush mic dist bf1 hl hm2 hm3 hd1 hd2 hw0 hI.1 hI.2
       | brk => cases hc1
       | ret r => cases hc1
     · cases c with

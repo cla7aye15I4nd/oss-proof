@@ -40,6 +40,18 @@ theorem slf_lv {h H : Heap} {i b : Nat} (F : SLF h i b H) (hl : MedLv h b) {st :
   have := hl st0 h0
   unfold chainLim; rw [e]; simp only [this.1, this.2, and_self, ite_true]
 
+/-- `StratPost` from `SLF` and the exit facts at the levels of `deflate_medium*` (any strategy, `Z_FIXED`
+included: the level is not 1, and `LazyOk` is kept by `StratKeeps` outside the levels of `deflate_slow`). -/
+theorem slf_postM {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState) (hl : MedLv h b)
+    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
+  refine slf_postL F flush bs (fun st0 h0 e1 => absurd (e1 ▸ (hl st0 h0).1 : (3 : Int32) ≤ 1) (by decide))
+    (fun st0 h0 L st hst => ?_) hs
+  obtain ⟨st1, h1, hk⟩ := F.keeps
+  obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
+  have hT : ¬ TableAt 7 9 st0 := fun ht => absurd (Int32.le_trans ht.1 (hl st0 h0).2) (by decide)
+  obtain ⟨L', hm⟩ := (hk st hst).lazy L hT
+  exact ⟨L', fun _ => hm⟩
+
 /-- `PE` from the loop state. -/
 theorem pe_of_mg {h H : Heap} {i b : Nat} (G : MG h i b H) {st : DeflateState} (hst : H.dstate b = some st) :
     PE h i b st.w_size (2 * avIn H i + st.lookahead.toNat) false H := by
@@ -205,8 +217,7 @@ theorem slf_sh {h H : Heap} {i b : Nat} (F : SLF h i b H) :
 /-- `FLUSH_BLOCK(s, window, 0)` from `PF`: `PE false` with `lookahead` and `strstart` kept, or the return of
 `need_more` with `StratPost` and the chains. -/
 theorem pf_flush (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} {bf : Bool} (P : PF h i b W A bf H) (flush : Int32)
-    (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
-    (hn : ∀ st0, h.dstate b = some st0 → st0.strategy ≠ Z_FIXED) :
+    (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (hl : MedLv h b) :
     Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) 0) (fun r H2 =>
       (r = none → PE h i b W A false H2 ∧ ∀ st2, H2.dstate b = some st2 → ∃ st, H.dstate b = some st ∧
         st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart) ∧
@@ -232,7 +243,7 @@ theorem pf_flush (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} {bf
     rw [hr] at e
     have e' : r' = .need_more := by simpa using e
     subst e'
-    refine ⟨rfl, slf_post F2 flush _ hn fun st2 h2 => ?_, Ch2⟩
+    refine ⟨rfl, slf_postM F2 flush _ hl fun st2 h2 => ?_, Ch2⟩
     obtain ⟨hs0, hs1, -⟩ := hs st2 h2
     refine ⟨hs1, fun e => ?_, fun _ => hs0, fun e => ?_, fun e => ?_⟩
     · rcases e with e | e <;> cases e
