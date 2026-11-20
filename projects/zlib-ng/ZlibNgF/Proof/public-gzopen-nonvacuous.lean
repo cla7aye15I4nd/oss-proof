@@ -71,7 +71,8 @@ theorem str_bound : ∀ (i : Nat) (d : Array UInt8), strTable[i]?.map Heap.litBy
 
 theorem nv_wf : GzWF nvWorld nvHeap := by
   refine ⟨⟨rfl, rfl⟩, ⟨fun b hb => ?_, fun b _ => ⟨Tbl.get_empty_opt b, Tbl.get_empty_opt b⟩⟩, fun r d hd => ?_,
-    fun b _ => Tbl.get_empty_opt b, fun b s hs => ?_, by decide, fun d hd => ?_, fun n v hv => ?_⟩
+    fun b _ => Tbl.get_empty_opt b, fun b s hs => ?_, by decide, fun d hd => ?_, fun n v hv => ?_,
+    fun p hp => by simp [nvWorld] at hp⟩
   · have h3 : 3 ≤ b := hb
     refine ⟨Tbl.get_empty_opt b, Tbl.get_empty_opt b, ?_⟩
     show upd (upd (upd .empty 0 (some #[102, 0])) 1 (some #[114, 98, 0])) 2 (some #[119, 98, 0]) b = none

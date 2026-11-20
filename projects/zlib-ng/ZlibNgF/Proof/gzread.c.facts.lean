@@ -9,8 +9,7 @@ no deflate object changes, the heap stays well formed (proved: `InflateExtra.inf
 the blocks other than the stream's state block stay (the buffers of the gz file are an aligned block whose saved
 pointer `zng_free_aligned` reads), and no `gz_header` gets registered on the state (the gz file registers none).
 
-The last two are not proved yet: `InflateExtra` states all of them as one hypothesis, which the read-path lemmas
-take; `InflateExtra.of_facts` is where the proof will go.
+All of them are proved: `inflateExtra` (from `InflateExtra.inflate_extra`, `inflate_saved` and `inflate_header`).
 -/
 
 set_option autoImplicit false
@@ -26,17 +25,11 @@ structure InflateExtra : Prop where
     (∀ c, (∀ z, h.streams i = some z → z.state ≠ some c) → h'.savedPtrs c = h.savedPtrs c) ∧
     (∀ hp, RegisteredHeader h' (some i) hp → RegisteredHeader h (some i) hp)
 
-/-- The two facts not proved yet. -/
-structure InflateFacts : Prop where
-  saved : ∀ h i flush r h', InflateInv.Inv h (some i) → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
-    ∀ c, (∀ z, h.streams i = some z → z.state ≠ some c) → h'.savedPtrs c = h.savedPtrs c
-  header : ∀ h i flush r h', InflateInv.Inv h (some i) → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
-    ∀ hp, RegisteredHeader h' (some i) hp → RegisteredHeader h (some i) hp
-
-/-- `InflateExtra` from the two facts: the rest is `InflateExtra.inflate_extra`. -/
-theorem InflateExtra.of_facts (F : InflateFacts) : InflateExtra := by
+/-- `InflateExtra` holds: `InflateExtra.inflate_extra`, `inflate_saved` and `inflate_header`. -/
+theorem inflateExtra : InflateExtra := by
   refine ⟨fun h i flush r h' hv hio hc e => ?_⟩
   obtain ⟨d, a, o, f⟩ := ZlibNgF.Proof.InflateExtra.inflate_extra h i flush r h' hv hio hc e
-  exact ⟨d, a, o, f, F.saved h i flush r h' hv e, F.header h i flush r h' hv e⟩
+  exact ⟨d, a, o, f, ZlibNgF.Proof.InflateExtra.inflate_saved h i flush r h' hv e,
+    ZlibNgF.Proof.InflateExtra.inflate_header h i flush r h' hv hio hc e⟩
 
 end ZlibNgF.Proof.GzRead

@@ -128,6 +128,16 @@ def GzInv (w : World) (h : Heap) (f : GzPtr) : Prop :=
 
 /-! ## Interface lemmas -/
 
+/-- `LitOk` holds in a world with the same literal keys and a heap whose constants grow. -/
+theorem _root_.ZlibNgF.Spec.LitOk.ext {w w' : World} {h h' : Heap} (hl : LitOk w h) (hk : w'.litKeys = w.litKeys)
+    (x : ∀ k a, h.consts k = some a → h'.consts k = some a) : LitOk w' h' := by
+  intro p hp
+  rw [hk] at hp
+  obtain ⟨lit, e1, e2⟩ := hl p hp
+  exact ⟨lit, e1, x _ _ e2⟩
+
+theorem _root_.ZlibNgF.Spec.GzWF.lit {w : World} {h : Heap} (hwf : GzWF w h) : LitOk w h := hwf.2.2.2.2.2.2.2.2
+
 theorem live {w : World} {h : Heap} {f : GzPtr} (hv : GzInv w h f) :
     ∃ b s, f = some b ∧ w.gz h b = some s ∧ GzShape h s := by
   obtain ⟨b, s, e, hs, sh, -⟩ := hv; exact ⟨b, s, e, hs, sh⟩

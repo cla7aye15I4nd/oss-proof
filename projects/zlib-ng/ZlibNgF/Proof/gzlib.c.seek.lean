@@ -120,12 +120,13 @@ theorem reset_keep {h : Heap} {b : Nat} {s : GzState} {z : ZStream} (sh : GzShap
 theorem HLess.trans {a b c : Heap} (x : HLess a b) (y : HLess b c) : HLess a c := by
   refine ⟨fun c' d e => x.bytes c' d (y.bytes c' d e), fun i z e => ?_, by rw [y.istates, x.istates],
     by rw [y.iallocs, x.iallocs], by rw [y.dstates, x.dstates], by rw [y.dallocs, x.dallocs], by rw [y.crc, x.crc],
-    by rw [y.x2n, x.x2n], by rw [y.next, x.next], by rw [y.base, x.base], by rw [y.hdr, x.hdr]⟩
+    by rw [y.x2n, x.x2n], by rw [y.next, x.next], by rw [y.base, x.base], by rw [y.hdr, x.hdr],
+    fun k a e => y.consts k a (x.consts k a e)⟩
   obtain ⟨z1, e1⟩ := x.streams i z e
   exact y.streams i z1 e1
 
 theorem HLess.av0 (h : Heap) (i : Nat) (z : ZStream) : HLess h (avail0 h i z) := by
-  refine ⟨fun _ _ e => e, fun j z' e => ?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  refine ⟨fun _ _ e => e, fun j z' e => ?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ _ e => e⟩
   by_cases hj : j = i
   · subst hj; exact ⟨{ z with avail_in := 0 }, by simp [avail0]⟩
   · exact ⟨z', by simp only [avail0]; rw [upd_ne _ _ _ _ hj]; exact e⟩
@@ -163,7 +164,8 @@ theorem gzrewind_read {w : World} {h : Heap} {b : Nat} {s : GzState} {z : ZStrea
 theorem keepsR_fs {w : World} {h : Heap} {f : GzPtr} (hv : GzInvR w h f) {fs' : Fs} (hle : GzOpen.FsLe w.fs fs') :
     GzInvR { w with fs := fs' } h f :=
   (keeps_outside (S := fun w h w' h' _ => w' = { w with fs := fs' } ∧ h' = h ∧ GzOpen.FsLe w.fs fs')
-    fun _ _ _ _ _ _ ⟨e1, e2, e3⟩ => ⟨by rw [e1], by rw [e1]; exact e3, Or.inl e2⟩).1 _ _ _ _ _ hv ⟨rfl, rfl, hle⟩
+    fun _ _ _ _ _ _ ⟨e1, e2, e3⟩ => ⟨by rw [e1], by rw [e1]; exact e3, Or.inl e2,
+      fun l => LitOk.ext l (by rw [e1]) (by rw [e2]; exact fun _ _ e => e)⟩).1 _ _ _ _ _ hv ⟨rfl, rfl, hle⟩
 
 theorem freeMsg_av0_bytes {h : Heap} {b : Nat} {s : GzState} (hn : (ownL h b s).Nodup) (i : Nat) (z : ZStream)
     (d : Array UInt8) (hd : h.bytes b = some d) : (avail0 (freeMsg h s) i z).bytes b = some d :=
