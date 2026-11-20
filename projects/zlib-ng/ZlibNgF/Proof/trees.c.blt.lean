@@ -72,6 +72,12 @@ structure BlPost (s : DeflateState) (mL mD : Nat) (r : Int32) (s' : DeflateState
   static_len : s'.static_len = s.static_len
   l_desc : s'.l_desc = s.l_desc
   d_desc : s'.d_desc = s.d_desc
+  bi_used : s'.bi_used = s.bi_used
+  pql : s'.pq_leaves.size = s.pq_leaves.size
+  pqs : s'.pq_scratch.size = s.pq_scratch.size
+  blc : s'.bl_count.size = s.bl_count.size
+  bl_dyn : s'.bl_desc.dyn_tree = s.bl_desc.dyn_tree
+  bl_stat : s'.bl_desc.stat_desc = s.bl_desc.stat_desc
 
 section
 variable {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {d : Array UInt8}
@@ -208,7 +214,7 @@ theorem build_bl_tree_SH (hbt : BuildTreeSpec) (s : DeflateState) (mL mD : Nat) 
         show blFreq _ k * (treeLengths 19 7 (frq C2) k + blExtra k) = _
         rw [this]; rfl)]
     exact mass_count_mul _ 19 _ hlt
-  refine Sat.pure ⟨_, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_, rfl, rfl⟩⟩
+  refine Sat.pure ⟨_, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_, rfl, rfl, rfl, hlv, hsc, hblc, rfl, rfl⟩⟩
   · show A.size = _; rw [hAs]; exact hC2s'
   · exact hblen
   · rw [hmb', blMaxC_congr _ _ hblen 18]

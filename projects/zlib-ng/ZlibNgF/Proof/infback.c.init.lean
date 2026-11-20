@@ -1,5 +1,6 @@
 import ZlibNgF.Proof.«public-inflate-init»
 import ZlibNgF.Spec.Safety.Infback
+import ZlibNgF.Proof.«inflate.c.keep»
 
 /-!
 # `inflateBackInit_` (`ZlibNgF`)
@@ -126,6 +127,7 @@ theorem backInit_safe (h : Heap) (s : StreamPtr) (wb : Int32) (w : BPtr) (hfr : 
 
 theorem inflateBackInit__safety : Goal.inflateBackInit__safety := by
   intro h s wb w version size hfr hi hv
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Infback.inflateBackInit_ _ _ _ _ _) ?_
   obtain ⟨c, hc⟩ := checkVer_ok h version size hv
   cases c
   · obtain ⟨r, h', e, f⟩ := backInit_safe h s wb w hfr hi

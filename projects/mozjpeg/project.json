@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "id": "mozjpeg",
+  "title": "mozjpeg",
+  "package": "MozjpegF",
+  "upstream": {
+    "submodule": "mozjpeg",
+    "repository": "https://github.com/mozilla/mozjpeg",
+    "version": "5.0.0",
+    "target": "x86_64 Linux LP64 static library, cmake -DBUILD_SHARED_LIBS=FALSE -DWITH_JPEG8=1 -DWITH_TURBOJPEG=FALSE -DPNG_SUPPORTED=FALSE -DWITH_SIMD=FALSE",
+    "patches_dir": "patches"
+  },
+  "build": {
+    "targets": [
+      "MozjpegF",
+      "MozjpegF.Results"
+    ],
+    "results_module": "MozjpegF.Results",
+    "compiler_helpers": "tests/audit/compiler-helpers.txt"
+  },
+  "checks": {
+    "spec_layers": {
+      "spec_dir": "MozjpegF/Spec",
+      "proof_dir": "MozjpegF/Proof"
+    },
+    "coverage": {
+      "manifest": "tests/audit/public-api.json",
+      "script": "scripts/verification.py"
+    },
+    "self_tests": [
+      "tests/verification/test_coverage.py"
+    ]
+  },
+  "difftest": {
+    "dir": "tests",
+    "list": "tests/list.txt",
+    "script": "tests/run.sh",
+    "upstream_env": "MOZJPEG_SRC",
+    "watch_paths": [
+      "MozjpegF/Mozjpeg/",
+      "MozjpegF/Runtime/",
+      "tests/lean/",
+      "tests/c/",
+      "tests/gen/",
+      "tests/list.txt",
+      "tests/run.sh",
+      "tests/build-mozjpeg.sh",
+      "tests/mozjpeg-build-current.sh",
+      "patches/",
+      "mozjpeg"
+    ]
+  },
+  "site": {
+    "route": "mozjpeg",
+    "brand": "mozjpeg × Lean",
+    "findings_count": 0,
+    "patches_count": 0,
+    "summary": {
+      "en": "Strict ISO C17 runtime and initial Tier 0 decompression safety/functional proofs for mozjpeg 5.0.0 (`jutils.c`, `jerror.c`, `jcomapi.c`, `jpeg_calc_output_dimensions`, `jpeg_save_markers`, and decompression state/teardown); header/entropy/IDCT scanline decode proofs are not done.",
+      "zh": "针对 mozjpeg 5.0.0 的严格 ISO C17 运行时及首批 Tier 0 解码安全与功能证明（涵盖 `jutils.c`、`jerror.c`、`jcomapi.c`、`jpeg_calc_output_dimensions`、`jpeg_save_markers` 及状态/清理函数）；完整头部解析、熵解码、IDCT 与扫描线解码证明尚未完成。"
+    }
+  }
+}

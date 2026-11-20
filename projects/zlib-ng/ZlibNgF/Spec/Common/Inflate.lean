@@ -17,6 +17,11 @@ states a C program can reach through `zlib.h` without breaking its rules. The pr
 invariant of the state record (decoding tables, window, bit buffer) that holds on every reachable stream; the goals
 state the claim on reachable streams so that they do not depend on how that concrete invariant is written.
 
+**Frames.** `Frame` names what a call may change; `IFrame`, the frame of the goals, adds that no deflate object
+(`deflate_state`, `deflate_allocs`) changes. The caller may change deflate objects between inflate calls (they are
+memory the inflate stream does not own), so `CallerStep` says nothing about them, and `FreshBlocks` speaks of the
+inflate objects only (`DFreshBlocks` adds the deflate ones).
+
 **Narrowings** (listed in the deviations page): the default allocator only (`zalloc` / `zfree` are `Z_NULL` at
 `inflateInit*`, or already `zcalloc` / `zcfree`); caller buffers pairwise disjoint and outside the library's own
 block; a `NULL` `next_in` only with `avail_in == 0` for `inflateSync`; `inflateGetDictionary` writes into a buffer of
@@ -196,6 +201,12 @@ def Frame (h h' : Heap) (streams : List Nat) (lib : List Nat) (headers : List Na
   (∀ b, b < h.nextBlk → b ∉ lib → h.bytes b = none → h'.bytes b = none) ∧
   h'.consts = h.consts ∧ h'.crcTable = h.crcTable ∧ h'.x2nTable = h.x2nTable ∧ h'.baseAddr = h.baseAddr ∧
   h.nextBlk ≤ h'.nextBlk
+
+/-- The frame of an inflate-side call: `Frame`, and no deflate object changed (`Heap.dstates`, `Heap.dallocs`): the
+call does not touch a `deflate_state` or `deflate_allocs`, of any stream, nor create one. -/
+def IFrame (h h' : Heap) (streams : List Nat) (lib : List Nat) (headers : List Nat) (writes : List (BPtr × Nat)) :
+    Prop :=
+  Frame h h' streams lib headers writes ∧ h'.dstates = h.dstates ∧ h'.dallocs = h.dallocs
 
 /-- The stream number of `s` (empty for `Z_NULL`). -/
 def streamIds (s : StreamPtr) : List Nat := match s with | none => [] | some i => [i]
