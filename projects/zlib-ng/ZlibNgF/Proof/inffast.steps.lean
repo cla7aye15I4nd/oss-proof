@@ -187,7 +187,13 @@ theorem sat_SET_BAD {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH 
   generalize hK : ({ G with istates := upd G.istates e.b (some { e.st with mode := BAD }) } : Heap) = K
   have hz : K.streams e.i = some e.z := by
     rw [← hK]; show G.streams e.i = some e.z; rw [streams_get r]; exact EV.hz
-  obtain ⟨p, hp⟩ := strLit_ok msg hm K
+  obtain ⟨p, hpl, hp⟩ : ∃ p, (∃ k, p = .ref (.str k) 0 ∧ k < C.strTable.size) ∧ strLitRef msg K = .ok (p, K) := by
+    cases hx : strTable.findIdx? (· == msg) with
+    | none => exfalso; rw [Array.findIdx?_eq_none_iff] at hx; simpa using hx msg hm
+    | some j =>
+      refine ⟨.ref (.str j) 0, ⟨j, rfl, ?_⟩, by simp [strLitRef, hx]⟩
+      rw [Array.findIdx?_eq_some_iff_findIdx_eq] at hx
+      exact hx.1
   refine Sat.bind ⟨p, _, hp, ?_⟩
   dsimp only
   rw [EV.strm]
@@ -195,7 +201,7 @@ theorem sat_SET_BAD {H0 G : Heap} {c : FC} {e : FE} (EV : EnvOK H0 c e) (r : RH 
   refine ⟨(), { K with streams := upd K.streams e.i (some { e.z with msg := p }) },
     by simp only [stStream, hz], ?_⟩
   rw [← hK]
-  exact ⟨G, _, _, r, rfl, Or.inl rfl, Or.inr ⟨p, rfl⟩⟩
+  exact ⟨G, _, _, r, rfl, Or.inl rfl, Or.inr ⟨p, hpl, rfl⟩⟩
 
 /-! ## `common`: after `op = here.op;` -/
 

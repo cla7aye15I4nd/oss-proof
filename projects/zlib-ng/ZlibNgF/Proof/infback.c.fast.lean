@@ -122,7 +122,7 @@ theorem len_fast {E : BEnv} (cb : E.CB) {l : IL} {H : Heap} {t : Nat} {z : ZStre
     (by show l.put = _; rw [bl.put, hlp]) hwd (by rw [hn]; exact hws)
   refine SatX.bind (SatX.lift (Sat.mono hfast ?_))
   rintro _ H3 ⟨⟨ai, ao, m', hold, bits, len, was, off, msg, hmeas, hai, hao, hz3, hs3, hmode, hbits, hmeas2,
-    hbb, hia, hoth, hbo, hfr⟩, hnb⟩
+    hbb, hia, hoth, hbo, hfr, -⟩, hnb⟩
   have hbd3 : H3.bytes E.b = some bd := by rw [hbb]; exact hbd
   have hs3' := (show H3.istate E.b = H3.istates E.b by simp only [Heap.istate, hbd3]).trans hs3
   refine SatX.bind ?_

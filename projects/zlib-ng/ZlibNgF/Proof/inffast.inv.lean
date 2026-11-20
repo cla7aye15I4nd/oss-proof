@@ -147,7 +147,7 @@ def BrkHeap (H0 : Heap) (sm : Bool) (e : FE) (G : Heap) : Prop :=
     G = { G1 with istates := upd G1.istates e.b (some st'), streams := upd G1.streams e.i (some z') } ∧
     (st' = { e.st with mode := BAD } ∨ st' = { e.st with mode := TYPE } ∨
       ∃ len dist : UInt32, sm = true ∧ 1 ≤ dist.toNat ∧ st' = { e.st with mode := MATCH, length := len, was := len, offset := dist }) ∧
-    (z' = e.z ∨ ∃ p, z' = { e.z with msg := p })
+    (z' = e.z ∨ ∃ p, (∃ k, p = .ref (.str k) 0 ∧ k < C.strTable.size) ∧ z' = { e.z with msg := p })
 
 /-- The invariant of the label loop, with ghost rank `n`. -/
 def PI (H0 : Heap) (c : FC) (e : FE) (ot : Nat) (n : Nat) (x : FL × Lbl) (G : Heap) : Prop :=
