@@ -1,6 +1,7 @@
 import ZlibNgF.Proof.«infback.c.init»
 import ZlibNgF.Proof.«infback.c.initshape»
 import ZlibNgF.Proof.«inflate.c.reach»
+import ZlibNgF.Proof.«inflate.c.keep»
 
 /-!
 # The call-back decoder: `inflateBack`, `inflateBackEnd` and the non-vacuity of the `inflateBack` premises (`ZlibNgF`)
@@ -117,6 +118,7 @@ theorem inflateBack_safety : Goal.inflateBack_safety :=
 call-back stream frees its state block and clears `state`. -/
 theorem inflateBackEnd_safety : Goal.inflateBackEnd_safety := by
   intro h s hh
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Infback.inflateBackEnd _) ?_
   rcases hh with rfl | ⟨z, ⟨i, rfl, hz⟩, hzs⟩ | ⟨w, n, hr⟩
   · exact ⟨_, _, rfl, InflateInit.frame_refl h _ _ _ _⟩
   · refine ⟨Z_STREAM_ERROR, h, ?_, InflateInit.frame_refl h _ _ _ _⟩
