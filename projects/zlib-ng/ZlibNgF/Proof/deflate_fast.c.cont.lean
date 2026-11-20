@@ -268,4 +268,37 @@ theorem ctrip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {c
     rintro r H3 ⟨⟨hav3, W3, -⟩, K3⟩
     exact post (true || r) H3 W3 (fun e => by simp at e) hav3 K3
 
+/-- The continuation loop, entered after a match of `STD_MAX_MATCH` bytes with `lookahead >= MIN_LOOKAHEAD`: it ends
+in `CI` with `brk` or `ret`. -/
+theorem cloop_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {cd mi : UInt32} {K : Nat}
+    {bf : Bool} {la ss : UInt32}
+    (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo))
+    (hn : ∀ st0, h.dstate b = some st0 → st0.level = 2)
+    (hl : ∀ st0, h.dstate b = some st0 → st0.level = 2 ∧ HASHLESS st0.level st0.strategy = false)
+    (hmi : 2 ≤ mi.toNat) (hd1 : 1 ≤ cd.toNat) (hd2 : cd.toNat ≤ 32768)
+    (W : SLW h i b la ss H) (hH : Held b la ss H) (I : bf = false → SLI h i b la ss H) (hle : bf = true → SymLe b H)
+    (hla : 262 ≤ la.toNat) (hcd : cd.toNat ≤ ss.toNat) (Ck : CK b H) (hK : avIn H i + la.toNat + 1 ≤ K) :
+    Sat H (cwhile (fun (x : Ctl × Bool) => pure (x.1 matches .cont, x))
+        (fun (x : Ctl × Bool) => deflate_fast_cont_trip (some b) (.ref (.heap b) wo) mi cd x.2) (Ctl.cont, bf))
+      (fun v H2 => CI h i b flush cd K v H2 ∧ (v.1 matches .cont) = false) := by
+  refine ZlibNgF.Proof.WinInv.sat_cwhileH (CI h i b flush cd K) (CM b)
+    (fun v H => CI h i b flush cd K v H ∧ (v.1 matches .cont) = false) ?_ (s := (Ctl.cont, bf))
+    ⟨la, ss, W, hH, I, hle, hla, hcd, Ck, hK⟩ ?_
+  · rintro ⟨c, bf1⟩ H1 hI
+    refine Sat.pure ⟨fun hc => ?_, fun hc => ⟨hI, hc⟩⟩
+    cases c with
+    | cont =>
+      obtain ⟨la1, ss1, W1, hH1, I1, hle1, hla1, hcd1, Ck1, hK1⟩ := hI
+      have W1' := W1
+      obtain ⟨H0, z, st, d, rfl, -⟩ := W1'
+      refine Sat.mono (ctrip_ok T hw0 hn hl hmi hd1 hd2 W1 hH1 I1 hle1 hla1 hcd1 Ck1 hK1)
+        fun v H2 ⟨a, m⟩ => ⟨a, ?_⟩
+      simp only [CM, LaS_SH]
+      rw [(hH1 st (SH_dstate _ _ _ _ _ _)).1]; exact m
+    | brk => cases hc
+    | ret r => cases hc
+  · obtain ⟨H0, z, st, d, rfl, -⟩ := W
+    have := UInt32.toNat_lt st.lookahead
+    simp only [CM, LaS_SH, fuel]; omega
+
 end ZlibNgF.Proof.FastCont
