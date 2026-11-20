@@ -55,6 +55,11 @@ theorem dcore_pend {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' : 
     rw [show (0 : Int32).toInt = 0 from rfl] at a
     rw [show (8 : Int32).toInt = 8 from rfl] at a'
     omega
+  have h64 : st'.bi_valid < 64 := Int32.lt_iff_toInt_lt.mpr (by
+    have a' := Int32.lt_iff_toInt_lt.mp h8
+    rw [show (8 : Int32).toInt = 8 from rfl] at a'
+    rw [show (64 : Int32).toInt = 64 from rfl]
+    omega)
   obtain ⟨d, wo, po, ho, pbo', hd, hwo, hp, hh, hpb', h1, h2, h3, h4, hsb, -⟩ := c.lay
   simp only [dview] at hpb'
   rw [hpb] at hpb'
@@ -64,7 +69,7 @@ theorem dcore_pend {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' : 
     lay := ⟨d, wo, po, ho, pbo, hd, hwo, hp, hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, by
       simp only [dview]; omega⟩
     pout := hpz
-    bits := ⟨h0, h8⟩
+    bits := ⟨h0, h64⟩
     psym := fun hn => absurd hsym hn
     bstart := hbs
     bs_lo := hlo }

@@ -152,10 +152,15 @@ theorem dcore_flush {H : Heap} {s : StreamPtr} {z : ZStream} {b : Nat} {st st' :
     rw [show (0 : Int32).toInt = 0 from rfl] at a
     rw [show (8 : Int32).toInt = 8 from rfl] at a'
     omega
+  have h64 : st'.bi_valid < 64 := Int32.lt_iff_toInt_lt.mpr (by
+    have a' := Int32.lt_iff_toInt_lt.mp h8
+    rw [show (8 : Int32).toInt = 8 from rfl] at a'
+    rw [show (64 : Int32).toInt = 64 from rfl]
+    omega)
   have hz' : (dview st).bi_valid.toInt.toNat / 8 = st.bi_valid.toInt.toNat / 8 := rfl
   rw [he, hp, hq]
   exact { c with
-    bits := ⟨h0, h8⟩
+    bits := ⟨h0, h64⟩
     lay := by
       obtain ⟨d, wo, po, ho, pbo, hd, hwo, hp', hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, hroom⟩ := c.lay
       refine ⟨d, wo, po, ho, pbo, hd, hwo, hp', hh, hpb, h1, h2, h3, h4, hsb, poo, hpo, hle, ?_⟩
