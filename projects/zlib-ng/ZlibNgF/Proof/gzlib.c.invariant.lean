@@ -19,8 +19,9 @@ so that a proof about one function opens only the clauses it needs.
 * `want` is in `[8, 2^30]` (`gzbuffer`, `GZBUFSIZE`); `size` is 0 (no buffers yet) or `want`, and then the buffers
   are one live block (from `zng_alloc_aligned`, with its saved pointer), `in` at its start and `out` after the `in` part: `want` and `2 * want` bytes when reading,
   `2 * want` and `want` (none when `direct`) when writing (`gz_buffer_alloc`);
-* positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -2^31` (only `gzungetc` lowers it, by at
-  most the `2 * want` bytes of the output buffer), `pos ≥ 0` when writing;
+* positions: `skip ≥ 0` and `pos + skip ≤ GZ_OFF_MAX` (patch 0004), `pos ≥ -GZ_OFF_MAX` (only `gzungetc` lowers it,
+  and patch 0023 refuses a push at that bound, so that `gzseek64` can negate a negative position), `pos ≥ 0` when
+  writing;
 * reading: `how ∈ {LOOK, COPY, GZIP}`; with buffers, the inflate stream has the inflate invariant (`gz_look` called
   `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, and `avail_in` bytes
   from `next_in` inside `in`; without buffers `x.have` is 0 and the stream is ready for `inflateInit2` with no input
@@ -61,7 +62,7 @@ def Inside (c base lo hi : Nat) (p : BPtr) (n : Nat) : Prop :=
 structure GzPos (s : GzState) : Prop where
   skip_nonneg : 0 ≤ s.skip.toInt
   pos_skip : s.pos.toInt + s.skip.toInt ≤ GZ_OFF_MAX.toInt
-  pos_lower : -(2 ^ 31 : Int) ≤ s.pos.toInt
+  pos_lower : -GZ_OFF_MAX.toInt ≤ s.pos.toInt
   write_pos : s.mode = GZ_WRITE → 0 ≤ s.pos.toInt
 
 /-- The buffers: none (`size == 0`), or one live block carved into `in` and `out`. -/

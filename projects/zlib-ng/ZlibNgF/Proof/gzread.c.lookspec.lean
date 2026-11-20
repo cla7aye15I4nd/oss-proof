@@ -543,7 +543,7 @@ theorem consume_spec {α : Type} {W : World} {H : Heap} {b : Nat} {s' : GzState}
   have R := sh.read hr
   have P := sh.pos
   have P2 : s'.pos.toInt + s'.skip.toInt ≤ GZ_OFF_MAX.toInt := P.2
-  have P3 : -(2 ^ 31 : Int) ≤ s'.pos.toInt := P.3
+  have P3 : -GZ_OFF_MAX.toInt ≤ s'.pos.toInt := P.3
   obtain ⟨db, hdb⟩ := gz_live hs'
   have h0 : 0 ≤ s'.skip.toInt := P.1
   have hN := nOf_toNat s'.«have» s'.skip h0
