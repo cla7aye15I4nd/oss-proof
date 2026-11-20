@@ -45,6 +45,8 @@ theorem knuth_loop_ok {wo po ho : Nat} (N : LN d wo po ho st) (bl cm : UInt32) (
       (1, 0, cm))
       (fun x H' => H' = LH H i z b st d ms ∧ x.2.fst.toNat ≤ bl.toNat ∧ x.2.snd.toNat < 65536) := by
   have hst := N.look
+  have hla := N.la_le
+  have hssl := N.ss_le
   have hbig := N.big
   have hhd := N.hd
   have G := LH_get (H := H) (i := i) (z := z) (b := b) (st := st) (d := d) ms
@@ -88,6 +90,8 @@ theorem roll_loop_ok {wo po ho : Nat} (N : LN d wo po ho st) (bl cm h0 : UInt32)
       (3, h0, 0, cm))
       (fun x H' => H' = LH H i z b st d ms ∧ x.2.2.fst.toNat ≤ bl.toNat ∧ x.2.2.snd.toNat < 65536) := by
   have hst := N.look
+  have hla := N.la_le
+  have hssl := N.ss_le
   have hbig := N.big
   have hhd := N.hd
   have G := LH_get (H := H) (i := i) (z := z) (b := b) (st := st) (d := d) ms
@@ -145,6 +149,8 @@ theorem longest_match_c_ok {wo po ho : Nat} {cm : UInt32}
     Sat (SH H i z b st d) (longest_match_c (some b) cm)
       (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ PR st B 2 r ms) := by
   have hst := N.look
+  have hla := N.la_le
+  have hssl := N.ss_le
   have hbig := N.big
   unfold longest_match_c LONGEST_MATCH
   refine Sat.bind (Sat.of_eq ldDState_SH ?_)
@@ -183,6 +189,8 @@ theorem longest_match_slow_ok (roll : Bool) {wo po ho : Nat} {cm : UInt32}
       (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧
         PR st B (if st.prev_length != 0 then st.prev_length else STD_MIN_MATCH - 1).toNat r ms) := by
   have hst := N.look
+  have hla := N.la_le
+  have hssl := N.ss_le
   have hbig := N.big
   have hhd' := N.hd
   have hlb2 := (limitBase_le st N.w_lo).1
@@ -301,7 +309,7 @@ theorem longest_match_c_safe {wo po ho : Nat} {cm : UInt32}
     (N : LN d wo po ho st) (hcm : cm.toNat < 65536) (hlb : (limitBase st).toNat ≤ cm.toNat) :
     Sat (SH H i z b st d) (longest_match_c (some b) cm)
       (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧ PR st 65536 2 r ms) :=
-  longest_match_c_ok hw hpv N (prevBelow_65536 d po st) (by have := N.look; omega) hcm hlb
+  longest_match_c_ok hw hpv N (prevBelow_65536 d po st) N.ss_le hcm hlb
 
 theorem longest_match_slow_knuth_c_safe {wo po ho : Nat} {cm : UInt32}
     (hw : st.window = .val (.ref (.heap b) wo)) (hpv : st.prev = .val (.ref (.heap b) po))
@@ -310,7 +318,7 @@ theorem longest_match_slow_knuth_c_safe {wo po ho : Nat} {cm : UInt32}
     Sat (SH H i z b st d) (longest_match_slow_knuth_c (some b) cm)
       (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧
         PR st 65536 (if st.prev_length != 0 then st.prev_length else STD_MIN_MATCH - 1).toNat r ms) :=
-  longest_match_slow_knuth_c_ok hw hpv hhd N (prevBelow_65536 d po st) (by have := N.look; omega) hcm hlb
+  longest_match_slow_knuth_c_ok hw hpv hhd N (prevBelow_65536 d po st) N.ss_le hcm hlb
 
 theorem longest_match_slow_roll_c_safe {wo po ho : Nat} {cm : UInt32}
     (hw : st.window = .val (.ref (.heap b) wo)) (hpv : st.prev = .val (.ref (.heap b) po))
@@ -319,7 +327,7 @@ theorem longest_match_slow_roll_c_safe {wo po ho : Nat} {cm : UInt32}
     Sat (SH H i z b st d) (longest_match_slow_roll_c (some b) cm)
       (fun r H' => ∃ ms, H' = LH H i z b st d ms ∧
         PR st 65536 (if st.prev_length != 0 then st.prev_length else STD_MIN_MATCH - 1).toNat r ms) :=
-  longest_match_slow_roll_c_ok hw hpv hhd N (prevBelow_65536 d po st) (by have := N.look; omega) hcm hlb
+  longest_match_slow_roll_c_ok hw hpv hhd N (prevBelow_65536 d po st) N.ss_le hcm hlb
 
 end
 
