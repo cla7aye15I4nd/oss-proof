@@ -274,7 +274,7 @@ theorem exBody_ok {h H : Heap} {i b k : Nat} {g : GzHeader} {beg left : UInt32} 
     ⟨fun _ => F.wrap, fun _ => ⟨k, g, F.gz, F.hg, fun _ _ => by dsimp only; rw [hix]; omega,
       fun e => absurd (F.status.symm.trans e) (by decide), fun e => absurd (F.status.symm.trans e) (by decide),
       fun _ e => absurd (F.xe.symm.trans e) (by simp), fun e => absurd (F.status.symm.trans e) (by decide)⟩⟩
-  refine flush_ret_k R' (SH_dstate _ _ _ _ _ _) fun rr H' q => ?_
+  refine flush_ret_k R' (SH_dstate _ _ _ _ _ _) fun rr H' q _ _ => ?_
   cases rr with
   | true =>
     rw [ite_t rfl]

@@ -58,6 +58,39 @@ theorem pend_ret {h H : Heap} {i b : Nat} {K : DeflateState → Prop} (R : Run h
     obtain rfl := Option.some.inj hst'
     exact hK _ (SH_dstate _ _ _ _ _ _) (by simpa using hp)
 
+/-- `HdrMove` along a step that keeps the header records and every byte object. -/
+theorem HdrMove.same {H H' H'' : Heap} {b : Nat} {st : DeflateState} (m : HdrMove H H' b b st)
+    (hg : H''.gzheaders = H'.gzheaders) (hs : ∀ r : BRef, Space.get H'' r = Space.get H' r) : HdrMove H H'' b b st := by
+  intro hh k g hk hgk
+  obtain ⟨g', hg', e1, e2, e3, e4, c⟩ := m hh k g hk hgk
+  refine ⟨g', by rw [hg]; exact hg', e1, e2, e3, e4, fun p n hp nb cs => ?_⟩
+  obtain ⟨c1, c2⟩ := c p n hp nb cs
+  exact ⟨DeflateSide.cstr_get c1 fun r _ _ => hs r, c2⟩
+
+/-- `pendingReturn` changes no byte object and no header record. -/
+theorem pend_ret_sp {h H : Heap} {i b : Nat} {K : DeflateState → Prop} (R : Run h i b H)
+    (hK : ∀ st, H.dstate b = some st → st.pending = 0 → K st) :
+    Sat H (pendingReturn (some b)) (fun r H' => HRet h i b K r H' ∧ H'.gzheaders = H.gzheaders ∧
+      (∀ r : BRef, Space.get H' r = Space.get H r) ∧ H'.streams = H.streams ∧
+      ∀ st st', H.dstate b = some st → H'.dstate b = some st' → st'.pending = st.pending) := by
+  obtain ⟨z, st, al, d, hz, hb, hst, hal, hd, e, c⟩ := R.live
+  have sp : ∀ st' (r : BRef), Space.get (SH H i z b st' d) r = Space.get H r := fun st' r => by
+    by_cases hr : r = .heap b
+    · subst hr; show (SH H i z b st' d).bytes b = H.bytes b; rw [SH_bytes, hd]
+    · exact DeflateSetDict.space_SH_ne hr
+  have q := pend_ret R hK
+  rw [← e] at q ⊢
+  unfold pendingReturn at q ⊢
+  obtain ⟨r, H', ex, hq⟩ := q
+  refine ⟨r, H', ex, hq, ?_⟩
+  simp only [bind_app, rdD_SH] at ex
+  split at ex
+  · simp only [bind_app, wrD_SH] at ex
+    cases ex
+    refine ⟨rfl, fun r => (sp _ r).trans (sp _ r).symm, rfl, fun s1 s2 h1 h2 => ?_⟩
+    rw [SH_dstate] at h1 h2; obtain rfl := Option.some.inj h1; obtain rfl := Option.some.inj h2; rfl
+  · cases ex; exact ⟨rfl, fun _ => rfl, rfl, fun s1 s2 h1 h2 => by rw [h1] at h2; obtain rfl := Option.some.inj h2; rfl⟩
+
 /-- The end of a header segment: `flush_pending` then `pendingReturn`, from a heap in `Run`. On going on, no pending
 bytes and the state's other fields as before the flush. -/
 theorem flush_ret {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st) :
@@ -69,7 +102,7 @@ theorem flush_ret {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b H)
           bi_valid := st'.bi_valid }) := by
   obtain ⟨H', e, R', k⟩ := run_flush R.w
   obtain ⟨z, hz, -⟩ := R.blk
-  obtain ⟨z', st', hz', hst', hse, -, -, -⟩ := k z st hz hst
+  obtain ⟨z', st', hz', hst', hse, -, -, -, -, -⟩ := k z st hz hst
   refine Sat.bind ⟨(), H', e, ?_⟩
   exact pend_ret R' fun st2 hst2 hp => by
     obtain rfl := Option.some.inj (hst'.symm.trans hst2)
@@ -82,13 +115,19 @@ theorem flush_ret_k {h H : Heap} {i b : Nat} {st : DeflateState} (R : Run h i b 
           pending := st'.pending
           pending_out := st'.pending_out
           bi_buf := st'.bi_buf
-          bi_valid := st'.bi_valid }) r H' → Sat H' (k r) Q) :
+          bi_valid := st'.bi_valid }) r H' → HdrMove H H' b b st →
+        (∀ z z' st', H.streams i = some z → H'.streams i = some z' → H'.dstate b = some st' →
+          z'.avail_out.toNat + st.pending.toNat ≤ z.avail_out.toNat + st'.pending.toNat) → Sat H' (k r) Q) :
     Sat H (do ZlibNg.DeflateP.flush_pending (some i); let r ← pendingReturn (some b); k r) Q := by
   obtain ⟨H', e, R', kk⟩ := run_flush R.w
   obtain ⟨z, hz, -⟩ := R.blk
-  obtain ⟨z', st', hz', hst', hse, -, -, -⟩ := kk z st hz hst
+  obtain ⟨z', st', hz', hst', hse, -, -, -, hm, hav⟩ := kk z st hz hst
   refine Sat.bind ⟨(), H', e, ?_⟩
-  refine Sat.bind (Sat.mono (pend_ret R' fun st2 hst2 hp => ?_) hk)
+  refine Sat.bind (Sat.mono (pend_ret_sp R' fun st2 hst2 hp => ?_) fun r H'' ⟨q, g1, g2, g3, g4⟩ =>
+    hk r H'' q (HdrMove.same hm g1 g2) fun z1 z2 st2 h1 h2 h3 => by
+      obtain rfl := Option.some.inj (hz.symm.trans h1)
+      rw [g3] at h2; obtain rfl := Option.some.inj (hz'.symm.trans h2)
+      rw [g4 st' st2 hst' h3]; exact hav)
   obtain rfl := Option.some.inj (hst'.symm.trans hst2)
   exact ⟨hp, hse⟩
 

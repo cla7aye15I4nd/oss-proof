@@ -235,7 +235,8 @@ theorem run_flush {h H : Heap} {i b : Nat} (R : RunW h i b H) :
           next_out := z'.next_out
           avail_out := z'.avail_out
           total_out := z'.total_out } ∧
-        (z'.avail_out ≠ 0 → st'.pending = 0) ∧ st'.bi_valid < 8 := by
+        (z'.avail_out ≠ 0 → st'.pending = 0) ∧ st'.bi_valid < 8 ∧ HdrMove H H' b b st ∧
+        z'.avail_out.toNat + st.pending.toNat ≤ z.avail_out.toNat + st'.pending.toNat := by
   obtain ⟨z, hz, hb⟩ := R.blk
   have hw := R.work
   obtain ⟨i', z1, b1, st, al, e1, hz1, hb1, hst, hal, -, -, c0, -⟩ := hw
@@ -286,6 +287,6 @@ theorem run_flush {h H : Heap} {i b : Nat} (R : RunW h i b H) :
       exact hk j (Or.inl hj)
   · obtain rfl := Option.some.inj (hz.symm.trans hz4)
     obtain rfl := Option.some.inj (hst.symm.trans hst4)
-    exact ⟨z', st', hz', hst', hsteq, hzeq, hpz, hbits⟩
+    exact ⟨z', st', hz', hst', hsteq, hzeq, hpz, hbits, hdr_out R.io hz hb hst hno hLo O, by omega⟩
 
 end ZlibNgF.Proof.DeflateBody
