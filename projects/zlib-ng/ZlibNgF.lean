@@ -147,6 +147,8 @@ import ZlibNgF.Proof.«deflate_medium_tpl.h.find»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.insert»
 import ZlibNgF.Proof.«deflate_medium_tpl.h.fizzle»
 import ZlibNgF.Proof.«deflate_medium.c.step»
+import ZlibNgF.Proof.«deflate_medium.c.base»
+import ZlibNgF.Proof.«deflate_medium.c.emit»
 import ZlibNgF.Proof.«slide_hash_c.c.safety»
 import ZlibNgF.Proof.«deflate_p.h.readbuf»
 import ZlibNgF.Math.WinMask
