@@ -1,4 +1,4 @@
-<!-- source-sha256: be8cd4f16d0319f8eeba6d7b79b75b74a7196f138f7ca4146d4751c6c0248b2b -->
+<!-- source-sha256: ff72f2377594d36ebed64bc22900e944401e248758609b6149a12752a5d9b84e -->
 # 偏差：调用必须满足的条件
 
 本页列出比 `zlib.h` 更窄、或读者可能忽略的每一个目标前提。超出这些范围的调用不在覆盖之内：既未证明安全，
@@ -6,7 +6,7 @@
 
 ## 所有调用
 
-- 库为 zlib-ng `develop` 分支提交 `5f1f4899` 加二十个补丁，以
+- 库为 zlib-ng `develop` 分支提交 `5f1f4899` 加二十一个补丁，以
   `-DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF` 构建为 x86_64
   Linux LP64 库，使 `adler32` 与 `adler32_z` 执行 `adler32_c`，`crc32` 与 `crc32_z` 执行 `crc32_braid`。分派到
   SIMD 内核或 Chorba CRC-32 内核（默认）的构建不在覆盖之内。
