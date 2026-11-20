@@ -1,8 +1,10 @@
 # Patches
 
 The verified source is the zlib-ng `develop` branch at commit `5f1f4899` plus the patches below, applied in name
-order. Every patch is **local and pending**: none has been submitted upstream yet. Each is replaced by the upstream
-fix once one exists, and deleted once the pin moves past it.
+order. Each local patch is replaced by the upstream fix once one exists, and deleted once the pin moves past it.
+
+See [the upstream review bundle](upstream/README.md) for per-issue PR summaries, GoogleTest-backed
+submission patches, overlap/merge-order analysis, and status links to open `zlib-ng/zlib-ng` PRs.
 
 | Patch | Files | What it changes | Defect it addresses | Confirmed on real C |
 | --- | --- | --- | --- | --- |

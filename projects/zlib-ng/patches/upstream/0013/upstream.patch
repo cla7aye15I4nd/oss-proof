@@ -1,0 +1,77 @@
+From 2ccd28b7d0deffa45232bcd956415987e339d650 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Bound max_insert_count in deflate_medium and deflate_fast
+
+deflateTune() stores max_lazy directly in s->max_insert_count, which can wrap
+when computed into 2 * max_insert_count or violate insert_knuth_stepped_static()'s
+[2, STD_MAX_MATCH] contract (leading to division by zero in deflate_medium on
+repetitive data). Clamp the insert count to [2, STD_MAX_MATCH] in both
+deflate_medium and deflate_fast and add deflateTune() regression tests.
+---
+ deflate_fast.c            |  2 +-
+ deflate_medium_tpl.h      |  2 +-
+ test/test_deflate_tune.cc | 27 +++++++++++++++++++++++++++
+ 3 files changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/deflate_fast.c b/deflate_fast.c
+index 9cbeddb..47be9f4 100644
+--- a/deflate_fast.c
++++ b/deflate_fast.c
+@@ -20,7 +20,7 @@
+  */
+ Z_INTERNAL block_state deflate_fast(deflate_state *s, int flush) {
+     unsigned char *window = s->window;
+-    uint32_t max_inserts = MAX(2, s->max_insert_count); // spread insert requires min 2
++    uint32_t max_inserts = MIN(MAX(2U, s->max_insert_count), STD_MAX_MATCH); // spread/stepped insert requires 2..258
+     int bflush = 0;       /* set if current block must be flushed */
+     uint32_t match_len = 0;
+ 
+diff --git a/deflate_medium_tpl.h b/deflate_medium_tpl.h
+index ad4ac1d..ae86cc2 100644
+--- a/deflate_medium_tpl.h
++++ b/deflate_medium_tpl.h
+@@ -173,7 +173,7 @@ Z_INTERNAL block_state SUFFIX(deflate_medium)(deflate_state *s, int flush) {
+                  struct match next_match = {0};
+ #endif
+     unsigned char *window = s->window;
+-    uint32_t max_insert_count = MAX(2, s->max_insert_count); // stepped insert requires min 2
++    uint32_t max_insert_count = MIN(MAX(2U, s->max_insert_count), STD_MAX_MATCH); // stepped insert requires 2..258
+     int32_t max_dist = MAX_DIST(s);
+ 
+     for (;;) {
+diff --git a/test/test_deflate_tune.cc b/test/test_deflate_tune.cc
+index 9921ee6..fc8b7d3 100644
+--- a/test/test_deflate_tune.cc
++++ b/test/test_deflate_tune.cc
+@@ -54,3 +54,30 @@ TEST(deflate, tune) {
+     err = PREFIX(deflateEnd)(&c_stream);
+     EXPECT_EQ(err, Z_OK);
+ }
++
++TEST(deflate, tune_stepped_insert_count) {
++    uint8_t input[4096], compressed[8192], output[sizeof(input)];
++    memset(input, 'a', sizeof(input));
++
++    const int levels[] = {2, 4, 6};
++    const int32_t max_lazies[] = {INT32_MIN, 0, 1, 258, 100000};
++    for (int level : levels) {
++        for (int32_t max_lazy : max_lazies) {
++            PREFIX3(stream) stream = {};
++            ASSERT_EQ(PREFIX(deflateInit)(&stream, level), Z_OK);
++            EXPECT_EQ(PREFIX(deflateTune)(&stream, 8, max_lazy, 128, 128), Z_OK);
++            stream.next_in = input;
++            stream.avail_in = sizeof(input);
++            stream.next_out = compressed;
++            stream.avail_out = sizeof(compressed);
++            EXPECT_EQ(PREFIX(deflate)(&stream, Z_FINISH), Z_STREAM_END);
++            z_size_t compressed_len = stream.total_out;
++            EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++
++            z_uintmax_t output_len = sizeof(output);
++            ASSERT_EQ(PREFIX(uncompress)(output, &output_len, compressed, (z_uintmax_t)compressed_len), Z_OK);
++            EXPECT_EQ((size_t)output_len, sizeof(input));
++            EXPECT_EQ(memcmp(input, output, sizeof(input)), 0);
++        }
++    }
++}

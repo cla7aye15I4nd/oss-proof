@@ -1,0 +1,151 @@
+From ca50eaf9dceb937b991290f2eeba60fe56c9e140 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Keep longest_match candidate bases within the deflate window
+
+Subtracting match_offset from mbase_start / mbase_end in longest_match_slow()
+can form a pointer before the start of window even when cur_match >
+limit_base + match_offset ensures `cur_match - match_offset` stays in bounds
+(ISO C17 6.5.6p8).
+
+Keep mbase_start fixed at window and subtract match_offset from cur_match via a
+MATCH_POS() macro that compiles away for non-slow matchers. Add a deterministic
+slow-match round-trip test.
+---
+ match_tpl.h          | 23 ++++++++++++++---------
+ test/test_deflate.cc | 40 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 54 insertions(+), 9 deletions(-)
+
+diff --git a/match_tpl.h b/match_tpl.h
+index a05461f..575a459 100644
+--- a/match_tpl.h
++++ b/match_tpl.h
+@@ -10,6 +10,12 @@
+ 
+ #include "insert_string_p.h"
+ 
++#ifdef LONGEST_MATCH_SLOW
++#  define MATCH_POS(m) ((m) - match_offset)
++#else
++#  define MATCH_POS(m) (m)
++#endif
++
+ #define GOTO_NEXT_CHAIN \
+     if (--chain_length && (cur_match = prev[cur_match & wmask]) > limit) \
+         continue; \
+@@ -130,8 +136,6 @@ Z_INTERNAL uint32_t LONGEST_MATCH(deflate_state *const s, uint32_t cur_match) {
+         limit = limit_base+match_offset;
+         if (UNLIKELY(cur_match <= limit))
+             return best_len;
+-        mbase_start -= match_offset;
+-        mbase_end -= match_offset;
+     }
+ #endif
+     Assert(strstart <= s->fill_end, "need lookahead");
+@@ -148,7 +152,7 @@ Z_INTERNAL uint32_t LONGEST_MATCH(deflate_state *const s, uint32_t cur_match) {
+          */
+         uint32_t len;
+         if (best_len < sizeof(uint64_t)) {
+-            uint64_t cand_start = zng_memread_8(mbase_start + cur_match);
++            uint64_t cand_start = zng_memread_8(mbase_start + MATCH_POS(cur_match));
+             if (scan_start != cand_start) {
+                 /* Peel the first candidate out of the loop. A full 8-byte match falls straight
+                  * through to compare256, and single-candidate chains (barely-compressible data)
+@@ -163,7 +167,7 @@ Z_INTERNAL uint32_t LONGEST_MATCH(deflate_state *const s, uint32_t cur_match) {
+                 }
+                 if (--chain_length == 0 || (cur_match = prev[cur_match & wmask]) <= limit)
+                     return best_len;
+-                cand_start = zng_memread_8(mbase_start + cur_match);
++                cand_start = zng_memread_8(mbase_start + MATCH_POS(cur_match));
+                 if (scan_start != cand_start) {
+                     /* Walk the remaining candidates with the chain advance kept inline. */
+                     for (;;) {
+@@ -174,7 +178,7 @@ Z_INTERNAL uint32_t LONGEST_MATCH(deflate_state *const s, uint32_t cur_match) {
+                         }
+                         if (--chain_length == 0 || (cur_match = prev[cur_match & wmask]) <= limit)
+                             return best_len;
+-                        cand_start = zng_memread_8(mbase_start + cur_match);
++                        cand_start = zng_memread_8(mbase_start + MATCH_POS(cur_match));
+                         if (scan_start == cand_start)
+                             break;
+                     }
+@@ -187,14 +191,14 @@ Z_INTERNAL uint32_t LONGEST_MATCH(deflate_state *const s, uint32_t cur_match) {
+             for (;;) {
+                 /* First check the end of the candidate at best_len+1 due to the higher
+                  * likelihood of a mismatch. */
+-                if (zng_memcmp_8(mbase_end+cur_match, &scan_end) == 0 &&
+-                    zng_memcmp_8(mbase_start+cur_match, &scan_start) == 0)
++                if (zng_memcmp_8(mbase_end + MATCH_POS(cur_match), &scan_end) == 0 &&
++                    zng_memcmp_8(mbase_start + MATCH_POS(cur_match), &scan_start) == 0)
+                     break;
+                 GOTO_NEXT_CHAIN;
+             }
+         }
+ 
+-        len = COMPARE256(scan+2, mbase_start+cur_match+2) + 2;
++        len = COMPARE256(scan + 2, mbase_start + MATCH_POS(cur_match) + 2) + 2;
+         Assert(scan+len <= window+(unsigned)(s->window_size-1), "wild scan");
+ 
+         if (len > best_len)
+@@ -284,7 +288,6 @@ short_match_accept:
+ 
+                 /* Update offset-dependent variables */
+                 limit = limit_base+match_offset;
+-                mbase_start = window-match_offset;
+                 mbase_end = (mbase_start+offset);
+                 continue;
+             }
+@@ -299,3 +302,5 @@ short_match_accept:
+ #undef LONGEST_MATCH_SLOW
+ #undef LONGEST_MATCH_SLOW_ROLL
+ #undef LONGEST_MATCH
++
++#undef MATCH_POS
+diff --git a/test/test_deflate.cc b/test/test_deflate.cc
+index e848197..2375cbc 100644
+--- a/test/test_deflate.cc
++++ b/test/test_deflate.cc
+@@ -158,3 +158,43 @@ INSTANTIATE_TEST_SUITE_P(deflate_small_window, deflate_variant,
+         testing::Values(Z_DEFAULT_STRATEGY)                     /* strategy */
+     ),
+     deflate_test_name);
++
++TEST(deflate, slow_match_offset_round_trip) {
++    const uint32_t seed = 261107360U;
++    uint32_t x = seed | 1U;
++    const size_t n = 70000;
++    static uint8_t in[n], out[2 * n + 1000], decoded[n];
++    static const char alpha[] = "etaoin shrdlu\n";
++    for (size_t i = 0; i < n; i++) {
++        x ^= x << 13;
++        x ^= x >> 17;
++        x ^= x << 5;
++        switch ("rtpz"[(i / 1000) % 4]) {
++        case 'r':
++            in[i] = (unsigned char)(x & 0xff);
++            break;
++        case 't':
++            in[i] = (unsigned char)alpha[x % 14];
++            break;
++        case 'p':
++            in[i] = (unsigned char)((i % (1 + seed % 61)) * 7 + 3);
++            break;
++        default:
++            in[i] = 0;
++        }
++    }
++    PREFIX3(stream) stream = {};
++    ASSERT_EQ(PREFIX(deflateInit2)(&stream, 9, Z_DEFLATED, MAX_WBITS, 4, Z_FILTERED), Z_OK);
++    stream.next_in = in;
++    stream.avail_in = sizeof(in);
++    stream.next_out = out;
++    stream.avail_out = sizeof(out);
++    EXPECT_EQ(PREFIX(deflate)(&stream, Z_FINISH), Z_STREAM_END);
++    z_size_t compressed_len = stream.total_out;
++    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++
++    z_uintmax_t decoded_len = sizeof(decoded);
++    ASSERT_EQ(PREFIX(uncompress)(decoded, &decoded_len, out, (z_uintmax_t)compressed_len), Z_OK);
++    EXPECT_EQ((size_t)decoded_len, sizeof(in));
++    EXPECT_EQ(memcmp(decoded, in, sizeof(in)), 0);
++}

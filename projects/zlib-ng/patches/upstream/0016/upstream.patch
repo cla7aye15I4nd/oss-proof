@@ -1,0 +1,219 @@
+From 0dfcd39ff710b3effb736b14d00fcf0a3dba198d Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Bound gzip read position on every public read path
+
+Unbounded buffering and reads allow state->x.pos + state->x.have (and hence
+state->x.pos inside gz_read, gzgets, and the public gzgetc() macros) to wrap
+past GZ_OFF_MAX on endless seekable inputs.
+
+Maintain the invariant state->x.pos + state->x.have <= GZ_OFF_MAX via a
+gz_room() helper in gz_look(), gz_fetch(), gz_read(), and gzgets(). When more
+data is available at GZ_OFF_MAX, report Z_DATA_ERROR instead of overflowing,
+while still returning clean EOF when the input ends exactly at GZ_OFF_MAX.
+(Reuses GZ_OFF_MAX in gzguts.h.)
+---
+ gzguts.h          |  7 +++++
+ gzread.c          | 39 ++++++++++++++++++++---
+ test/test_gzio.cc | 79 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 120 insertions(+), 5 deletions(-)
+
+diff --git a/gzguts.h b/gzguts.h
+index 93bd943..0f67319 100644
+--- a/gzguts.h
++++ b/gzguts.h
+@@ -158,4 +158,11 @@ unsigned Z_INTERNAL gz_intmax(void);
+    (possible z_off64_t types off_t, off64_t, and long are all signed) */
+ #define GT_OFF(x) (sizeof(int) == sizeof(z_off64_t) && (x) > INT_MAX)
+ 
++/* Largest value representable in z_off64_t. */
++#ifndef CHAR_BIT
++#  define CHAR_BIT 8
++#endif
++#define GZ_OFF_MAX \
++    ((((z_off64_t)1 << (sizeof(z_off64_t) * CHAR_BIT - 2)) - 1) * 2 + 1)
++
+ #endif /* GZGUTS_H_ */
+diff --git a/gzread.c b/gzread.c
+index 0c6937f..0535975 100644
+--- a/gzread.c
++++ b/gzread.c
+@@ -94,6 +94,15 @@ static int gz_avail(gz_state *state) {
+     return 0;
+ }
+ 
++/* Return max, or less so state->x.pos + return <= GZ_OFF_MAX. */
++static unsigned gz_room(gz_state *state, unsigned max) {
++    z_off64_t left = state->x.pos < 0 ? GZ_OFF_MAX : GZ_OFF_MAX - state->x.pos;
++    uint64_t room = (uint64_t)left;
++    if (state->x.pos < 0)
++        room += (uint64_t)(-(state->x.pos + 1)) + 1;
++    return room < (uint64_t)max ? (unsigned)room : max;
++}
++
+ /* Look for gzip header, set up for inflate or copy.  state->x.have must be 0.
+    If this is the first time in, allocate required memory.  state->how will be
+    left unchanged if there is no more input data available, will be set to COPY
+@@ -156,8 +165,10 @@ static int gz_look(gz_state *state) {
+        the output buffer is larger than the input buffer, which also assures
+        space for gzungetc() */
+     state->x.next = state->out;
+-    memcpy(state->x.next, strm->next_in, strm->avail_in);
+-    state->x.have = strm->avail_in;
++    state->x.have = gz_room(state, strm->avail_in);
++    memcpy(state->x.next, strm->next_in, state->x.have);
++    if (state->x.have < strm->avail_in)
++        PREFIX(gz_error)(state, Z_DATA_ERROR, "position overflow");
+     strm->avail_in = 0;
+     state->how = COPY;
+     state->direct = 1;
+@@ -220,6 +231,7 @@ static int gz_decomp(gz_state *state) {
+    otherwise 0.  gz_fetch() will leave state->how as COPY or GZIP unless the
+    end of the input file has been reached and all data has been processed.  */
+ static int gz_fetch(gz_state *state) {
++    unsigned room;
+     PREFIX3(stream) *strm = &(state->strm);
+     Assert(state->x.have == 0, "Invalid state->x.have");
+ 
+@@ -232,13 +244,16 @@ static int gz_fetch(gz_state *state) {
+                 return 0;
+             break;
+         case COPY:      /* -> COPY */
+-            if (gz_load(state, state->out, state->size << 1, &(state->x.have))
++            /* Fetch at most up to GZ_OFF_MAX, or 1 byte at GZ_OFF_MAX to check EOF. */
++            room = gz_room(state, state->size << 1);
++            state->x.next = state->out;
++            if (gz_load(state, state->out, room ? room : 1, &(state->x.have))
+                     == -1)
+                 return -1;
+-            state->x.next = state->out;
+             return 0;
+         case GZIP:      /* -> GZIP or LOOK (if end of gzip stream) */
+-            strm->avail_out = state->size << 1;
++            room = gz_room(state, state->size << 1);
++            strm->avail_out = room ? room : 1;
+             strm->next_out = state->out;
+             if (gz_decomp(state) == -1)
+                 return -1;
+@@ -307,6 +322,14 @@ static size_t gz_read(gz_state *state, void *buf, size_t len) {
+         if (n > len)
+             n = (unsigned)len;
+ 
++        /* do not deliver data past the largest representable position */
++        n = gz_room(state, n);
++        if (n == 0 && state->x.have) {
++            state->x.have = 0;
++            PREFIX(gz_error)(state, Z_DATA_ERROR, "position overflow");
++            break;
++        }
++
+         /* first just try copying data from the output buffer */
+         if (state->x.have) {
+             if (state->x.have < n)
+@@ -547,6 +570,12 @@ char * Z_EXPORT PREFIX(gzgets)(gzFile file, char *buf, z_int32_t len) {
+ 
+             /* look for end-of-line in current output buffer */
+             n = MIN(state->x.have, left);
++            n = gz_room(state, n);
++            if (n == 0) {
++                state->x.have = 0;
++                PREFIX(gz_error)(state, Z_DATA_ERROR, "position overflow");
++                break;
++            }
+             eol = (unsigned char *)memchr(state->x.next, '\n', n);
+             if (eol != NULL)
+                 n = (unsigned)(eol - state->x.next) + 1;
+diff --git a/test/test_gzio.cc b/test/test_gzio.cc
+index b6c4d16..60501b5 100644
+--- a/test/test_gzio.cc
++++ b/test/test_gzio.cc
+@@ -10,6 +10,12 @@
+ #include <stdio.h>
+ #include <stdint.h>
+ #include <stdlib.h>
++#include <fcntl.h>
++#ifndef _WIN32
++#  include <unistd.h>
++#else
++#  include <io.h>
++#endif
+ #include <string.h>
+ #include <vector>
+ 
+@@ -155,3 +161,76 @@ TEST(gzip, setparams_small_output_buffer) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
+ #endif
+ }
++
++#ifdef __linux__
++TEST(gzip, read_position_overflow) {
++    const z_off64_t off_max =
++        (z_off64_t)((((uint64_t)1 << (sizeof(z_off64_t) * 8 - 2)) - 1) * 2 + 1);
++#  if !defined(ZLIB_COMPAT)
++    typedef z_off64_t roff_t;
++#    define R_GZSEEK PREFIX(gzseek)
++#    define R_GZTELL PREFIX(gztell)
++#  elif defined(Z_LARGE64)
++    typedef z_off64_t roff_t;
++#    define R_GZSEEK PREFIX4(gzseek)
++#    define R_GZTELL PREFIX4(gztell)
++#  else
++    if (sizeof(z_off_t) != sizeof(z_off64_t))
++        GTEST_SKIP() << "Requires 64-bit gzseek";
++    typedef z_off_t roff_t;
++#    define R_GZSEEK PREFIX(gzseek)
++#    define R_GZTELL PREFIX(gztell)
++#  endif
++
++    /* 1. Public gzgetc() macro stops cleanly at off_max without overflowing pos. */
++    gzFile f = PREFIX(gzopen)("/dev/zero", "rb");
++    ASSERT_NE(f, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzgetc)(f), 0);
++    if (R_GZSEEK(f, (roff_t)(off_max - 4), SEEK_SET) != (roff_t)(off_max - 4)) {
++        PREFIX(gzclose)(f);
++        GTEST_SKIP() << "/dev/zero does not allow raw seek";
++    }
++    for (int i = 0; i < 4; i++)
++        EXPECT_EQ(PREFIX(gzgetc)(f), 0);
++    EXPECT_EQ(R_GZTELL(f), (roff_t)off_max);
++    EXPECT_EQ(PREFIX(gzgetc)(f), -1);
++    int err = Z_OK;
++    PREFIX(gzerror)(f, &err);
++    EXPECT_EQ(err, Z_DATA_ERROR);
++    EXPECT_EQ(R_GZTELL(f), (roff_t)off_max);
++    EXPECT_EQ(PREFIX(gzclose)(f), Z_OK);
++
++    /* 2. gzread() stops cleanly at off_max and reports Z_DATA_ERROR on extra data. */
++    f = PREFIX(gzopen)("/dev/zero", "rb");
++    ASSERT_NE(f, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzgetc)(f), 0);
++    ASSERT_EQ(R_GZSEEK(f, (roff_t)(off_max - 4), SEEK_SET), (roff_t)(off_max - 4));
++    uint8_t buf[8];
++    EXPECT_EQ(PREFIX(gzread)(f, buf, 4), 4);
++    PREFIX(gzerror)(f, &err);
++    EXPECT_EQ(err, Z_OK);
++    EXPECT_EQ(R_GZTELL(f), (roff_t)off_max);
++    EXPECT_EQ(PREFIX(gzread)(f, buf, 1), -1);
++    PREFIX(gzerror)(f, &err);
++    EXPECT_EQ(err, Z_DATA_ERROR);
++    EXPECT_EQ(PREFIX(gzclose)(f), Z_OK);
++
++    /* 3. gzgets() stops cleanly at off_max as well. */
++    f = PREFIX(gzopen)("/dev/zero", "rb");
++    ASSERT_NE(f, (gzFile)NULL);
++    EXPECT_EQ(PREFIX(gzgetc)(f), 0);
++    ASSERT_EQ(R_GZSEEK(f, (roff_t)(off_max - 2), SEEK_SET), (roff_t)(off_max - 2));
++    char lbuf[16];
++    memset(lbuf, 'x', sizeof(lbuf));
++    EXPECT_EQ(PREFIX(gzgets)(f, lbuf, sizeof(lbuf)), lbuf);
++    EXPECT_EQ(lbuf[0], '\0');
++    EXPECT_EQ(lbuf[1], '\0');
++    EXPECT_EQ(lbuf[2], '\0');
++    EXPECT_EQ(lbuf[3], 'x');
++    EXPECT_EQ(R_GZTELL(f), (roff_t)off_max);
++    EXPECT_EQ(PREFIX(gzgets)(f, lbuf, sizeof(lbuf)), nullptr);
++    PREFIX(gzerror)(f, &err);
++    EXPECT_EQ(err, Z_DATA_ERROR);
++    EXPECT_EQ(PREFIX(gzclose)(f), Z_OK);
++}
++#endif

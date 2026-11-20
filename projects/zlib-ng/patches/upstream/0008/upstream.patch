@@ -1,0 +1,54 @@
+From f445c233dc763fe712cedcf46d51e026ea1b004a Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Skip inflateSync input search when avail_in is zero
+
+With primed bits and empty input (next_in == NULL, avail_in == 0),
+syncsearch() consumes zero bytes and strm->next_in += 0 evaluates NULL + 0
+(ISO C17 6.5.6p8). Guard both the search and pointer advance and cover the case
+in GoogleTest.
+---
+ inflate.c                 | 11 +++++++----
+ test/test_inflate_sync.cc | 10 ++++++++++
+ 2 files changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/inflate.c b/inflate.c
+index 9c88b53..68f385b 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -1342,10 +1342,13 @@ int32_t Z_EXPORT PREFIX(inflateSync)(PREFIX3(stream) *strm) {
+     }
+ 
+     /* search available input */
+-    len = syncsearch(&(state->have), strm->next_in, strm->avail_in);
+-    strm->avail_in -= len;
+-    strm->next_in += len;
+-    strm->total_in += len;
++    if (strm->avail_in) {
++        len = syncsearch(&(state->have), strm->next_in, strm->avail_in);
++        strm->avail_in -= len;
++        if (len)
++            strm->next_in += len;
++        strm->total_in += len;
++    }
+ 
+     /* return no joy or set up to restart inflate() on a new block */
+     if (state->have != 4)
+diff --git a/test/test_inflate_sync.cc b/test/test_inflate_sync.cc
+index a79d867..5f7c364 100644
+--- a/test/test_inflate_sync.cc
++++ b/test/test_inflate_sync.cc
+@@ -73,3 +73,13 @@ TEST(inflate, sync) {
+     err = PREFIX(inflateEnd)(&d_stream);
+     EXPECT_EQ(err, Z_OK);
+ }
++
++TEST(inflate, sync_primed_bits_with_empty_input) {
++    PREFIX3(stream) stream = {};
++    ASSERT_EQ(PREFIX(inflateInit)(&stream), Z_OK);
++    EXPECT_EQ(PREFIX(inflatePrime)(&stream, 16, 0x1234), Z_OK);
++    EXPECT_EQ(PREFIX(inflateSync)(&stream), Z_DATA_ERROR);
++    EXPECT_EQ(stream.next_in, nullptr);
++    EXPECT_EQ(stream.avail_in, 0U);
++    EXPECT_EQ(PREFIX(inflateEnd)(&stream), Z_OK);
++}

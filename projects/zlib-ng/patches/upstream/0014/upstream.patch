@@ -1,0 +1,120 @@
+From 3b3b5c0398675be1ebdf097157566ee946c6d85e Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Discard stale caller input after a failed direct gzwrite
+
+Adapt madler/zlib@df84af25 (CVE-2026-85091) and madler/zlib@6be4bcda to
+zlib-ng: when a direct gz_write() fails in gz_comp(), reset strm.avail_in to
+0 and point strm.next_in back to state->in so neither a subsequent gzclose()
+nor gzclearerr() + gzwrite() accesses a returned or freed caller buffer.
+Initialize strm->next_in = NULL for direct writes as well and reset
+strm.next_in after completing a direct write.
+
+Add GoogleTests for both gzclose() after a failed direct write and gzclearerr()
+followed by a small buffered write.
+---
+ gzwrite.c                      | 16 +++++++++----
+ test/test_gzfile_api_errors.cc | 44 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+), 5 deletions(-)
+
+diff --git a/gzwrite.c b/gzwrite.c
+index 14593da..56cde58 100644
+--- a/gzwrite.c
++++ b/gzwrite.c
+@@ -26,6 +26,8 @@ static int gz_write_init(gz_state *state) {
+         return -1;
+     }
+ 
++    strm->next_in = NULL;
++
+     /* only need deflate state if compressing */
+     if (!state->direct) {
+         /* allocate deflate memory, set up for gzip compression */
+@@ -39,8 +41,6 @@ static int gz_write_init(gz_state *state) {
+             }
+             return -1;
+         }
+-        strm->next_in = NULL;
+-
+         /* initialize write buffer */
+         strm->avail_out = state->size;
+         strm->next_out = state->out;
+@@ -201,17 +201,23 @@ static size_t gz_write(gz_state *state, void const *buf, size_t len) {
+             return 0;
+ 
+         /* directly compress user buffer to file */
+-        state->strm.next_in = (z_const unsigned char *) buf;
++        state->strm.next_in = (z_const unsigned char *)buf;
+         do {
+             unsigned n = (unsigned)-1;
+             if (n > len)
+                 n = (unsigned)len;
+             state->strm.avail_in = n;
++            int ret = gz_comp(state, Z_NO_FLUSH);
++            n -= state->strm.avail_in;
+             state->x.pos += n;
+-            if (gz_comp(state, Z_NO_FLUSH) == -1)
+-                return 0;
+             len -= n;
++            if (ret == -1) {
++                state->strm.avail_in = 0;
++                state->strm.next_in = state->in;
++                return 0;
++            }
+         } while (len);
++        state->strm.next_in = state->in;
+     }
+ 
+     /* input was all buffered or compressed */
+diff --git a/test/test_gzfile_api_errors.cc b/test/test_gzfile_api_errors.cc
+index 2ee59b6..ff3b90d 100644
+--- a/test/test_gzfile_api_errors.cc
++++ b/test/test_gzfile_api_errors.cc
+@@ -1003,3 +1003,47 @@ TEST(gzfile_api_errors, setparams_direct_write) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
+     remove("gzapi_err_setparams.gz");
+ }
++
++#ifndef _WIN32
++/* A failed large direct gzwrite must not leave strm.next_in pointing at the
++ * freed caller buffer for a subsequent gzclose() or gzclearerr() + gzwrite(). */
++TEST(gzfile_api_errors, write_failed_direct_close) {
++    int fd = open("/dev/null", O_RDONLY);
++    ASSERT_GE(fd, 0);
++    gzFile file = PREFIX(gzdopen)(fd, "wbT");
++    if (file == NULL)
++        close(fd);
++    ASSERT_NE(file, (gzFile)NULL);
++
++    EXPECT_EQ(PREFIX(gzbuffer)(file, 8), Z_OK);
++    char *buf = (char *)malloc(100);
++    ASSERT_NE(buf, nullptr);
++    memset(buf, 'a', 100);
++    EXPECT_EQ(PREFIX(gzwrite)(file, buf, 100), 0);
++    free(buf);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_ERRNO);
++}
++
++TEST(gzfile_api_errors, write_failed_direct_clearerr) {
++    int fd = open("/dev/null", O_RDONLY);
++    ASSERT_GE(fd, 0);
++    gzFile file = PREFIX(gzdopen)(fd, "wbT");
++    if (file == NULL)
++        close(fd);
++    ASSERT_NE(file, (gzFile)NULL);
++
++    EXPECT_EQ(PREFIX(gzbuffer)(file, 8), Z_OK);
++    char *buf = (char *)malloc(100);
++    ASSERT_NE(buf, nullptr);
++    memset(buf, 'a', 100);
++    EXPECT_EQ(PREFIX(gzwrite)(file, buf, 100), 0);
++    free(buf);
++    int err = Z_OK;
++    PREFIX(gzerror)(file, &err);
++    EXPECT_EQ(err, Z_ERRNO);
++
++    PREFIX(gzclearerr)(file);
++    EXPECT_EQ(PREFIX(gzwrite)(file, "x", 1), 1);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_ERRNO);
++}
++#endif

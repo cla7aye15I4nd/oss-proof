@@ -1,0 +1,138 @@
+From 8b635f016a9a0c73e3bba4d0b2238c64253cf4aa Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:00 -0800
+Subject: [PATCH] Clear prev[] in CLEAR_HASH() to prevent stale forward matches
+
+longest_match_slow() reads prev[] for interior positions of a match (which
+is why alloc_deflate() and insert_skip() clear prev[] slots), but
+deflate_fast and deflate_medium skip inserting interior match positions. When
+Z_FULL_FLUSH, deflateReset(), or deflateParams() calls CLEAR_HASH(), clearing
+only s->head leaves old pre-reset positions (>= strstart) in s->prev.
+Switching to deflate_slow later can then follow a stale prev[] entry ahead
+of strstart, producing a wrapped distance in zng_tr_tally_dist().
+
+Zero s->prev in CLEAR_HASH() to fix Z_FULL_FLUSH, deflateReset(),
+deflateSetDictionary(), and stale-chain deflateParams() at the source with no
+hot-path overhead.
+---
+ deflate.c                   |  3 +-
+ test/test_deflate_params.cc | 92 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 94 insertions(+), 1 deletion(-)
+
+diff --git a/deflate.c b/deflate.c
+index 2cfd7d2..42e3300 100644
+--- a/deflate.c
++++ b/deflate.c
+@@ -153,10 +153,11 @@ static const config configuration_table[10] = {
+ 
+ 
+ /* ===========================================================================
+- * Initialize the hash table. prev[] will be initialized on the fly.
++ * Initialize the hash table and previous-position chains.
+  */
+ #define CLEAR_HASH(s) do { \
+     memset((unsigned char *)s->head, 0, HASH_SIZE * sizeof(*s->head)); \
++    memset((unsigned char *)s->prev, 0, (s)->w_size * sizeof(*(s)->prev)); \
+   } while (0)
+ 
+ /* Configurations that never read the hash table. When deflateParams() switches
+diff --git a/test/test_deflate_params.cc b/test/test_deflate_params.cc
+index 15d6e5b..d1501b6 100644
+--- a/test/test_deflate_params.cc
++++ b/test/test_deflate_params.cc
+@@ -282,3 +282,95 @@ TEST(deflate, params_from_stored) {
+         }
+     }
+ }
++
++static void verify_stale_prev_after_reset(uint32_t seed, bool use_reset) {
++    uint64_t state = (uint64_t)seed * 7919ULL + 3ULL;
++    auto rnd = [&state]() -> unsigned {
++        state = state * UINT64_C(6364136223846793005) + UINT64_C(1442695040888963407);
++        return (unsigned)(state >> 33);
++    };
++    static uint8_t a[70000], b[70000], decoded[140000], compressed[1 << 18];
++    int la = 2 + rnd() % 5, lb = 7 + rnd() % 2, alpha1 = 2 + rnd() % 6, alpha2 = 2 + rnd() % 4;
++    (void)rnd();
++    size_t na = 33000 + rnd() % 31000, nb = 34000 + rnd() % 30000, sa = 2000 + rnd() % 20000;
++    for (size_t k = 0; k < na; k++)
++        a[k] = 'a' + rnd() % alpha1;
++    size_t k = 0;
++    while (k < sa) {
++        size_t run = 300 + rnd() % 3000, txt = 10 + rnd() % 300;
++        int per = 1 + rnd() % 12;
++        unsigned char pat[16];
++        for (int j = 0; j < per; j++)
++            pat[j] = 'a' + rnd() % alpha2;
++        for (size_t j = 0; j < run && k < sa; j++)
++            b[k++] = pat[j % per];
++        for (size_t j = 0; j < txt && k < sa; j++)
++            b[k++] = 'a' + rnd() % alpha2;
++    }
++    while (k < nb) {
++        int kind = rnd() % 3;
++        if (kind == 0) {
++            size_t off = rnd() % sa, len = 4 + rnd() % 8;
++            for (size_t j = 0; j < len && k < nb; j++)
++                b[k++] = b[off + j];
++            if (k < nb)
++                b[k++] = 'a' + rnd() % (alpha2 + 1);
++        } else if (kind == 1) {
++            size_t len = 1 + rnd() % 40;
++            for (size_t j = 0; j < len && k < nb; j++)
++                b[k++] = 'a' + rnd() % alpha2;
++        } else {
++            size_t off = rnd() % k, len = 3 + rnd() % 30;
++            for (size_t j = 0; j < len && k < nb; j++, k++)
++                b[k] = b[off + j];
++        }
++    }
++    PREFIX3(stream) stream = {};
++    ASSERT_EQ(PREFIX(deflateInit2)(&stream, la, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY), Z_OK);
++    stream.next_out = compressed;
++    stream.avail_out = sizeof(compressed);
++    stream.next_in = a;
++    stream.avail_in = (uint32_t)na;
++    if (use_reset) {
++        EXPECT_EQ(PREFIX(deflate)(&stream, Z_NO_FLUSH), Z_OK);
++        EXPECT_EQ(PREFIX(deflateReset)(&stream), Z_OK);
++        stream.next_out = compressed;
++        stream.avail_out = sizeof(compressed);
++    } else {
++        EXPECT_EQ(PREFIX(deflate)(&stream, Z_FULL_FLUSH), Z_OK);
++    }
++    stream.next_in = b;
++    stream.avail_in = (uint32_t)sa;
++    EXPECT_EQ(PREFIX(deflate)(&stream, Z_NO_FLUSH), Z_OK);
++    EXPECT_EQ(PREFIX(deflateParams)(&stream, lb, Z_DEFAULT_STRATEGY), Z_OK);
++    stream.next_in = b + sa;
++    stream.avail_in = (uint32_t)(nb - sa);
++    EXPECT_EQ(PREFIX(deflate)(&stream, Z_FINISH), Z_STREAM_END);
++    uint32_t compressed_len = (uint32_t)stream.total_out;
++    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++
++    PREFIX3(stream) decoder = {};
++    ASSERT_EQ(PREFIX(inflateInit2)(&decoder, -MAX_WBITS), Z_OK);
++    decoder.next_in = compressed;
++    decoder.avail_in = compressed_len;
++    decoder.next_out = decoded;
++    decoder.avail_out = sizeof(decoded);
++    EXPECT_EQ(PREFIX(inflate)(&decoder, Z_FINISH), Z_STREAM_END);
++    if (use_reset) {
++        ASSERT_EQ(decoder.total_out, nb);
++        EXPECT_EQ(memcmp(decoded, b, nb), 0);
++    } else {
++        ASSERT_EQ(decoder.total_out, na + nb);
++        EXPECT_EQ(memcmp(decoded, a, na), 0);
++        EXPECT_EQ(memcmp(decoded + na, b, nb), 0);
++    }
++    EXPECT_EQ(PREFIX(inflateEnd)(&decoder), Z_OK);
++}
++
++TEST(deflate, changes_level_after_full_flush) {
++    verify_stale_prev_after_reset(362, false);
++}
++
++TEST(deflate, changes_level_after_reset) {
++    verify_stale_prev_after_reset(303, true);
++}
