@@ -1,9 +1,14 @@
 import ZlibNgF.Proof.«deflate.c.body.after»
+import ZlibNgF.Proof.«trees.c.facts»
+import ZlibNgF.Proof.«deflate.c.reach»
 
 /-!
 # `deflate`: the strategy call and the whole call (`ZlibNgF`)
 
 `bodyC_ok`: the dispatch of `deflate` to a strategy (`StrategyFacts`) and what follows it (`after_ok`), or the trailer.
+`bodyB_ok`, `bodyA_ok`: the parts before it (the pending output, the repeated flush, the header). `deflate_ok`: the
+whole call, from the argument checks on (`DeflateParams.DeflateOk`); `dpending`: the obligations of
+`DeflateReach.DPending` from `StrategyFacts`.
 -/
 
 set_option autoImplicit false
@@ -285,5 +290,196 @@ theorem rank_pos {f o : Int32} (hf : 0 < f.toInt) (hf5 : f.toInt ≤ 5) (ho : -2
   have := Int32.le_iff_toInt_le.mp hr
   rw [t f (by omega) hf5, t o ho ho5] at this
   split at this <;> split at this <;> omega
+
+/-! ## `bodyB`, `bodyA` -/
+
+theorem lfok_m1 {H : Heap} {b : Nat} (q : LastM1 H b) : LFok H b := fun st h hl => by
+  rw [q st h] at hl; exact absurd hl (by decide)
+
+/-- The header and the strategy part of `bodyB` (`deflate.c:1052-1058`). -/
+def bodyBt (st : StatePtr) (strm : StreamPtr) (flush : Int32) : M Int32 := do
+  let s ← ldDState st
+  if s.status != BUSY_STATE && s.status != FINISH_STATE && s.wrap != 0 then
+    if (← deflateHeaders st strm) == Z_OK then return Z_OK
+  bodyC st strm flush
+
+theorem bodyBt_ok (SF : StrategyFacts) (T : TreesFacts) {h H : Heap} {i b : Nat} {flush : Int32}
+    {st : DeflateState} (R : Run h i b H) (hst : H.dstate b = some st) (hlf : st.last_flush = flush)
+    (hf0 : 0 ≤ flush) (hf5 : flush ≤ 5) (hp0 : st.pending = 0) (hni : ¬ (st.status = INIT_STATE ∧ st.wrap = 0))
+    (hfa : st.status = FINISH_STATE → ∀ z, H.streams i = some z → z.avail_in = 0) :
+    Sat H (bodyBt (some b) (some i) flush) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
+  unfold bodyBt
+  refine Sat.bind (Sat.of_eq (ldDState_app hst) ?_)
+  by_cases hc : (st.status != BUSY_STATE && st.status != FINISH_STATE && st.wrap != 0) = true
+  · rw [ite_t hc]
+    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at hc
+    obtain ⟨⟨hs1, hs2⟩, -⟩ := hc
+    refine Sat.bind (Sat.mono (headers_ok R hst hs1 hs2 hp0) ?_)
+    rintro r H2 ⟨R2, q1, q2⟩
+    by_cases hr : (r == Z_OK) = true
+    · rw [ite_t hr]; exact Sat.pure ⟨R2, lfok_m1 (q1 (by simpa using hr))⟩
+    · rw [ite_f hr]
+      obtain ⟨z2, st2, -, -, -, -, hst2, -, -, -, -⟩ := R2.live
+      obtain ⟨a1, a2, -, a4⟩ := q2 (by simpa using hr) st2 hst2
+      exact bodyC_ok SF T R2 hst2 (.inl a1) (a4.trans hlf) hf0 hf5 a2 (fun x => absurd (a1.symm.trans x) (by decide))
+  · rw [ite_f hc]
+    have hs : st.status = BUSY_STATE ∨ st.status = FINISH_STATE := by
+      obtain ⟨z, st1, al, d, -, -, hst1, -, -, -, c⟩ := R.live
+      obtain rfl := Option.some.inj (hst.symm.trans hst1)
+      obtain ⟨hw, -⟩ := (R.side st hst).2.2.1
+      have hlo := Int32.le_iff_toInt_le.mp c.status_lo
+      have hhi := Int32.le_iff_toInt_le.mp c.status_hi
+      simp only [dview] at hlo hhi
+      have t : ∀ x : Int32, st.status = x ∨ st.status.toInt ≠ x.toInt := fun x => by
+        by_cases e : st.status = x
+        · exact .inl e
+        · exact .inr fun e' => e (Int32.toInt_inj.mp e')
+      rcases t BUSY_STATE with e2 | e2
+      · exact .inl e2
+      rcases t FINISH_STATE with e3 | e3
+      · exact .inr e3
+      exfalso
+      have n2 : st.status ≠ BUSY_STATE := fun x => e2 (by rw [x])
+      have n3 : st.status ≠ FINISH_STATE := fun x => e3 (by rw [x])
+      have hw0 : st.wrap = 0 := Classical.byContradiction fun hw => hc (by simp [n2, n3, hw])
+      rcases t INIT_STATE with e1 | e1
+      · exact hni ⟨e1, hw0⟩
+      have hw2 : st.wrap = 2 := by
+        apply hw
+        have a2 : BUSY_STATE.toInt = 2 := rfl
+        have a3 : FINISH_STATE.toInt = 3 := rfl
+        have a1 : INIT_STATE.toInt = 1 := rfl
+        have a4 : GZIP_STATE.toInt = 4 := rfl
+        have a8 : MAX_STATE.toInt = 8 := rfl
+        rw [a2] at e2; rw [a3] at e3; rw [a1] at e1; rw [a8] at hhi
+        have l1 : INIT_STATE.toInt = 1 := rfl
+        rw [l1] at hlo
+        rcases (by omega : st.status.toInt = 4 ∨ st.status.toInt = 5 ∨ st.status.toInt = 6 ∨ st.status.toInt = 7 ∨
+            st.status.toInt = 8) with x | x | x | x | x
+        · exact .inl (Int32.toInt_inj.mp (x.trans a4.symm))
+        · exact .inr (.inl (Int32.toInt_inj.mp (x.trans rfl)))
+        · exact .inr (.inr (.inl (Int32.toInt_inj.mp (x.trans rfl))))
+        · exact .inr (.inr (.inr (.inl (Int32.toInt_inj.mp (x.trans rfl)))))
+        · exact .inr (.inr (.inr (.inr (Int32.toInt_inj.mp (x.trans rfl)))))
+      rw [hw0] at hw2; exact absurd hw2 (by decide)
+    exact bodyC_ok SF T R hst hs hlf hf0 hf5 hp0 hfa
+
+/-- **`bodyB`**. -/
+theorem bodyB_ok (SF : StrategyFacts) (T : TreesFacts) {h H : Heap} {i b : Nat} {flush : Int32} {z : ZStream}
+    {st : DeflateState} (R : Run h i b H) (hz : H.streams i = some z) (hst : H.dstate b = some st)
+    (hlf : st.last_flush = flush) (hf0 : 0 ≤ flush) (hf5 : flush ≤ 5) (hp0 : st.pending = 0) :
+    Sat H (bodyB (some b) (some i) flush) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
+  obtain ⟨S1, S2, -, -, -, -⟩ := R.side st hst
+  unfold bodyB
+  refine Sat.bind (Sat.of_eq (rdD_dst hst _) ?_)
+  refine Sat.bind (Sat.of_eq (rdZ_app hz _) ?_)
+  by_cases hc : (st.status == FINISH_STATE && z.avail_in != 0) = true
+  · rw [ite_t hc]
+    have hF : st.status = FINISH_STATE := by simp only [Bool.and_eq_true, beq_iff_eq] at hc; exact hc.1
+    exact Sat.mono (err_run R Z_BUF_ERROR (.inr rfl)) fun _ H' ⟨R', k⟩ => ⟨R', fun st' h' _ => by
+      obtain rfl := Option.some.inj ((k st hst).symm.trans h'); exact (S2 hF).1⟩
+  rw [ite_f hc]
+  have hfa : st.status = FINISH_STATE → ∀ z', H.streams i = some z' → z'.avail_in = 0 := fun x z' hz' => by
+    obtain rfl := Option.some.inj (hz.symm.trans hz')
+    simpa [x] using hc
+  refine Sat.bind (Sat.of_eq (ldDState_app hst) ?_)
+  by_cases hI : (st.status == INIT_STATE && st.wrap == 0) = true
+  · rw [ite_t hI]
+    simp only [Bool.and_eq_true, beq_iff_eq] at hI
+    obtain ⟨z1, st1, al, d, -, -, hst1, -, -, -, c⟩ := R.live
+    obtain rfl := Option.some.inj (hst.symm.trans hst1)
+    have h0 : st.sym_next = 0 := c.hdr (show st.status ≠ BUSY_STATE by rw [hI.1]; decide)
+      (show st.status ≠ FINISH_STATE by rw [hI.1]; decide)
+    obtain ⟨z', d', pbo, e', SS⟩ := segS_of R hst h0 (c.pout hp0)
+    rw [← e']
+    refine Sat.bind (Sat.of_eq (wrD_SH _) ?_)
+    have R' := seg_run SS.run SS.pb SS.sym SS.pout z'.adler st.pending BUSY_STATE st.gzindex rfl (fun _ _ => rfl)
+      (by rw [hp0]; simp) (by decide) (by decide) (by decide) (hdrOk_busy (.inl rfl))
+    exact bodyBt_ok SF T R' (SH_dstate _ _ _ _ _ _) hlf hf0 hf5 hp0 (fun x => absurd x.1 (by show ¬ (BUSY_STATE = INIT_STATE); decide))
+      (fun x => absurd x (by show ¬ (BUSY_STATE = FINISH_STATE); decide))
+  · rw [ite_f hI]
+    exact bodyBt_ok SF T R hst hlf hf0 hf5 hp0 (fun x => hI (by simp [x.1, x.2])) hfa
+
+/-- **`bodyA`**. -/
+theorem bodyA_ok (SF : StrategyFacts) (T : TreesFacts) {h H : Heap} {i b : Nat} {flush old : Int32} {z : ZStream}
+    {st : DeflateState} (R : Run h i b H) (hz : H.streams i = some z) (hst : H.dstate b = some st)
+    (hlf : st.last_flush = flush) (hf0 : 0 ≤ flush) (hf5 : flush ≤ 5) (ho : -2 ≤ old) (ho5 : old ≤ 5)
+    (hold : 0 < old → st.sym_next = 0) :
+    Sat H (bodyA (some b) (some i) flush old) (fun _ H' => Run h i b H' ∧ LFok H' b) := by
+  unfold bodyA
+  refine Sat.bind (Sat.of_eq (rdD_dst hst _) ?_)
+  by_cases hp : (st.pending != 0) = true
+  · rw [ite_t hp]
+    obtain ⟨H2, e2, R2, k⟩ := run_flush R.w
+    obtain ⟨z2, st2, hz2, hst2, hse, -, hpz, -⟩ := k z st hz hst
+    refine Sat.bind ⟨(), H2, e2, ?_⟩
+    refine Sat.bind (Sat.of_eq (rdZ_app hz2 _) ?_)
+    by_cases ha : (z2.avail_out == 0) = true
+    · rw [ite_t ha]
+      exact Sat.bind (Sat.mono (run_lf R2) fun _ H3 q => Sat.pure ⟨q.1, lfok_m1 q.2⟩)
+    · rw [ite_f ha]
+      exact bodyB_ok SF T R2 hz2 hst2 (by rw [hse]; exact hlf) hf0 hf5 (hpz (by simpa using ha))
+  · rw [ite_f hp]
+    have hp0 : st.pending = 0 := by simpa using hp
+    refine Sat.bind (Sat.of_eq (rdZ_app hz _) ?_)
+    have i0 := Int32.le_iff_toInt_le.mp hf0
+    have i5 := Int32.le_iff_toInt_le.mp hf5
+    have j0 := Int32.le_iff_toInt_le.mp ho
+    have j5 := Int32.le_iff_toInt_le.mp ho5
+    have c5 : (5 : Int32).toInt = 5 := rfl
+    have c0 : (0 : Int32).toInt = 0 := rfl
+    have c2 : (-2 : Int32).toInt = -2 := rfl
+    rw [c0] at i0; rw [c5] at i5; rw [c2] at j0; rw [c5] at j5
+    refine Sat.bind (Sat.of_eq (rank_eq flush (by omega) (by omega) _) ?_)
+    refine Sat.bind (Sat.of_eq (rank_eq old j0 j5 _) ?_)
+    by_cases hc : (z.avail_in == 0 && decide (Int32.ofInt (flush.toInt * 2 - (if flush > 4 then 9 else 0)) ≤
+        Int32.ofInt (old.toInt * 2 - (if old > 4 then 9 else 0))) && flush != Z_FINISH) = true
+    · rw [ite_t hc]
+      simp only [Bool.and_eq_true, decide_eq_true_eq] at hc
+      obtain ⟨⟨-, hr⟩, -⟩ := hc
+      exact Sat.mono (err_run R Z_BUF_ERROR (.inr rfl)) fun _ H' ⟨R', k⟩ => ⟨R', fun st' h' hl => by
+        obtain rfl := Option.some.inj ((k st hst).symm.trans h')
+        rw [hlf] at hl
+        have := Int32.lt_iff_toInt_lt.mp hl
+        rw [c0] at this
+        exact hold (Int32.lt_iff_toInt_lt.mpr (by rw [c0]; exact rank_pos this i5 j0 j5 hr))⟩
+    · rw [ite_f hc]
+      exact bodyB_ok SF T R hz hst hlf hf0 hf5 hp0
+
+/-! ## `deflate` -/
+
+/-- **`deflate`** satisfies `DeflateOk`, given the strategies (`StrategyFacts`). -/
+theorem deflate_ok (SF : StrategyFacts) : DeflateParams.DeflateOk := by
+  intro h s flush hv hs hcg hio
+  obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
+  have T := ZlibNgF.Proof.TreesFactsP.treesFacts
+  have hsi : stateIds h (some i) = [b] := by simp [stateIds, L.hz, L.hb]
+  suffices q : Sat h (ZlibNg.Deflate.deflate (some i) flush) (fun _ h' => DPost h h' i) by
+    obtain ⟨r, h', e, q⟩ := q; exact ⟨r, h', e, q⟩
+  rw [deflate_eq]
+  refine Sat.bind (Sat.of_eq L.check ?_)
+  split
+  · exact Sat.pure ⟨by rw [hsi]; exact Strategy.dframe_refl _ _ _ _ _, rfl, hv, hs⟩
+  rename_i hfl
+  have hf5 : flush ≤ Z_BLOCK := Classical.byContradiction fun x => hfl (by simp [Int32.not_le.mp x])
+  have hf0 : 0 ≤ flush := Classical.byContradiction fun x => hfl (by simp [Int32.not_le.mp x])
+  refine Sat.bind (Sat.of_eq L.stateOf ?_)
+  refine Sat.bind (Sat.of_eq (ZlibNgF.Proof.InflateInv.ldStream_app L.hz) ?_)
+  refine Sat.bind (Sat.of_eq (ldDState_app L.dstate) ?_)
+  split
+  · exact err_pre hv hs _ (.inl rfl)
+  rename_i hc
+  split
+  · exact err_pre hv hs _ (.inr rfl)
+  have hno : z.next_out ≠ .null := fun x => hc (by simp [x])
+  have hni : z.avail_in ≠ 0 → z.next_in ≠ .null := fun x y => hc (by simp [x, y])
+  obtain ⟨S1, Slf, S2, S3, ⟨f1, f2, -⟩, S5, S6⟩ := hs b st ⟨i, z, rfl, L.hz, L.hb, L.dstate⟩
+  have R0 := run_init hv hs hcg hio L.hz L.hb hno hni
+  refine Sat.bind (Sat.mono (run_setlf R0 L.hz L.dstate hf0 hf5) ?_)
+  rintro _ H1 ⟨R1, hst1, hz1⟩
+  exact Sat.mono (bodyA_ok SF T R1 hz1 hst1 rfl hf0 hf5 f1 f2 Slf) fun _ H' ⟨R', l⟩ => Run.done R' l
+
+/-- The obligations of the reachability induction, given the strategies. -/
+theorem dpending (SF : StrategyFacts) : DeflateReach.DPending := ⟨deflate_ok SF⟩
 
 end ZlibNgF.Proof.DeflateBody
