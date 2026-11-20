@@ -148,7 +148,7 @@ theorem fill_io {h : Heap} {i : Nat} {z : ZStream} {b : Nat} {st : DeflateState}
   have O : OutOnly h (SH h i z' b st' d') b ob oo 0 :=
     ⟨rfl, rfl, fun c hc data hd => ⟨data, by simp only [SH]; rw [upd_ne _ _ _ _ hc]; exact hd, rfl, fun _ _ => rfl⟩⟩
   have hgz : st'.gzhead = st.gzhead := by
-    obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, -, -, -, -, -, -, hg, -⟩ := P
+    obtain ⟨-, -, -, i6, z6, z7, b6, st6, st7, e6, hz6, hz7, hb6, hst6, hst7, -, -, -, -, -, -, -, -, -, hg, -⟩ := P
     obtain rfl : i = i6 := Option.some.inj e6
     obtain rfl : z = z6 := Option.some.inj (hz.symm.trans hz6)
     obtain rfl : b = b6 := Option.some.inj (hb.symm.trans hb6)

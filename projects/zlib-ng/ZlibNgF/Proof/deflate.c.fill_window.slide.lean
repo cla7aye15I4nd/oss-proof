@@ -83,7 +83,8 @@ theorem fe_loop {st : DeflateState} (hW : 1 ≤ st.w_size.toNat) (hw2 : st.w_siz
 def SFin (st st' : DeflateState) : Prop :=
   FWS st st' ∧ st'.lookahead = st.lookahead ∧ st'.strstart.toNat < st'.fill_end.toNat ∧ WCore st' ∧
     st'.strstart.toNat + st'.lookahead.toNat ≤ st'.window_size.toNat ∧
-    (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ (st.strstart.toNat : Int) - st.block_start.toInt
+    (st'.strstart.toNat : Int) - st'.block_start.toInt ≤ (st.strstart.toNat : Int) - st.block_start.toInt ∧
+      ((st'.strstart.toNat : Int) = st'.block_start.toInt → (st.strstart.toNat : Int) = st.block_start.toInt)
 
 theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
     (L : HLay b d.size st wo po ho) (hws : st.window_size = W_BUF_SIZE st.w_size)
@@ -286,7 +287,7 @@ theorem slide_SH {st : DeflateState} {wo po ho : Nat} (level : Int32)
       rw [gt_iff_lt, UInt32.lt_iff_toNat_lt, sub_toNat _ _ (by rw [hML, e_ws]; omega), e_fe, e_ws, hML] at hle
       omega
     refine Sat.pure ⟨st1, d, rfl, WrIn.refl _ _ _, ⟨by rw [hst1]; exact ⟨_, _, _, _, _, _, _, _, _, _, rfl⟩, e_la, ?_, ?_, ?_,
-      by rw [e_ss, e_bs]; exact Int.le_refl _⟩⟩
+      by rw [e_ss, e_bs]; exact ⟨Int.le_refl _, id⟩⟩⟩
     · rw [e_ss, e_fe]; exact hsf
     · refine ⟨⟨k, hk1, hk2, by rw [e_w]; exact hwk⟩, by rw [e_fe, e_w]; exact hm, by rw [e_fe, e_ws]; exact hle',
         by rw [e_in, e_ss]; exact C.ins, by rw [e_bs, e_ss]; exact C.bs_hi, by rw [e_bs]; exact C.bs_lo⟩
