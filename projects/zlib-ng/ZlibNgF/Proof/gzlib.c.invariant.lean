@@ -2,6 +2,7 @@ import ZlibNgF.Spec.Safety.Gz
 import ZlibNgF.Proof.«inflate.c.invariant»
 import ZlibNgF.Proof.«deflate.c.invariant»
 import ZlibNgF.Proof.«public-deflate-init»
+import ZlibNgF.Proof.«deflate.c.side»
 
 /-!
 # The structural invariant of an open gz file (`ZlibNgF`)
@@ -24,9 +25,11 @@ so that a proof about one function opens only the clauses it needs.
   `inflateInit2`) and no `gz_header` registered, `x.have` bytes from `x.next` lie inside `out`, and `avail_in` bytes
   from `next_in` inside `in`; without buffers `x.have` is 0; a pending skip and the bytes `gzungetc` pushed back
   after it keep `pos + skip + have ≤ GZ_OFF_MAX`;
-* writing: with buffers and not `direct`, the deflate stream has the deflate invariant (`gz_write_init`) and no
-  `gz_header` registered, and `next_in` is `in` plus at most `size` with `avail_in` bytes after it inside `in`
-  (patch 0014: no pointer into a caller's buffer is left between calls);
+* writing: `x.have` is 0; without buffers `avail_in` is 0; with buffers and not `direct`, the deflate stream has the
+  deflate invariant and the between-call facts (`gz_write_init`), no `gz_header` registered, `next_out + avail_out`
+  is the end of `out` and `x.next` lies in `out` at or before `next_out`; `avail_in` bytes from `next_in` lie inside
+  the first `size` bytes of `in`, or `avail_in` is 0 and `next_in` is `NULL` (not direct) (patch 0014: no pointer
+  into a caller's buffer is left between calls);
 * the blocks the file frees (`ownL`: the state, `path`, `msg`, and with buffers the buffers and the block of the
   stream's state) are pairwise distinct.
 -/
@@ -83,12 +86,30 @@ structure GzRead (h : Heap) (s : GzState) : Prop where
   /-- a pending skip and the bytes pushed back by `gzungetc` after it stay below `GZ_OFF_MAX` -/
   skip_have : s.skip ≠ 0 → s.pos.toInt + s.skip.toInt + s.«have».toNat ≤ GZ_OFF_MAX.toInt
 
+/-- The write buffers and the embedded stream `z` once the buffers exist (block `c`, `in` at `base`). -/
+structure GzWBuf (h : Heap) (s : GzState) (c base : Nat) (z : ZStream) : Prop where
+  /-- not direct: the deflate stream has the invariant and the between-call facts (`gz_write_init` called
+  `deflateInit2`) -/
+  deflate : s.direct = 0 → DeflateInv.DInv h (some s.strm) ∧ DeflateSide.DSide h (some s.strm)
+  /-- no `gz_header` is registered on the deflate state -/
+  nohdr : ∀ sb st k, z.state = some sb → h.dstate sb = some st → st.gzhead ≠ .val (some k)
+  /-- the input: `avail_in` bytes from `next_in` inside the first `size` bytes of `in`; or no input, and then
+  `next_in` is `NULL` unless the file is direct (patch 0014: no pointer into a caller's buffer is left) -/
+  inp : Inside c base 0 s.size.toNat z.next_in z.avail_in.toNat ∨
+    (z.avail_in = 0 ∧ (s.direct ≠ 0 ∨ z.next_in = .null))
+  /-- not direct: `next_out + avail_out` is the end of `out`, and `x.next` lies in `out` at or before `next_out` -/
+  out : s.direct = 0 → ∃ ko kx, z.next_out = .ref (.heap c) (base + inSize s + ko) ∧
+    s.next = .val (.ref (.heap c) (base + inSize s + kx)) ∧ kx ≤ ko ∧ ko + z.avail_out.toNat = s.size.toNat
+
 /-- Writing. -/
 structure GzWrite (h : Heap) (s : GzState) : Prop where
-  bufs : s.size ≠ 0 → ∃ c base z, GzBufs h s c base ∧ h.streams s.strm = some z ∧
-    (s.direct = 0 → DeflateInv.DInv h (some s.strm)) ∧
-    (z.avail_in = 0 ∨ Inside c base 0 s.size.toNat z.next_in z.avail_in.toNat) ∧
-    (∀ sb st k, z.state = some sb → h.dstate sb = some st → st.gzhead ≠ .val (some k))
+  bufs : s.size ≠ 0 → ∃ c base z, GzBufs h s c base ∧ h.streams s.strm = some z ∧ GzWBuf h s c base z
+  /-- before the buffers exist there is no input (`gz_reset`), and the stream is ready for `deflateInit2` (the default
+  allocator: `gz_state_init` sets `zalloc` and `zfree` to `NULL`, a failed `deflateInit2` to `zcalloc` / `zcfree`) -/
+  nobuf : s.size = 0 → ∃ z, h.streams s.strm = some z ∧ z.avail_in = 0 ∧
+    (z.zalloc = .null ∨ z.zalloc = .zcalloc) ∧ (z.zfree = .null ∨ z.zfree = .zcfree)
+  /-- no output is buffered for reading (`gz_reset`; only `gz_error` changes `x.have` on a write handle) -/
+  have0 : s.«have» = 0
 
 /-- The error message. -/
 structure GzMsg (h : Heap) (s : GzState) : Prop where

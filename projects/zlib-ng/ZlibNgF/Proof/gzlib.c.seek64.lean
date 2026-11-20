@@ -320,7 +320,7 @@ theorem seekSkip_write {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
     (hs : w.gz h b = some s) (off : Int64) (h0 : 0 ≤ off.toInt) (hmx : s.pos.toInt + off.toInt ≤ GZ_OFF_MAX.toInt) :
     GSat w h (seekSkip (some b) off) (fun _ W H => GzInvWS W H (some b) ∧ GStep w h W H b []) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
-  have hw := modeOf hs hv.2
+  have hw := modeOf hs hv.2.1
   have P := sh.pos
   obtain ⟨db, hdb⟩ := gz_live hs
   have hmx' := gzmax
@@ -335,11 +335,11 @@ theorem seekSkip_write {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzIn
   refine ⟨?_, gstep_st hs w.fs rfl rfl rfl rfl⟩
   have sh' : GzShape h { s with skip := off } := by
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size, ⟨h0, hmx, P.3, P.4⟩,
-      ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => absurd (hr.symm.trans hw) read_ne_write, fun hw' => ⟨fun hsz => ?_⟩,
-      fun hz => sh.dead hz⟩
-    obtain ⟨c, base, z, hb, r⟩ := (sh.write hw').bufs hsz
-    exact ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, r⟩
-  exact ⟨⟨b, _, rfl, gz_upd_same hs _, sh', hn⟩, ⟨b, _, rfl, gz_upd_same hs _, hw⟩⟩
+      ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => absurd (hr.symm.trans hw) read_ne_write,
+      fun hw' => ⟨fun hsz => ?_, (sh.write hw').nobuf, (sh.write hw').have0⟩, fun hz => sh.dead hz⟩
+    obtain ⟨c, base, z, hb, hz, W⟩ := (sh.write hw').bufs hsz
+    exact ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hz, ⟨W.1, W.2, W.3, W.4⟩⟩
+  exact ⟨⟨b, _, rfl, gz_upd_same hs _, sh', hn⟩, ⟨b, _, rfl, gz_upd_same hs _, hw⟩, wfw_store hv.2.2 hs _ rfl⟩
 
 /-- A change of the file system only is a step of a call. -/
 theorem gstep_fs {w : World} {h : Heap} {b : Nat} {s : GzState} (hs : w.gz h b = some s) (fs : Fs) :
@@ -434,7 +434,7 @@ theorem seekRest_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
 theorem seekRest_write {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvWS w h (some b))
     (hs : w.gz h b = some s) (off : Int64) (hmx : s.pos.toInt + off.toInt ≤ GZ_OFF_MAX.toInt) :
     GSat w h (seekRest (some b) off) (fun _ W H => GzInvWS W H (some b) ∧ GStep w h W H b []) := by
-  have hw := modeOf hs hv.2
+  have hw := modeOf hs hv.2.1
   unfold seekRest
   apply GSat.ite
   · intro _
@@ -593,7 +593,7 @@ theorem seekTail2_write {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzI
     (hs : w.gz h b = some s) (off pos : Int64) (hp0 : 0 ≤ pos.toInt) :
     GSat w h (seekTail2 (some b) off pos) (fun _ W H => GzInvWS W H (some b) ∧ GStep w h W H b []) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
-  have hw := modeOf hs hv.2
+  have hw := modeOf hs hv.2.1
   have P := sh.pos
   have hp0 := P.4 hw
   have hmx' := gzmax
@@ -805,16 +805,16 @@ theorem invR_skip0 {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w
 theorem invW_skip0 {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvWS w h (some b))
     (hs : w.gz h b = some s) : GzInvWS { w with gzs := upd w.gzs b (some { s with skip := 0 }) } h (some b) := by
   obtain ⟨sh, hn⟩ := inv_of hs hv.1
-  have hw := modeOf hs hv.2
+  have hw := modeOf hs hv.2.1
   have P := sh.pos
   have sh' : GzShape h { s with skip := 0 } := by
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size,
       ⟨by simp, by have := P.1; have := P.2; simp; omega, P.3, P.4⟩,
-      ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => absurd (hr.symm.trans hw) read_ne_write, fun hw' => ⟨fun hsz => ?_⟩,
-      fun hz => sh.dead hz⟩
-    obtain ⟨c, base, z, hb, r⟩ := (sh.write hw').bufs hsz
-    exact ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, r⟩
-  exact ⟨⟨b, _, rfl, gz_upd_same hs _, sh', hn⟩, ⟨b, _, rfl, gz_upd_same hs _, hw⟩⟩
+      ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => absurd (hr.symm.trans hw) read_ne_write,
+      fun hw' => ⟨fun hsz => ?_, (sh.write hw').nobuf, (sh.write hw').have0⟩, fun hz => sh.dead hz⟩
+    obtain ⟨c, base, z, hb, hz, W⟩ := (sh.write hw').bufs hsz
+    exact ⟨c, base, z, ⟨hb.size, hb.buffers, hb.inp, hb.out, hb.fits, hb.hdr⟩, hz, ⟨W.1, W.2, W.3, W.4⟩⟩
+  exact ⟨⟨b, _, rfl, gz_upd_same hs _, sh', hn⟩, ⟨b, _, rfl, gz_upd_same hs _, hw⟩, wfw_store hv.2.2 hs _ rfl⟩
 
 theorem seekTail_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h (some b))
     (hs : w.gz h b = some s) (off pos : Int64) (hp0 : 0 ≤ pos.toInt) :
@@ -838,7 +838,7 @@ theorem gzseek64_read {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInv
 theorem gzseek64_write {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvWS w h (some b))
     (hs : w.gz h b = some s) (off : Int64) (wh : Int32) :
     GSat w h (gzseek64 (some b) off wh) (SPost (fun W H => GzInvWS W H (some b)) w h b) :=
-  gzseek64_gen hs (Or.inr (modeOf hs hv.2)) (inv_of hs hv.1).1.pos _ hv
+  gzseek64_gen hs (Or.inr (modeOf hs hv.2.1)) (inv_of hs hv.1).1.pos _ hv
     (fun off pos hp => seekTail_write hv hs off pos hp)
     (fun off pos hp => seekTail_write (invW_skip0 hv hs) (gz_upd_same hs _) off pos hp) off wh
 

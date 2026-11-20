@@ -11,8 +11,9 @@ The mode of an open file never changes, so the reachable files split by mode:
   clauses of `GzWF` other than the bound on objects). Other files reach a read handle only through caller steps,
   which leave a well-formed world (`GzKeeps`), and the read-side calls only read the file system, so the bounds on
   the input stay;
-* a write handle has `GzInvWS`: the invariant `GzInv` and mode `GZ_WRITE`. The read-side calls on a write handle
-  need only `GzInvW` (live state, mode, positions, message).
+* a write handle has `GzInvWS`: the invariant `GzInv`, mode `GZ_WRITE`, and a well-formed heap (`GzWFw`: the
+  clauses of `GzWF` other than the bounds on the input, which writes grow, and on objects). The read-side calls on a
+  write handle need only `GzInvW` (live state, mode, positions, message).
 
 `greach (W : GWriteSteps) (R : GReadPending) : GzReachable w h f → GzInvR w h f ∨ GzInvWS w h f`. `GWriteSteps`
 holds what the write side owes: the write-side calls (`gzwrite.c`) and the caller steps keep `GzInvWS` on a write
@@ -46,15 +47,27 @@ theorem GzWFr.lit {w : World} {h : Heap} (hw : GzWFr w h) : LitOk w h := hw.2.2.
 /-- **The invariant of a read handle.** -/
 def GzInvR (w : World) (h : Heap) (f : GzPtr) : Prop := GzInv w h f ∧ GzModeIs w h f GZ_READ ∧ GzWFr w h
 
+/-- The clauses of `GzWF` that a write handle keeps: all but the bounds on the input (writes grow the files) and on
+the size of objects. -/
+def GzWFw (w : World) (h : Heap) : Prop :=
+  CrcGlobals h ∧ DFreshBlocks h ∧
+  (∀ b, h.nextBlk ≤ b → w.gzs b = none) ∧
+  (∀ b s, w.gz h b = some s → ∃ z, h.streams s.strm = some z) ∧ LitOk w h
+
+theorem GzWFw.of {w : World} {h : Heap} (hwf : GzWF w h) : GzWFw w h :=
+  ⟨hwf.1, hwf.2.1, hwf.2.2.2.1, hwf.2.2.2.2.1, hwf.lit⟩
+
+theorem GzWFw.lit {w : World} {h : Heap} (hw : GzWFw w h) : LitOk w h := hw.2.2.2.2
+
 /-- **The invariant of a write handle.** -/
-def GzInvWS (w : World) (h : Heap) (f : GzPtr) : Prop := GzInv w h f ∧ GzModeIs w h f GZ_WRITE
+def GzInvWS (w : World) (h : Heap) (f : GzPtr) : Prop := GzInv w h f ∧ GzModeIs w h f GZ_WRITE ∧ GzWFw w h
 
 /-- What the read-side calls need of a write handle. -/
 def GzInvW (w : World) (h : Heap) (f : GzPtr) : Prop :=
   ∃ b s, f = some b ∧ w.gz h b = some s ∧ s.mode = GZ_WRITE ∧ GzPos s ∧ GzMsg h s
 
 theorem GzInvWS.weak {w : World} {h : Heap} {f : GzPtr} (hv : GzInvWS w h f) : GzInvW w h f := by
-  obtain ⟨⟨b, s, rfl, hs, sh, -⟩, b', s', e, hs', hm⟩ := hv
+  obtain ⟨⟨b, s, rfl, hs, sh, -⟩, ⟨b', s', e, hs', hm⟩, -⟩ := hv
   cases e; rw [hs] at hs'; cases hs'
   exact ⟨b, s, rfl, hs, hm, sh.pos, sh.msg⟩
 
@@ -134,24 +147,27 @@ theorem shape_keep {h h' : Heap} {b : Nat} {s : GzState} (sh : GzShape h s) (hk 
     have hi' := hk.ist sb hsbL
     simp only [Heap.istate, hb', hi'] at hst' ⊢; exact hst'
   · have Wr := sh.write hw
-    refine ⟨fun hsz => ?_⟩
-    obtain ⟨c, base, z, hb, hz, hd, hai, hnh⟩ := Wr.bufs hsz
+    refine ⟨fun hsz => ?_, fun hz0 => by rw [hk.strm]; exact Wr.nobuf hz0, Wr.have0⟩
+    obtain ⟨c, base, z, hb, hz, W⟩ := Wr.bufs hsz
     have hnh' : ∀ sb st k, z.state = some sb → h'.dstate sb = some st → st.gzhead ≠ .val (some k) := by
       intro sb st k hsb hst
       have hsbL : sb ∈ ownL h b s := by
         simp only [ownL, hsz, ite_false]; simp [stBlk_of hz hsb]
-      refine hnh sb st k hsb ?_
+      refine W.nohdr sb st k hsb ?_
       simp only [Heap.dstate, hk.bytes sb hsbL, hk.dst sb hsbL] at hst ⊢; exact hst
-    refine ⟨c, base, z, hbufs c base hsz hb, by rw [hk.strm]; exact hz, fun hdir => ?_, hai, hnh'⟩
-    obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hd hdir
+    refine ⟨c, base, z, hbufs c base hsz hb, by rw [hk.strm]; exact hz, ⟨fun hdir => ?_, hnh', W.inp, W.out⟩⟩
+    obtain ⟨hd, hsd⟩ := W.deflate hdir
+    obtain ⟨i, z0, sb, st, al, e, hz0, hsb, hst0, hal, core⟩ := hd
     cases e
     rw [hz] at hz0; cases hz0
     have hsbL : sb ∈ ownL h b s := by
       simp only [ownL, hsz, ite_false]; simp [stBlk_of hz hsb]
-    refine DeflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst0, hal, core⟩
+    have hc : DCallerStep h h' (some s.strm) :=
       ⟨s.strm, z, z, sb, st, rfl, hz, by rw [hk.strm]; exact hz, hsb, hst0, rfl, hk.bytes sb hsbL, hk.dst sb hsbL,
-        hk.dal sb hsbL, fun k g hk' _ => absurd hk' (hnh sb st k hsb hst0),
+        hk.dal sb hsbL, fun k g hk' _ => absurd hk' (W.nohdr sb st k hsb hst0),
         hk.base, hk.next⟩
+    exact ⟨DeflateReach.caller_inv ⟨s.strm, z, sb, st, al, rfl, hz, hsb, hst0, hal, core⟩ hc,
+      DeflateSide.caller_side hsd hc⟩
   · rw [hst] at hc
     exact ⟨hk.dead hz c hc (sh.dead hz c hc).1 (sh.dead hz c hc).2, Nat.lt_of_lt_of_le (sh.dead hz c hc).2 hk.next⟩
 
@@ -440,11 +456,13 @@ theorem shape_congr {h : Heap} {s s' : GzState} (sh : GzShape h s) (a : Agree s 
     · rw [a.inS]; exact hai
     · rw [a.strm]; exact hreg
   · have Wr := sh.write (by rw [← a.mode]; exact hw)
-    refine ⟨fun hsz => ?_⟩
-    obtain ⟨c, base, z, hb, hz, hd, hai, hnh⟩ := Wr.bufs (by rw [← a.size]; exact hsz)
-    refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hz, ?_, by rw [a.size]; exact hai, ?_⟩
-    · rw [a.direct, a.strm]; exact hd
-    · intro sb st k hsb; exact hnh sb st k hsb
+    refine ⟨fun hsz => ?_, fun hz0 => by rw [a.strm]; exact Wr.nobuf (by rw [← a.size]; exact hz0),
+      by rw [a.hv]; exact Wr.have0⟩
+    obtain ⟨c, base, z, hb, hz, W⟩ := Wr.bufs (by rw [← a.size]; exact hsz)
+    refine ⟨c, base, z, a.bufs hb, by rw [a.strm]; exact hz, ⟨?_, W.nohdr, ?_, ?_⟩⟩
+    · rw [a.direct, a.strm]; exact W.deflate
+    · rw [a.size, a.direct]; exact W.inp
+    · rw [a.direct, a.next, a.inS, a.size]; exact W.out
   · have e : blkOf s'.buffers ++ stBlk h s' = blkOf s.buffers ++ stBlk h s := by simp only [stBlk, a.buffers, a.strm]
     rw [e] at hc; exact sh.dead (by rw [← a.size]; exact hz) c hc
 
@@ -604,6 +622,43 @@ theorem wfr_step {w W : World} {h h' : Heap} {b : Nat} {s : GzState} (hw : GzWFr
         exact hl.streams _ z hz
     · cases e
 
+/-- `GzWFw` after a step that stores into the state of block `b` (or keeps it) and changes the heap within
+`HLess`. -/
+theorem wfw_step {w W : World} {h h' : Heap} {b : Nat} {s : GzState} (hw : GzWFw w h) (hs : w.gz h b = some s)
+    (hg : ∀ c, c ≠ b → W.gzs c = w.gzs c) (hgb : ∀ s', W.gzs b = some s' → s'.strm = s.strm)
+    (hl : HLess h h') (hL : LitOk W h') : GzWFw W h' := by
+  obtain ⟨hc, ⟨hfr, hdf⟩, hgz, hst, -⟩ := hw
+  obtain ⟨d0, hd0⟩ := gz_live hs
+  have hbn : b < h.nextBlk := by
+    refine Nat.lt_of_not_le fun e => ?_
+    rw [(hfr b e).2.2] at hd0; cases hd0
+  refine ⟨⟨by rw [hl.crc]; exact hc.1, by rw [hl.x2n]; exact hc.2⟩, ⟨fun c e => ?_, fun c e => ?_⟩, fun c e => ?_,
+    fun c s2 e => ?_, hL⟩
+  · rw [hl.next] at e
+    refine ⟨by rw [hl.istates]; exact (hfr c e).1, by rw [hl.iallocs]; exact (hfr c e).2.1, ?_⟩
+    cases e' : h'.bytes c with
+    | none => rfl
+    | some d => have := (hfr c e).2.2; rw [hl.bytes c d e'] at this; cases this
+  · rw [hl.next] at e
+    rw [hl.dstates, hl.dallocs]; exact hdf c e
+  · rw [hl.next] at e
+    rw [hg c (by omega)]; exact hgz c e
+  · unfold World.gz at e
+    split at e
+    · next d hd =>
+      by_cases hcb : c = b
+      · subst hcb; rw [hgb s2 e]; obtain ⟨z, hz⟩ := hst c s hs; exact hl.streams _ z hz
+      · rw [hg c hcb] at e
+        obtain ⟨z, hz⟩ := hst c s2 (by unfold World.gz; rw [hl.bytes c d hd]; exact e)
+        exact hl.streams _ z hz
+    · cases e
+
+/-- `GzWFw` after a store into the state of block `b` that keeps its stream. -/
+theorem wfw_store {w : World} {h : Heap} {b : Nat} {s : GzState} (hw : GzWFw w h) (hs : w.gz h b = some s)
+    (s' : GzState) (hstrm : s'.strm = s.strm) : GzWFw { w with gzs := upd w.gzs b (some s') } h :=
+  wfw_step hw hs (fun c hc => by simp [upd_ne _ _ _ _ hc]) (fun s2 e2 => by simp at e2; rw [← e2, hstrm])
+    (HLess.refl h) (LitOk.ext hw.lit rfl fun _ _ e => e)
+
 /-- A step within `HLess` whose freed blocks are the file's, which only adds static strings and changes only the
 file's `gz_state`, is in the frame of the file. -/
 theorem gzframe_less {w w' : World} {h h' : Heap} {f : GzPtr} (hl : HLess h h')
@@ -686,9 +741,9 @@ theorem keepsW_same {S : World → Heap → World → Heap → GzPtr → Prop}
     (hS : ∀ w h w' h' b s, w.gz h b = some s → s.mode = GZ_WRITE → S w h w' h' (some b) → w' = w ∧ h' = h) :
     KeepsW S := by
   intro w h w' h' f hv hst
-  obtain ⟨⟨b, s, rfl, hs, sh, hn⟩, hm⟩ := hv
+  obtain ⟨⟨b, s, rfl, hs, sh, hn⟩, hm, hw⟩ := hv
   obtain ⟨rfl, rfl⟩ := hS w h w' h' b s hs (modeOf hs hm) hst
-  exact ⟨⟨b, s, rfl, hs, sh, hn⟩, hm⟩
+  exact ⟨⟨b, s, rfl, hs, sh, hn⟩, hm, hw⟩
 
 /-- The write-side calls return at the mode check on a read handle. -/
 theorem wstep_keepsR : KeepsR GzWStep := by
@@ -729,7 +784,8 @@ theorem keeps_outside {S : World → Heap → World → Heap → GzPtr → Prop}
       (LitOk w h → LitOk w' h')) :
     KeepsR S ∧ KeepsW S := by
   have key : ∀ w h w' h' f, (GzInvR w h f ∨ GzInvWS w h f) → S w h w' h' f →
-      GzInv w' h' f ∧ (∀ m, GzModeIs w h f m → GzModeIs w' h' f m) ∧ (GzWFr w h → GzWFr w' h') := by
+      GzInv w' h' f ∧ (∀ m, GzModeIs w h f m → GzModeIs w' h' f m) ∧ (GzWFr w h → GzWFr w' h') ∧
+        (GzWFw w h → GzWFw w' h') := by
     intro w h w' h' f hv0 hst
     obtain ⟨hg, hf, hh, hL⟩ := hS w h w' h' f hv0 hst
     have hv : GzInv w h f := by rcases hv0 with ⟨hv, -⟩ | ⟨hv, -⟩ <;> exact hv
@@ -751,12 +807,13 @@ theorem keeps_outside {S : World → Heap → World → Heap → GzPtr → Prop}
       intro s' e'
       rw [hg, gzs_of hs] at e'; cases e'; rfl
     exact ⟨⟨b, s, rfl, hs', sh', by rw [e]; exact hn⟩, fun m hm => ⟨b, s, rfl, hs', modeOf hs hm⟩, fun hw =>
-      wfr_step (W := w') hw hs (fun c _ => by rw [hg]) hgb hf hl (hL hw.lit)⟩
+      wfr_step (W := w') hw hs (fun c _ => by rw [hg]) hgb hf hl (hL hw.lit), fun hw =>
+      wfw_step (W := w') hw hs (fun c _ => by rw [hg]) hgb hl (hL hw.lit)⟩
   refine ⟨fun w h w' h' f hv hst => ?_, fun w h w' h' f hv hst => ?_⟩
-  · obtain ⟨a, b, c⟩ := key w h w' h' f (Or.inl hv) hst
+  · obtain ⟨a, b, c, -⟩ := key w h w' h' f (Or.inl hv) hst
     exact ⟨a, b _ hv.2.1, c hv.2.2⟩
-  · obtain ⟨a, b, -⟩ := key w h w' h' f (Or.inr hv) hst
-    exact ⟨a, b _ hv.2⟩
+  · obtain ⟨a, b, -, c⟩ := key w h w' h' f (Or.inr hv) hst
+    exact ⟨a, b _ hv.2.1, c hv.2.2⟩
 
 theorem tell64_keeps : KeepsR STell64 ∧ KeepsW STell64 := keeps_outside fun w h w' h' f hv ⟨r, e⟩ => by
   obtain ⟨r', e'⟩ := GzReach.gztell64_inv (Or.inr (parts' hv))
@@ -800,7 +857,7 @@ theorem lseek_ok {w : World} {h : Heap} {f : GzPtr} (hv : GzInvR w h f ∨ GzInv
     ∀ b s, f = some b → w.gz h b = some s → s.mode = GZ_READ →
       ∀ n v, w.fs.lseekChoice n = .value v → v = -1 ∨ 0 ≤ v := by
   intro b s e hs hm
-  rcases hv with ⟨-, -, hw⟩ | ⟨-, hm'⟩
+  rcases hv with ⟨-, -, hw⟩ | ⟨-, hm', -⟩
   · exact hw.2.2.2.2.2.2.1
   · cases e; exact absurd (hm.symm.trans (modeOf hs hm')) read_ne_write
 
@@ -827,10 +884,13 @@ theorem keeps_store {w : World} {h h' : Heap} {b : Nat} {s s' : GzState} (hs : w
     (GzInvWS w h (some b) → GzInvWS { w with gzs := upd w.gzs b (some s') } h' (some b)) := by
   obtain ⟨hi, e⟩ := inv_store hs hb sh hn
   refine ⟨fun hv => ⟨hi, ⟨b, s', rfl, e, by rw [hmode]; exact modeOf hs hv.2.1⟩, ?_⟩,
-    fun hv => ⟨hi, ⟨b, s', rfl, e, by rw [hmode]; exact modeOf hs hv.2⟩⟩⟩
-  refine wfr_step hv.2.2 hs (fun c hc => by simp [upd_ne _ _ _ _ hc]) (fun s2 e2 => ?_) (GzOpen.FsLe.refl _) hl
-    (LitOk.ext hv.2.2.lit rfl hl.consts)
-  simp at e2; rw [← e2, hstrm]
+    fun hv => ⟨hi, ⟨b, s', rfl, e, by rw [hmode]; exact modeOf hs hv.2.1⟩, ?_⟩⟩
+  · refine wfr_step hv.2.2 hs (fun c hc => by simp [upd_ne _ _ _ _ hc]) (fun s2 e2 => ?_) (GzOpen.FsLe.refl _) hl
+      (LitOk.ext hv.2.2.lit rfl hl.consts)
+    simp at e2; rw [← e2, hstrm]
+  · refine wfw_step hv.2.2 hs (fun c hc => by simp [upd_ne _ _ _ _ hc]) (fun s2 e2 => ?_) hl
+      (LitOk.ext hv.2.2.lit rfl hl.consts)
+    simp at e2; rw [← e2, hstrm]
 
 theorem buffer_keeps : KeepsR SBuffer ∧ KeepsW SBuffer := by
   have key : ∀ w h w' h' b s, w.gz h b = some s → GzShape h s → (ownL h b s).Nodup → SBuffer w h w' h' (some b) →
@@ -843,7 +903,8 @@ theorem buffer_keeps : KeepsR SBuffer ∧ KeepsW SBuffer := by
       refine Or.inr ⟨v, e1, e2, ?_, hn⟩
       exact ⟨sh.mode, sh.path, sh.strm, h8, h30, Or.inl hz, ⟨sh.pos.1, sh.pos.2, sh.pos.3, sh.pos.4⟩,
         ⟨sh.msg.msg, sh.msg.mem⟩, fun hr => ⟨(sh.read hr).how, fun e => absurd hz e, (sh.read hr).nobuf,
-          (sh.read hr).skip_have⟩, fun _ => ⟨fun e => absurd hz e⟩, fun _ => sh.dead hz⟩
+          (sh.read hr).skip_have⟩, fun hw => ⟨fun e => absurd hz e, (sh.write hw).nobuf, (sh.write hw).have0⟩,
+          fun _ => sh.dead hz⟩
   refine ⟨fun w h w' h' f hv hst => ?_, fun w h w' h' f hv hst => ?_⟩
   · obtain ⟨b, s, rfl, hs, sh, hn⟩ := hv.1
     rcases key w h w' h' b s hs sh hn hst with ⟨e1, e2⟩ | ⟨v, e1, e2, sh', hn'⟩ <;> rw [e1, e2]

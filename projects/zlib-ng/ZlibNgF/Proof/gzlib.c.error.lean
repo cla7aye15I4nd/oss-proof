@@ -307,10 +307,10 @@ theorem shape_have {h : Heap} {s : GzState} (sh : GzShape h s) (v : UInt32) (hv 
   rcases hv with rfl | rfl
   · have P := sh.pos
     refine ⟨sh.mode, sh.path, sh.strm, sh.want_lo, sh.want_hi, sh.size, ⟨P.1, P.2, P.3, P.4⟩, ⟨sh.msg.1, sh.msg.2⟩,
-      fun hr => ?_, fun hw => ⟨fun hsz => ?_⟩, fun hz => sh.dead hz⟩
+      fun hr => ?_, fun hw => ⟨fun hsz => ?_, (sh.write hw).nobuf, rfl⟩, fun hz => sh.dead hz⟩
     rotate_left
-    · obtain ⟨c, base, z, hb, hz, hd, hai, hnh⟩ := (sh.write hw).bufs hsz
-      exact ⟨c, base, z, ⟨hb.1, hb.2, hb.3, hb.4, hb.5, hb.6⟩, hz, hd, hai, hnh⟩
+    · obtain ⟨c, base, z, hb, hz, W⟩ := (sh.write hw).bufs hsz
+      exact ⟨c, base, z, ⟨hb.1, hb.2, hb.3, hb.4, hb.5, hb.6⟩, hz, ⟨W.1, W.2, W.3, W.4⟩⟩
     have R := sh.read hr
     refine ⟨R.how, fun hsz => ?_, fun _ => rfl, fun hk => ?_⟩
     · obtain ⟨c, base, z, hb, hi, hz, -, hai, hreg⟩ := R.bufs hsz
