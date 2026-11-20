@@ -1,4 +1,5 @@
 import ZlibNgF.Proof.«inflate.c.alloc»
+import ZlibNgF.Proof.«inflate.c.keep»
 
 /-!
 # `inflateInit_`, `inflateInit2_` (`ZlibNgF`)
@@ -45,6 +46,7 @@ theorem init2_safe (h : Heap) (s : StreamPtr) (wb : Int32) (hfr : FreshBlocks h)
 
 theorem inflateInit__safety : Goal.inflateInit__safety := by
   intro h s version size _ hfr hi hv
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateInit_ _ _ _) ?_
   obtain ⟨c, hc⟩ := checkVer_ok h version size hv
   cases c
   · obtain ⟨r, h', e, f, _⟩ := init2_safe h s DEF_WBITS hfr hi
@@ -53,6 +55,7 @@ theorem inflateInit__safety : Goal.inflateInit__safety := by
 
 theorem inflateInit2__safety : Goal.inflateInit2__safety := by
   intro h s wb version size _ hfr hi hv
+  refine InflateKeep.iframe_up (InflateKeep.K.ZlibNg.Inflate.inflateInit2_ _ _ _ _) ?_
   obtain ⟨c, hc⟩ := checkVer_ok h version size hv
   cases c
   · obtain ⟨r, h', e, f, _⟩ := init2_safe h s wb hfr hi
