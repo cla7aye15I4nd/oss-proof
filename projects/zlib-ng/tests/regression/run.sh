@@ -42,7 +42,8 @@ cases=(
   "deflate-medium-insert-count|0013||runtime error: division by zero|deflate 1 28"
   "gzwrite-clearerr-stale-input|0014||invalid-pointer-pair OR heap-buffer-overflow|gzwrite 0 -1 1"
   "gzclose-after-failed-write|0014||heap-use-after-free|gzclose 0 0"
-  "gzread-position-overflow|0016||runtime error: signed integer overflow|gzread 0 9223372036854775807 0"
+  "gzread-position-overflow|0016||runtime error: signed integer overflow|gzread 0 9223372036854775807 -1"
+  "gzgetc-macro-position|0016|max,near|runtime error: signed integer overflow|max read 2 macro 0 last -1 pos 9223372036854775807 err -3;near read 1 macro 11 last -1 pos 9223372036854775807 err -3"
   "fixed-block-start-overflow|0018|f|runtime error: signed integer overflow|deflate 1 2151677952|180"
   "deflate-slow-match-start|0019|362,303|ERROR: AddressSanitizer OR runtime error OR round-trip MISMATCH|inflate 1 out 80393 of 80393 round-trip ok;inflate 1 out 86208 of 86208 round-trip ok"
   "gzdirect-pending-skip|0020||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 getc -1 tell 13"
@@ -85,6 +86,7 @@ open_cases=(
 # extended regular expression every run's report must match
 guards=(
   "infback-window-overlap|0007|first-0007.patch|8 100 200 150,8 100 250 100,15 1000 32700 200,9 10 400 258,8 3 255 10|memcpy-param-overlap"
+  "gzgetc-macro-position|0016|first-0016.patch|max,near|runtime error: signed integer overflow"
   "gzseek-refusal-state|0004|first-0004.patch|read,write,unget,raw|^read seek 100 -1 tell 100 getc 119$|^write seek 10 -1 tell 10 putc 122 close 0 length 11$|^(unget|raw) unget 120 121 tell -2 seek -1 tell -2 getc 121 120$"
 )
 
@@ -95,9 +97,11 @@ guards=(
 # one they are skipped with a loud message, and when CI is set (as on the CI runners) a missing -m32 toolchain fails
 # the run instead.
 # case | patch prefix | earlier version | expected line with every current patch | extended regular expression the
-# earlier version's output must match
+# earlier version's output must match | optional flags in place of $m32 | optional widths line in place of
+# "size_t 4 off 8" (the repro prints sizeof(size_t) and sizeof(z_off_t))
 wide32=(
   "gzwrite-position-32bit|0017|first-0017.patch|pos32 seek 4294967295 write 1 tell 4294967296 err 0|^pos32 seek 4294967295 write 0 tell 4294967295 err -3$"
+  "gzread-position-32bit|0016|first-0016.patch|pos32 seek max-5 fread 4 tell max-0 err -3|^pos32 seek max-5 fread [0-9]+ tell max-[0-9]{6,} err 0$|-m32 -D_LARGEFILE64_SOURCE=0|size_t 4 off 4"
 )
 m32="-m32 -D_FILE_OFFSET_BITS=64"
 
@@ -276,7 +280,7 @@ for entry in "${guards[@]}"; do
 done
 sel32=()
 for entry in "${wide32[@]}"; do
-  IFS='|' read -r name patch earlier want defect <<<"$entry"
+  IFS='|' read -r name patch earlier want defect flags32 widths <<<"$entry"
   [ $# -eq 0 ] || [[ " $* " == *" $name "* ]] || continue
   sel32+=("$entry")
   # the same case on the verified (LP64) build: the same line, no report
@@ -307,30 +311,33 @@ if [ ${#sel32[@]} -gt 0 ]; then
   fi
 fi
 for entry in ${sel32[@]+"${sel32[@]}"}; do
-  IFS='|' read -r name patch earlier want defect <<<"$entry"
-  CFLAGS="$san $m32" bash "$tests/zlib-ng-build-current.sh" "$work/patched-m32" ||
-    CFLAGS="$san $m32" bash "$tests/build-zlib-ng.sh" "$src" "$work/patched-m32" >"$work/build-m32.log" 2>&1 ||
+  IFS='|' read -r name patch earlier want defect flags32 widths <<<"$entry"
+  flags32=${flags32:-$m32}
+  widths=${widths:-size_t 4 off 8}
+  tag=$(printf '%s' "$flags32" | tr -c 'A-Za-z0-9' '_')
+  CFLAGS="$san $flags32" bash "$tests/zlib-ng-build-current.sh" "$work/patched-m32$tag" ||
+    CFLAGS="$san $flags32" bash "$tests/build-zlib-ng.sh" "$src" "$work/patched-m32$tag" >"$work/build-m32.log" 2>&1 ||
     { tail -20 "$work/build-m32.log"; exit 2; }
-  dir="$work/earlier-m32-${earlier%.patch}"
-  if ! REPLACE="$patch=$here/$name/$earlier" CFLAGS="$san $m32" bash "$tests/zlib-ng-build-current.sh" "$dir"; then
-    REPLACE="$patch=$here/$name/$earlier" CFLAGS="$san $m32" bash "$tests/build-zlib-ng.sh" "$src" "$dir" \
+  dir="$work/earlier-m32$tag-${earlier%.patch}"
+  if ! REPLACE="$patch=$here/$name/$earlier" CFLAGS="$san $flags32" bash "$tests/zlib-ng-build-current.sh" "$dir"; then
+    REPLACE="$patch=$here/$name/$earlier" CFLAGS="$san $flags32" bash "$tests/build-zlib-ng.sh" "$src" "$dir" \
       >"$work/build-m32.log" 2>&1 || { tail -20 "$work/build-m32.log"; exit 2; }
   fi
-  for b in patched-m32 "earlier-m32-${earlier%.patch}"; do
-    cc $san $m32 -I"$work/$b" "$here/$name/repro.c" "$work/$b/libz.a" -o "$work/$name-$b" || exit 2
+  for b in "patched-m32$tag" "earlier-m32$tag-${earlier%.patch}"; do
+    cc $san $flags32 -I"$work/$b" "$here/$name/repro.c" "$work/$b/libz.a" -o "$work/$name-$b" || exit 2
   done
-  echo "== $name (32-bit size_t, 64-bit offsets)"
-  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched-m32" 2>&1); rc=$?
+  echo "== $name (32-bit build: $flags32)"
+  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-patched-m32$tag" 2>&1); rc=$?
   if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q "runtime error\|ERROR: AddressSanitizer"; then
     echo "UNEXPECTED: with every patch: status $rc: $out"; fail=1
-  elif ! printf '%s\n' "$out" | grep -qx "size_t 4 off 8"; then
-    echo "UNEXPECTED: not a 32-bit size_t / 64-bit offset build: $out"; fail=1
+  elif ! printf '%s\n' "$out" | grep -qx "$widths"; then
+    echo "UNEXPECTED: not a build with '$widths': $out"; fail=1
   elif printf '%s\n' "$out" | grep -qx "$want"; then
     echo "ok: with every patch: $want, no report"
   else
     echo "UNEXPECTED: with every patch, no line '$want' in: $out"; fail=1
   fi
-  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-earlier-m32-${earlier%.patch}" 2>&1); rc=$?
+  out=$(cd "$work" && timeout "$timeout_s" "$work/$name-earlier-m32$tag-${earlier%.patch}" 2>&1); rc=$?
   if printf '%s\n' "$out" | grep -qE "$defect"; then
     echo "ok: with $earlier: $(printf '%s\n' "$out" | grep -m1 -E "$defect")"
   else
