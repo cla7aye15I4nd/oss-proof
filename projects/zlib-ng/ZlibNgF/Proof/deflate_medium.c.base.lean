@@ -176,15 +176,16 @@ theorem slf_flush_ws (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32)
 after. -/
 theorem slf_flush_mg (T : TreesFacts) {h H : Heap} {i b wo : Nat} (last : Int32) (hl0 : 0 ≤ last) (hl1 : last ≤ 1)
     (F : SLF h i b H) (hp : ∀ st, H.dstate b = some st → st.pending = 0 ∧ st.window = .val (.ref (.heap b) wo))
-    (Ch : ChainAll b H) :
-    Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H2 => avIn H2 i = avIn H i ∧ SLF h i b H2 ∧
+    (Ch : ChainAll b H) (hsy0 : last = 0 → NZ b H) :
+    Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) last) (fun r H2 => avIn H2 i = avIn H i ∧
+      SLFe (lastSlack last) h i b H2 ∧
       ChainAll b H2 ∧ (∀ st st2, H.dstate b = some st → H2.dstate b = some st2 → st2.w_size = st.w_size) ∧
       (∀ st2, H2.dstate b = some st2 → st2.sym_next = 0 ∧ st2.sym_next < st2.sym_end ∧
         ∃ st, H.dstate b = some st ∧ st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart ∧
           st2.window = st.window) ∧
       (r = none → ∀ st2, H2.dstate b = some st2 → st2.pending = 0) ∧
       (r ≠ none → r = some (if last != 0 then .finish_started else .need_more)) ∧ (r ≠ none → O0 H2 i)) := by
-  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T last hl0 hl1 F hp)
+  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush T last hl0 hl1 F hp hsy0)
     (ZlibNgF.Proof.MediumStep.Sat.and (slf_flush_chain T last hl0 hl1 F hp) (slf_flush_ws T last hl0 hl1 F hp))) ?_
   rintro r H2 ⟨⟨a1, a2, a3, a4, a5, a6⟩, K, KW⟩
   obtain ⟨z, st, -, -, -, hst, -, -⟩ := F.live

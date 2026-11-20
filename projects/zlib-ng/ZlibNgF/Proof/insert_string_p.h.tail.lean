@@ -219,7 +219,7 @@ theorem sli_insh {h H0 : Heap} {i b : Nat} {z : ZStream} {st : DeflateState} {d 
   refine ⟨H1, z, { st with ins_h := x }, d, ?_, ?_⟩
   · rw [← SH_SH H0 i z z b st { st with ins_h := x } d d, e, SH_SH]
   · refine ⟨slf_SH C.1 (fun al _ c => DCore.of_heap (by rw [SH_bytes, SH_bytes]) c) rfl rfl rfl rfl
-      (C.1.st _ (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _), fun st2 h2 => ?_⟩
+      (C.1.st _ (SH_dstate _ _ _ _ _ _)).2.2 (StratKeeps.refl _) (fun _ => Nat.le_refl _), fun st2 h2 => ?_⟩
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
     obtain ⟨hp, hs⟩ := C.2 (FS st la ss) (SH_dstate _ _ _ _ _ _)
     exact ⟨hp, hs⟩

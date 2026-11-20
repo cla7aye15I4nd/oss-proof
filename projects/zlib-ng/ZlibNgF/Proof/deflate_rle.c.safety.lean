@@ -165,9 +165,10 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss ml : UInt32}
   unfold rle_trip
   extract_lets jpE jpM
   have hE : ∀ (bf : Bool) (la' ss' ml' : UInt32) H2, SLW h i b la' ss' H2 → (bf = false → SLI h i b la' ss' H2) →
+      (∀ st, H2.dstate b = some st → st.sym_next ≠ 0) →
       ml'.toNat < 3 → avIn H2 i + la'.toNat + 1 < avIn H i + la.toNat + 1 →
       Sat H2 (jpE (bf, la', ss', ml')) (fun v H2 => RI h i b flush v H2 ∧ RM i v H2 < avIn H i + la.toNat + 1) := by
-    intro bf la' ss' ml' H2 W2 I2 hm2 hlt
+    intro bf la' ss' ml' H2 W2 I2 NZ hm2 hlt
     simp only [jpE]
     cases bf with
     | false =>
@@ -175,7 +176,7 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss ml : UInt32}
       exact Sat.pure ⟨⟨I2 rfl, hm2⟩, hlt⟩
     | true =>
       simp only [↓reduceIte]
-      refine Sat.bind (Sat.mono (sli_flush T 0 (by decide) (by decide) W2 hw0) fun _ H3 h3 =>
+      refine Sat.bind (Sat.mono (sli_flush T 0 (by decide) (by decide) W2 hw0 rfl NZ) fun _ H3 h3 =>
         Sat.bind (Sat.mono h3 ?_))
       rintro r2 H4 ⟨ha4, hnone, hsome⟩
       cases r2 with
@@ -207,21 +208,24 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss ml : UInt32}
         have h3' : 3 ≤ m.toNat := UInt32.le_iff_toNat_le.mp h3
         obtain ⟨hm258, hmla⟩ := hm3 h3'
         have hsub : (m - STD_MIN_MATCH).toNat = m.toNat - 3 := UInt32.toNat_sub_of_le _ _ h3
-        refine Sat.bind (Sat.mono (sli_tally_dist ⟨H0, z, st, d, rfl, C⟩ 1 (m - STD_MIN_MATCH) m
-          (by rw [hsub]; omega) (by decide) (by decide) (by omega) hm258 hmla) ?_)
-        rintro r H2 ⟨ha2, W2, I2⟩
+        refine Sat.bind (Sat.mono (sat_both (sli_tally_dist ⟨H0, z, st, d, rfl, C⟩ 1 (m - STD_MIN_MATCH) m
+          (by rw [hsub]; omega) (by decide) (by decide) (by omega) hm258 hmla)
+          (sli_tally_dist_nz ⟨H0, z, st, d, rfl, C⟩ 1 (m - STD_MIN_MATCH) (by rw [hsub]; omega) (by decide)
+            (by decide))) ?_)
+        rintro r H2 ⟨⟨ha2, W2, I2⟩, NZ⟩
         refine Sat.bind (Sat.pure ?_)
-        refine hE r _ _ 0 H2 W2 I2 (by decide) ?_
+        refine hE r _ _ 0 H2 W2 I2 NZ (by decide) ?_
         rw [ha2, UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr hmla), avIn_SH]; omega
       · simp only [h3, ↓reduceIte]
         obtain ⟨c, ec⟩ := ZlibNgF.Proof.WinBase.index8_SH (H := H0) (i := i) (z := z) (b := b) (st := st) (d := d)
           (off := wo) (ss1.toNat : Int) (by omega) (by simp; omega)
         have h3' : m.toNat < 3 := by
           have := UInt32.lt_iff_toNat_lt.mp (UInt32.not_le.mp h3); simpa [STD_MIN_MATCH] using this
-        refine Sat.bind (Sat.of_eq ec (Sat.bind (Sat.mono (sli_tally_lit ⟨H0, z, st, d, rfl, C⟩ hl1 c) ?_)))
-        rintro r H2 ⟨ha2, W2, I2⟩
+        refine Sat.bind (Sat.of_eq ec (Sat.bind (Sat.mono (sat_both (sli_tally_lit ⟨H0, z, st, d, rfl, C⟩ hl1 c)
+          (sli_tally_lit_nz ⟨H0, z, st, d, rfl, C⟩ c)) ?_)))
+        rintro r H2 ⟨⟨ha2, W2, I2⟩, NZ⟩
         refine Sat.bind (Sat.pure ?_)
-        refine hE r _ _ m H2 W2 I2 h3' ?_
+        refine hE r _ _ m H2 W2 I2 NZ h3' ?_
         rw [ha2, UInt32.toNat_sub_of_le _ _ (UInt32.le_iff_toNat_le.mpr (by simpa using hl1)), avIn_SH]; simp; omega
     by_cases hc : (decide (la1 ≥ STD_MIN_MATCH) && decide (ss1 > 0)) = true
     · simp only [hc, ↓reduceIte]

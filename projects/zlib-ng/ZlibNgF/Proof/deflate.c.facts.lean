@@ -162,10 +162,12 @@ theorem InTail.le {h H : Heap} {i : Nat} (A : InTail h H i) {z0 z : ZStream} (h0
 `DeflatePsi.content_finish`), else none. -/
 def finSlack (bs : BlockState) : Nat := if bs = .finish_started ∨ bs = .finish_done then 2 ^ 18 else 0
 
-/-- The potential of a strategy call that returns `bs` (`DeflatePsi.PsiAcc`): from `h` to `h'`, `psiS` drops by the
-bytes produced, less `G` per input byte consumed and `finSlack bs`. -/
-def PsiPost (h : Heap) (s : StreamPtr) (bs : BlockState) (h' : Heap) : Prop :=
-  ∀ i b, s = some i → StateBlock h s b → DeflatePsi.PsiAcc (finSlack bs) h h' i b
+/-- The potential of a strategy call with `flush` that returns `bs` (`DeflatePsi.PsiAccF`): from `h` to `h'`,
+`psiS flush` drops by the bytes produced, less `G` per input byte consumed and `finSlack bs`. Only the call's own
+flush: with `Z_FIXED` at level 1, `deflate_quick` may raise `quickB f` for another `f` (closing the open block for
+`Z_FINISH` raises `quickB Z_NO_FLUSH` from 32 to 64 when lookahead is left). -/
+def PsiPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' : Heap) : Prop :=
+  ∀ i b, s = some i → StateBlock h s b → DeflatePsi.PsiAccF flush (finSlack bs) h h' i b
 
 /-- What a strategy call with `flush` leaves: the invariant, valid and set buffers, a change of the stream record, the
 stream's block and the output buffer only, the output buffer after a tail of the one before (`OutTail`), the stream's
@@ -190,11 +192,12 @@ def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' :
     (flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → ∀ z z', StreamAt h s z → StreamAt h' s z' →
       z.avail_out ≠ 0 → z'.avail_in < z.avail_in ∨ z'.avail_out < z.avail_out) ∧
     (bs = .block_done ∨ bs = .finish_done → ∃ b st, DStateIs h' s b st ∧ st.pending = 0) ∧
-    ∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
+    (∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt h' s z' → z'.avail_out ≠ 0) → st'.sym_next = 0) ∧
       (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0) ∧
       (bs = .block_done → st'.sym_next = 0) ∧
-      (LazyOk st → LazyOk st' ∧ (bs = .block_done → st'.match_available = 0))
+      (LazyOk st → LazyOk st' ∧ (bs = .block_done → st'.match_available = 0))) ∧
+    PsiPost h s flush bs h'
 
 /-- A strategy `f` that `deflate` dispatches to on states with `dispatch`: from `StratPre` and `dispatch`, no fault
 and `StratPost`. -/

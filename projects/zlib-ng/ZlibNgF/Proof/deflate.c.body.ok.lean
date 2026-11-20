@@ -36,7 +36,7 @@ theorem strat_io {h H H' : Heap} {i b : Nat} {flush : Int32} {bs : BlockState} (
     (bs = .finish_started ∨ bs = .finish_done → flush = Z_FINISH) ∧
     (flush = Z_FINISH → bs = .need_more ∨ bs = .finish_started → aOut h i ≠ 0 →
       aIn H' i < aIn h i ∨ aOut H' i < aOut h i) := by
-  obtain ⟨-, -, -, -, Pout, -, -, Pcf, Pfin, Pprog, -, -⟩ := P
+  obtain ⟨-, -, -, -, Pout, -, -, Pcf, Pfin, Pprog, -, -, -⟩ := P
   obtain ⟨z, -, -, -, hz, -⟩ := R.live
   have m := R.mono
   refine ⟨fun e => ?_, Pfin, fun hf e hne => ?_⟩
@@ -83,7 +83,7 @@ theorem bodyC_ok (SF : StrategyFacts) (T : TreesFacts) {h H : Heap} {i b : Nat} 
       obtain ⟨s1, -, -, -, -, -, s7, -⟩ := k1
       exact ⟨s1.trans hbusy, s7.trans hlf, k2, k3, k4, k5⟩) A1 A2 A3
   have keeps : ∀ (bs : BlockState) H', StratPost H (some i) flush bs H' → ∀ st', H'.dstate b = some st' →
-      StratKeeps st st' := fun bs H' P st' h' => (P.2.2.2.2.2.2.2.2.2.2.2 b st st' hD (post_state P SB h')).2.1
+      StratKeeps st st' := fun bs H' P st' h' => (P.2.2.2.2.2.2.2.2.2.2.2.1 b st st' hD (post_state P SB h')).2.1
   unfold bodyC
   refine Sat.bind (Sat.of_eq (ldDState_app hst) ?_)
   refine Sat.bind (Sat.of_eq (rdZ_app hz _) ?_)

@@ -25,7 +25,8 @@ open ZlibNg.DeflateP
 /-- The state between a tally and `FLUSH_BLOCK` (see the module comment). -/
 def PF (h : Heap) (i b : Nat) (W : UInt32) (A : Nat) (bf : Bool) (H : Heap) : Prop :=
   ∃ H0 z st d, H = SH H0 i z b st d ∧ SLF h i b H ∧ st.pending = 0 ∧ ChainOk b d st ∧
-    (bf = false → st.sym_next < st.sym_end) ∧ 2 * avIn H i + st.lookahead.toNat ≤ A ∧ st.w_size = W
+    (bf = false → st.sym_next < st.sym_end) ∧ (bf = true → st.sym_next ≠ 0) ∧ 2 * avIn H i + st.lookahead.toNat ≤ A ∧
+    st.w_size = W
 
 /-- `PF` with room for one more tally. -/
 def PE (h : Heap) (i b : Nat) (W : UInt32) (A : Nat) (bf : Bool) (H : Heap) : Prop := PF h i b W A bf H ∧ SymLe b H
@@ -42,11 +43,12 @@ theorem slf_lv {h H : Heap} {i b : Nat} (F : SLF h i b H) (hl : MedLv h b) {st :
 
 /-- `StratPost` from `SLF` and the exit facts at the levels of `deflate_medium*` (any strategy, `Z_FIXED`
 included: the level is not 1, and `LazyOk` is kept by `StratKeeps` outside the levels of `deflate_slow`). -/
-theorem slf_postM {h H : Heap} {i b : Nat} (F : SLF h i b H) (flush : Int32) (bs : BlockState) (hl : MedLv h b)
+theorem slf_postM {e : Nat} {h H : Heap} {i b : Nat} (F : SLFe e h i b H) (flush : Int32) (bs : BlockState) (hl : MedLv h b)
     (hx : ExitIO H i flush bs)
-    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) : StratPost h (some i) flush bs H := by
+    (hs : ∀ st, H.dstate b = some st → ExitOk flush bs st) (he : e ≤ finSlack bs := by slack_tac) :
+    StratPost h (some i) flush bs H := by
   refine slf_postL F flush bs hx (fun st0 h0 e1 => absurd (e1 ▸ (hl st0 h0).1 : (3 : Int32) ≤ 1) (by decide))
-    (fun st0 h0 L st hst => ?_) hs
+    (fun st0 h0 L st hst => ?_) hs he
   obtain ⟨st1, h1, hk⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans h1)
   have hT : ¬ TableAt 7 9 st0 := fun ht => absurd (Int32.le_trans ht.1 (hl st0 h0).2) (by decide)
@@ -62,34 +64,35 @@ theorem pe_of_mg {h H : Heap} {i b : Nat} (G : MG h i b H) {st : DeflateState} (
   obtain ⟨d, hd⟩ := bytes_of_dstate hst
   have e := ZlibNgF.Proof.DeflateReset.SH_self hz (dstates_of_dstate hst hd) hd
   obtain ⟨hp, hs⟩ := C.2 st1 hst
-  refine ⟨⟨H, z, st1, d, e.symm, C.1, hp, Ch st1 d hst hd, fun _ => hs, Nat.le_refl _, rfl⟩, fun st2 h2 => ?_⟩
+  refine ⟨⟨H, z, st1, d, e.symm, C.1, hp, Ch st1 d hst hd, fun _ => hs, fun e => absurd e (by decide), Nat.le_refl _, rfl⟩, fun st2 h2 => ?_⟩
   obtain rfl := Option.some.inj (hst.symm.trans h2)
   exact UInt32.le_of_lt hs
 
 /-- The loop state from `PE false`. -/
 theorem mg_of_pf {h H : Heap} {i b A : Nat} {W : UInt32} (P : PF h i b W A false H) : MG h i b H := by
-  obtain ⟨H0, z, st, d, rfl, F, hp, Ch, hs, -, -⟩ := P
+  obtain ⟨H0, z, st, d, rfl, F, hp, Ch, hs, -, -, -⟩ := P
   exact ⟨⟨F, fun st2 h2 => by
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2); exact ⟨hp, hs rfl⟩⟩,
     chainAll_SH.mpr Ch⟩
 
 theorem pf_mono {h H : Heap} {i b A A' : Nat} {W : UInt32} {bf : Bool} (P : PF h i b W A bf H) (hA : A ≤ A') : PF h i b W A' bf H := by
-  obtain ⟨H0, z, st, d, e, F, hp, Ch, hs, ha, hw⟩ := P
-  exact ⟨H0, z, st, d, e, F, hp, Ch, hs, by omega, hw⟩
+  obtain ⟨H0, z, st, d, e, F, hp, Ch, hs, hz, ha, hw⟩ := P
+  exact ⟨H0, z, st, d, e, F, hp, Ch, hs, hz, by omega, hw⟩
 
 /-- The state of a `PE` heap. -/
 theorem pe_st {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st : DeflateState} {d : Array UInt8} {bf : Bool}
     (P : PE h i b W A bf (SH H0 i z b st d)) :
     SLF h i b (SH H0 i z b st d) ∧ st.pending = 0 ∧ st.sym_next ≤ st.sym_end ∧ ChainOk b d st ∧
-      (bf = false → st.sym_next < st.sym_end) ∧ 2 * z.avail_in.toNat + st.lookahead.toNat ≤ A ∧ st.w_size = W := by
-  obtain ⟨⟨H1, z1, st1, d1, e1, F, hp, Ch, hs, hA, hW⟩, hSL⟩ := P
+      (bf = false → st.sym_next < st.sym_end) ∧ (bf = true → st.sym_next ≠ 0) ∧
+      2 * z.avail_in.toNat + st.lookahead.toNat ≤ A ∧ st.w_size = W := by
+  obtain ⟨⟨H1, z1, st1, d1, e1, F, hp, Ch, hs, hz, hA, hW⟩, hSL⟩ := P
   have e2 := congrArg (fun H => H.dstate b) e1
   have e3 := congrArg (fun H => H.bytes b) e1
   simp only [SH_dstate, SH_bytes] at e2 e3
   obtain rfl := Option.some.inj e2
   obtain rfl := Option.some.inj e3
   rw [avIn_SH] at hA
-  exact ⟨F, hp, hSL _ (SH_dstate _ _ _ _ _ _), Ch, hs, hA, hW⟩
+  exact ⟨F, hp, hSL _ (SH_dstate _ _ _ _ _ _), Ch, hs, hz, hA, hW⟩
 
 open ZlibNgF.Proof.MediumStep in
 /-- The state after a tally and `s->strstart += L`, for a record `st2` that differs from `st` in `lookahead`
@@ -104,10 +107,10 @@ theorem pe_post {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st st2 :
     (Wr : SymWr b (SH H0 i z b { st with lookahead := st.lookahead - L } d) (SH H0 i z b st2 d'))
     (hle : st.sym_next < st.sym_end → SymLe b (SH H0 i z b st2 d'))
     (hsli : st.sym_next < st.sym_end → r = false →
-      SLI h i b (st.lookahead - L) (st.strstart + L) (SH H0 i z b st2 d')) :
+      SLI h i b (st.lookahead - L) (st.strstart + L) (SH H0 i z b st2 d')) (hnz : st2.sym_next ≠ 0) :
     PF h i b W (A - L.toNat) (bf || r) (SH H0 i z b { st2 with strstart := st2.strstart + L } d') ∧
       (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + L } d')) := by
-  obtain ⟨F, hp, -, Ch, hs, hA, hW⟩ := pe_st P
+  obtain ⟨F, hp, -, Ch, hs, -, hA, hW⟩ := pe_st P
   obtain ⟨wo, po, ho, Ly, -, w1, w2, hlook, h65, -, -, -, hsb⟩ := slf_lay F
   have hcl := slf_lv F hl (SH_dstate _ _ _ _ _ _)
   obtain ⟨k1, k2, k3, k4, k5, k6⟩ := hk
@@ -119,7 +122,7 @@ theorem pe_post {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st st2 :
     (fun la ss (e1 : la = st2.lookahead) (e2 : ss = st2.strstart + L) (w : SLW h i b la ss _) => by
       subst e1 e2; exact w) _ _ hla2.symm (by rw [hss2]) (slw_congr (st' := { st2 with strstart := st2.strstart + L }) Wl rfl)
   obtain ⟨F3, hp3⟩ := slw_slf (st := { st2 with strstart := st2.strstart + L }) W3
-  refine ⟨⟨H0, z, _, d', rfl, F3, hp3, ?_, ?_, ?_, k5.trans hW⟩, ?_⟩
+  refine ⟨⟨H0, z, _, d', rfl, F3, hp3, ?_, ?_, fun _ => hnz, ?_, k5.trans hW⟩, ?_⟩
   · obtain ⟨sbo, hi, da, db, hda, hdb, hsbo, Wi⟩ := Wr
     have e1 : d = da := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hda)
     have e2 : d' = db := Option.some.inj ((SH_bytes _ _ _ _ _ _).symm.trans hdb)
@@ -168,14 +171,16 @@ theorem pe_tally_core {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st
       (st.sym_next < st.sym_end → SymLe b H') ∧
       (st.sym_next < st.sym_end → r = false → SLI h i b (st.lookahead - L) (st.strstart + L) H')))
     (T2 : Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun _ H' => ∃ sn lt dt d',
-      H' = SH H0 i z b { st with lookahead := st.lookahead - L, sym_next := sn, dyn_ltree := lt, dyn_dtree := dt } d')) :
+      H' = SH H0 i z b { st with lookahead := st.lookahead - L, sym_next := sn, dyn_ltree := lt, dyn_dtree := dt } d'))
+    (T3 : Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun _ H' => NZ b H')) :
     Sat (SH H0 i z b { st with lookahead := st.lookahead - L } d) t (fun r H2 => ∃ st2 d2,
       H2 = SH H0 i z b st2 d2 ∧ st2.lookahead = st.lookahead - L ∧ st2.strstart = st.strstart ∧
       PF h i b W (A - L.toNat) (bf || r) (SH H0 i z b { st2 with strstart := st2.strstart + L } d2) ∧
       (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + L } d2))) := by
-  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and T1 T2) ?_
-  rintro r H' ⟨⟨-, Wl, Wr, hle, hsli⟩, sn, lt, dt, d', rfl⟩
-  exact ⟨_, d', rfl, rfl, rfl, pe_post P hl L hLa rfl rfl ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩ Wl Wr hle hsli⟩
+  refine Sat.mono (ZlibNgF.Proof.MediumStep.Sat.and T1 (ZlibNgF.Proof.MediumStep.Sat.and T2 T3)) ?_
+  rintro r H' ⟨⟨-, Wl, Wr, hle, hsli⟩, ⟨sn, lt, dt, d', rfl⟩, hz⟩
+  exact ⟨_, d', rfl, rfl, rfl, pe_post P hl L hLa rfl rfl ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩ Wl Wr hle hsli
+    (nz_of_SH hz)⟩
 
 open ZlibNgF.Proof.Tally (W4) in
 /-- `zng_tr_tally_lit(s, c)` after `s->lookahead -= 1`. -/
@@ -187,9 +192,10 @@ theorem pe_tally_lit {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st 
       (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + 1 } d2))) := by
   obtain ⟨F, hp, hle, -⟩ := pe_st P
   have F' : SLF h i b (SH H0 i z b (FS { st with lookahead := st.lookahead - 1 } st.lookahead st.strstart) d) := F
-  refine pe_tally_core P hl 1 hL _ ?_ ?_
+  refine pe_tally_core P hl 1 hL _ ?_ ?_ ?_
   · exact Sat.mono (slf_tally_lit F' hp hle hL c) fun _ _ q => ⟨q.1, q.2.1, q.2.2.1, q.2.2.2.2.1, q.2.2.2.2.2⟩
   · exact Sat.mono (tally_lit_shape F' hle c) fun _ _ ⟨sn, lt, d', e⟩ => ⟨sn, lt, st.dyn_dtree, d', e⟩
+  · exact slw_tally_lit_nz ⟨H0, z, _, d, rfl, F', hp⟩ (symLe_SH hle) c
 
 /-- `zng_tr_tally_dist(s, dist, L - STD_MIN_MATCH)` after `s->lookahead -= L`. -/
 theorem pe_tally_dist {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st : DeflateState} {d : Array UInt8} {bf : Bool}
@@ -203,10 +209,11 @@ theorem pe_tally_dist {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st
       (bf = false → SymLe b (SH H0 i z b { st2 with strstart := st2.strstart + L } d2))) := by
   obtain ⟨F, hp, hle, -⟩ := pe_st P
   have F' : SLF h i b (SH H0 i z b (FS { st with lookahead := st.lookahead - L } st.lookahead st.strstart) d) := F
-  refine pe_tally_core P hl L hL _ ?_ ?_
+  refine pe_tally_core P hl L hL _ ?_ ?_ ?_
   · exact Sat.mono (slf_tally_dist F' hp hle dist len L hlen hd1 hd2 hn1 hn hL) fun _ _ q =>
       ⟨q.1, q.2.1, q.2.2.1, q.2.2.2.2.1, q.2.2.2.2.2⟩
   · exact Sat.mono (tally_dist_shape F' hle dist len hlen hd1 hd2) fun _ _ ⟨sn, lt, dt, d', e⟩ => ⟨sn, lt, dt, d', e⟩
+  · exact slw_tally_dist_nz ⟨H0, z, _, d, rfl, F', hp⟩ (symLe_SH hle) dist len hlen hd1 hd2
 
 /-- An `SLF` heap is an `SH` heap of its own record and bytes. -/
 theorem slf_sh {h H : Heap} {i b : Nat} (F : SLF h i b H) :
@@ -217,15 +224,16 @@ theorem slf_sh {h H : Heap} {i b : Nat} (F : SLF h i b H) :
 
 /-- `FLUSH_BLOCK(s, window, 0)` from `PF`: `PE false` with `lookahead` and `strstart` kept, or the return of
 `need_more` with `StratPost` and the chains. -/
-theorem pf_flush (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} {bf : Bool} (P : PF h i b W A bf H) (flush : Int32)
+theorem pf_flush (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} (P : PF h i b W A true H) (flush : Int32)
     (hw0 : ∀ st0, h.dstate b = some st0 → st0.window = .val (.ref (.heap b) wo)) (hl : MedLv h b) :
     Sat H (FLUSH_BLOCK (some b) (.ref (.heap b) wo) 0) (fun r H2 =>
       (r = none → PE h i b W A false H2 ∧ ∀ st2, H2.dstate b = some st2 → ∃ st, H.dstate b = some st ∧
         st2.lookahead = st.lookahead ∧ st2.strstart = st.strstart) ∧
       (∀ r', r = some r' → r' = .need_more ∧ StratPost h (some i) flush .need_more H2 ∧ ChainAll b H2)) := by
-  obtain ⟨H0, z, st, d, rfl, F, hp, Ch, -, hA, hW⟩ := P
+  obtain ⟨H0, z, st, d, rfl, F, hp, Ch, -, hnz, hA, hW⟩ := P
   obtain ⟨st0, h0, hw⟩ := F.win
-  refine Sat.mono (slf_flush_mg T 0 (by decide) (by decide) F (fun st' h' => ?_) (chainAll_SH.mpr Ch)) ?_
+  refine Sat.mono (slf_flush_mg T 0 (by decide) (by decide) F (fun st' h' => ?_) (chainAll_SH.mpr Ch)
+    (fun _ => nz_SH (hnz rfl))) ?_
   · obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h')
     exact ⟨hp, (hw _ (SH_dstate _ _ _ _ _ _)).trans (hw0 st0 h0)⟩
   rintro r H2 ⟨a1, F2, Ch2, KW, hs, hnone, hsome, hcf⟩
@@ -233,7 +241,7 @@ theorem pf_flush (T : TreesFacts) {h H : Heap} {i b A wo : Nat} {W : UInt32} {bf
   · obtain ⟨z2, st2, d2, e2, hst2⟩ := slf_sh F2
     obtain ⟨hs0, hs1, st1, h1, hl1, hs2, -⟩ := hs st2 hst2
     obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h1)
-    refine ⟨⟨⟨H2, z2, st2, d2, e2, F2, hnone hr st2 hst2, ?_, fun _ => hs1, ?_,
+    refine ⟨⟨⟨H2, z2, st2, d2, e2, F2, hnone hr st2 hst2, ?_, fun _ => hs1, fun e => absurd e (by decide), ?_,
       (KW _ _ (SH_dstate _ _ _ _ _ _) hst2).trans hW⟩, fun st3 h3 => ?_⟩,
       fun st3 h3 => ?_⟩
     · exact Ch2 st2 d2 hst2 (by rw [e2]; exact SH_bytes _ _ _ _ _ _)
@@ -258,10 +266,10 @@ theorem pe_ins {h H0 : Heap} {i b A : Nat} {W : UInt32} {z : ZStream} {st : Defl
     (P : PE h i b W A bf (SH H0 i z b st d)) (hl : MedLv h b) (F' : SLF h i b (SH H0 i z b st d'))
     {S : Nat → Prop} (g : GrowSt b st d d' S)
     (hS : ∀ q, S q → q ≠ 0 → q < st.strstart.toNat + st.lookahead.toNat) : PE h i b W A bf (SH H0 i z b st d') := by
-  obtain ⟨F, hp, hle, Ch, hs, hA, hW⟩ := pe_st P
+  obtain ⟨F, hp, hle, Ch, hs, hz, hA, hW⟩ := pe_st P
   have hcl := slf_lv F' hl (SH_dstate _ _ _ _ _ _)
   refine ⟨⟨H0, z, st, d', rfl, F', hp, ChainOk.grow Ch g rfl rfl rfl rfl rfl (Nat.le_refl _) (Nat.le_refl _)
-    (by rw [hcl]; exact hS), hs, by rw [avIn_SH]; exact hA, hW⟩, fun st2 h2 => ?_⟩
+    (by rw [hcl]; exact hS), hs, hz, by rw [avIn_SH]; exact hA, hW⟩, fun st2 h2 => ?_⟩
   obtain rfl := Option.some.inj ((SH_dstate _ _ _ _ _ _).symm.trans h2)
   exact hle
 
