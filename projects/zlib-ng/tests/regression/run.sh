@@ -50,6 +50,7 @@ cases=(
   "gzgets-pending-skip|0018||runtime error: signed integer overflow|seek 9223372036854775807 direct 1 gets null tell 3"
   "gzwrite-zero-retry|0019|max,retry|runtime error: signed integer overflow OR ^retry seek 10000 write 0 tell 14096 write 3 tell 14099 close 0 bytes 14099 bad$|max seek 9223372036854775807 write 0 tell 9223372036854775807;retry seek 10000 write 0 tell 10000 write 3 tell 10003 close 0 bytes 10003 ok"
   "gzprintf-failed-write-drift|0021|oob,corrupt|ERROR: AddressSanitizer: heap-buffer-overflow OR ERROR: AddressSanitizer: SEGV OR ERROR: AddressSanitizer: BUS OR ERROR: AddressSanitizer: unknown-crash OR ^corrupt close 0 inflate 0 bytes [0-9]+ bad$|oob close 0 inflate 1 bytes 786389 ok;corrupt close 0 inflate 1 bytes 733299 ok"
+  "deflatereset-fixed-block-open|0022||^deflate 0 0 1 [0-9]+ inflate -3 0$|deflate 0 0 1 27 inflate 1 1"
 )
 
 # Clang cases: patch reproductions whose defect only clang's UBSan reports (GCC's does not report NULL plus an
@@ -77,7 +78,6 @@ plain=(
 # reproducing (upstream fixed it) fails the run.
 # case | arguments | extended regular expression the report (or the program's output) must match
 open_cases=(
-  "deflatereset-fixed-block-open||^deflate 0 0 1 [0-9]+ inflate -3 0$"
 )
 
 # Guards: an earlier, defective version of one of our patches, kept in the case's directory. The source built

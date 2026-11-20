@@ -1,0 +1,93 @@
+From 24c7da551bbfc3991bc07da629c2cd06f75c29b9 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 11:05:58 -0800
+Subject: [PATCH] Reset block_open in deflateResetKeep()
+
+At level 1 with strategy Z_FIXED, deflate_quick() writes symbols straight
+into the bit buffer and keeps its static block open (s->block_open != 0)
+across Z_NO_FLUSH calls, until a flush or Z_FINISH ends it. block_open was
+cleared only by deflateInit2(): deflateResetKeep() reset the pending output
+and the bit buffer but not block_open, so after deflateReset() in the middle
+of such a block the next stream's first deflate_quick() call did not write a
+block header. Its symbols followed the new zlib or gzip header directly, and
+inflate() rejects the stream with Z_DATA_ERROR.
+
+The same stale value reaches deflate_quick() when the reset stream is
+switched to another level by deflateParams() and back to level 1 with
+Z_FIXED later.
+
+Clear block_open in deflateResetKeep(), with the other per-stream state, and
+add a test that resets mid-block and inflates the next stream.
+---
+ deflate.c                             |  1 +
+ test/test_deflate_quick_block_open.cc | 38 +++++++++++++++++++++++++++
+ 2 files changed, 39 insertions(+)
+
+diff --git a/deflate.c b/deflate.c
+index 3add15a..5be0545 100644
+--- a/deflate.c
++++ b/deflate.c
+@@ -544,6 +544,7 @@ int32_t Z_EXPORT PREFIX(deflateResetKeep)(PREFIX3(stream) *strm) {
+         strm->adler = ADLER32_INITIAL_VALUE;
+     s->last_flush = -2;
+ 
++    s->block_open = 0;
+     s->gzhead = NULL; /* reset the gzip header */
+ 
+     zng_tr_init(s);
+diff --git a/test/test_deflate_quick_block_open.cc b/test/test_deflate_quick_block_open.cc
+index 84a1ac8..dc635ae 100644
+--- a/test/test_deflate_quick_block_open.cc
++++ b/test/test_deflate_quick_block_open.cc
+@@ -8,6 +8,7 @@
+ #endif
+ 
+ #include <stdio.h>
++#include <stdint.h>
+ #include <stdlib.h>
+ #include <string.h>
+ 
+@@ -92,3 +93,40 @@ TEST(deflate_quick, block_open) {
+ 
+     EXPECT_TRUE(memcmp(uncompressed, next_in, sizeof(uncompressed)) == 0);
+ }
++
++/* deflateReset() while a static block of deflate_quick() is open must not continue that block in the new stream */
++TEST(deflate_quick, reset_clears_block_open) {
++    static uint8_t in[3000], out[20000], decoded[sizeof(in)];
++    for (size_t i = 0; i < sizeof(in); i++)
++        in[i] = (uint8_t)("abcdefghij"[(i * 7) % 10]);
++
++    PREFIX3(stream) c_strm;
++    memset(&c_strm, 0, sizeof(c_strm));
++    ASSERT_EQ(PREFIX(deflateInit2)(&c_strm, 1, Z_DEFLATED, MAX_WBITS, 8, Z_FIXED), Z_OK);
++    c_strm.next_in = in;
++    c_strm.avail_in = sizeof(in);
++    c_strm.next_out = out;
++    c_strm.avail_out = sizeof(out);
++    ASSERT_EQ(PREFIX(deflate)(&c_strm, Z_NO_FLUSH), Z_OK);
++
++    ASSERT_EQ(PREFIX(deflateReset)(&c_strm), Z_OK);
++    c_strm.next_in = in;
++    c_strm.avail_in = 1000;
++    c_strm.next_out = out;
++    c_strm.avail_out = sizeof(out);
++    ASSERT_EQ(PREFIX(deflate)(&c_strm, Z_FINISH), Z_STREAM_END);
++    uint32_t comp_len = (uint32_t)c_strm.total_out;
++    EXPECT_EQ(PREFIX(deflateEnd)(&c_strm), Z_OK);
++
++    PREFIX3(stream) d_strm;
++    memset(&d_strm, 0, sizeof(d_strm));
++    ASSERT_EQ(PREFIX(inflateInit)(&d_strm), Z_OK);
++    d_strm.next_in = out;
++    d_strm.avail_in = comp_len;
++    d_strm.next_out = decoded;
++    d_strm.avail_out = sizeof(decoded);
++    EXPECT_EQ(PREFIX(inflate)(&d_strm, Z_FINISH), Z_STREAM_END);
++    EXPECT_EQ(d_strm.total_out, 1000U);
++    EXPECT_EQ(memcmp(decoded, in, 1000), 0);
++    EXPECT_EQ(PREFIX(inflateEnd)(&d_strm), Z_OK);
++}
+-- 
+2.54.0 (Apple Git-157)
+
