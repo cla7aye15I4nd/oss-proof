@@ -313,7 +313,7 @@ theorem tail_lazy {st : DeflateState} {level strategy : Int32} (L : LazyOk st) (
     obtain ⟨b1, b2, b3, b4⟩ := h7
     obtain ⟨g1, g2⟩ := (groups_slow o0 o9 l0 l9 ef).mp ⟨b1, b2⟩
     exact ⟨g1, g2, by simp only [tailS]; rw [← es]; exact b3, by simp only [tailS]; rw [← es]; exact b4⟩
-  · exact lazy_clear0 L el eb
+  · exact lazy_clear0 (st := st) L el eb
 
 /-- `DSide`'s facts after the tail. -/
 theorem tail_side {H : Heap} {i : Nat} {z : ZStream} {b : Nat} {st st' : DeflateState} {d d' : Array UInt8}
