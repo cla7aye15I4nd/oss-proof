@@ -427,4 +427,95 @@ theorem bpost_tail {ψ : Int32 → C.DeflateState → Nat} {flush : Int32} {W W2
     · exact e5
     · exact absurd (e4 ▸ e5) h0
 
+theorem pot_setZ (ψ : Int32 → C.DeflateState → Nat) (f : Int32) (S : Nat) {H : Heap} {i : Nat} {z z' : ZStream}
+    (hz : H.streams i = some z) (hst : z'.state = z.state) (hai : z'.avail_in = z.avail_in)
+    (hao : (if z'.avail_out = 0 then S else z'.avail_out.toNat) = (if z.avail_out = 0 then S else z.avail_out.toNat)) :
+    pot ψ f S (setZ H i z') i = pot ψ f S H i := by
+  unfold pot
+  rw [setZ_streams_same, hz]
+  simp only
+  rw [hst, hai, hao]
+  rfl
+
+open ZlibNg.Inflate ZlibNg.Deflate in
+/-- The rest of the head of the loop body after the write of the output: reset a full output buffer, move
+`x.next`, then `cTail` (copied from the translation). -/
+def cRT (state : GzPtr) (strm : StreamPtr) (flush : Int32) (s : CompLoop) : G CompLoop := do
+  if (← lm (rdZ strm (·.avail_out))) == 0 then
+    let sz ← rdG state (·.size)
+    lm (wrZ strm fun z => { z with avail_out := sz })
+    let o ← (← ldGz state).out.get
+    lm (wrZ strm fun z => { z with next_out := o })
+    let o ← (← ldGz state).out.get
+    wrG state fun st => { st with next := .val o }
+  let no ← lm (rdZ strm (·.next_out))
+  wrG state fun st => { st with next := .val no }
+  cTail state strm flush s
+
+/-- **`cRT`** from a world `W'` that differs from `W` by `write` calls on the file's descriptor. -/
+theorem rt_spec (P : DeflateReach.DPending) {ψ : Int32 → C.DeflateState → Nat} {Gr : Nat}
+    (hP : DeflatePsi ψ Gr) {W W' : World} {H : Heap} {b : Nat} {s : GzState} {z : ZStream} (hx : GzWX W H b s z)
+    (hx' : GzWX W' H b s z) (hd : s.direct = 0) (hfs : FdWrites s.fd W.fs W'.fs)
+    (g0 : GStep W (setZ H s.strm (flatZ z)) W' (setZ H s.strm (flatZ z)) b []) (flush : Int32) (l : CompLoop)
+    (hl : l.ctl = .go) :
+    GSat W' H (cRT (some b) (some s.strm) flush l) (BPost ψ flush W H b s z) := by
+  obtain ⟨c, base, d, ko, kx, eb, eo, hdc, hds, eno, enx, hkk, hko, hS, huniq⟩ := wx_bufs hx hd
+  have hz := hx.2.1
+  have hs' := hx'.1
+  have hsz := hx.2.2.1
+  unfold cRT
+  refine GSat.bind (GSat.lm ⟨_, H, rdZ_run hz _, ?_⟩)
+  apply GSat.ite
+  · intro ha
+    have ha0 : z.avail_out = 0 := by simpa using ha
+    refine GSat.bind (GSat.of_eq (rdG_app' hs' _) ?_)
+    refine GSat.bind (GSat.lm ⟨(), _, wrZ_run hz _, ?_⟩)
+    have hsA : W'.gz (setZ H s.strm { z with avail_out := s.size }) b = some s := hs'
+    try dsimp only
+    refine GSat.bind (GSat.of_eq (ldGz_app hsA) ?_)
+    try dsimp only
+    rw [eo]
+    refine GSat.bind (gsat_ivget ?_)
+    try dsimp only
+    refine GSat.bind (GSat.lm ⟨(), _, wrZ_run (setZ_streams_same _ _ _) _, ?_⟩)
+    try dsimp only
+    rw [setZ_setZ]
+    have hsB : W'.gz (setZ H s.strm { { z with avail_out := s.size } with
+        next_out := .ref (.heap c) (base + inSize s) }) b = some s := hs'
+    refine GSat.bind (GSat.of_eq (ldGz_app hsB) ?_)
+    try dsimp only
+    rw [eo]
+    refine GSat.bind (gsat_ivget ?_)
+    try dsimp only
+    refine GSat.bind (GSat.of_eq (wrG_app hsB _) ?_)
+    try dsimp only
+    have hS0 : s.size.toNat ≠ 0 := fun e => hsz (UInt32.toNat_inj.mp (by simpa using e))
+    obtain ⟨hxw, gw⟩ := wx_out hx' { { z with avail_out := s.size } with next_out := .ref (.heap c) (base + inSize s) }
+      (by rfl) (by rfl) (by rfl) (.val (.ref (.heap c) (base + inSize s))) (fun _ c' base' hb => by
+        obtain ⟨rfl, rfl⟩ := huniq c' base' hb
+        exact ⟨0, 0, rfl, rfl, Nat.le_refl _, by simp⟩)
+    have hs3 := hxw.1
+    refine GSat.bind (GSat.lm ⟨_, _, rdZ_run (setZ_streams_same _ _ _) _, ?_⟩)
+    try dsimp only
+    refine GSat.bind (GSat.of_eq (wrG_app hs3 _) ?_)
+    try dsimp only
+    simp only [InflateInv.upd_upd]
+    refine GSat.mono (tail_spec P hP hxw hd hsz flush l hl) fun l' W6 H6 q => ?_
+    refine bpost_tail (z2 := { { z with avail_out := s.size } with next_out := .ref (.heap c) (base + inSize s) }) hx hd hs3 hfs (g0.trans (by rw [setZ_setZ]; exact gw) ⟨s, hx.1⟩ ⟨s, hs'⟩) rfl rfl hsz ?_ q
+    refine pot_setZ ψ flush _ hz rfl rfl ?_
+    simp only [ha0, hsz, ↓reduceIte]
+  · intro ha
+    have ha0 : z.avail_out ≠ 0 := by simpa using ha
+    obtain ⟨hxw, gw⟩ := wx_out hx' z (by rfl) rfl rfl (.val z.next_out) (fun _ c' base' hb => by
+        obtain ⟨rfl, rfl⟩ := huniq c' base' hb
+        exact ⟨ko, ko, eno, by rw [eno], Nat.le_refl _, hko⟩)
+    rw [setZ_self hz] at hxw
+    have hs3 := hxw.1
+    refine GSat.bind (GSat.lm ⟨_, _, rdZ_run hz _, ?_⟩)
+    try dsimp only
+    refine GSat.bind (GSat.of_eq (wrG_app hs' _) ?_)
+    try dsimp only
+    refine GSat.mono (tail_spec P hP hxw hd ha0 flush l hl) fun l' W6 H6 q => ?_
+    exact bpost_tail (H2 := H) hx hd hs3 hfs (g0.trans gw ⟨s, hx.1⟩ ⟨s, hs'⟩) rfl rfl ha0 rfl q
+
 end ZlibNgF.Proof.GzWrite
