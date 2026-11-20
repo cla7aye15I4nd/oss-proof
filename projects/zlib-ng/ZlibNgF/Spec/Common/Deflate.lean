@@ -130,7 +130,8 @@ def DictReady (h : Heap) (s : StreamPtr) : Prop :=
 /-- Nothing is unfinished in the deflate state of `s`: no unfinished block (`block_start == strstart`), no lookahead,
 no lazy match. `deflateResetKeep` (exported, but listed among the undocumented functions of `zlib.h`) keeps the window
 and these fields; the goals cover it on such streams, as right after `deflateInit*` or `deflateReset`, or after a
-completed `Z_FINISH` of a strategy other than `deflate_quick` (level 1, which never moves `block_start`). -/
+completed `Z_FINISH` (every strategy ends the last block with `block_start = strstart` and no lookahead:
+`FLUSH_BLOCK`, or at level 1 `quick_end_block` / `quick_start_block`; `deflate_slow` clears `match_available` first). -/
 def ResetKeepReady (h : Heap) (s : StreamPtr) : Prop :=
   ∃ b st, DStateOf h s b st ∧ (st.strstart.toNat : Int) = st.block_start.toInt ∧ st.lookahead = 0 ∧
     st.match_available = 0

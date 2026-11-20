@@ -100,10 +100,11 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss : UInt32} (f
           obtain ⟨hv, F4, hs4⟩ := hsome (by simp)
           have hv' : v = .need_more := by simpa using hv
           subst hv'
-          refine Sat.pure ⟨slf_post F4 _ _ hfx fun st4 h4 => ⟨(hs4 st4 h4).2, ?_, fun _ => (hs4 st4 h4).1, ?_⟩,
-            by simp [HM]⟩
+          refine Sat.pure ⟨slf_post F4 _ _ hfx fun st4 h4 => ⟨(hs4 st4 h4).2, ?_, fun _ => (hs4 st4 h4).1, ?_,
+            ?_⟩, by simp [HM]⟩
           · intro e; rcases e with e | e <;> cases e
           · intro e; rcases e with e | e <;> cases e
+          · intro e; cases e
   by_cases hl : la == 0
   · simp only [hl, ↓reduceIte]
     have hl0 : la = 0 := by simpa using hl

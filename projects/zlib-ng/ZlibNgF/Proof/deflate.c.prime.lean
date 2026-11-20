@@ -214,7 +214,10 @@ when no pending output was flushed since the last reset. -/
 theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32) :
     ∃ i z b, s = some i ∧ h.streams i = some z ∧ z.state = some b ∧ ∃ r h',
       C.run (deflatePrime s bits value) h = .ok (r, h') ∧ DFrame h h' [] [b] [] [] ∧
-      (∀ st0, h.dstate b = some st0 → ∃ st' d', h' = SH h i z b st' d' ∧ SideEq st0 st') ∧
+      (∀ st0, h.dstate b = some st0 → ∃ st' d', h' = SH h i z b st' d' ∧ SideEq st0 st' ∧
+        st'.head = st0.head ∧ st'.prev = st0.prev ∧ st'.w_size = st0.w_size ∧
+        ∀ d0 pbo, h.bytes b = some d0 → st0.pending_buf = .val (.ref (.heap b) pbo) → ∀ j, j < pbo →
+          d'[j]! = d0[j]!) ∧
       (PrimeReady h s → DInv h' s) := by
   obtain ⟨i, z, b, st, al, rfl, L, hal, c⟩ := live hv
   obtain ⟨-, -, -, l1, l2, -, -⟩ := c.sizes
@@ -231,7 +234,13 @@ theorem prime_inv {h : Heap} {s : StreamPtr} (hv : DInv h s) (bits value : Int32
   obtain ⟨r, h', e, np, bb, bv, d', rfl, w, h0, h8, hle, hor⟩ := S
   refine ⟨i, z, b, rfl, L.hz, L.hb, r, _, e, dframe_SH0 L.hz _ _ _, fun st0 h0 => ?_, fun hpr => ?_⟩
   · obtain rfl := Option.some.inj (h0.symm.trans L.dstate)
-    refine ⟨_, _, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun hc => ?_⟩⟩
+    refine ⟨_, _, rfl, ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun hc => ?_⟩, rfl, rfl, rfl,
+      fun d0 pbo1 hd0 hpb1 j hj => ?_⟩
+    rotate_left
+    · obtain rfl := Option.some.inj (hd0.symm.trans hd)
+      rw [hpb] at hpb1
+      obtain rfl : pbo = pbo1 := by injection hpb1 with e1; injection e1
+      exact w.2 j (Or.inl (by omega))
     have hc' : 8 ≤ bv := hc
     rcases hor with ⟨h8', -⟩ | ⟨e8, -⟩
     · have := Int32.le_iff_toInt_le.mp hc'

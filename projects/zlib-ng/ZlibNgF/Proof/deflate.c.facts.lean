@@ -85,13 +85,15 @@ def StratPre (h : Heap) (s : StreamPtr) (flush : Int32) : Prop :=
 stream's block and the output buffer only, no pending bytes after `block_done` / `finish_done`; `SymsOk` again, the
 fields of `StratKeeps` unchanged, no symbols after a call with a flush that leaves output room (every such return
 goes through `FLUSH_BLOCK`, or the strategy never tallies; `deflate_slow` returns on a full output right after a
-tally), and no symbols and no lookahead after `finish_started` / `finish_done`. -/
+tally), no symbols after `block_done` (it follows `FLUSH_BLOCK` or an empty symbol buffer), and no symbols and no
+lookahead after `finish_started` / `finish_done`. -/
 def StratPost (h : Heap) (s : StreamPtr) (flush : Int32) (bs : BlockState) (h' : Heap) : Prop :=
   DInv h' s ∧ DStreamIO h' s ∧ DBufsSet h' s ∧ DFrame h h' (streamIds s) (stateIds h s) [] (dOutputRanges h s) ∧
     (bs = .block_done ∨ bs = .finish_done → ∃ b st, DStateIs h' s b st ∧ st.pending = 0) ∧
     ∀ b st st', DStateIs h s b st → DStateIs h' s b st' → SymsOk st' ∧ StratKeeps st st' ∧
       (flush ≠ Z_NO_FLUSH → (∀ z', StreamAt h' s z' → z'.avail_out ≠ 0) → st'.sym_next = 0) ∧
-      (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0)
+      (bs = .finish_started ∨ bs = .finish_done → st'.sym_next = 0 ∧ st'.lookahead = 0) ∧
+      (bs = .block_done → st'.sym_next = 0)
 
 /-- A strategy `f` that `deflate` dispatches to on states with `dispatch`: from `StratPre` and `dispatch`, no fault
 and `StratPost`. -/
@@ -99,6 +101,39 @@ def StratOkP (dispatch : DeflateState → Prop) (f : StatePtr → Int32 → M Bl
   ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
     (∀ b' st, DStateIs h s b' st → dispatch st) →
     ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s flush bs h'
+
+/-! ## Hash chains -/
+
+/-- Entry `k` of the `Pos` array at byte offset `o` of `d` (`posLoad`: two bytes, little endian). -/
+def posAt (d : Array UInt8) (o k : Nat) : Nat := d[o + 2 * k]!.toNat + 256 * d[o + 2 * k + 1]!.toNat
+
+/-- The bound of the positions in the hash chains: `strstart`, or `strstart + lookahead` at the medium levels 3..6
+(`deflate_medium` hashes the start of `next_match` before its emission catches up, and may return `need_more` with it
+inserted; every inserted `p` has `p + 4 <= strstart + lookahead` there). A level change out of 3..6 goes through
+`lookahead == 0` (`deflateParams` flushes and checks it, or `last_flush == -2`). -/
+def chainLim (st : DeflateState) : Nat :=
+  st.strstart.toNat + if 3 ≤ st.level ∧ st.level ≤ 6 then st.lookahead.toNat else 0
+
+/-- The hash chains of state `st` (block `b`, bytes `d`). This holds unless the level is 1 (`deflate_quick` inserts
+into `head` only, so `prev` goes stale; leaving level 1 is a stale-chain switch of `deflateParams`) or the
+configuration is `HASHLESS`. There is a set `I` of positions with (C1) `0 < p < chainLim st` for each `p ∈ I`;
+(C2) every nonzero `head[k]` is in `I`; (C3) for `p ∈ I` with `p > strstart - w_size`, `prev[p & w_mask]` is 0 or
+in `I`. -/
+def ChainOk (b : Nat) (d : Array UInt8) (st : DeflateState) : Prop :=
+  st.level ≠ 1 → HASHLESS st.level st.strategy = false →
+  ∃ (I : Nat → Prop) (ho po : Nat), st.head = .val (.ref (.heap b) ho) ∧ st.prev = .val (.ref (.heap b) po) ∧
+    (∀ p, I p → 0 < p ∧ p < chainLim st) ∧
+    (∀ k, k < 65536 → posAt d ho k ≠ 0 → I (posAt d ho k)) ∧
+    (∀ p, I p → st.strstart.toNat < p + st.w_size.toNat →
+      posAt d po (p % st.w_size.toNat) = 0 ∨ I (posAt d po (p % st.w_size.toNat)))
+
+/-- `StratOkP` for a strategy that walks the hash chains: `ChainOk` of the state on entry gives `ChainOk` on exit. -/
+def StratOkC (dispatch : DeflateState → Prop) (f : StatePtr → Int32 → M BlockState) : Prop :=
+  ∀ (h : Heap) (s : StreamPtr) (b : Nat) (flush : Int32), StratPre h s flush → StateBlock h s b →
+    (∀ b' st, DStateIs h s b' st → dispatch st) →
+    (∀ st d, DStateIs h s b st → h.bytes b = some d → ChainOk b d st) →
+    ∃ bs h', C.run (f (some b) flush) h = .ok (bs, h') ∧ StratPost h s flush bs h' ∧
+      ∀ st d, DStateIs h' s b st → h'.bytes b = some d → ChainOk b d st
 
 /-- The dispatch of `deflate` to the strategy of a level from `configuration_table`: that level, and a strategy
 other than `Z_HUFFMAN_ONLY` and `Z_RLE`. -/
@@ -108,14 +143,15 @@ def TableAt (lo hi : Int32) (st : DeflateState) : Prop :=
 /-- The strategies, one field each, with the facts of `deflate`'s dispatch (`level == 0 ? deflate_stored :
 strategy == Z_HUFFMAN_ONLY ? deflate_huff : strategy == Z_RLE ? deflate_rle : configuration_table[level].func`;
 the table: 1 `deflate_quick`, 2 `deflate_fast`, 3-4 `deflate_medium`, 5-6 `deflate_medium_fizzle`, 7-9
-`deflate_slow`). -/
+`deflate_slow`). The strategies that walk the hash chains (`deflate_fast`, `deflate_medium*`, `deflate_slow`) also
+keep `ChainOk` (`StratOkC`); for the others it is vacuous (`HASHLESS`, or level 1). -/
 structure StrategyFacts : Prop where
   stored : StratOkP (fun st => st.level = 0) ZlibNg.DeflateStored.deflate_stored
   quick : StratOkP (TableAt 1 1) ZlibNg.DeflateQuick.deflate_quick
-  fast : StratOkP (TableAt 2 2) ZlibNg.DeflateFast.deflate_fast
-  medium : StratOkP (TableAt 3 4) ZlibNg.DeflateMedium.deflate_medium
-  medium_fizzle : StratOkP (TableAt 5 6) ZlibNg.DeflateMedium.deflate_medium_fizzle
-  slow : StratOkP (TableAt 7 9) ZlibNg.DeflateSlow.deflate_slow
+  fast : StratOkC (TableAt 2 2) ZlibNg.DeflateFast.deflate_fast
+  medium : StratOkC (TableAt 3 4) ZlibNg.DeflateMedium.deflate_medium
+  medium_fizzle : StratOkC (TableAt 5 6) ZlibNg.DeflateMedium.deflate_medium_fizzle
+  slow : StratOkC (TableAt 7 9) ZlibNg.DeflateSlow.deflate_slow
   huff : StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_HUFFMAN_ONLY) ZlibNg.DeflateHuff.deflate_huff
   rle : StratOkP (fun st => 0 < st.level ∧ st.strategy = Z_RLE) ZlibNg.DeflateRle.deflate_rle
 

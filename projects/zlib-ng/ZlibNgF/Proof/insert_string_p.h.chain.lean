@@ -1,4 +1,5 @@
 import ZlibNgF.Proof.«insert_string_p.h.safety»
+import ZlibNgF.Proof.«deflate.c.facts»
 
 /-!
 # The hash chains under one insertion (`ZlibNgF`)
@@ -21,8 +22,7 @@ set_option autoImplicit false
 
 namespace ZlibNgF.Proof.InsertChain
 
-/-- The `Pos` entry `k` of the array of `Pos` at byte offset `o` (little-endian). -/
-def posAt (d : Array UInt8) (o k : Nat) : Nat := d[o + 2 * k]!.toNat + 256 * d[o + 2 * k + 1]!.toNat
+open ZlibNgF.Proof.DeflateFacts (posAt)
 
 /-- The clauses (C1)-(C3) of `ChainOk` for the set `I` (see the module comment). -/
 structure ChainSet (d : Array UInt8) (ho po w ss lim : Nat) (I : Nat → Prop) : Prop where

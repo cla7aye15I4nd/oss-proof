@@ -184,10 +184,11 @@ theorem trip_ok (T : TreesFacts) {h H : Heap} {i b wo : Nat} {la ss ml : UInt32}
         obtain ⟨hv, F4, hs4⟩ := hsome (by simp)
         have hv' : v = .need_more := by simpa using hv
         subst hv'
-        refine Sat.pure ⟨slf_post F4 _ _ hfx fun st4 h4 => ⟨(hs4 st4 h4).2, ?_, fun _ => (hs4 st4 h4).1, ?_⟩,
-          by simp [RM]⟩
+        refine Sat.pure ⟨slf_post F4 _ _ hfx fun st4 h4 => ⟨(hs4 st4 h4).2, ?_, fun _ => (hs4 st4 h4).1, ?_,
+          ?_⟩, by simp [RM]⟩
         · intro e; rcases e with e | e <;> cases e
         · intro e; rcases e with e | e <;> cases e
+        · intro e; cases e
   have hM : ∀ (la1 ss1 : UInt32) H1, SLI h i b la1 ss1 H1 → 1 ≤ la1.toNat →
       avIn H1 i + la1.toNat ≤ avIn H i + la.toNat →
       Sat H1 (jpM (la1, ss1, .cont)) (fun v H2 => RI h i b flush v H2 ∧ RM i v H2 < avIn H i + la.toNat + 1) := by

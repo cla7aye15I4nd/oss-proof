@@ -101,7 +101,7 @@ theorem qe_of {h H2 : Heap} {i b : Nat} {flush : Int32} {r : Bool} {la ss : UInt
     obtain rfl := Option.some.inj (hst2.symm.trans h4)
     unfold ExitOk
     exact ⟨e3, fun e => (by rcases e with e | e <;> cases e), fun _ => e5 hr,
-      fun e => (by rcases e with e | e <;> cases e)⟩
+      fun e => (by rcases e with e | e <;> cases e), fun e => (by cases e)⟩
 
 /-- After a tally that filled the symbol buffer: write the locals back and `quick_end_block(s, strstart, 0, 0)`. -/
 theorem slw_end (T : TreesFacts) {h H : Heap} {i b wo : Nat} {flush : Int32} {la ss : UInt32}
