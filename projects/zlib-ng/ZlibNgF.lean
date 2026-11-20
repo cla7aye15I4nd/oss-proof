@@ -104,3 +104,4 @@ import ZlibNgF.Proof.«deflate_p.h.tally.flush»
 import ZlibNgF.Proof.«deflate_strategy.common»
 import ZlibNgF.Proof.«deflate_huff.c.safety»
 import ZlibNgF.Proof.«deflate_rle.c.safety»
+import ZlibNgF.Proof.«deflate_stored.c.io»
