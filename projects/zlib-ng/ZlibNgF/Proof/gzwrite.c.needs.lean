@@ -62,9 +62,9 @@ def CallOk (μ : DeflateState → Nat) (K : Nat) (h h' : Heap) (s : StreamPtr) :
       μ st' + (z.avail_out.toNat - z'.avail_out.toNat) ≤ μ st + (if z'.avail_out = 0 then K else 0))
 
 /-- What a deflate call keeps besides its stream: the saved pointers of every block other than the stream's state
-block, `DFreshBlocks`, and no `gz_header` registered that was not registered before. -/
+block already handed out, `DFreshBlocks`, and no `gz_header` registered that was not registered before. -/
 def DKeep (h h' : Heap) (s : StreamPtr) : Prop :=
-  (∀ c, (∀ z, StreamAt h s z → z.state ≠ some c) → h'.savedPtrs c = h.savedPtrs c) ∧
+  (∀ c, c < h.nextBlk → (∀ z, StreamAt h s z → z.state ≠ some c) → h'.savedPtrs c = h.savedPtrs c) ∧
   (DFreshBlocks h → DFreshBlocks h') ∧
   (∀ hp, DRegisteredHeader h' s hp → hp = none ∨ DRegisteredHeader h s hp)
 
