@@ -1,4 +1,4 @@
-From 72b7720b7f3dfc710f8a38db3dd7648532d910b4 Mon Sep 17 00:00:00 2001
+From eaa3e1aded1858362084c2fbaa579d29f535eb90 Mon Sep 17 00:00:00 2001
 From: Zheng Yu <dataisland@outlook.com>
 Date: Fri, 20 Nov 2026 02:00:18 -0800
 Subject: [PATCH] Bound the position lowered by gzungetc()
@@ -32,10 +32,10 @@ index a56544b..bc06d95 100644
      if (state->x.have == 0) {
          state->x.have = 1;
 diff --git a/test/test_gzfile_api_errors.cc b/test/test_gzfile_api_errors.cc
-index 88f8597..57c9792 100644
+index d593d76..a2117f7 100644
 --- a/test/test_gzfile_api_errors.cc
 +++ b/test/test_gzfile_api_errors.cc
-@@ -1109,3 +1109,32 @@ TEST(gzfile_api_errors, write_buffer_alloc_failure) {
+@@ -1111,3 +1111,32 @@ TEST(gzfile_api_errors, write_buffer_alloc_failure) {
      EXPECT_EQ(PREFIX(gzclose)(file), Z_MEM_ERROR);
      remove("gzapi_err_alloc.gz");
  }
