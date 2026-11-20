@@ -303,7 +303,8 @@ def gzputs (file : GzPtr) (s : BPtr) : G Int32 := do
   return if put < len then -1 else len.toUInt32.toInt32
 
 /-- `z_int32_t Z_EXPORTVA PREFIX(gzvprintf)(gzFile file, const char *format, va_list va)` (`gzwrite.c:341-392`, with
-patch 0017: `len > GZ_OFF_MAX - x.pos` is refused with `Z_DATA_ERROR`);
+patch 0017: `len > GZ_OFF_MAX - x.pos` is refused with `Z_DATA_ERROR`; with patch 0024: input left by a failed
+`gz_comp` is moved to the start of `in` before formatting);
 also `gzprintf` (`gzwrite.c:394-402`). -/
 def gzvprintf (file : GzPtr) (format : BPtr) : G Int32 := do
   if file == none then
@@ -319,6 +320,10 @@ def gzvprintf (file : GzPtr) (format : BPtr) : G Int32 := do
     if (← gz_zero state) == -1 then
       return (← rdG state (·.err))
   if (← lm (rdZ strm (·.avail_in))) == 0 then
+    let i ← (← ldGz state).«in».get
+    lm (wrZ strm fun z => { z with next_in := i })
+  else if (← lm (rdZ strm (·.next_in))) != (← (← ldGz state).«in».get) then
+    lm (Ptr.memmove (← (← ldGz state).«in».get) (← lm (rdZ strm (·.next_in))) (← lm (rdZ strm (·.avail_in))).toNat)
     let i ← (← ldGz state).«in».get
     lm (wrZ strm fun z => { z with next_in := i })
   let d ← lm (Ptr.diff (← lm (rdZ strm (·.next_in))) (← (← ldGz state).«in».get))

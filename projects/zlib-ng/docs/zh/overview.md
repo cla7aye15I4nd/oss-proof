@@ -1,7 +1,7 @@
-<!-- source-sha256: 24f08a7b991ff30149abf3d53f22cc7e21385985b91f7c104db8dea8c55f2aa8 -->
+<!-- source-sha256: 0fc7f8333c2c83c992b89f9e8d32d38c393238c912de8ab6a19655340176461d -->
 # zlib-ng
 
-验证对象：zlib-ng `develop` 分支提交 `5f1f4899` 加二十个补丁，按 zlib 兼容模式（`ZLIB_COMPAT`）构建为 x86_64 Linux LP64 库，使用通用 C
+验证对象：zlib-ng `develop` 分支提交 `5f1f4899` 加二十一个补丁，按 zlib 兼容模式（`ZLIB_COMPAT`）构建为 x86_64 Linux LP64 库，使用通用 C
 内核：每个分派函数（`adler32`、`crc32` 等）都运行其可移植 C 版本，不含 SIMD 代码。
 
 ## 构建配置
