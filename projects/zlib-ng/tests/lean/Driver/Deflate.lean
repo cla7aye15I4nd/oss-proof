@@ -126,9 +126,8 @@ def parseOp (op : String) : Except String Op := do
   | 'E' => return .E
   | _ => throw s!"bad op {op}"
 
-/-- The header spec: `(text, time, xflags, os, extra, name, comment, hcrc)`. -/
-/-- text, time, xflags, os, extra (buffer length or -1), name, comment, hcrc, and the value stored in `extra_len`
-(the optional ninth field; `extra` when absent). -/
+/-- The header spec: `(text, time, xflags, os, extra, name, comment, hcrc, extra_len)`; `extra` is the buffer length
+or -1, `extra_len` the value stored in the field (the optional ninth field; `extra` when absent). -/
 abbrev HdrSpec := Int32 × Int × Int32 × Int32 × Int × Int × Int × Int32 × Int
 
 def parseHdr (s : String) : Except String (Option HdrSpec) := do
