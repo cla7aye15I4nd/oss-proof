@@ -46,8 +46,9 @@ theorem sf_state {h H : Heap} {i b wo : Nat} {z : ZStream} {st st' : DeflateStat
     exact dcore_set c st'.strstart st.lookahead st'.insert st'.block_start (by simp only [dview, hla]; simpa using hss)
       hbs (UInt32.le_iff_toNat_le.mpr hins) (by omega)
   · rw [he]; exact ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl⟩
-  · refine ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact hb0), ?_⟩
-    rw [he]; exact S.sym
+  · refine ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact hb0), ?_, ?_⟩
+    · rw [he]; exact S.sym
+    · rw [he]; exact S.b8
 
 /-- A pointer moved back by `k` bytes within its object. -/
 theorem add_back {H0 : Heap} {r : BRef} {src : Array UInt8} {off k : Nat} (hg : Space.get H0 r = some src)
@@ -273,7 +274,7 @@ theorem fill_tail {h H : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} 
     refine hk _ (sf_next F S.hz S.hst S.hno S.hX (L := 0) rfl (fun _ _ => rfl) (Nat.zero_le _) e1 e2 e3
       (by rw [e4, S.hno]; rfl) (by rw [e5]; simp) (fun al _ c => dcore_mv (z := z) ?_ S.hd (SH_bytes _ _ _ _ _ _) e9 (by exact S.sym)
         (by rw [e1]) (by rw [e1])) ⟨⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl, rfl, rfl⟩
-      ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact h3), S.sym⟩) ?_
+      ⟨Int32.le_iff_toInt_le.mpr (by rw [show (0 : Int32).toInt = 0 from rfl]; exact h3), S.sym, S.b8⟩) ?_
     · exact dcore_set c ss' st.lookahead ins' bs (by simp only [dview, hla]; simpa using e6) e7
         (UInt32.le_iff_toNat_le.mpr e8) (by omega)
     · intro st3 h7; rw [SH_dstate] at h7; cases h7; exact hp

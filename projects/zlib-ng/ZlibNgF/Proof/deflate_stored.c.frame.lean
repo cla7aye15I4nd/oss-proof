@@ -48,7 +48,7 @@ structure SF (h : Heap) (i b : Nat) (H : Heap) : Prop where
   out : OutTail h H i
   inp : ∃ z0 z, h.streams i = some z0 ∧ H.streams i = some z ∧ z.avail_in.toNat ≤ z0.avail_in.toNat ∧ InTail z0 z
   keeps : ∃ st0, h.dstate b = some st0 ∧ st0.level = 0 ∧ st0.lookahead = 0 ∧ ∀ st, H.dstate b = some st → SK st0 st
-  st : ∀ st, H.dstate b = some st → 0 ≤ st.block_start ∧ st.sym_next = 0
+  st : ∀ st, H.dstate b = some st → 0 ≤ st.block_start ∧ st.sym_next = 0 ∧ st.bi_valid < 8
 
 /-- The clauses of `DCore` over a heap whose block `b` holds other bytes of the same size, for a stream record with
 the same allocator, with no symbols. -/
@@ -100,7 +100,7 @@ theorem sf_next {h H : Heap} {i b ob oo L : Nat} {z z' : ZStream} {st st' : Defl
     (hno' : z'.next_out = .ref (.heap ob) (oo + L)) (hav : z'.avail_out.toNat = z.avail_out.toNat - L)
     (hc : ∀ al, H.dallocsOf b = some al → DCore H (some i) z b (dview st) al →
       DCore (SH (setB H ob X') i z' b st' d') (some i) z' b (dview st') al)
-    (hk : SK st st') (hS : 0 ≤ st'.block_start ∧ st'.sym_next = 0) :
+    (hk : SK st st') (hS : 0 ≤ st'.block_start ∧ st'.sym_next = 0 ∧ st'.bi_valid < 8) :
     SF h i b (SH (setB H ob X') i z' b st' d') := by
   obtain ⟨z1, hz1, hb⟩ := F.blk
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
@@ -196,7 +196,7 @@ theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
   obtain rfl : z = z1 := Option.some.inj (hz.symm.trans hz1)
   obtain rfl : b = b1 := Option.some.inj (hb.symm.trans hb1)
   have hlv := hE b st1 ⟨i, z, rfl, hz, hb, hst1⟩
-  obtain ⟨-, hl0, -, -⟩ := hs1
+  obtain ⟨-, hl0, -, -, h8c⟩ := hs1
   obtain ⟨hbs, hsn, hla⟩ := hl0 hlv
   refine ⟨st1, hst1, hp0, ⟨hv, hio, hset, hcrc, ⟨z, hz, hb⟩, ⟨z, hz, hb⟩, dframe_refl _ _ _ _ _, ?_,
     ⟨z, z, hz, hz, Nat.le_refl _, Or.inl ⟨rfl, rfl⟩⟩,
@@ -210,7 +210,8 @@ theorem sf_entry {h : Heap} {i b : Nat} {z : ZStream} {flush : Int32} (P : Strat
     obtain rfl : z = z3 := Option.some.inj (hz.symm.trans hz3)
     obtain ⟨ob, oo, ad, hno, -, -⟩ := hout.resolve_left hnn
     exact ⟨z, z, ob, oo, 0, hz, hz, hno, hno, rfl⟩
-  · rw [hst1] at h1; cases h1; exact ⟨hbs, hsn⟩
+  · rw [hst1] at h1; cases h1
+    exact ⟨hbs, hsn, Int32.not_le.mp fun e8 => absurd (h8c e8).1 (by rw [hlv]; decide)⟩
 
 /-- `StratPost` from `SF`, with no pending bytes after `block_done` / `finish_done`. -/
 theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : BlockState)
@@ -235,13 +236,13 @@ theorem sf_post {h H : Heap} {i b : Nat} (F : SF h i b H) (flush : Int32) (bs : 
   obtain ⟨st0, h0, l0, la0, hw⟩ := F.keeps
   obtain rfl : st0 = st1 := Option.some.inj (h0.symm.trans hst1)
   obtain ⟨K, -, -, hla⟩ := hw st hst
-  obtain ⟨hbs, hsn⟩ := F.st st hst
+  obtain ⟨hbs, hsn, h8⟩ := F.st st hst
   have hlv : st.level = 0 := K.2.2.2.2.1.trans l0
   have hla' : st.lookahead = 0 := hla.trans la0
   obtain ⟨-, -, -, hl1, -, -, hse⟩ := c.sizes
   simp only [dview] at hl1 hse
   refine ⟨⟨?_, fun _ => ⟨hbs, hsn, hla'⟩, fun e => absurd (hlv.symm.trans e) (by decide),
-    fun _ => hsn⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩⟩
+    fun _ => hsn, fun e8 => absurd h8 (Int32.not_lt.mpr e8)⟩, K, fun _ _ => hsn, fun _ => ⟨hsn, hla'⟩⟩
   rw [hsn]; apply UInt32.lt_iff_toNat_lt.mpr; simp; omega
 
 /-- What `SF` gives about the current heap `H`: the stream record `z` (output at `ob + oo` with `X` the output block),
@@ -307,9 +308,9 @@ theorem SF.facts {h H : Heap} {i b wo : Nat} (F : SF h i b H)
     rw [hws, DeflateInit.wbuf_toNat _ w2]; unfold DeflateAlloc.dWS; split <;> omega
   have hbits := c.bits
   simp only [dview] at hbits
+  obtain ⟨hbs, hsn, h8s⟩ := F.st st hst
   have hb0 : (0 : Int32).toInt ≤ st.bi_valid.toInt := Int32.le_iff_toInt_le.mp hbits.1
-  have hb8 : st.bi_valid.toInt < (8 : Int32).toInt := Int32.lt_iff_toInt_lt.mp hbits.2
-  obtain ⟨hbs, hsn⟩ := F.st st hst
+  have hb8 : st.bi_valid.toInt < (8 : Int32).toInt := Int32.lt_iff_toInt_lt.mp h8s
   have hbs' : (0 : Int32).toInt ≤ st.block_start.toInt := Int32.le_iff_toInt_le.mp hbs
   have hl := c.look
   have hbst := c.bstart
@@ -319,5 +320,9 @@ theorem SF.facts {h H : Heap} {i b wo : Nat} (F : SF h i b H)
     ⟨by omega, h4⟩, ⟨h65.1, h65.2, w1, w2⟩, ⟨l1, l2, hpbs⟩, c.strm, ⟨hb0, hb8⟩,
     ⟨hbs', hbst, by omega⟩, hsn, UInt32.le_iff_toNat_le.mp hins, c.pout, hin0, (hdj _ (.inl rfl)).2,
     (hdj _ (.inl rfl)).1, hni, al, hal, c⟩⟩
+
+theorem SFX.b8 {H : Heap} {i b wo : Nat} {z : ZStream} {st : DeflateState} {d : Array UInt8} {ob oo : Nat}
+    {X : Array UInt8} {pbo : Nat} (S : SFX H i b wo z st d ob oo X pbo) : st.bi_valid < 8 :=
+  Int32.lt_iff_toInt_lt.mpr (by rw [show (8 : Int32).toInt = 8 from rfl]; exact S.bits.2)
 
 end ZlibNgF.Proof.StoredF
