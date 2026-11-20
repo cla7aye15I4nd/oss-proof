@@ -11,8 +11,11 @@ offset (`rdLeft`), and the input `avail_in` already in the buffer, plus the room
 `rdLeft + avail_in` (`gz_avail_budget`), and a trip of the loop that does not end it lowers `avail_in + avail_out`
 (`inflate` returned `Z_OK`).
 
-`InflateGz` is what `gz_decomp` needs of `inflate` beyond `inflate_ok`: the set of its results, and that it moves
-`next_in` and `next_out` exactly by the bytes it consumed and wrote.
+`InflateGz` and `InflateMsg` are what `gz_decomp` needs of `inflate` beyond `inflate_ok`: the set of its results, that
+it moves `next_in` and `next_out` exactly by the bytes it consumed and wrote, and that it leaves `msg` as it was or
+sets it to one of its string literals; both hold (`inflateGz`, `inflateMsg`). `InflateFresh` (no end of the stream
+without input from a just reset state) is what `gz_fetch` needs for its termination; `gz_decomp_spec` states its
+consequence as an implication, so no theorem here assumes it.
 -/
 
 set_option autoImplicit false
@@ -60,6 +63,13 @@ structure InflateMsg : Prop where
     h.crcTable = ZlibNg.Crc32Tbl.crc_table → ZlibNg.Inflate.inflate (some i) flush h = .ok (r, h') →
     ∀ z, h.streams i = some z → ∃ z', h'.streams i = some z' ∧
       (z'.msg = z.msg ∨ ∃ k, z'.msg = .ref (.str k) 0 ∧ k < strTable.size)
+
+/-- `InflateGz` holds (`inflate.c.extra`). -/
+theorem inflateGz : InflateGz :=
+  ⟨InflateExtra.inflate_res, InflateExtra.inflate_io, InflateExtra.inflate_io_entry⟩
+
+/-- `InflateMsg` holds (`inflate.c.extra`). -/
+theorem inflateMsg : InflateMsg := ⟨InflateExtra.inflate_msg⟩
 
 /-! ## The read measure -/
 
@@ -609,7 +619,7 @@ theorem inflate_gz (G : InflateGz) (M : InflateMsg) {W : World} {H : Heap} {b : 
       · have hx : mc ∈ blkOf s.path ++ blkOf s.msg := by simp [em, blkOf]
         obtain ⟨d', e', -⟩ := liveB mc (hpm mc hx).1 d hd
         exact Or.inr ⟨mc, d', em, e'⟩
-    · refine ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun hz0 => absurd hz0 hsz⟩
+    · refine ⟨R.how, fun _ => ?_, R.nobuf, R.skip_have, fun hz0 => absurd hz0 hsz, fun hz0 => absurd hz0 hsz⟩
       obtain ⟨d, hd, hds⟩ := hB.fits
       obtain ⟨d', e', sz'⟩ := liveB c hcsb d hd
       have hsv : H'.savedPtrs c = H.savedPtrs c := hsaved c fun z2 hz2 => by
@@ -1141,7 +1151,7 @@ theorem decompSt_shape {s s1 : GzState} (h1 : s1 = { s with eof := s1.eof, err :
 open ZlibNg.Inflate in
 /-- The part of `gz_decomp` after the loop. -/
 theorem tail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} {z0 : ZStream} {bo oo : Nat} (hhow : s.how = GZIP)
-    (h0 : s.«have» = 0) (hw0 : ∃ s0, w.gz h b = some s0) (hout : z0.avail_out ≠ 0) {lp : DecompLoop} {W : World}
+    (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hw0 : ∃ s0, w.gz h b = some s0) (hout : z0.avail_out ≠ 0) {lp : DecompLoop} {W : World}
     {H : Heap} (q : DExit w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s) lp W H) :
     GSat W H (decompTail (some b) (some s.strm) z0.avail_out lp) (DecompPost w h b s z0 bo oo) := by
   unfold decompTail
@@ -1177,7 +1187,7 @@ theorem tail_spec {w : World} {h : Heap} {b : Nat} {s : GzState} {z0 : ZStream} 
       · have hv2 := invR_seek hv hs1 0 (.val (.ref (.heap bo) oo)) s1.pos s1.skip hw'
           (by rcases hw1 with e | e
               · exact Or.inl e
-              · rw [e, hhow1]; exact Or.inr (Or.inr rfl)) P.1 P.2 P.3 (Or.inl rfl) (fun _ => rfl)
+              · rw [e, hhow1]; exact Or.inr (Or.inr rfl)) P.1 P.2 P.3 (Or.inl rfl) (fun _ => rfl) (fun e => absurd (by rw [hsh1] at e; exact e) hsz)
         simp only [InflateInv.upd_upd]
         exact hv2
       · exact decompSt_shape hsh1 _ _ _ _
@@ -1231,7 +1241,7 @@ caller's buffer): it returns `-1` or `0`, writes only that range, only reads the
 once `x.have` is cleared; on `0`, `x.have` is the number of bytes written at `x.next`, the start of the range, and
 `how` is `LOOK` after the end of the gzip member, else `GZIP` with output or with `eof` and no input. It terminates:
 every trip of its loop but the last lowers the read measure (`dmu`), which never grows (`DecompPost`). -/
-theorem gz_decomp_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : Nat} {s : GzState}
+theorem gz_decomp_spec {w : World} {h : Heap} {b : Nat} {s : GzState}
     (hv : GzInvR w h (some b)) (hs : w.gz h b = some s) (h0 : s.«have» = 0) (hsz : s.size ≠ 0) (hhow : s.how = GZIP)
     {z0 : ZStream} (hz0 : h.streams s.strm = some z0) (hout : z0.avail_out ≠ 0) {bo oo : Nat}
     (hno : z0.next_out = .ref (.heap bo) oo) (ht : OutTgt w h b s bo oo z0.avail_out.toNat) :
@@ -1252,8 +1262,8 @@ theorem gz_decomp_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {
     simp [fuel]; omega
   refine GSat.bind (GSat.mono (gsat_gdoWhile (DInv w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s))
     (fun _ W H => dmu s W H) (DExit w h b s bo oo z0.avail_out.toNat (z0.avail_in ≠ 0 ∧ InflFresh h s))
-    (fun st W H hI' => body_spec G M (fun p => p.2) (fun p z1 hz1 => by rw [hz0] at hz1; cases hz1; exact p.1) hw0 hsz
+    (fun st W H hI' => body_spec inflateGz inflateMsg (fun p => p.2) (fun p z1 hz1 => by rw [hz0] at hz1; cases hz1; exact p.1) hw0 hsz
       h0 hI') hI hfuel) fun lp W H q => ?_)
-  exact tail_spec hhow h0 hw0 hout q
+  exact tail_spec hhow h0 hsz hw0 hout q
 
 end ZlibNgF.Proof.GzDecomp
