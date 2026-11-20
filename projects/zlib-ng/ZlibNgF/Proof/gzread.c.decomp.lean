@@ -724,10 +724,10 @@ theorem err_strm {w : World} {h : Heap} {b : Nat} {s : GzState} (hv : GzInvR w h
 theorem errlit_strm {W : World} {H : Heap} {b : Nat} {s : GzState} (hv : GzInvR W H (some b))
     (hs : W.gz H b = some s) (e : Int32) (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i)
     (hn : NoNul lit) :
-    GSat W H (gzLit lit >>= fun p => gz_error (some b) e p) (fun _ W' H' =>
+    GSat W H (gzLit lit) (fun p W2 H2 => GSat W2 H2 (gz_error (some b) e p) (fun _ W' H' =>
       ∃ s', W'.gz H' b = some s' ∧ ErrOf s e s' ∧ GzInvR W' H' (some b) ∧ W'.fs = W.fs ∧ GStep W H W' H' b [] ∧
-        H'.streams = H.streams) := by
-  refine GSat.bind (GSat.mono (gzLit_spec lit i hi (GzReach.gzLits_of_idx hi) hn hv.2.2.lit) fun p W2 H2 q => ?_)
+        H'.streams = H.streams)) := by
+  refine (GSat.mono (gzLit_spec lit i hi (GzReach.gzLits_of_idx hi) hn hv.2.2.lit) fun p W2 H2 q => ?_)
   obtain ⟨hg, hf, x, hL, hcs, hmk⟩ := q
   obtain ⟨hs2, hv2, g2⟩ := ext_step hv hs hg hf x hL
   refine GSat.mono (err_strm hv2 hs2 e p (Or.inr ⟨_, hcs⟩) hmk) fun _ W' H' q => ?_
@@ -784,5 +784,250 @@ theorem gz_decomp_eq (state : GzPtr) : gz_decomp state = (do
     let lp ← gdoWhile (decompBody state strm) (decompCond strm) ⟨Z_OK, .go⟩
     decompTail state strm had lp) := by
   unfold gz_decomp decompBody decompCond decompTail; rfl
+
+open ZlibNg.Inflate ZlibNg.Deflate in
+/-- The part of the loop body of `gz_decomp` after `gz_avail` (copied from the translation). -/
+def decompRest (state : GzPtr) (strm : StreamPtr) (s : DecompLoop) : G DecompLoop := do
+  if (← lm (rdZ strm (·.avail_in))) == 0 then
+    gz_error state Z_BUF_ERROR (← (gzLit "unexpected end of file"))
+    return { s with ctl := .brk }
+  let ret ← lm (inflate strm Z_NO_FLUSH)
+  if ret == Z_STREAM_ERROR || ret == Z_NEED_DICT then
+    gz_error state Z_STREAM_ERROR (← (gzLit "internal error: inflate stream corrupt"))
+    return { s with ret := ret, ctl := .ret }
+  if ret == Z_MEM_ERROR then
+    gz_error state Z_MEM_ERROR (← (gzLit "out of memory"))
+    return { s with ret := ret, ctl := .ret }
+  if ret == Z_DATA_ERROR then
+    let m ← lm (rdZ strm (·.msg))
+    gz_error state Z_DATA_ERROR (← if m == .null then (gzLit "compressed data error") else lm (rdZ strm (·.msg)))
+    return { s with ret := ret, ctl := .ret }
+  return { s with ret := ret }
+
+open ZlibNg.Inflate in
+theorem decompBody_eq (state : GzPtr) (strm : StreamPtr) (s : DecompLoop) : decompBody state strm s = (do
+    let a ← lm (rdZ strm (·.avail_in))
+    if a == 0 then do
+      let r ← gz_avail state
+      if r == -1 then pure { s with ctl := .ret } else decompRest state strm s
+    else decompRest state strm s) := rfl
+
+/-- A step that writes nothing writes inside any ranges. -/
+theorem GStep.widen {w W : World} {h H : Heap} {b : Nat} (g : GStep w h W H b []) (wr : List (BPtr × Nat)) :
+    GStep w h W H b wr := by
+  obtain ⟨⟨⟨f1, f2⟩, c, gz⟩, o, t⟩ := g
+  exact ⟨⟨⟨frame_wcover f1 (fun _ _ _ _ hw => nomatch hw), f2⟩, c, gz⟩, o, t⟩
+
+/-- The output target stays one over a step of the file. -/
+theorem OutTgt.step {W W' : World} {H H' : Heap} {b : Nat} {s s' : GzState} {bo oo n : Nat} {wr : List (BPtr × Nat)}
+    (ht : OutTgt W H b s bo oo n) (g : GStep W H W' H' b wr) (hv' : GzInvR W' H' (some b))
+    (hs' : W'.gz H' b = some s') (hbuf : s'.buffers = s.buffers) (hin : inSize s' = inSize s)
+    (hout : outSize s' = outSize s) (fr : FreshBlocks H) (hsz : s'.size ≠ 0) : OutTgt W' H' b s' bo oo n := by
+  rcases ht with ⟨c, base, hB, e1, h1, h2⟩ | ⟨hno, d, hd, hds⟩
+  · obtain ⟨sh, -⟩ := inv_of hs' hv'.1
+    obtain ⟨c', base', -, hB', -⟩ := (sh.read (modeOf hs' hv'.2.1)).bufs hsz
+    have e2 := hB'.buffers; rw [hbuf, hB.buffers] at e2; cases e2
+    exact Or.inl ⟨c, base, hB', e1, by rw [hin]; exact h1, by rw [hin, hout]; exact h2⟩
+  · have hlt : bo < H.nextBlk := live_lt fr ⟨d, hd⟩
+    obtain ⟨⟨⟨f1, -⟩, -, -⟩, own, -⟩ := g
+    obtain ⟨d', e', sz', -⟩ := f1.2.2.2.1 bo hlt hno d hd
+    exact Or.inr ⟨fun m => hno (own bo m hlt), d', e', by rw [sz']; exact hds⟩
+
+/-- The read measure of `gz_decomp`: what reads may still deliver, the input in the buffer, and the room left. -/
+def dmu (s : GzState) (W : World) (H : Heap) : Nat :=
+  rdLeft W.fs s.fd + match H.streams s.strm with
+    | some z => z.avail_in.toNat + z.avail_out.toNat
+    | none => 0
+
+theorem dmu_of {s : GzState} {W : World} {H : Heap} {z : ZStream} (hz : H.streams s.strm = some z) :
+    dmu s W H = rdLeft W.fs s.fd + z.avail_in.toNat + z.avail_out.toNat := by
+  simp only [dmu, hz, Nat.add_assoc]
+
+/-- The state of `gz_decomp` between two calls of `inflate`: a read handle whose state differs from `s` at most in
+`eof`, `err` and `msg`, a step that wrote only the output target, the stream's output position `had - avail_out`
+bytes into the target. -/
+def DMid (w : World) (h : Heap) (b : Nat) (s : GzState) (bo oo had : Nat) (W : World) (H : Heap) (s' : GzState)
+    (z : ZStream) : Prop :=
+  GzInvR W H (some b) ∧ GStep w h W H b [(.ref (.heap bo) oo, had)] ∧ FsRd w.fs W.fs ∧
+  W.gz H b = some s' ∧ s' = { s with eof := s'.eof, err := s'.err, msg := s'.msg } ∧
+  H.streams s.strm = some z ∧ z.avail_out.toNat ≤ had ∧
+  z.next_out = .ref (.heap bo) (oo + (had - z.avail_out.toNat)) ∧ OutTgt W H b s' bo oo had
+
+/-- The invariant of the loop of `gz_decomp`. `P0`: the stream had input and a just reset state at the call. -/
+def DInv (w : World) (h : Heap) (b : Nat) (s : GzState) (bo oo had : Nat) (P0 : Prop) (st : DecompLoop)
+    (W : World) (H : Heap) : Prop :=
+  st.ctl = .go ∧ st.ret ≠ ZlibNg.Inflate.Z_STREAM_END ∧ ∃ s' z, DMid w h b s bo oo had W H s' z ∧
+    z.avail_out ≠ 0 ∧ dmu s W H ≤ dmu s w h ∧ (P0 → dmu s W H < dmu s w h ∨ (W = w ∧ H = h))
+
+/-- An error return of the loop: a read handle whose state differs from `s` at most in `eof`, `err` and `msg`. -/
+def DErr (w : World) (h : Heap) (b : Nat) (s : GzState) (bo oo had : Nat) (W : World) (H : Heap) : Prop :=
+  GStep w h W H b [(.ref (.heap bo) oo, had)] ∧ FsRd w.fs W.fs ∧
+  ∃ s', W.gz H b = some s' ∧ GzInvR W H (some b) ∧ s' = { s with eof := s'.eof, err := s'.err, msg := s'.msg }
+
+/-- The exit of the loop of `gz_decomp`. -/
+def DExit (w : World) (h : Heap) (b : Nat) (s : GzState) (bo oo had : Nat) (P0 : Prop) (lp : DecompLoop)
+    (W : World) (H : Heap) : Prop :=
+  (lp.ctl = .ret ∧ DErr w h b s bo oo had W H) ∨
+  (lp.ctl ≠ .ret ∧ ∃ s' z, DMid w h b s bo oo had W H s' z ∧ dmu s W H ≤ dmu s w h ∧
+    (lp.ret = ZlibNg.Inflate.Z_STREAM_END → InflateFresh → P0 → dmu s W H < dmu s w h) ∧
+    (lp.ret ≠ ZlibNg.Inflate.Z_STREAM_END → z.avail_out = 0 ∨ (s'.eof ≠ 0 ∧ z.avail_in = 0)))
+
+theorem shape_trans {s s1 s2 : GzState} (h1 : s1 = { s with eof := s1.eof, err := s1.err, msg := s1.msg })
+    (h2 : s2 = { s1 with eof := s2.eof, err := s2.err, msg := s2.msg }) :
+    s2 = { s with eof := s2.eof, err := s2.err, msg := s2.msg } := by
+  cases s; cases s1; cases s2; simp only [GzState.mk.injEq] at h1 h2 ⊢; simp_all
+
+theorem lit_eof : gzLits.findIdx? (· == "unexpected end of file") = some 2 := by simp [gzLits, List.findIdx?_cons]
+theorem lit_corrupt : gzLits.findIdx? (· == "internal error: inflate stream corrupt") = some 3 := by
+  simp [gzLits, List.findIdx?_cons]
+theorem lit_data : gzLits.findIdx? (· == "compressed data error") = some 4 := by simp [gzLits, List.findIdx?_cons]
+
+/-- A string literal of inflate is a string, not in a heap block. -/
+theorem msg_cstr {H : Heap} {p : BPtr} (hp : p = .null ∨ ∃ k, p = .ref (.str k) 0 ∧ k < strTable.size) :
+    (p = .null ∨ CStr H p) ∧ ∀ c o, p ≠ .ref (.heap c) o := by
+  rcases hp with rfl | ⟨k, rfl, hk⟩
+  · exact ⟨Or.inl rfl, fun _ _ e => by cases e⟩
+  · refine ⟨Or.inr (cstr_push0 (a := (strTable[k]).toUTF8.data) ?_), fun _ _ e => by cases e⟩
+    show Heap.getBytes H (.str k) = _
+    simp [Heap.getBytes, Heap.litBytes, hk]
+
+/-- An error return of the loop body after a step from `(W, H)`. -/
+theorem derr_of {w : World} {h : Heap} {b : Nat} {s : GzState} {bo oo had : Nat} {W W2 : World} {H H2 : Heap}
+    {s1 : GzState} {e : Int32} (hw0 : ∃ s0, w.gz h b = some s0) (g : GStep w h W H b [(.ref (.heap bo) oo, had)])
+    (hfs : FsRd w.fs W.fs)
+    (hs1 : W.gz H b = some s1) (hsh : s1 = { s with eof := s1.eof, err := s1.err, msg := s1.msg }) (h0 : s.«have» = 0)
+    (q : ∃ s2, W2.gz H2 b = some s2 ∧ ErrOf s1 e s2 ∧ GzInvR W2 H2 (some b) ∧ W2.fs = W.fs ∧
+      GStep W H W2 H2 b [] ∧ H2.streams = H.streams) : DErr w h b s bo oo had W2 H2 := by
+  obtain ⟨s2, q1, q2, q3, q4, q5, -⟩ := q
+  have h0' : s1.«have» = 0 := by rw [hsh]; exact h0
+  exact ⟨g.trans (GStep.widen q5 _) hw0 ⟨s1, hs1⟩, by rw [q4]; exact hfs, s2, q1, q3,
+    shape_trans hsh (errOf_shape q2 h0')⟩
+
+open ZlibNg.Inflate in
+/-- The loop body of `gz_decomp` after `gz_avail`, and the loop condition. -/
+theorem rest_spec (G : InflateGz) (M : InflateMsg) {w : World} {h : Heap} {b : Nat} {s : GzState} {bo oo had : Nat}
+    {P0 : Prop} (hP0 : P0 → InflFresh h s) (hw0 : ∃ s0, w.gz h b = some s0) (hsz : s.size ≠ 0) (h0 : s.«have» = 0)
+    {st : DecompLoop} (hgo : st.ctl = .go) (hret : st.ret ≠ Z_STREAM_END)
+    {W : World} {H : Heap} {s' : GzState} {z : ZStream} (m : DMid w h b s bo oo had W H s' z)
+    (hout : z.avail_out ≠ 0) (heof : z.avail_in = 0 → s'.eof ≠ 0) {μ1 : Nat} (hμ1 : dmu s W H ≤ μ1)
+    (hμ0 : dmu s W H ≤ dmu s w h) (hfr : P0 → dmu s W H < dmu s w h ∨ (W = w ∧ H = h)) :
+    GSat W H (decompRest (some b) (some s.strm) st) (fun st1 W1 H1 => GSat W1 H1 (decompCond (some s.strm) st1)
+      (fun cs W2 H2 => (cs.1 = true → DInv w h b s bo oo had P0 cs.2 W2 H2 ∧ dmu s W2 H2 < μ1) ∧
+        (cs.1 = false → DExit w h b s bo oo had P0 cs.2 W2 H2))) := by
+  obtain ⟨hv, g, hfs, hs', hsh, hz, hle, hno, ht⟩ := m
+  have hsz' : s'.size ≠ 0 := by rw [hsh]; exact hsz
+  have h0' : s'.«have» = 0 := by rw [hsh]; exact h0
+  have hstrm : s'.strm = s.strm := by rw [hsh]
+  have fr : FreshBlocks H := hv.2.2.2.1.1
+  -- an error exit after the call of `inflate` (or before it)
+  have exitErr : ∀ (r : Int32) (W1 : World) (H1 : Heap) (W2 : World) (H2 : Heap), DErr w h b s bo oo had W2 H2 →
+      GSat W2 H2 (decompCond (some s.strm) { ret := r, ctl := .ret })
+        (fun cs W3 H3 => (cs.1 = true → DInv w h b s bo oo had P0 cs.2 W3 H3 ∧ dmu s W3 H3 < μ1) ∧
+          (cs.1 = false → DExit w h b s bo oo had P0 cs.2 W3 H3)) := by
+    intro r _ _ W2 H2 d
+    unfold decompCond
+    refine GSat.ite (fun _ => GSat.pure ⟨fun e => absurd e (by simp), fun _ => Or.inl ⟨rfl, d⟩⟩) (fun hc => ?_)
+    exact absurd rfl hc
+  have hdm : ∀ (W' : World) (H' : Heap) (z' : ZStream), H'.streams s.strm = some z' →
+      dmu s W' H' = rdLeft W'.fs s.fd + z'.avail_in.toNat + z'.avail_out.toNat := fun _ _ _ e => dmu_of e
+  unfold decompRest
+  refine GSat.bind (GSat.lm ⟨_, H, rdZ_app hz _, ?_⟩)
+  apply GSat.ite
+  · intro hai0
+    have hai0' : z.avail_in = 0 := by simpa using hai0
+    refine GSat.bind (GSat.mono (errlit_strm hv hs' Z_BUF_ERROR "unexpected end of file" 2 lit_eof (by decide))
+      fun p W2 H2 q => GSat.bind (GSat.mono q fun _ W3 H3 q3 => ?_))
+    obtain ⟨s2, q1, q2, q3', q4, q5, q6⟩ := q3
+    have e2 := errOf_shape q2 h0'
+    have heof2 : s2.eof = s'.eof := by rw [q2.1]; rfl
+    have hz3 : H3.streams s.strm = some z := by rw [q6]; exact hz
+    refine GSat.pure ?_
+    unfold decompCond
+    refine GSat.ite (fun _ => GSat.pure ⟨fun e => absurd e (by simp), fun _ => ?_⟩) (fun hc => absurd rfl hc)
+    refine Or.inr ⟨by simp, s2, z, ⟨q3', g.trans (GStep.widen q5 _) hw0 ⟨s', hs'⟩, by rw [q4]; exact hfs, q1,
+      shape_trans hsh e2, hz3, hle, hno, OutTgt.step ht q5 q3' q1 (by rw [e2]) (by rw [e2]; rfl) (by rw [e2]; rfl) fr
+      (by rw [e2]; exact hsz')⟩, ?_, fun e => absurd e hret, fun _ => Or.inr ⟨by rw [heof2]; exact heof hai0', hai0'⟩⟩
+    rw [hdm W3 H3 z hz3, q4]; rw [hdm W H z hz] at hμ0; exact hμ0
+  · intro hai0
+    have hin : z.avail_in ≠ 0 := by simpa using hai0
+    have I := inflate_gz G M hv hs' hsz' h0' (by rw [hstrm]; exact hz) hin hout ht (k := had - z.avail_out.toNat)
+      hno (by omega)
+    rw [hstrm] at I
+    refine GSat.bind (GSat.mono I fun r W1 H1 q => ?_)
+    obtain ⟨hW1, hv1, hs1, gI, hres, hprog, ⟨z1, hz1, hzs1, hao1, hno1, hai1, hnb⟩, hfresh⟩ := q
+    subst W1
+    have g1 : GStep w h W H1 b [(.ref (.heap bo) oo, had)] := g.trans gI hw0 ⟨s', hs'⟩
+    have errExit : ∀ (lit : String) (i : Nat) (hi : gzLits.findIdx? (· == lit) = some i) (hn : NoNul lit)
+        (e : Int32) (r' : Int32), GSat W H1 (do
+          let p ← gzLit lit
+          gz_error (some b) e p
+          pure ({ ret := r', ctl := .ret } : DecompLoop)) (fun st1 W1 H1 => GSat W1 H1 (decompCond (some s.strm) st1)
+            (fun cs W2 H2 => (cs.1 = true → DInv w h b s bo oo had P0 cs.2 W2 H2 ∧ dmu s W2 H2 < μ1) ∧
+              (cs.1 = false → DExit w h b s bo oo had P0 cs.2 W2 H2))) := by
+      intro lit i hi hn e r'
+      refine GSat.bind (GSat.mono (errlit_strm hv1 hs1 e lit i hi hn) fun p W2 H2 q => GSat.bind (GSat.mono q
+        fun _ W3 H3 q3 => GSat.pure (exitErr r' W H W3 H3 (derr_of hw0 g1 hfs hs1 hsh h0 q3))))
+    apply GSat.ite
+    · intro _; exact errExit _ 3 lit_corrupt (by decide) _ _
+    · intro hc1
+      apply GSat.ite
+      · intro _; exact errExit _ 0 GzReach.lit_oom (by decide) _ _
+      · intro hc2
+        apply GSat.ite
+        · intro _
+          obtain ⟨sh1, -⟩ := inv_of hs1 hv1.1
+          obtain ⟨c5, base5, z5, -, -, hz5, -, -, -, hm5⟩ := (sh1.read (modeOf hs1 hv1.2.1)).bufs hsz'
+          rw [hstrm, hz1] at hz5; cases hz5
+          obtain ⟨hmc, hmk⟩ := msg_cstr (H := H1) hm5
+          refine GSat.bind (GSat.lm ⟨_, H1, rdZ_app hz1 _, ?_⟩)
+          apply GSat.ite
+          · intro _
+            refine GSat.bind (GSat.mono (errlit_strm hv1 hs1 Z_DATA_ERROR _ 4 lit_data (by decide)) fun p W2 H2 q =>
+              GSat.bind (GSat.mono q fun _ W3 H3 q3 => GSat.pure (exitErr _ W H W3 H3 (derr_of hw0 g1 hfs hs1 hsh h0 q3))))
+          · intro _
+            refine GSat.bind (GSat.lm ⟨_, H1, rdZ_app hz1 _, ?_⟩)
+            refine GSat.bind (GSat.mono (err_strm hv1 hs1 Z_DATA_ERROR _ hmc hmk) fun _ W3 H3 q3 =>
+              GSat.pure (exitErr _ W H W3 H3 (derr_of hw0 g1 hfs hs1 hsh h0 q3)))
+        · intro hc3
+          have hr : r = Z_OK ∨ r = Z_STREAM_END := by
+            simp only [Bool.or_eq_true, beq_iff_eq, not_or] at hc1 hc3
+            rcases hres with e | e | e | e | e | e
+            · exact Or.inl e
+            · exact Or.inr e
+            · exact absurd e hc1.2
+            · exact absurd e hnb
+            · exact absurd e hc3
+            · exact absurd e hc1.1
+          have hd1 := hdm W H1 z1 hz1
+          have hd0 := hdm W H z hz
+          have hai1' : z1.avail_in.toNat ≤ z.avail_in.toNat := UInt32.le_iff_toNat_le.mp hai1
+          have hao1' : z1.avail_out.toNat ≤ z.avail_out.toNat := UInt32.le_iff_toNat_le.mp hao1
+          have mid : DMid w h b s bo oo had W H1 s' z1 := by
+            refine ⟨hv1, g1, hfs, hs1, hsh, hz1, by omega, ?_, OutTgt.step ht gI hv1 hs1 rfl rfl rfl fr hsz'⟩
+            rw [hno1, UInt32.toNat_sub_of_le _ _ hao1]; congr 1; omega
+          refine GSat.pure ?_
+          unfold decompCond
+          refine GSat.ite (fun hc => absurd hc (by simp [hgo])) (fun _ => ?_)
+          refine GSat.bind (GSat.lm ⟨_, H1, rdZ_app hz1 _, GSat.pure ⟨fun hc => ?_, fun hc => ?_⟩⟩)
+          · simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at hc
+            obtain ⟨hc4, hc5⟩ := hc
+            have hok : r = Z_OK := hr.resolve_right hc5
+            obtain ⟨z2, hz2, hlt⟩ := hprog hok
+            rw [hz1] at hz2; cases hz2
+            have hlt' : dmu s W H1 < dmu s W H := by rw [hd1, hd0]; omega
+            exact ⟨⟨hgo, hc5, s', z1, mid, hc4, by omega, fun _ => Or.inl (by omega)⟩, by omega⟩
+          · refine Or.inr ⟨by simp [hgo], s', z1, mid, by rw [hd1]; rw [hd0] at hμ0; omega, fun hse FF hp => ?_,
+              fun hne => Or.inl ?_⟩
+            · rcases hfr hp with hlt | ⟨hWw, hHh⟩
+              · rw [hd1]; rw [hd0] at hlt; omega
+              · have hf : InflFresh H s' := by
+                  obtain ⟨z7, sb7, st7, h7⟩ := hP0 hp
+                  rw [← hHh, ← hstrm] at h7; exact ⟨z7, sb7, st7, h7⟩
+                have := UInt32.lt_iff_toNat_lt.mp (hfresh FF hf hse z1 hz1)
+                rw [← hWw, ← hHh, hd1, hd0]; omega
+            · simp only [Bool.and_eq_false_iff, bne_eq_false_iff_eq] at hc
+              rcases hc with hc | hc
+              · simpa using hc
+              · exact absurd hc hne
 
 end ZlibNgF.Proof.GzDecomp
