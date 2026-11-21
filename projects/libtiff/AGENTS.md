@@ -35,6 +35,6 @@ Group 3/4 (LZMA in Pillow's build), and the horizontal and floating-point predic
 ## Local commands
 
 ```bash
-lake --dir projects/libtiff build --wfail LibtiffF LibtiffF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/libtiff build --wfail LibtiffF LibtiffF.Results
 python3 framework/check_project.py libtiff --skip-build
 ```

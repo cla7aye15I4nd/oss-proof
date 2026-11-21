@@ -18,9 +18,9 @@ Work as fast as honest work allows: process exists to keep the result honest, no
 ## Repository layout
 
 - `lean-toolchain` — single pinned Lean 4 toolchain shared across every project (`projects/<id>/lean-toolchain` and `projects/<id>/tests/lean-toolchain` must equal it byte-for-byte).
-- `framework/` — shared verification gate (`check_project.py`, `check_options.py`, `check_forbidden.py`, `check_runtime_ub.py`, `check_spec_layers.py`, `ci_matrix.py`), reusable Lean checkers (`framework/lean/ResultsCheck.lean`, `framework/lean/PartialCheck.lean`), strict runtime reference (`framework/lean/StrictPtr.lean`), project registry (`framework/projects.json`), and `framework/TEMPLATE_AGENTS.md`.
+- `framework/` — shared verification gate (`check_project.py`, `check_options.py`, `check_forbidden.py`, `check_runtime_ub.py`, `check_spec_layers.py`, `ci_matrix.py`, `patches.py`, `run_difftest.py`), reusable Lean checkers (`framework/lean/ResultsCheck.lean`, `framework/lean/PartialCheck.lean`), strict runtime reference (`framework/lean/StrictPtr.lean`), project registry (`framework/projects.json`), `framework/PROOF_PLAYBOOK.md`, and `framework/TEMPLATE_AGENTS.md`.
 - `site/` — unified static site builder (`site/build.py`) and auditor (`site/check.py`), rendering the `oss-proof` portal (`site/dist/{en,zh}/`) and each project's subsite (`site/dist/<id>/{en,zh}/`).
-- `projects/<id>/` — one verified C library per directory (currently `projects/zlib/`; incoming `*-f` libraries drop into `projects/<id>/` with a `project.json` manifest).
+- `projects/<id>/` — one C library per directory (registered libraries in `framework/projects.json` plus scoped Tier-0 candidates with pinned upstream submodules and project-specific `AGENTS.md`).
 
 ## Source and patches
 
@@ -123,17 +123,52 @@ Rules that hold everywhere:
 
 ## Proof workflow
 
-1. **Bootstrap strict runtime and framework gates first.** Wire `projects/<id>/project.json` into
-   `framework/projects.json` using `framework/lean/StrictPtr.lean`, `ResultsCheck.lean`, and
-   `PartialCheck.lean` so every commit passes `python3 framework/check_project.py <id>` from day one.
-2. **Test goal statements against real C first** before starting long proofs.
-3. **Build the skeleton top down** on `skeleton/<id>-<result>` (`sorry` allowed only on `skeleton/*`
-   branches). Keep open-lemma tracking in a header comment of the skeleton file, never in `docs/`.
-4. **Hide large state invariants behind small interface lemmas** so editing an invariant clause does
-   not rebuild hundreds of proof files.
-5. **Delete unused proofs** that no goal in `Results.lean` depends on.
-6. **Memory discipline.** Build with at most four parallel jobs (`-j 4`) under a 16 GB limit, and
-   run heavy builds one at a time on shared hosts.
+See [`framework/PROOF_PLAYBOOK.md`](framework/PROOF_PLAYBOOK.md) for concrete Lean 4.36 recipes,
+triage checklists, and anti-patterns.
+
+1. **Bootstrap strict runtime, translation, and gates first.** Wire `projects/<id>/project.json`
+   into `framework/projects.json` using `framework/lean/StrictPtr.lean`, `ResultsCheck.lean`, and
+   `PartialCheck.lean` so every commit passes `python3 framework/check_project.py <id>` (Python
+   >= 3.11) from day one. Freeze safety-only public goals (`Spec/Safety/`) and differential tests
+   before long proofs; do **not** write speculative C patches upfront.
+2. **Use the contract-free 4-stage hybrid flow.** Establish a thin `Wp` + write-footprint
+   (`Preserves`/`Modifies`) layer once and leverage Lean 4's built-in `grind` (pure kernel proof
+   terms, zero external packages). Build thin top-down composition skeletons on
+   `skeleton/<id>-<result>` (`sorry` allowed only on `skeleton/*` branches, tracking open lemmas in
+   a header comment of the skeleton file, never in `docs/`), then prove callees **bottom-up** in
+   topological call-graph order.
+3. **Falsify against real C before proving & obey 1-round stall stop-loss.** Test non-trivial goal
+   statements, loop invariants, and state invariants on real C (under ASan + UBSan) before spending
+   hours proving them in Lean. If a subgoal stalls for one edit-compile cycle or hits repeated
+   heartbeat/`omega` timeouts, stop tactic hacking and triage in order: (a) test for a false
+   statement or real C bug, (b) audit the translation vs C, (c) check mid-call vs call-boundary
+   invariant mismatch, (d) profile with `-Dprofiler=true` and split into `rfl`-linked phases.
+4. **Keep invariants modular and proofs lean.**
+   - Split state-machine invariants into **`CoreInv`** (holds mid-call across internal helpers) and
+     **`BoundaryInv`** (lifted once at public API boundaries), accessed through small interface
+     lemmas rather than raw record construction in external files.
+   - Never create barrel `Spec/Common/` modules that re-export unrelated subsystem invariants.
+   - Split large translated functions in the **proof** file via `private def phase1..K` + `rfl`
+     (never edit the C translation), use `extract_lets` for `__do_jp` join points, keep proof files
+     around 400–800 LOC (split before >1,500 LOC), target **0 `maxHeartbeats` overrides** in new
+     projects, never use `decide +kernel` over concrete `C.run` executions in `Proof/`, and mark
+     recursive helpers in `Proof/` as `noncomputable` (avoiding `_unsafe_rec` in `PartialCheck`).
+   - Delete unused proofs that no goal in `Results.lean` depends on.
+5. **Proof-driven minimal patches only.** Every patch must fix one confirmed bug or ISO C17 UB
+   reproducible strictly through documented public headers and public API calls (never calling
+   private internal symbols), paired with a revert-to-fail regression test. Never leak internal
+   patch numbering or repository jargon into upstream PRs.
+6. **Memory, Git, and multi-agent discipline.**
+   - Build with at most four parallel jobs (`LEAN_NUM_THREADS=4`, or `LEAN_NUM_THREADS=1` under a local memory guard) under a
+     16 GB limit, and run heavy builds one at a time per host; offload heavy builds to configured
+     build hosts (configured outside the repository) or PR CI rather than saturating the local
+     workstation.
+   - Never write scratch files or logs inside `.lake/` or `/tmp` (tmpfs).
+   - Always fetch and check latest `origin/main` before auditing or branching; stage by explicit
+     path only (never `git add -A`, never `git stash` across shared worktrees, never force-push
+     shared branches, never commit bot identities or `Co-Authored-By`).
+   - Any edit to `Runtime/`, `Spec/`, or a shared `*Inv.lean` requires a full-package build. Assign
+     disjoint files to parallel workers.
 
 ## Checking
 

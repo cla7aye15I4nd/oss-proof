@@ -33,6 +33,6 @@ whole scope of this project.
 ## Local commands
 
 ```bash
-lake --dir projects/xz build --wfail XzF XzF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/xz build --wfail XzF XzF.Results
 python3 framework/check_project.py xz --skip-build
 ```

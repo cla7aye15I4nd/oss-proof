@@ -34,6 +34,6 @@ calls `vips__exif_parse` (`foreign/exif.c`). This happens while the header is re
 ## Local commands
 
 ```bash
-lake --dir projects/libexif build --wfail LibexifF LibexifF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/libexif build --wfail LibexifF LibexifF.Results
 python3 framework/check_project.py libexif --skip-build
 ```

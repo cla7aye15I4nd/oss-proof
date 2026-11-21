@@ -36,6 +36,6 @@ them.
 ## Local commands
 
 ```bash
-lake --dir projects/libwebp build --wfail LibwebpF LibwebpF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/libwebp build --wfail LibwebpF LibwebpF.Results
 python3 framework/check_project.py libwebp --skip-build
 ```

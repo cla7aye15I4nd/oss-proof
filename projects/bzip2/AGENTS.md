@@ -29,6 +29,6 @@ and libarchive's bzip2 read filter.
 ## Local commands
 
 ```bash
-lake --dir projects/bzip2 build --wfail Bzip2F Bzip2F.Results
+LEAN_NUM_THREADS=4 lake --dir projects/bzip2 build --wfail Bzip2F Bzip2F.Results
 python3 framework/check_project.py bzip2 --skip-build
 ```

@@ -96,9 +96,10 @@ Evidence: `nm` of the `libz.a` built by `tests/build-zlib-ng.sh` (symbols of `in
   `USE_SAFE_MODE`). `OPTIMAL_CMP` is 64 on x86_64, so the alignment prologue of `CHUNKMEMSET_SAFE` is not
   compiled.
 - Allocation: `inflateInit2` installs `zcalloc`/`zcfree` when `zalloc`/`zfree` are `NULL`; all inflate memory is
-  the single block of `alloc_inflate`. The model has to place typed objects (`inflate_state`, `inflate_allocs`,
-  the window bytes) inside one `char` block obtained from `zalloc`, and carry the function pointers `zalloc` /
-  `zfree` and the static code tables as pointer targets; the runtime of this project does not support that yet.
+  the single block of `alloc_inflate`. `Runtime/Inflate.lean` models this by carving typed objects
+  (`inflate_state`, `inflate_allocs`, the window bytes) out of the single `char` block obtained from
+  `zalloc`, and carrying the function pointers `zalloc` / `zfree` and the static code tables as
+  pointer targets.
 - Undefined behaviour of upstream reached by documented calls, fixed by patches 0004-0007 (see the findings page): pointer
   comparison and subtraction between the window and the caller's output in `chunkcopy_safe`
   (`inflate_p.h:224-225`, from `inflate.c:1100`), `CHUNKCOPY_SAFE` (`chunkset_tpl.h:319`) and `chunkmemset_c`

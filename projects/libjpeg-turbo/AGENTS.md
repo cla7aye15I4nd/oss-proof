@@ -34,6 +34,6 @@ set by `draft()`. The 8-bit API also accepts lossless (SOF3) streams, so `jdloss
 ## Local commands
 
 ```bash
-lake --dir projects/libjpeg-turbo build --wfail LibjpegTurboF LibjpegTurboF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/libjpeg-turbo build --wfail LibjpegTurboF LibjpegTurboF.Results
 python3 framework/check_project.py libjpeg-turbo --skip-build
 ```
