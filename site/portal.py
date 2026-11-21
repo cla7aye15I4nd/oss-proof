@@ -19,7 +19,6 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "projects/zlib/docs/web"))
 
 from framework.manifest import Project, load_all_projects
-from syntax import color_blocks
 
 SHARED_STATIC_FILES = (
     "base.css",
@@ -173,6 +172,8 @@ def copy_shared_static() -> None:
 
 
 def write_html(path: Path, content: str) -> None:
+    from syntax import color_blocks
+
     content = color_blocks(content)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
