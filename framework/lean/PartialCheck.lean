@@ -43,7 +43,9 @@ def isInductiveCtorIdxImpl (kernel : Kernel.Environment) (n : Name) : Bool :=
 
 def isResultsCheckHelper (pkg : Name) (n : Name) : Bool :=
   n == pkg ++ `Results ++ `expectedType ++ `go ++ `_unsafe_rec ||
-  n == pkg ++ `Results ++ `isGoalType ++ `_unsafe_rec
+  n == pkg ++ `Results ++ `isGoalType ++ `_unsafe_rec ||
+  n == `OssProof ++ `Results ++ `expectedType ++ `go ++ `_unsafe_rec ||
+  n == `OssProof ++ `Results ++ `isGoalType ++ `_unsafe_rec
 
 def readNames (path : System.FilePath) : IO NameSet := do
   if !(← path.pathExists) then return {}
