@@ -2,6 +2,7 @@ import ZlibF.Proof.«inffast.c.call-origin»
 import ZlibF.Proof.«inffast.c.body-token»
 import ZlibF.Proof.«inffast.c.body-token-reject»
 import ZlibF.Proof.«inflate.c.meaning-fast-token»
+import ZlibF.Proof.«inffast.c.fast64-tokens»
 
 /-!
 # inffast.c: the tokens of one whole `inflate_fast` call
@@ -336,75 +337,62 @@ theorem fast_call_tokens (e : Env) (LL DD : List Nat) (tables : BodyToken.Tables
             Token.Step LL DD (hist e) (cur e A o) (src e u0) (src e u) (cur e A o) true) ∨
          (mode = BAD ∧ ∃ u0, u0 ≤ u ∧ Q u0 (cur e A o) ∧
             ∀ more, Token.Rejected LL DD (hist e) (cur e A o) ((src e u0).take (u - u0) ++ more)))) := by
-    let c0 : Ctx := {
-      strm := e.strm, state := some (.tab e.stid),
-      last := .ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5),
-      beg := .ref e.ob e.bg,
-      end_ := .ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257),
-      wsize := e.s0.wsize, whave := e.s0.whave, wnext := e.s0.wnext, window := e.s0.window,
-      lcode := e.s0.lencode, dcode := e.s0.distcode,
-      lmask := ((1 : UInt32) <<< e.s0.lenbits) - 1, dmask := ((1 : UInt32) <<< e.s0.distbits) - 1 }
-    let l0 : L := {
-      in_ := .ref e.ib e.i0, out := .ref e.ob e.o0,
-      hold := e.s0.hold, bits := e.s0.bits, here := default, op := 0, len := 0, dist := 0,
-      from_ := default, broke := false, againL := false, againD := false }
-    have hc0 : CtxOK e c0 := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
-    have hl0 : LS e l0 e.i0 e.o0 := by
-      dsimp only [l0]
-      refine ⟨rfl, rfl, by omega, ?_, by omega, ?_, e.hhold, ?_⟩
-      · have := e.hai; omega
-      · change e.s0.bits.toNat ≤ 30
-        have := e.hbits; omega
-      · change e.s0.bits.toNat + 8 * e.i0 ≤ e.s0.bits.toNat + 8 * e.i0
-        exact Nat.le_refl _
-    have hlast : OkOn e.h0 (Ptr.add e.sm0.next_in (e.sm0.avail_in - 5).toNat)
-        (.ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5)) := by
-      rw [e.hnin, u32_toNat_sub (by change 5 ≤ e.sm0.avail_in.toNat; have := e.hai; omega)]
-      have hr := Ptr.add_nat_ok (h := e.h0) (r := e.ib) (a := e.IN)
-        (off := e.i0) (n := e.sm0.avail_in.toNat - 5) e.hIN (by have := e.hINsz; omega)
-      have hoff : e.i0 + (e.sm0.avail_in.toNat - 5) = e.i0 + e.sm0.avail_in.toNat - 5 := by have := e.hai; omega
-      simpa [hoff] using hr
-    have hbeg : OkOn e.h0 (subn e.sm0.next_out (e.start - e.sm0.avail_out))
-        (.ref e.ob e.bg) := by
-      rw [e.hnout]
-      have hn : (e.start - e.sm0.avail_out).toNat = e.start.toNat - e.sm0.avail_out.toNat :=
-        u32_toNat_sub e.hstart
-      have hr := subn_ok (h := e.h0) (r := e.ob) (a := e.A0)
-        (off := e.o0) (n := e.start - e.sm0.avail_out) e.hA0 (by rw [hn]; exact e.hbeg)
-        (by have := e.hAsz; omega)
-      simpa only [hn, EnvG.bg] using hr
-    have hend : OkOn e.h0 (Ptr.add e.sm0.next_out (e.sm0.avail_out - 257).toNat)
-        (.ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257)) := by
-      rw [e.hnout, u32_toNat_sub (by change 257 ≤ e.sm0.avail_out.toNat; have := e.hao; omega)]
-      have hr := Ptr.add_nat_ok (h := e.h0) (r := e.ob) (a := e.A0)
-        (off := e.o0) (n := e.sm0.avail_out.toNat - 257) e.hA0 (by have := e.hAsz; omega)
-      have hoff : e.o0 + (e.sm0.avail_out.toNat - 257) = e.o0 + e.sm0.avail_out.toNat - 257 := by have := e.hao; omega
-      simpa [hoff] using hr
-    unfold inflate_fast
-    refine Wp.bindO (x := e.sm0) (by rw [e.hstrm]; exact ldZStream_ok e.hsm) ?_
-    refine Wp.bindO (x := some (InflateStateRef.tab e.stid)) (by rw [e.hstate]; exact castInflateState_ok) ?_
-    refine Wp.bindO hlast ?_
-    refine Wp.bindO hbeg ?_
-    refine Wp.bindO hend ?_
-    refine Wp.bindO (ldInflateState_tab e.hs0) ?_
-    refine Wp.bindO (shl32_ok (x := 1) (n := e.s0.lenbits) (by have := e.hlt.1; omega)) ?_
-    refine Wp.bindO (shl32_ok (x := 1) (n := e.s0.distbits) (by have := e.hdt.1; omega)) ?_
-    rw [e.hnin, e.hnout]
-    have origin0 : Origin.Inv e l0.hold.toNat l0.bits.toNat e.i0 0 := initial_origin e
-    obtain ⟨l, h, hr, hpost⟩ := loop_tokens e c0 hc0 LL DD tables lenPrefix distPrefix Q step l0 e.i0 e.o0 e.A0 0
-      hl0 rfl rfl (by have := e.hai; omega) (by have := e.hao; omega) origin0 (e.inputFrame_entry _) q0
-    rw [e.heap_initial] at hr
-    refine Wp.bindE hr ?_
-    obtain ⟨i, o, A, msg, mode, u, hl, ho, hA, hh, origin, frameEnd, outcome⟩ := hpost
-    rw [hh]
-    refine Wp.mono (finish_tokens e A msg mode l i o hl hA ho u origin (frameEnd.mono hl.hi0)) ?_
-    intro _ after ⟨hold, bits, used, heapEq, usedLe, bitsLt, origin', _⟩
-    refine ⟨A, msg, mode, hold, bits, used, o, u, heapEq, usedLe, hl.ho0, ho, hA, bitsLt, origin',
-      frameEnd, ?_⟩
-    rcases outcome with ⟨_, modeEq, q⟩ | ⟨_, modeEq, rest⟩ | ⟨_, modeEq, rest⟩
-    · exact Or.inl ⟨modeEq, q⟩
-    · exact Or.inr (Or.inl ⟨modeEq, rest⟩)
-    · exact Or.inr (Or.inr ⟨modeEq, rest⟩)
+    refine inflate_fast_split_wp e fun l1 skip8 h1 hpost64 => ?_
+    obtain ⟨i1, o1, A1, msg1, m1, hl1, _, _, ho1, hAsz1, hh1, hf1, _, hgo1, _, _, horig1⟩ := hpost64
+    have horig1' := horig1 rfl
+    dsimp only at horig1'
+    rw [cast_eq] at horig1'
+    obtain ⟨u1, origin1, hcase1⟩ := horig1'
+    have frame1 : e.InputFrame A1 e.i0 :=
+      e.inputFrame_of_cap_frame hAsz1 hf1 ho1 (Nat.le_refl _)
+    refine ⟨fun hskip => ?_, fun hskip => ?_⟩
+    · dsimp only [fastLoop8]
+      obtain ⟨hm1, hmsg1, hbr1, hi1_6, ho1_258⟩ := hgo1 hskip
+      have hq1 : Q u1 (cur e A1 o1) := by
+        rcases hcase1 with ⟨hu0, _, ho0, hA0, _, _, _⟩ | ⟨_, htr⟩
+        · rw [hu0, ho0, hA0]; exact q0
+        · obtain ⟨_, hres⟩ := Fast64Tokens.fast64_trace_refines_tokens e LL DD tables
+            lenPrefix distPrefix Q step htr (Nat.sub_le e.o0 _) (by rw [hAsz1]; have := e.hAsz; omega) q0
+          rcases hres with ⟨_, _, hq⟩ | ⟨hbr, _⟩ | ⟨hbr, _⟩
+          · exact hq
+          · cases hbr1.symm.trans hbr
+          · cases hbr1.symm.trans hbr
+      obtain ⟨l, h, hr, hpost⟩ := loop_tokens e (fastCtx e) (fastCtx_ok e) LL DD tables lenPrefix
+        distPrefix Q step l1 i1 o1 A1 u1 hl1 hAsz1 hbr1 hi1_6 ho1_258 origin1 frame1 hq1
+      rw [hh1, hmsg1, hm1]
+      refine Wp.bindE hr ?_
+      dsimp only [fastFinish]
+      obtain ⟨i, o, A, msg, mode, u, hl, ho, hA, hh, origin, frameEnd, outcome⟩ := hpost
+      rw [hh]
+      refine Wp.mono (finish_tokens e A msg mode l i o hl hA ho u origin (frameEnd.mono hl.hi0)) ?_
+      intro _ after ⟨hold, bits, used, heapEq, usedLe, bitsLt, origin', _⟩
+      refine ⟨A, msg, mode, hold, bits, used, o, u, heapEq, usedLe, hl.ho0, ho, hA, bitsLt, origin',
+        frameEnd, ?_⟩
+      rcases outcome with ⟨_, modeEq, q⟩ | ⟨_, modeEq, rest⟩ | ⟨_, modeEq, rest⟩
+      · exact Or.inl ⟨modeEq, q⟩
+      · exact Or.inr (Or.inl ⟨modeEq, rest⟩)
+      · exact Or.inr (Or.inr ⟨modeEq, rest⟩)
+    · dsimp only [fastFinish]
+      have outcome1 : ((l1.broke = false ∧ m1 = e.s0.mode ∧ Q u1 (cur e A1 o1)) ∨
+          (l1.broke = true ∧ m1 = TYPE ∧ ∃ u0, u0 ≤ u1 ∧ Q u0 (cur e A1 o1) ∧
+            Token.Step LL DD (hist e) (cur e A1 o1) (src e u0) (src e u1) (cur e A1 o1) true) ∨
+          (l1.broke = true ∧ m1 = BAD ∧ ∃ u0, u0 ≤ u1 ∧ Q u0 (cur e A1 o1) ∧
+            ∀ more, Token.Rejected LL DD (hist e) (cur e A1 o1)
+              ((src e u0).take (u1 - u0) ++ more))) := by
+        rcases hcase1 with ⟨_, _, _, _, _, _, hbad⟩ | ⟨_, htr⟩
+        · exact absurd (hskip.symm.trans hbad) (by decide)
+        · exact (Fast64Tokens.fast64_trace_refines_tokens e LL DD tables
+            lenPrefix distPrefix Q step htr (Nat.sub_le e.o0 _) (by rw [hAsz1]; have := e.hAsz; omega) q0).2
+      rw [hh1]
+      refine Wp.mono (finish_tokens e A1 msg1 m1 l1 i1 o1 hl1 hAsz1 ho1 u1 origin1
+          (frame1.mono hl1.hi0)) ?_
+      intro _ after ⟨hold, bits, used, heapEq, usedLe, bitsLt, origin', _⟩
+      refine ⟨A1, msg1, m1, hold, bits, used, o1, u1, heapEq, usedLe, hl1.ho0, ho1, hAsz1, bitsLt,
+        origin', frame1, ?_⟩
+      rcases outcome1 with ⟨_, modeEq, q⟩ | ⟨_, modeEq, rest⟩ | ⟨_, modeEq, rest⟩
+      · exact Or.inl ⟨modeEq, q⟩
+      · exact Or.inr (Or.inl ⟨modeEq, rest⟩)
+      · exact Or.inr (Or.inr ⟨modeEq, rest⟩)
   obtain ⟨⟨⟩, after, hr, A, msg, mode, hold, bits, used, o, u, rfl, rest⟩ := hw
   exact ⟨A, msg, mode, hold, bits, used, o, u, hr, rest⟩
 

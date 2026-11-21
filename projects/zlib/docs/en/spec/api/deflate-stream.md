@@ -15,7 +15,7 @@ see [compress and compress2](utility.md#compress2_z).
 | Release storage | [End](#deflateend) |
 
 The contracts follow `zlib.h` and `deflate.c` of the pinned zlib with the
-[patches](../../../../patches/README.md) applied, in the default LP64 Linux build. Of the seven patches
+[patches](../../../../patches/README.md) applied, in the default LP64 Linux build. Of the six patches
 only patches 0006 and 0007 touch `deflate.c`. Both change `deflateBound_z`, and with it the result
 of `deflateBound`, which calls `deflateBound_z`: 0006 one condition, 0007 the length of the gzip extra
 field in the wrapper size. The entry [deflateBound_z](#deflatebound_z) states both changes. The

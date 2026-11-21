@@ -67,6 +67,8 @@ structure EnvG (alias : Bool) where
   hbits : s0.bits.toNat < 8
   hhold : s0.hold.toNat < 2 ^ s0.bits.toNat
   hsane : s0.sane ≠ 0
+  hmode : s0.mode = LEN
+  halias_win : alias = true → s0.window ≠ .null
   -- the window
   hws : s0.wsize.toNat ≤ 32768
   hwh : s0.whave.toNat ≤ s0.wsize.toNat
@@ -78,6 +80,12 @@ structure EnvG (alias : Bool) where
     s0.window = .ref (BRef.blk wb) woff ∧
       WinRel alias wb ob s0.wnext (woff + s0.wsize.toNat ≤ o0 + sm0.avail_out.toNat) ∧ h0.bytes wb = some W ∧
       woff + s0.wsize.toNat ≤ W.size
+  hwinLive : s0.window ≠ .null →
+    s0.window = .ref (BRef.blk wb) woff ∧
+      (match alias with
+       | false => BRef.blk wb ≠ ob
+       | true => BRef.blk wb = ob ∧ s0.wnext = 0 ∧ woff + s0.wsize.toNat = o0 + sm0.avail_out.toNat) ∧
+      h0.bytes wb = some W ∧ woff + s0.wsize.toNat ≤ W.size
   -- the tables
   rl : CodeRef
   ol : Nat

@@ -1,4 +1,4 @@
-import ZlibF.Proof.«inflate.c.fast-view-output-effect»
+import ZlibF.Proof.«inflate.c.buffer-frame-compose»
 import ZlibF.Proof.«inflate.c.byte-views»
 
 namespace Zlib.Inflate.Proofs
@@ -41,38 +41,6 @@ theorem byte_view_full_buffer_frame
     exact ⟨⟨.ref dest 0, old.size⟩, by simp,
       0, rfl, Nat.zero_le _, by simpa using within⟩
 
-/-- The three actual body effects share a coarse frame over the whole
-writable output view. This conclusion needs no equality between the
-body's final ghost `slow.put` and the entry pointer. -/
-theorem FastOutputEffect.full_view_buffer_frame
-    {h after : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {slow : IL} {dest : BRef}
-    {old : Array UInt8}
-    (effect : FastOutputEffect h after r zs z s slow dest)
-    (sizes : ByteViewSizes h after)
-    (get : Space.get h dest = some old)
-    (write : Space.ro h dest = false)
-    (hz : r.get h = some z)
-    (hs : h.istates zs = some s) :
-    BufferFrame h after (fun b => StreamRoot r b ∨ b = zs)
-      [⟨.ref dest 0, old.size⟩] := by
-  rcases effect with ⟨array, heapEq, _⟩ | ⟨i, heapEq⟩ | heapEq
-  · have current := sizes.view get
-    obtain ⟨arrayNext, getNext, sameSize⟩ := current
-    rw [heapEq, byte_view_get_put get write array] at getNext
-    cases getNext
-    rw [heapEq]
-    exact bufferFrame_weaken
-      (fun _ impossible => False.elim impossible)
-      (byte_view_full_buffer_frame get write sameSize)
-  · rw [heapEq]
-    exact (badHeap_buffer_frame hz hs i
-      [⟨.ref dest 0, old.size⟩]).1
-  · rw [heapEq]
-    exact (fast_terminal_buffer_frame hz hs
-      [⟨.ref dest 0, old.size⟩]).1
-
 #print axioms byte_view_full_buffer_frame
-#print axioms FastOutputEffect.full_view_buffer_frame
 
 end Zlib.Inflate.Proofs

@@ -35,8 +35,8 @@ structure WinInv (h : Heap) (st : InflateState) : Prop where
 /-- The table pointers of the state `zs`: `next` is in `codes`; `lencode` and `distcode` are both in `codes` (a
 dynamic block, or the start) or are the two static fixed tables (a stream stopped inside a fixed block). -/
 def PtrInv (zs : Nat) (st : InflateState) : Prop :=
-  (∃ i, st.next = .ref (.istate_codes zs) i ∧ i ≤ 1444) ∧
-  ((∃ i j, st.lencode = .ref (.istate_codes zs) i ∧ st.distcode = .ref (.istate_codes zs) j ∧ i ≤ 1443 ∧ j ≤ 1443) ∨
+  (∃ i, st.next = .ref (.istate_codes zs) i ∧ i ≤ 1732) ∧
+  ((∃ i j, st.lencode = .ref (.istate_codes zs) i ∧ st.distcode = .ref (.istate_codes zs) j ∧ i ≤ 1731 ∧ j ≤ 1731) ∨
    (st.lencode = .ref .st_lenfix 0 ∧ st.distcode = .ref .st_distfix 0))
 
 /-- The representation invariant of an inflate state, as far as the stream functions need it: the arrays have the

@@ -120,7 +120,7 @@ theorem inflate_dispatch_data_rank {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef
         nextPacket, sizes, next, haveCount, put, left, by omega, Or.inr ⟨rfl, decreases⟩⟩
     · obtain ⟨used, made, regs, after, stream, state, usedBound, run, nextGood, nextTables,
         nextPending, nextPacket, sizes, next, haveCount, put, left, bits, progress, budget⟩ :=
-        inflate_LEN_fast_raw_buffers_budget_progress E good fit safe buffers pending input output different activeFast.2
+        inflate_LEN_fast_raw_buffers_budget_progress E good fit safe buffers pending lengthMode input output different activeFast.2
       have decreases : dispatchRank regs state.mode < dispatchRank l s.mode := by
         apply dispatchRank_advance haveCount left budget
         rcases progress with type | bad | emitted

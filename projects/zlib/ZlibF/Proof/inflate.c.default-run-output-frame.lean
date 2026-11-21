@@ -21,7 +21,7 @@ theorem inflate_run_default_view_exact_frame {c : Ctx} {h : Heap} {r : ZStreamRe
       regs.next = inputAdvance z.next_in used ∧ regs.have_.toNat + used = z.avail_in.toNat ∧
       regs.put = inputAdvance z.next_out made ∧ regs.left.toNat + made = z.avail_out.toNat ∧
       FastMemoryMetaFrame r h after ∧ state.head = s.head ∧
-      BufferFrame h after (CallChanged c r zs s.head) (⟨z.next_out, made⟩ :: HeaderRegions h s.head) := by
+      BufferFrame h after (CallChanged c r zs s.head) (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head) := by
   obtain ⟨heap0, state0, bs, entryRun, currentJ, currentEnv, packet, bits, sizes, entryFrame, heapEq,
     stateEq⟩ := inflate_run_default_view_entry E invariant buffers nonnull inputValid
   have entryLocal := inflate_run_entry_local invariant currentJ sizes entryFrame heapEq stateEq local_
@@ -39,8 +39,10 @@ theorem inflate_run_default_view_exact_frame {c : Ctx} {h : Heap} {r : ZStreamRe
   have actual := entryRun.trans run
   have metadata := fastMemoryMetaFrameX_inflate_run r c E.strm IL.init h (.error exit) regs after actual
   rw [headEq, regionsEq] at frame
-  have preFrame : BufferFrame h heap0 (CallChanged c r zs s.head) (⟨z.next_out, made⟩ :: HeaderRegions h s.head) := by
-    have written := (fastWriteback_heap_frame E.hz E.hs z state0 (⟨z.next_out, made⟩ :: HeaderRegions h s.head)).1
+  have preFrame : BufferFrame h heap0 (CallChanged c r zs s.head)
+      (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head) := by
+    have written := (fastWriteback_heap_frame E.hz E.hs z state0
+      (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head)).1
     rw [ZStreamRef.put_self E.hz] at written
     rw [heapEq]
     exact BufferFrame.mono_changed written fun _ view => CallChanged.of_view view

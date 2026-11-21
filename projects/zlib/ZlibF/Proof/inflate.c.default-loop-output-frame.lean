@@ -19,23 +19,24 @@ def DefaultViewFrameLoopInv (c : Ctx) (r : ZStreamRef) (zs : Nat) (initialHeap :
     regs.left.toNat + made = initial.left.toNat ∧
     FastMemoryMetaFrame r initialHeap heap ∧ state.head = head ∧
     RegionsWithin (HeaderRegions heap head) (HeaderRegions initialHeap head) ∧
-    BufferFrame initialHeap heap (CallChanged c r zs head) (⟨initial.put, made⟩ :: HeaderRegions initialHeap head)
+    BufferFrame initialHeap heap (CallChanged c r zs head)
+      (⟨initial.put, initial.left.toNat⟩ :: HeaderRegions initialHeap head)
 
 /-- One dispatch extends the cumulative call frame. -/
 theorem call_frame_step {c : Ctx} {h0 heap next : Heap} {r : ZStreamRef} {zs : Nat}
     {stream nextStream : ZStream} {state nextState : InflateState} {head : GzHeaderPtr}
-    {l0 regs : IL} {made made2 : Nat}
+    {l0 regs : IL} {made : Nat}
     (views : RegionViews (CallChanged c r zs head) (⟨l0.put, 0⟩ :: HeaderRegions h0 head))
     (live : heap.live = h0.live) (liveNext : next.live = heap.live)
     (currentGood : Good heap r zs stream state) (nextGood : Good next r zs nextStream nextState)
     (headEq : state.head = head) (nextHead : nextState.head = state.head)
     (within : RegionsWithin (HeaderRegions heap head) (HeaderRegions h0 head))
     (put : regs.put = inputAdvance l0.put made)
-    (frame : BufferFrame h0 heap (CallChanged c r zs head) (⟨l0.put, made⟩ :: HeaderRegions h0 head))
-    (step : DispatchCallFrame c r zs state regs made2 heap next) :
+    (left : regs.left.toNat + made = l0.left.toNat)
+    (frame : BufferFrame h0 heap (CallChanged c r zs head) (⟨l0.put, l0.left.toNat⟩ :: HeaderRegions h0 head))
+    (step : DispatchCallFrame c r zs state regs heap next) :
     RegionsWithin (HeaderRegions next head) (HeaderRegions h0 head) ∧
-      BufferFrame h0 next (CallChanged c r zs head) (⟨l0.put, made + made2⟩ :: HeaderRegions h0 head) := by
-  have widened := BufferFrame.widen_head frame (Nat.le_add_right made made2)
+      BufferFrame h0 next (CallChanged c r zs head) (⟨l0.put, l0.left.toNat⟩ :: HeaderRegions h0 head) := by
   have liveForward : ∀ x, h0.live x → heap.live x := by
     intro x alive
     rw [live]
@@ -46,19 +47,22 @@ theorem call_frame_step {c : Ctx} {h0 heap next : Heap} {r : ZStreamRef} {zs : N
     have right := BufferFrame.mono_changed output (wider := CallChanged c r zs head)
       fun _ view => CallChanged.of_view view
     rw [put] at right
-    exact BufferFrame.trans_within widened right (output_step_within l0.put made made2 _)
+    have withinStep := output_step_within l0.put made regs.left.toNat (HeaderRegions h0 head)
+    have totalEq : made + regs.left.toNat = l0.left.toNat := by omega
+    rw [totalEq] at withinStep
+    exact BufferFrame.trans_within frame right withinStep
       views.head_length liveForward
   · rw [headEq] at foot kept
     obtain ⟨nextHeadEq, nextWithin⟩ := kept nextState nextGood.live.hs
     rw [nextHead, headEq] at nextWithin
     refine ⟨nextWithin.trans within, ?_⟩
-    exact BufferFrame.trans_within widened foot (within.trans (RegionsWithin.tail _ _))
+    exact BufferFrame.trans_within frame foot (within.trans (RegionsWithin.tail _ _))
       views.head_length liveForward
 
-/-- The actual complete default mode loop changes only its cumulative
-produced output prefix, the private stream/state records, the local `hbuf`,
-the attached header record and that record's caller buffers. Its proof
-retains the same initialized state, caller packet and strict rank. -/
+/-- The actual complete default mode loop changes only its output buffer
+range, the private stream/state records, the local `hbuf`, the attached header
+record and that record's caller buffers. Its proof retains the same initialized
+state, caller packet and strict rank. -/
 theorem inflate_default_view_frame_loop {c : Ctx} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {l : IL} {bs : List UInt8}
     (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
@@ -72,7 +76,7 @@ theorem inflate_default_view_frame_loop {c : Ctx} {h : Heap} {r : ZStreamRef} {z
       regs.next = inputAdvance l.next used ∧ regs.have_.toNat + used = l.have_.toNat ∧
       regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧
       FastMemoryMetaFrame r h after ∧ state.head = s.head ∧
-      BufferFrame h after (CallChanged c r zs s.head) (⟨l.put, made⟩ :: HeaderRegions h s.head) := by
+      BufferFrame h after (CallChanged c r zs s.head) (⟨l.put, l.left.toNat⟩ :: HeaderRegions h s.head) := by
   let P := DefaultViewFrameLoopInv c r zs h s.head l bs
   let Q := fun (outcome : Except Ex Unit) (regs : IL) (after : Heap) => outcome ≠ .ok () ∧ P regs after
   have initial : P l h := ⟨z, s, 0, 0, by omega, invariant,
@@ -99,14 +103,14 @@ theorem inflate_default_view_frame_loop {c : Ctx} {h : Heap} {r : ZStreamRef} {z
       run, finalJ, ⟨rest2, rest2Length, finalPacket⟩, finalSizes, next2, count2, put2, left2, finalBits,
       finalLocal, progress⟩ :=
       inflate_dispatch_default_view_state_rank currentEnv currentJ packet currentLocal bits
-    have callFrame := inflate_dispatch_call_frame currentEnv currentJ packet currentLocal bits run left2
+    have callFrame := inflate_dispatch_call_frame currentEnv currentJ packet currentLocal bits run
     have metadata2 := fastMemoryMetaFrameX_inflate_dispatch r c E.strm regs heap outcome finalRegs finalHeap run
     have totalMetadata := metadata.trans metadata2
     have liveEq : heap.live = h.live := congrArg (fun x => x.2.2.2.2.2.2) metadata
     have liveNext : finalHeap.live = heap.live := congrArg (fun x => x.2.2.2.2.2.2) metadata2
     have nextHead := dispatch_head_kept E.strm run currentJ.good.live.hs finalJ.good.live.hs
     obtain ⟨nextWithin, totalFrame⟩ := call_frame_step views liveEq liveNext currentJ.good finalJ.good
-      headEq nextHead within put frame callFrame
+      headEq nextHead within put left frame callFrame
     have totalBound : used + used2 ≤ bs.length := by omega
     have final : P finalRegs finalHeap := by
       refine ⟨finalStream, finalState, used + used2, made + made2, totalBound, finalJ,

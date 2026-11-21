@@ -29,6 +29,10 @@ def Store (h : Heap) (p : BPtr) (xs : List UInt8) (after : Heap) : Prop :=
     i + xs.length ≤ a.size ∧
     after = Space.put h r (a.extract 0 i ++ xs.toArray ++ a.extract (i + xs.length) a.size)
 
+/-- Output write within `cap`: `xs` is the written prefix of an update bounded by `cap` bytes starting at `p`. -/
+def StorePrefix (h : Heap) (p : BPtr) (xs : List UInt8) (cap : Nat) (after : Heap) : Prop :=
+  ∃ written, xs <+: written ∧ written.length ≤ cap ∧ Store h p written after
+
 /-- Successful temporary allocations may advance the allocation metadata. They must leave
 every object and read-only flag as specified, and leave no new live object behind. -/
 def SameObjects (expected after : Heap) : Prop :=

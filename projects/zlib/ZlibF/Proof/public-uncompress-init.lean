@@ -311,6 +311,7 @@ theorem start_state {e : Env} (ok : EnvOK e) (uniq : Uniq e.h₀)
       outCount := by simp [boundStream]; omega
       nextOut := by simp [boundStream, advance_zero]
       agree := by
+        refine ⟨[], List.nil_prefix, Nat.zero_le _, ?_⟩
         rw [writeOut_nil]
         refine ⟨fun b live => ?_, ?_, ?_, ?_, ?_⟩
         · have lt := below b live

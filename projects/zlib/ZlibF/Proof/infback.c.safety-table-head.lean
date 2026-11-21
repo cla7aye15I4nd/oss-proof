@@ -116,7 +116,7 @@ def tabLensTail1 (c : BCtx) (r : Int32) : X Unit := do
   if r != 0 then
     badMode c "invalid literal/lengths set"
     return
-  wrS c.st fun s => { s with distcode := s.next, distbits := 6 }
+  wrS c.st fun s => { s with distcode := s.next, distbits := 8 }
   let s ← ldInflateState c.st
   let (r, nx, db) ← inflate_table DISTS (← (lensP c.st).add (s.nlen.toNat : Int)) s.ndist s.next s.distbits (workP c.st)
   wrS c.st fun s => { s with next := nx, distbits := db }
@@ -125,7 +125,7 @@ def tabLensTail1 (c : BCtx) (r : Int32) : X Unit := do
 
 /-- `case TABLE`: the literal/length and distance tables, then `case LEN`. -/
 def tabLens (c : BCtx) : X Unit := do
-  wrS c.st fun s => { s with next := codesP c.st, lencode := codesP c.st, lenbits := 9 }
+  wrS c.st fun s => { s with next := codesP c.st, lencode := codesP c.st, lenbits := 10 }
   let s ← ldInflateState c.st
   let (r, nx, lb) ← inflate_table LENS (lensP c.st) s.nlen s.next s.lenbits (workP c.st)
   wrS c.st fun s => { s with next := nx, lenbits := lb }

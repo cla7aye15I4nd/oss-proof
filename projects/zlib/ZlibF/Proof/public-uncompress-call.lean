@@ -32,7 +32,8 @@ structure SafeFinal (e : Env) (l : UncLoop) (rc : Int32) (Hp H : Heap) (logp : D
   alloc : Zlib.Inflate.Spec.DefAlloc z
   inCount : logp.input.length + u + z.avail_in.toNat + l.len.toNat = e.n
   outCount : (logp.output ++ output).length + z.avail_out.toNat + l.left.toNat = e.cap
-  agree : Agree e.h₀.live (writeOut e.h₀ e.out0 (logp.output ++ output)) H
+  agree : ∃ written, (logp.output ++ output) <+: written ∧ written.length ≤ e.cap ∧
+    Agree e.h₀.live (writeOut e.h₀ e.out0 written) H
   notOwned : ∀ b, e.h₀.live b ∨ b = e.k ∨ b = e.k + 1 → ¬ InflateOwned i s b
   liveOnly : ∀ b, H.live b → e.h₀.live b ∨ b = e.k ∨ b = e.k + 1 ∨ InflateOwned i s b
   reservedBytes : H.bytes (e.k + 1) = some (reservedBytes e.h₀)
@@ -96,8 +97,9 @@ theorem SafeState.setErr {e : Env} {l : UncLoop} {H : Heap} {log : DataLog} {i :
 /-- A caller block is live in a heap that agrees with the written caller heap. -/
 theorem SafeState.callerLive {e : Env} {l : UncLoop} {H : Heap} {log : DataLog} {i : Nat} {z : ZStream}
     {s : InflateState} (st : SafeState e l H log i z s) {b : Nat} (live : e.h₀.live b) : H.live b := by
-  have el : (writeOut e.h₀ e.out0 log.output).live b := (writeOut_live b).2 live
-  obtain ⟨s1, s2, s3, s4, s5, s6, s7, -⟩ := st.agree.blocks b live
+  obtain ⟨written, -, -, hag⟩ := st.agree
+  have el : (writeOut e.h₀ e.out0 written).live b := (writeOut_live b).2 live
+  obtain ⟨s1, s2, s3, s4, s5, s6, s7, -⟩ := hag.blocks b live
   simp only [Heap.live] at el ⊢
   rw [s1, s2, s3, s4, s5, s6, s7]; exact el
 
@@ -137,12 +139,12 @@ theorem restore_nalloc (H H' : Heap) (p : BPtr) (n : Nat) :
     · exact put_nalloc _ _ _
 
 /-- A call frame keeps a live unchanged block that it does not write. -/
-theorem frame_keeps_block {H H' : Heap} {changed : Nat → Prop} {p : BPtr} {out : List UInt8} {b : Nat}
-    (frame : BufferFrame H H' changed [⟨p, out.length⟩]) (live : H.live b) (unchanged : ¬ changed b)
-    (notWritten : ∀ r i, p = .ref r i → BRef.block r = some b → out = []) : SameAt H H' b := by
+theorem frame_keeps_block {H H' : Heap} {changed : Nat → Prop} {p : BPtr} {n b : Nat}
+    (frame : BufferFrame H H' changed [⟨p, n⟩]) (live : H.live b) (unchanged : ¬ changed b)
+    (notWritten : ∀ r i, p = .ref r i → BRef.block r = some b → n = 0) : SameAt H H' b := by
   obtain ⟨⟨-, -, -, -, -, fb⟩, part⟩ := frame
   obtain ⟨x1, x2, x3, x4, x5, x6, x7, x8⟩ := fb b live unchanged
-  have restored : SameAt H (restoreRegions H H' [⟨p, out.length⟩]) b := ⟨x1, x2, x3, x4, x5, x6, x7, x8⟩
+  have restored : SameAt H (restoreRegions H H' [⟨p, n⟩]) b := ⟨x1, x2, x3, x4, x5, x6, x7, x8⟩
   rw [restore_one] at restored
   cases p with
   | null => exact restored
@@ -153,7 +155,7 @@ theorem frame_keeps_block {H H' : Heap} {changed : Nat → Prop} {p : BPtr} {out
     | some aH =>
       rw [g] at restored
       simp only [] at restored
-      obtain ⟨a', g', size, same⟩ := part ⟨Ptr.ref rr off, out.length⟩ (List.mem_singleton_self _) rr off aH rfl g
+      obtain ⟨a', g', size, same⟩ := part ⟨Ptr.ref rr off, n⟩ (List.mem_singleton_self _) rr off aH rfl g
       have H'eq : Space.put (Space.put H' rr aH) rr a' = H' := by rw [put_put_any, put_self_any g']
       by_cases blockB : BRef.block rr = some b
       · have e := notWritten rr off rfl blockB
@@ -165,7 +167,7 @@ theorem frame_keeps_block {H H' : Heap} {changed : Nat → Prop} {p : BPtr} {out
             rintro ⟨reg, mem, ⟨o, -, lo, hi⟩⟩
             simp only [List.mem_singleton] at mem
             subst mem
-            simp only [List.length_nil] at hi
+            simp only [] at hi
             omega)
           rw [Array.getElem?_eq_getElem h1, Array.getElem?_eq_getElem h2] at this
           exact Option.some.inj this
@@ -200,11 +202,13 @@ theorem call_ranges {e : Env} {l : UncLoop} {H : Heap} {log : DataLog} {i : Nat}
       cases hp
       exact view_block_live g c hc
   rw [st.nextIn, st.nextOut]
+  obtain ⟨written0, hpref0, len0, agree0⟩ := st.agree
   rcases ok.outW with ⟨res, cap0⟩ | W
   · have p0 : log.output = [] := List.eq_nil_of_length_eq_zero (by omega)
     have ao0 : z.avail_out.toNat = 0 := by omega
-    have agree := st.agree
-    rw [p0, writeOut_nil] at agree
+    have w0 : written0 = [] := List.eq_nil_of_length_eq_zero (by omega)
+    have agree := agree0
+    rw [w0, writeOut_nil] at agree
     refine ⟨agree.bytes srcPart srcBlocks, srcBlocks, ?_, ?_, Or.inr (Or.inl ao0), ?_⟩
     · rw [ao0, p0, res]
       exact Or.inr ⟨.blk (e.k + 1), 0, reservedBytes e.h₀, by simp [advance], st.reservedBytes,
@@ -223,7 +227,7 @@ theorem call_ranges {e : Env} {l : UncLoop} {H : Heap} {log : DataLog} {i : Nat}
       have := separate_sub (c := log.input.length) (d := 0) (n' := z.avail_in.toNat) (m' := e.cap)
         ok.sep (by omega) (by omega)
       rwa [advance_zero] at this
-    have srcE := bytes_writeOut_sep (xs := log.output) srcPart sepIn (by omega) W
+    have srcE := bytes_writeOut_sep (xs := written0) srcPart sepIn len0 W
     have outBlocks : ∀ r j, e.out0 = .ref r j → ∀ c, BRef.block r = some c → e.h₀.live c := by
       intro r j hp c hc
       rcases W with ⟨h0, -⟩ | ⟨r', j', a, hq, g, -, -⟩
@@ -241,8 +245,8 @@ theorem call_ranges {e : Env} {l : UncLoop} {H : Heap} {log : DataLog} {i : Nat}
         exact outBlocks r' j' h0 c hc
     have wOut : Writable e.h₀ (advance e.out0 log.output.length) z.avail_out.toNat :=
       writable_sub W (by omega)
-    have wE := writable_writeOut (xs := log.output) wOut (by omega) W
-    refine ⟨st.agree.bytes srcE srcBlocks, srcBlocks, st.agree.writable wE advBlocks,
+    have wE := writable_writeOut (xs := written0) wOut len0 W
+    refine ⟨agree0.bytes srcE srcBlocks, srcBlocks, agree0.writable wE advBlocks,
       fun r j hp c hc => Or.inl (advBlocks r j hp c hc), separate_sub ok.sep (by omega) (by omega),
       fun _ => W⟩
 
@@ -332,26 +336,25 @@ theorem call_phase_safe (call : Goal.inflate) {e : Env} {l : UncLoop} {H : Heap}
       exact k0 (by rw [Env.k, ← ch]; exact live)
     · exact st.notOwned b (Or.inl live) ch
   have frame1 : BufferFrame H H' (fun b => StreamRoot e.r b ∨ InflateOwned i s b)
-      [⟨z.next_out, out.length⟩] := by simpa using frame
+      [⟨z.next_out, z.avail_out.toNat⟩] := by simpa using frame
+  have frameAdv : BufferFrame H H' (fun b => StreamRoot e.r b ∨ InflateOwned i s b)
+      [⟨advance e.out0 log.output.length, z.avail_out.toNat⟩] := by
+    simpa only [st.nextOut] using frame1
+  have writtenAdv : Bytes H' (advance e.out0 log.output.length) out.length out := by
+    rw [← st.nextOut]
+    have lenEq : z.avail_out.toNat - z'.avail_out.toNat = out.length := by omega
+    simpa only [lenEq] using written
   have outLe : out.length ≤ z.avail_out.toNat := by omega
-  have wOutE : out ≠ [] → Writable (writeOut e.h₀ e.out0 log.output) z.next_out out.length := by
-    intro ne
-    have W := outW0 (Or.inr (by
-      intro h0; rw [h0] at outLe; exact ne (List.eq_nil_of_length_eq_zero (by simpa using outLe))))
-    rw [st.nextOut]
-    exact writable_writeOut (writable_sub W (by omega)) (by omega) W
-  have agreeE := agree_after_call st.agree (fun b live => (writeOut_live b).2 live)
-    (fun b live => (writeOut_live b).1 live) outside frame1 written wOutE borrow
-  have agree' : Agree e.h₀.live (writeOut e.h₀ e.out0 (log.output ++ out)) H' := by
-    by_cases ne : out = []
-    · subst ne; simpa [writeOut_nil] using agreeE
-    · have W := outW0 (Or.inr (by
-        intro h0; rw [h0] at outLe; exact ne (List.eq_nil_of_length_eq_zero (by simpa using outLe))))
-      have W2 : Writable e.h₀ e.out0 (log.output.length + out.length) := by
-        have := writable_sub (c := 0) (m := log.output.length + out.length) W (by omega)
-        rwa [advance_zero] at this
-      rw [← writeOut_append W2, ← st.nextOut]
-      exact agreeE
+  obtain ⟨prev, hprefPrev, prevLe, agreePrev⟩ := st.agree
+  have agree' : ∃ written', (log.output ++ out) <+: written' ∧ written'.length ≤ e.cap ∧
+      Agree e.h₀.live (writeOut e.h₀ e.out0 written') H' :=
+    agree_after_call_prefix agreePrev (fun _ l => l) (fun _ l => l) outside
+      hprefPrev prevLe (by omega)
+      (fun haPos => by
+        rcases ok.outW with ⟨-, cap0⟩ | W
+        · exfalso; omega
+        · exact W)
+      frameAdv writtenAdv outLe borrow
   -- the reserved block is not written
   have resLive : H.live (e.k + 1) := Or.inl (by rw [st.reservedBytes]; simp)
   have resKeep : SameAt H H' (e.k + 1) := by
@@ -360,9 +363,8 @@ theorem call_phase_safe (call : Goal.inflate) {e : Env} {l : UncLoop} {H : Heap}
       · simp only [StreamRoot, Env.r] at ch; simp [Env.k] at ch
       · exact st.notOwned (e.k + 1) (Or.inr (Or.inr rfl)) ch
     · intro r j hp hb
-      rcases ok.outW with ⟨res, cap0⟩ | W
-      · have : z.avail_out.toNat = 0 := by omega
-        exact List.eq_nil_of_length_eq_zero (by omega)
+      rcases ok.outW with ⟨-, cap0⟩ | W
+      · omega
       · exfalso
         rcases W with ⟨h0, -⟩ | ⟨r', j', a, hq, g, -, -⟩
         · exact ok.outNotNull h0
@@ -394,8 +396,9 @@ theorem call_phase_safe (call : Goal.inflate) {e : Env} {l : UncLoop} {H : Heap}
       · exact Or.inr (Or.inr (Or.inr (keepOwn b x)))
     · exact Or.inr (Or.inr (Or.inr o))
   have globals' : LibraryGlobals H' := by
-    have a1 := agree'.static
-    have a2 := st.agree.static
+    obtain ⟨w', -, -, ag'⟩ := agree'
+    have a1 := ag'.static
+    have a2 := agreePrev.static
     have g0 := st.globals
     simp only [LibraryGlobals] at g0 ⊢
     rw [a1, (put_globals_writeOut _ _ _).1]
@@ -542,7 +545,7 @@ theorem call_phase_safe (call : Goal.inflate) {e : Env} {l : UncLoop} {H : Heap}
             Zlib.Inflate.Proofs.mem_error_allocates H e.r i z s Z_NO_FLUSH H' z' s' st.good st.noMem (by rw [← hm]; exact run) good'
               (memCl hm).1
           refine ⟨j, Nat.le_trans st.nalloc lo, hi, ?_⟩
-          rw [st.agree.allocOk, (put_globals_writeOut _ _ _).2] at bad
+          rw [agreePrev.allocOk, (put_globals_writeOut _ _ _).2] at bad
           exact bad }
 
 end ZlibF.Spec.Public.Proofs.Uncompress

@@ -4,7 +4,7 @@ import DiffTest.Common
 /-!
 Lean side of the differential test for `inftrees.c`. It calls the translation in
 `ZlibF/Zlib/inftrees.c.lean` (the module the proofs are about), nothing else.
-The arrays of the C driver (lens[320], work[288], codes[1444]) are the three array fields of one inflate state.
+The arrays of the C driver (lens[320], work[288], codes[1732]) are the three array fields of one inflate state.
 -/
 
 open DiffTest C
@@ -45,7 +45,7 @@ def fixedTest : String :=
 def tableTest (type bits loff toff : Nat) (lens : String) : Except String String := do
   let ls := if lens == "-" then "" else lens
   let codes := ls.length
-  if loff + codes > 320 || toff > 1444 then throw "out of range"
+  if loff + codes > 320 || toff > 1732 then throw "out of range"
   let mut la : Array UInt16 := Array.replicate 320 0
   let mut i := 0
   for c in ls.toList do
@@ -55,7 +55,7 @@ def tableTest (type bits loff toff : Nat) (lens : String) : Except String String
     i := i + 1
   let st : InflateState :=
     { (default : InflateState) with lens := la, work := Array.replicate 288 0xABCD,
-                                    codes := Array.replicate 1444 ⟨0xAA, 0xBB, 0xCCCC⟩ }
+                                    codes := Array.replicate 1732 ⟨0xAA, 0xBB, 0xCCCC⟩ }
   let h := { heap0 with istates := upd heap0.istates 0 (some st), nextBlk := 1 }
   let tbl : CodePtr := .ref (.istate_codes 0) toff
   match run (Zlib.Inftrees.inflate_table type.toUInt32 (.ref (.istate_lens 0) loff) codes.toUInt32 tbl

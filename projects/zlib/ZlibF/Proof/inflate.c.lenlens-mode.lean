@@ -71,7 +71,7 @@ theorem inflate_LENLENS_table_cursor {c : Ctx} {l : IL} {h : Heap} {r : ZStreamR
         runX (inflate_LENLENS c) l h = .ok ((.error Ex.leave, l'), setI h zs
           (llSt s (stream l bs) (min (s.ncode.toNat - s.«have».toNat) ((stream l bs).length / 3))))) ∧
       (min (s.ncode.toNat - s.«have».toNat) ((stream l bs).length / 3) = s.ncode.toNat - s.«have».toNat →
-        ∃ (ret : Int32) (wa' : Array UInt16) (ca' : Array Code), wa'.size = 288 ∧ ca'.size = 1444 ∧
+        ∃ (ret : Int32) (wa' : Array UInt16) (ca' : Array Code), wa'.size = 288 ∧ ca'.size = 1732 ∧
           (∀ x, 19 ≤ x → wa'[x]? = s.work[x]?) ∧ (∀ x, 128 ≤ x → ca'[x]? = s.codes[x]?) ∧
           (ret = 0 ∨ ret = -1) ∧
           (ret = -1 ↔ ¬ ZlibF.Spec.Acceptable .codeLength

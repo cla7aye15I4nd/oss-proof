@@ -121,7 +121,7 @@ theorem record_crc {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d : 
     unfold recordCrc
     simp [crc]
   · have statics := globals_statics globals
-    have value := Zlib.Crc32.Proofs.crc32_z_ok h statics z.adler pb 0 buf trees.base.bytes d.pending
+    have value := Zlib.Crc32.Proofs.crc32_z_ok_view h statics z.adler (.blk pb) 0 buf trees.base.bytes d.pending
       (by have := trees.base.pending_le; have := trees.base.psize; omega)
     unfold OkOn at value
     obtain ⟨goodA, treesA, buffersA, account⟩ := adler_engine good trees buffers
@@ -482,7 +482,7 @@ theorem hcrc_update {h : Heap} {r : ZStreamRef} {ds pb : Nat} {z : ZStream} {d :
     have more : beg < d.pending := by simp at act; exact act.2
     have span : beg.toNat + (d.pending - beg).toNat ≤ buf.size := by
       rw [UInt64.toNat_sub_of_le _ _ (UInt64.le_of_lt more)]; omega
-    have value := Zlib.Crc32.Proofs.crc32_z_ok h statics z.adler pb beg.toNat buf trees.base.bytes
+    have value := Zlib.Crc32.Proofs.crc32_z_ok_view h statics z.adler (.blk pb) beg.toNat buf trees.base.bytes
       (d.pending - beg) span
     unfold OkOn at value
     obtain ⟨goodA, treesA, buffersA, account⟩ := adler_engine good trees buffers

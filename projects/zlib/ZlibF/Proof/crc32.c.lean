@@ -10,21 +10,26 @@ invariant and frame is preserved; preconditions explicit) and a correctness theo
 `ZlibF.Spec.crc32Update` / `ZlibF.Spec.crc32` and `ZlibF.Spec.crcBit`, which do not mention the translation).
 
 The heap hypothesis `StaticsOK` says that the static tables `crc_table` and `x2n_table` hold the contents `crc32.h`
-fixes (`Zlib.Crc32.initStatics`). The other tables (`crc_braid_table`, `crc_big_table`, `crc_braid_big_table`) are
-constants of the translation.
+fixes (`Zlib.Crc32.initStatics`). The other tables (`crc_braid5_table`, `crc_braid2_table`, `crc_big_table`,
+`crc_braid5_big_table`, `crc_braid2_big_table`) are constants of the translation.
 
 Method. A CRC register step is linear over GF(2) (`crcBit_xor`). `pw m` is `m` steps of `ZlibF.Spec.crcBit`
 (multiplication by `x^m`). From the table contents (checked by kernel evaluation, `decide +kernel`, no axioms):
-`crc_table[n] = pw 8 n` (`crc_table_eq`), `crc_braid_table[j][n] = pw (8 * (40 - j)) n` (`braid_eq`), and the
+`crc_table[n] = pw 8 n` (`crc_table_eq`), `crc_braid5_table[j][n] = pw (8 * (20 - j)) n` (`braid5_eq`),
+`crc_braid2_table[j][n] = pw (8 * (8 - j)) n` (`braid2_eq`), and the
 squaring chain of `x2n_table` with `x^(2^32) = x` (`Xt_sq`, `Xt_wrap`). The word step of `crc_word` is a linear map of
-64-bit words that agrees with the closed form `Psi` on the 64 unit vectors (`Phi_eq_Psi`), hence everywhere. The braided
-loop keeps the invariant `Val c0 .. c4 = pw 320 R` where `R` is the register of the bytes consumed so far
-(`loopBlk_ok`); the final chain of `crc_word` calls then equals `rbFrom R ow 40` (`chain_aff`, `chain_zero`,
-`val_step`). `multmodp` is multiplication in the algebra of registers (`mulp`): bilinear, associative
-(`mulp_assoc`), with `mulp (x^m) v = pw m v` (`mulp_pw_left'`).
+32-bit words (`UInt32`) that agrees with the closed form `Psi` on the 32 unit vectors (`Phi_eq_Psi`), hence everywhere.
+The 5-braid loop (`N = 5`, `W = 4`, `len >= 320`) keeps `Val c0 .. c4 = pw 160 R` (`loopBlk_ok`), and `crc32_braid`
+(`NLOW = 2`, `W = 4`, `11 <= len < 320`) keeps `Val2 c0 c1 = pw 64 R` (`loopBlk2_ok`). The final chains of `crc_word`
+calls then equal `rbFrom R ow 20` and `rbFrom R ow 8`. `multmodp` is multiplication in the algebra of registers (`mulp`):
+bilinear, associative (`mulp_assoc`), with `mulp (x^m) v = pw m v` (`mulp_pw_left'`).
 
-Not covered: the big-endian helpers (`byte_swap`, `blockBig`, `crc_word_big`, dead at run time on the target): only
-`crc_word_big_safe`; `byte_swap` is a total pure function with no correctness theorem; `blockBig` has none.
+Pure heap preservation (`PureH`, `crc32_z_heap_unchanged`, `crc32_heap_unchanged`) holds unconditionally on every
+non-faulting path of `crc32_z` and `crc32`.
+
+Not covered: the big-endian helpers (`byte_swap`, `blockBig`, `blockBig2`, `crc_word_big`, dead at run time on the
+target): only `crc_word_big_safe`; `byte_swap` is a total pure function with no correctness theorem; `blockBig` and
+`blockBig2` have none.
 -/
 
 namespace Zlib.Crc32.Proofs
@@ -113,12 +118,16 @@ set_option maxRecDepth 100000 in
 theorem crc_table_eq : ∀ n : Fin 256, Crc32H.crc_table[n.val]! = pw 8 (UInt32.ofNat n.val) := by decide +kernel
 
 
-theorem braid_size : Crc32H.crc_braid_table.size = 8 ∧ ∀ j : Fin 8, Crc32H.crc_braid_table[j.val]!.size = 256 := by
+theorem braid5_size :
+    Crc32H.crc_braid5_table.size = 4 ∧ ∀ j : Fin 4, Crc32H.crc_braid5_table[j.val]!.size = 256 := by
   decide +kernel
 
-/-! `braid_eq` by linearity: `pw m` is linear (`pw_xor`), so on a byte it is the XOR of its values on the set bits
-(`byteLin_pw`, `byteLin_id`). The kernel then checks each row of the table against 8 values of `pw` instead of 256,
-one row at a time; checking the whole table against `pw` at once took 8 GB. -/
+theorem braid2_size :
+    Crc32H.crc_braid2_table.size = 4 ∧ ∀ j : Fin 4, Crc32H.crc_braid2_table[j.val]!.size = 256 := by
+  decide +kernel
+
+/-! `braid5_eq` and `braid2_eq` by linearity: `pw m` is linear (`pw_xor`), so on a byte it is the XOR of its values
+on the set bits (`byteLin_pw`, `byteLin_id`). -/
 
 /-- `f` applied bit by bit to the byte `n`: the XOR of `f (2 ^ b)` over the set bits `b` of `n`. -/
 def byteLin (f : UInt32 → UInt32) (n : Nat) : UInt32 :=
@@ -145,44 +154,53 @@ set_option maxRecDepth 100000 in
 theorem byteLin_id : ∀ n : Fin 256, byteLin id n.val = UInt32.ofNat n.val := by decide +kernel
 
 set_option maxRecDepth 100000 in
-theorem braid_row0 : ∀ n : Fin 256,
-    Crc32H.crc_braid_table[0]![n.val]! = byteLin (pw (8 * (40 - 0))) n.val := by decide +kernel
+theorem braid5_row0 : ∀ n : Fin 256,
+    Crc32H.crc_braid5_table[0]![n.val]! = byteLin (pw (8 * (20 - 0))) n.val := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem braid_row1 : ∀ n : Fin 256,
-    Crc32H.crc_braid_table[1]![n.val]! = byteLin (pw (8 * (40 - 1))) n.val := by decide +kernel
+theorem braid5_row1 : ∀ n : Fin 256,
+    Crc32H.crc_braid5_table[1]![n.val]! = byteLin (pw (8 * (20 - 1))) n.val := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem braid_row2 : ∀ n : Fin 256,
-    Crc32H.crc_braid_table[2]![n.val]! = byteLin (pw (8 * (40 - 2))) n.val := by decide +kernel
+theorem braid5_row2 : ∀ n : Fin 256,
+    Crc32H.crc_braid5_table[2]![n.val]! = byteLin (pw (8 * (20 - 2))) n.val := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem braid_row3 : ∀ n : Fin 256,
-    Crc32H.crc_braid_table[3]![n.val]! = byteLin (pw (8 * (40 - 3))) n.val := by decide +kernel
-set_option maxRecDepth 100000 in
-theorem braid_row4 : ∀ n : Fin 256,
-    Crc32H.crc_braid_table[4]![n.val]! = byteLin (pw (8 * (40 - 4))) n.val := by decide +kernel
-set_option maxRecDepth 100000 in
-theorem braid_row5 : ∀ n : Fin 256,
-    Crc32H.crc_braid_table[5]![n.val]! = byteLin (pw (8 * (40 - 5))) n.val := by decide +kernel
-set_option maxRecDepth 100000 in
-theorem braid_row6 : ∀ n : Fin 256,
-    Crc32H.crc_braid_table[6]![n.val]! = byteLin (pw (8 * (40 - 6))) n.val := by decide +kernel
-set_option maxRecDepth 100000 in
-theorem braid_row7 : ∀ n : Fin 256,
-    Crc32H.crc_braid_table[7]![n.val]! = byteLin (pw (8 * (40 - 7))) n.val := by decide +kernel
+theorem braid5_row3 : ∀ n : Fin 256,
+    Crc32H.crc_braid5_table[3]![n.val]! = byteLin (pw (8 * (20 - 3))) n.val := by decide +kernel
 
-theorem braid_eq : ∀ j : Fin 8, ∀ n : Fin 256,
-    Crc32H.crc_braid_table[j.val]![n.val]! = pw (8 * (40 - j.val)) (UInt32.ofNat n.val) := by
+theorem braid5_eq : ∀ j : Fin 4, ∀ n : Fin 256,
+    Crc32H.crc_braid5_table[j.val]![n.val]! = pw (8 * (20 - j.val)) (UInt32.ofNat n.val) := by
   intro j n
-  have hrow : Crc32H.crc_braid_table[j.val]![n.val]! = byteLin (pw (8 * (40 - j.val))) n.val := by
+  have hrow : Crc32H.crc_braid5_table[j.val]![n.val]! = byteLin (pw (8 * (20 - j.val))) n.val := by
     match j with
-    | ⟨0, _⟩ => exact braid_row0 n
-    | ⟨1, _⟩ => exact braid_row1 n
-    | ⟨2, _⟩ => exact braid_row2 n
-    | ⟨3, _⟩ => exact braid_row3 n
-    | ⟨4, _⟩ => exact braid_row4 n
-    | ⟨5, _⟩ => exact braid_row5 n
-    | ⟨6, _⟩ => exact braid_row6 n
-    | ⟨7, _⟩ => exact braid_row7 n
-    | ⟨_ + 8, h⟩ => exact absurd h (by omega)
+    | ⟨0, _⟩ => exact braid5_row0 n
+    | ⟨1, _⟩ => exact braid5_row1 n
+    | ⟨2, _⟩ => exact braid5_row2 n
+    | ⟨3, _⟩ => exact braid5_row3 n
+    | ⟨_ + 4, h⟩ => exact absurd h (by omega)
+  rw [hrow, byteLin_pw, byteLin_id]
+
+set_option maxRecDepth 100000 in
+theorem braid2_row0 : ∀ n : Fin 256,
+    Crc32H.crc_braid2_table[0]![n.val]! = byteLin (pw (8 * (8 - 0))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid2_row1 : ∀ n : Fin 256,
+    Crc32H.crc_braid2_table[1]![n.val]! = byteLin (pw (8 * (8 - 1))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid2_row2 : ∀ n : Fin 256,
+    Crc32H.crc_braid2_table[2]![n.val]! = byteLin (pw (8 * (8 - 2))) n.val := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem braid2_row3 : ∀ n : Fin 256,
+    Crc32H.crc_braid2_table[3]![n.val]! = byteLin (pw (8 * (8 - 3))) n.val := by decide +kernel
+
+theorem braid2_eq : ∀ j : Fin 4, ∀ n : Fin 256,
+    Crc32H.crc_braid2_table[j.val]![n.val]! = pw (8 * (8 - j.val)) (UInt32.ofNat n.val) := by
+  intro j n
+  have hrow : Crc32H.crc_braid2_table[j.val]![n.val]! = byteLin (pw (8 * (8 - j.val))) n.val := by
+    match j with
+    | ⟨0, _⟩ => exact braid2_row0 n
+    | ⟨1, _⟩ => exact braid2_row1 n
+    | ⟨2, _⟩ => exact braid2_row2 n
+    | ⟨3, _⟩ => exact braid2_row3 n
+    | ⟨_ + 4, h⟩ => exact absurd h (by omega)
   rw [hrow, byteLin_pw, byteLin_id]
 
 /-! ### Linear maps are determined by their values on the unit vectors -/
@@ -1065,34 +1083,20 @@ theorem combine_op_diverges (h : Heap) (crc1 crc2 op : UInt64) (hop : op ≠ 0) 
   have hne : ¬ (op == 0) = true := by simpa using hop
   rw [ite_eq_right hne, bind_app, multmodp_diverges _ _ hlow]
 
-/-! ### Linear maps on 64-bit words -/
-
-def Lin64 (f : UInt64 → UInt32) : Prop := ∀ x y, f (x ^^^ y) = f x ^^^ f y
-
-theorem lin64_ext {f g : UInt64 → UInt32} (hf : Lin64 f) (hg : Lin64 g)
-    (hb : ∀ t, t < 64 → f (UInt64.ofNat (2 ^ t)) = g (UInt64.ofNat (2 ^ t))) : ∀ x, f x = g x := by
-  intro x
-  have hf' : ∀ x y, f (x ^^^ y) = f x ^^^ f y := hf
-  have hg' : ∀ x y, g (x ^^^ y) = g x ^^^ g y := hg
-  have key := lin_ext_nat 64 (fun n => (f (UInt64.ofNat n)).toNat) (fun n => (g (UInt64.ofNat n)).toNat)
-    (by intro a b; simp only [UInt64.ofNat_xor, hf', UInt32.toNat_xor])
-    (by intro a b; simp only [UInt64.ofNat_xor, hg', UInt32.toNat_xor])
-    (by intro t ht; rw [hb t ht]) 64 (Nat.le_refl _) x.toNat (by simpa using UInt64.toNat_lt x)
-  simp only [UInt64.ofNat_toNat] at key
-  exact UInt32.toNat_inj.mp key
-
-/-! ### The word recurrence of `crc_word` -/
+/-! ### The word recurrence of `crc_word` (`W = 4`, `UInt32`) -/
 
 /-- one step of the loop of `crc_word` -/
-def wstep (d : UInt64) : UInt64 := (d >>> 8) ^^^ (Crc32H.crc_table[(d &&& 0xff).toNat]!).toUInt64
+def wstep (d : UInt32) : UInt32 := (d >>> 8) ^^^ Crc32H.crc_table[(d &&& 0xff).toNat]!
 
-def wsteps : Nat → UInt64 → UInt64
+def wsteps : Nat → UInt32 → UInt32
   | 0, d => d
   | n + 1, d => wstep (wsteps n d)
 
-theorem toUInt32_ofNat_eq (x : UInt64) (_h : x.toNat < 256) : UInt32.ofNat x.toNat = x.toUInt32 := by
-  apply UInt32.toNat_inj.mp
-  rw [UInt32.toNat_ofNat', UInt64.toNat_toUInt32]
+theorem and255_lt32 (d : UInt32) : (d &&& 0xff).toNat < 256 := by
+  rw [UInt32.toNat_and]
+  have : (0xff : UInt32).toNat = 2 ^ 8 - 1 := by decide
+  rw [this, Nat.and_two_pow_sub_one_eq_mod]
+  exact Nat.mod_lt _ (by decide)
 
 theorem and255_lt (d : UInt64) : (d &&& 0xff).toNat < 256 := by
   rw [UInt64.toNat_and]
@@ -1100,59 +1104,65 @@ theorem and255_lt (d : UInt64) : (d &&& 0xff).toNat < 256 := by
   rw [this, Nat.and_two_pow_sub_one_eq_mod]
   exact Nat.mod_lt _ (by decide)
 
+theorem toUInt32_ofNat_eq32 (x : UInt32) (_h : x.toNat < 256) : UInt32.ofNat x.toNat = x := by
+  simp
+
+theorem toUInt32_ofNat_eq (x : UInt64) (_h : x.toNat < 256) : UInt32.ofNat x.toNat = x.toUInt32 := by
+  apply UInt32.toNat_inj.mp
+  rw [UInt32.toNat_ofNat', UInt64.toNat_toUInt32]
+
+theorem tab_lookup32 (d : UInt32) : Crc32H.crc_table[(d &&& 0xff).toNat]! = pw 8 (d &&& 0xff) := by
+  have := crc_table_eq ⟨(d &&& 0xff).toNat, and255_lt32 d⟩
+  simp only at this
+  rw [this, toUInt32_ofNat_eq32 _ (and255_lt32 d)]
+
 theorem tab_lookup (d : UInt64) : Crc32H.crc_table[(d &&& 0xff).toNat]! = pw 8 (d &&& 0xff).toUInt32 := by
   have := crc_table_eq ⟨(d &&& 0xff).toNat, and255_lt d⟩
   simp only at this
   rw [this, toUInt32_ofNat_eq _ (and255_lt d)]
 
-theorem wstep_xor (a b : UInt64) : wstep (a ^^^ b) = wstep a ^^^ wstep b := by
+theorem wstep_xor (a b : UInt32) : wstep (a ^^^ b) = wstep a ^^^ wstep b := by
   unfold wstep
-  rw [UInt64.shiftRight_xor, tab_lookup, tab_lookup, tab_lookup, and_xor64, UInt64.toUInt32_xor, pw_xor,
-    UInt32.toUInt64_xor]
+  rw [UInt32.shiftRight_xor, tab_lookup32, tab_lookup32, tab_lookup32, and_xor32, pw_xor]
   ac_rfl
 
-theorem wsteps_xor (n : Nat) (a b : UInt64) : wsteps n (a ^^^ b) = wsteps n a ^^^ wsteps n b := by
+theorem wsteps_xor (n : Nat) (a b : UInt32) : wsteps n (a ^^^ b) = wsteps n a ^^^ wsteps n b := by
   induction n generalizing a b with
   | zero => rfl
   | succ n ih => simp only [wsteps, ih, wstep_xor]
 
-/-- the byte `j` of `d`, as a register value -/
-def bx (d : UInt64) (j : Nat) : UInt32 := ((d >>> (8 * j).toUInt64) &&& 0xff).toUInt32
+/-- the byte `j` of a 32-bit word `d`, as a register value -/
+def bx (d : UInt32) (j : Nat) : UInt32 := (d >>> (8 * j).toUInt32) &&& 0xff
 
-theorem bx_xor (a b : UInt64) (j : Nat) : bx (a ^^^ b) j = bx a j ^^^ bx b j := by
+theorem bx_xor (a b : UInt32) (j : Nat) : bx (a ^^^ b) j = bx a j ^^^ bx b j := by
   unfold bx
-  rw [UInt64.shiftRight_xor, and_xor64, UInt64.toUInt32_xor]
+  rw [UInt32.shiftRight_xor, and_xor32]
 
-/-- the closed form of `crc_word`: byte `j` advanced over `8 - j` bytes -/
-def psiW (d : UInt64) : Nat → UInt32
+/-- the closed form of `crc_word` (`W = 4`): byte `j` advanced over `4 - j` bytes -/
+def psiW (d : UInt32) : Nat → UInt32
   | 0 => 0
-  | m + 1 => psiW d m ^^^ pw (8 * (8 - m)) (bx d m)
+  | m + 1 => psiW d m ^^^ pw (8 * (4 - m)) (bx d m)
 
-def Psi (d : UInt64) : UInt32 := psiW d 8
+def Psi (d : UInt32) : UInt32 := psiW d 4
 
-theorem psiW_xor (a b : UInt64) (m : Nat) : psiW (a ^^^ b) m = psiW a m ^^^ psiW b m := by
+theorem psiW_xor (a b : UInt32) (m : Nat) : psiW (a ^^^ b) m = psiW a m ^^^ psiW b m := by
   induction m with
   | zero => simp [psiW]
   | succ m ih => simp only [psiW, ih, bx_xor, pw_xor]; ac_rfl
 
-theorem Psi_xor (a b : UInt64) : Psi (a ^^^ b) = Psi a ^^^ Psi b := psiW_xor a b 8
-
-theorem Phi_xor (a b : UInt64) : (wsteps 8 (a ^^^ b)).toUInt32 = (wsteps 8 a).toUInt32 ^^^ (wsteps 8 b).toUInt32 := by
-  rw [wsteps_xor, UInt64.toUInt32_xor]
+theorem Psi_xor (a b : UInt32) : Psi (a ^^^ b) = Psi a ^^^ Psi b := psiW_xor a b 4
 
 set_option maxRecDepth 100000 in
-theorem Phi_basis : ∀ t : Fin 64, (wsteps 8 (UInt64.ofNat (2 ^ t.val))).toUInt32 = Psi (UInt64.ofNat (2 ^ t.val)) := by
+theorem Phi_basis : ∀ t : Fin 32, wsteps 4 (e t.val) = Psi (e t.val) := by
   decide +kernel
 
-theorem Phi_eq_Psi (d : UInt64) : (wsteps 8 d).toUInt32 = Psi d :=
-  lin64_ext (f := fun d => (wsteps 8 d).toUInt32) (g := Psi) Phi_xor Psi_xor (fun t ht => Phi_basis ⟨t, ht⟩) d
+theorem Phi_eq_Psi (d : UInt32) : wsteps 4 d = Psi d :=
+  lin32_ext (f := wsteps 4) (g := Psi) (wsteps_xor 4) Psi_xor (fun t ht => Phi_basis ⟨t, ht⟩) d
 
-
-/-- the 64-bit word that `loadWord` assembles from eight bytes (little endian) -/
-def wob (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : UInt64 :=
-  (0 : UInt64) ||| b0.toUInt64 <<< (8 * 0).toUInt64 ||| b1.toUInt64 <<< (8 * 1).toUInt64 ||| b2.toUInt64 <<< (8 * 2).toUInt64 |||
-  b3.toUInt64 <<< (8 * 3).toUInt64 ||| b4.toUInt64 <<< (8 * 4).toUInt64 ||| b5.toUInt64 <<< (8 * 5).toUInt64 |||
-  b6.toUInt64 <<< (8 * 6).toUInt64 ||| b7.toUInt64 <<< (8 * 7).toUInt64
+/-- the 32-bit word that `loadWord` assembles from four bytes (little endian) -/
+def wob (b0 b1 b2 b3 : UInt8) : UInt32 :=
+  (0 : UInt32) ||| b0.toUInt32 <<< (8 * 0).toUInt32 ||| b1.toUInt32 <<< (8 * 1).toUInt32 |||
+  b2.toUInt32 <<< (8 * 2).toUInt32 ||| b3.toUInt32 <<< (8 * 3).toUInt32
 
 theorem getLsbD_255 (i : Nat) (h : 8 ≤ i) : (255#32).getLsbD i = false := by
   rw [BitVec.getLsbD_ofNat]
@@ -1160,11 +1170,11 @@ theorem getLsbD_255 (i : Nat) (h : 8 ≤ i) : (255#32).getLsbD i = false := by
   intro _
   exact Nat.testBit_lt_two_pow (Nat.lt_of_lt_of_le (by decide) (Nat.pow_le_pow_right (by omega) h))
 
-theorem bx_wob_0 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 0 = b0.toUInt32 := by
+theorem bx_wob_0 (b0 b1 b2 b3 : UInt8) : bx (wob b0 b1 b2 b3) 0 = b0.toUInt32 := by
   unfold bx
   apply u32_ext
   intro i hi
-  simp [wob, UInt64.toBitVec_shiftLeft]
+  simp [wob, UInt32.toBitVec_shiftLeft]
   by_cases h8 : i < 8
   · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
       rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp
@@ -1173,11 +1183,11 @@ theorem bx_wob_0 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b
     intro _
     exact BitVec.getLsbD_of_ge _ _ (by omega)
 
-theorem bx_wob_1 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 1 = b1.toUInt32 := by
+theorem bx_wob_1 (b0 b1 b2 b3 : UInt8) : bx (wob b0 b1 b2 b3) 1 = b1.toUInt32 := by
   unfold bx
   apply u32_ext
   intro i hi
-  simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
+  simp [wob, UInt32.toBitVec_or, UInt32.toBitVec_shiftRight, UInt32.toBitVec_shiftLeft]
   by_cases h8 : i < 8
   · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
       rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp
@@ -1186,11 +1196,11 @@ theorem bx_wob_1 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b
     intro _
     exact BitVec.getLsbD_of_ge _ _ (by omega)
 
-theorem bx_wob_2 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 2 = b2.toUInt32 := by
+theorem bx_wob_2 (b0 b1 b2 b3 : UInt8) : bx (wob b0 b1 b2 b3) 2 = b2.toUInt32 := by
   unfold bx
   apply u32_ext
   intro i hi
-  simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
+  simp [wob, UInt32.toBitVec_or, UInt32.toBitVec_shiftRight, UInt32.toBitVec_shiftLeft]
   by_cases h8 : i < 8
   · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
       rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [BitVec.getLsbD_of_ge]
@@ -1199,63 +1209,11 @@ theorem bx_wob_2 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b
     intro _
     exact BitVec.getLsbD_of_ge _ _ (by omega)
 
-theorem bx_wob_3 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 3 = b3.toUInt32 := by
+theorem bx_wob_3 (b0 b1 b2 b3 : UInt8) : bx (wob b0 b1 b2 b3) 3 = b3.toUInt32 := by
   unfold bx
   apply u32_ext
   intro i hi
-  simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
-  by_cases h8 : i < 8
-  · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [BitVec.getLsbD_of_ge]
-  · have : ¬ (255#32).getLsbD i = true := by rw [getLsbD_255 i (by omega)]; decide
-    simp [this]
-    intro _
-    exact BitVec.getLsbD_of_ge _ _ (by omega)
-
-theorem bx_wob_4 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 4 = b4.toUInt32 := by
-  unfold bx
-  apply u32_ext
-  intro i hi
-  simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
-  by_cases h8 : i < 8
-  · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [BitVec.getLsbD_of_ge]
-  · have : ¬ (255#32).getLsbD i = true := by rw [getLsbD_255 i (by omega)]; decide
-    simp [this]
-    intro _
-    exact BitVec.getLsbD_of_ge _ _ (by omega)
-
-theorem bx_wob_5 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 5 = b5.toUInt32 := by
-  unfold bx
-  apply u32_ext
-  intro i hi
-  simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
-  by_cases h8 : i < 8
-  · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [BitVec.getLsbD_of_ge]
-  · have : ¬ (255#32).getLsbD i = true := by rw [getLsbD_255 i (by omega)]; decide
-    simp [this]
-    intro _
-    exact BitVec.getLsbD_of_ge _ _ (by omega)
-
-theorem bx_wob_6 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 6 = b6.toUInt32 := by
-  unfold bx
-  apply u32_ext
-  intro i hi
-  simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
-  by_cases h8 : i < 8
-  · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [BitVec.getLsbD_of_ge]
-  · have : ¬ (255#32).getLsbD i = true := by rw [getLsbD_255 i (by omega)]; decide
-    simp [this]
-    intro _
-    exact BitVec.getLsbD_of_ge _ _ (by omega)
-
-theorem bx_wob_7 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 7 = b7.toUInt32 := by
-  unfold bx
-  apply u32_ext
-  intro i hi
-  simp [wob, UInt64.toBitVec_or, UInt64.toBitVec_shiftRight, UInt64.toBitVec_shiftLeft]
+  simp [wob, UInt32.toBitVec_or, UInt32.toBitVec_shiftRight, UInt32.toBitVec_shiftLeft]
   by_cases h8 : i < 8
   · rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
       rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [BitVec.getLsbD_of_ge]
@@ -1265,284 +1223,263 @@ theorem bx_wob_7 (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) : bx (wob b0 b1 b2 b3 b4 b5 b
     exact BitVec.getLsbD_of_ge _ _ (by omega)
 
 set_option maxRecDepth 100000 in
-theorem Psi_basis : ∀ t : Fin 32, Psi (e t.val).toUInt64 = pw 64 (e t.val) := by decide +kernel
+theorem Psi_basis : ∀ t : Fin 32, Psi (e t.val) = pw 32 (e t.val) := by decide +kernel
 
-theorem Psi_reg (c : UInt32) : Psi c.toUInt64 = pw 64 c :=
-  lin32_ext (f := fun c => Psi c.toUInt64) (g := pw 64)
-    (by intro x y; simp only [UInt32.toUInt64_xor, Psi_xor]) (pw_lin 64) (fun t ht => Psi_basis ⟨t, ht⟩) c
+theorem Psi_reg (c : UInt32) : Psi c = pw 32 c :=
+  lin32_ext (f := Psi) (g := pw 32) Psi_xor (pw_lin 32) (fun t ht => Psi_basis ⟨t, ht⟩) c
 
-theorem Psi_wob (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) :
-    Psi (wob b0 b1 b2 b3 b4 b5 b6 b7) =
-      pw 64 b0.toUInt32 ^^^ pw 56 b1.toUInt32 ^^^ pw 48 b2.toUInt32 ^^^ pw 40 b3.toUInt32 ^^^
-      pw 32 b4.toUInt32 ^^^ pw 24 b5.toUInt32 ^^^ pw 16 b6.toUInt32 ^^^ pw 8 b7.toUInt32 := by
-  have : Psi (wob b0 b1 b2 b3 b4 b5 b6 b7) =
-      (((((((0 ^^^ pw (8 * (8 - 0)) (bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 0)) ^^^
-        pw (8 * (8 - 1)) (bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 1)) ^^^
-        pw (8 * (8 - 2)) (bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 2)) ^^^
-        pw (8 * (8 - 3)) (bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 3)) ^^^
-        pw (8 * (8 - 4)) (bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 4)) ^^^
-        pw (8 * (8 - 5)) (bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 5)) ^^^
-        pw (8 * (8 - 6)) (bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 6)) ^^^
-        pw (8 * (8 - 7)) (bx (wob b0 b1 b2 b3 b4 b5 b6 b7) 7) := rfl
-  rw [this, bx_wob_0, bx_wob_1, bx_wob_2, bx_wob_3, bx_wob_4, bx_wob_5, bx_wob_6, bx_wob_7, UInt32.zero_xor]
+theorem Psi_wob (b0 b1 b2 b3 : UInt8) :
+    Psi (wob b0 b1 b2 b3) =
+      pw 32 b0.toUInt32 ^^^ pw 24 b1.toUInt32 ^^^ pw 16 b2.toUInt32 ^^^ pw 8 b3.toUInt32 := by
+  have : Psi (wob b0 b1 b2 b3) =
+      (((0 ^^^ pw (8 * (4 - 0)) (bx (wob b0 b1 b2 b3) 0)) ^^^
+        pw (8 * (4 - 1)) (bx (wob b0 b1 b2 b3) 1)) ^^^
+        pw (8 * (4 - 2)) (bx (wob b0 b1 b2 b3) 2)) ^^^
+        pw (8 * (4 - 3)) (bx (wob b0 b1 b2 b3) 3) := rfl
+  rw [this, bx_wob_0, bx_wob_1, bx_wob_2, bx_wob_3, UInt32.zero_xor]
 
-theorem rbl_bytes (c : UInt32) (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) :
-    rbl c [b0, b1, b2, b3, b4, b5, b6, b7] =
-      pw 64 c ^^^ (pw 64 b0.toUInt32 ^^^ pw 56 b1.toUInt32 ^^^ pw 48 b2.toUInt32 ^^^ pw 40 b3.toUInt32 ^^^
-      pw 32 b4.toUInt32 ^^^ pw 24 b5.toUInt32 ^^^ pw 16 b6.toUInt32 ^^^ pw 8 b7.toUInt32) := by
+theorem rbl_bytes (c : UInt32) (b0 b1 b2 b3 : UInt8) :
+    rbl c [b0, b1, b2, b3] =
+      pw 32 c ^^^ (pw 32 b0.toUInt32 ^^^ pw 24 b1.toUInt32 ^^^ pw 16 b2.toUInt32 ^^^ pw 8 b3.toUInt32) := by
   rw [rbl_affine]
   simp only [List.length_cons, List.length_nil]
-  have : rbl 0 [b0, b1, b2, b3, b4, b5, b6, b7] =
-      pw 64 b0.toUInt32 ^^^ pw 56 b1.toUInt32 ^^^ pw 48 b2.toUInt32 ^^^ pw 40 b3.toUInt32 ^^^
-      pw 32 b4.toUInt32 ^^^ pw 24 b5.toUInt32 ^^^ pw 16 b6.toUInt32 ^^^ pw 8 b7.toUInt32 := by
+  have : rbl 0 [b0, b1, b2, b3] =
+      pw 32 b0.toUInt32 ^^^ pw 24 b1.toUInt32 ^^^ pw 16 b2.toUInt32 ^^^ pw 8 b3.toUInt32 := by
     simp only [rbl_cons, rbl_nil, crcByte_eq, UInt32.zero_xor, pw_xor, ← pw_add]
   rw [this]
 
-/-- the word that `crc_word` is applied to, for the register `c` and the eight bytes: its result is the register after
-the eight bytes. -/
-theorem Psi_word (c : UInt32) (b0 b1 b2 b3 b4 b5 b6 b7 : UInt8) :
-    Psi (c.toUInt64 ^^^ wob b0 b1 b2 b3 b4 b5 b6 b7) = rbl c [b0, b1, b2, b3, b4, b5, b6, b7] := by
+/-- the word that `crc_word` is applied to, for the register `c` and the four bytes: its result is the register after
+the four bytes. -/
+theorem Psi_word (c : UInt32) (b0 b1 b2 b3 : UInt8) :
+    Psi (c ^^^ wob b0 b1 b2 b3) = rbl c [b0, b1, b2, b3] := by
   rw [Psi_xor, Psi_reg, Psi_wob, rbl_bytes]
 
-theorem crc_word_ok (h : Heap) (hs : StaticsOK h) (data : UInt64) : OkOn h (crc_word data) (Psi data) := by
+theorem u32_and255_toUInt64 (d : UInt32) : (d &&& 0xff).toUInt64.toNat = (d &&& 0xff).toNat := by
+  simp
+
+theorem crc_word_ok (h : Heap) (hs : StaticsOK h) (data : UInt32) : OkOn h (crc_word data) (Psi data) := by
   suffices H : ∃ y, OkOn h (crc_word data) y ∧ y = Psi data by obtain ⟨y, hy, rfl⟩ := H; exact hy
   unfold crc_word
-  refine OkOn.bind_ex (R := fun x : UInt64 × Int32 => x.1.toUInt32 = Psi data) ?_ ?_
-  · refine cwhile_ok (fun cnt s => ∃ i, i + cnt = 8 ∧ s = (wsteps i data, Int32.ofNat i))
-      (fun x : UInt64 × Int32 => x.1.toUInt32 = Psi data) ?_ ?_ (k := 8) (s := (data, (0 : Int32))) ?_ ?_
+  refine OkOn.bind_ex (R := fun x : UInt32 × Int32 => x.1 = Psi data) ?_ ?_
+  · refine cwhile_ok (fun cnt s => ∃ i, i + cnt = 4 ∧ s = (wsteps i data, Int32.ofNat i))
+      (fun x : UInt32 × Int32 => x.1 = Psi data) ?_ ?_ (k := 4) (s := (data, (0 : Int32))) ?_ ?_
     · intro cnt s hP
       obtain ⟨i, hi, rfl⟩ := hP
-      have hc : (Int32.ofNat i < (8 : Int32)) = true := by
-        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-          rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+      have hc : (Int32.ofNat i < (4 : Int32)) = true := by
+        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3) with rfl | rfl | rfl | rfl <;> decide
       have hk : Int32.ofNat i + 1 = Int32.ofNat (i + 1) := by
-        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-          rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-      have ht := crcTab_ok h hs (wsteps i data &&& 0xff) (and255_lt _)
+        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3) with rfl | rfl | rfl | rfl <;> decide
+      have ht := crcTab_ok h hs ((wsteps i data &&& 0xff).toUInt64) (by rw [u32_and255_toUInt64]; exact and255_lt32 _)
+      rw [u32_and255_toUInt64] at ht
       refine ⟨(wsteps i data, Int32.ofNat i), (wsteps (i + 1) data, Int32.ofNat (i + 1)), ?_, ?_, ⟨i + 1, by omega, rfl⟩⟩
       · show OkOn h (pure _) _
         simp only [W, hc]
         exact OkOn.pure _ _
-      · show OkOn h (do let t ← crcTab (wsteps i data &&& 0xff); pure ((wsteps i data >>> 8) ^^^ t.toUInt64, Int32.ofNat i + 1)) _
+      · show OkOn h (do let t ← crcTab (wsteps i data &&& 0xff).toUInt64; pure ((wsteps i data >>> 8) ^^^ t, Int32.ofNat i + 1)) _
         rw [hk]
         exact OkOn.bind ht (OkOn.pure _ _)
     · intro s hP
       obtain ⟨i, hi, rfl⟩ := hP
-      have : i = 8 := by omega
+      have : i = 4 := by omega
       subst this
-      have hc : (Int32.ofNat 8 < (8 : Int32)) = false := by decide
-      refine ⟨(wsteps 8 data, Int32.ofNat 8), ?_, ?_⟩
+      have hc : (Int32.ofNat 4 < (4 : Int32)) = false := by decide
+      refine ⟨(wsteps 4 data, Int32.ofNat 4), ?_, ?_⟩
       · show OkOn h (pure _) _
         simp only [W, hc]
         exact OkOn.pure _ _
       · exact Phi_eq_Psi data
     · exact ⟨0, rfl, rfl⟩
-    · show 8 < 2 ^ 64; omega
+    · show 4 < 2 ^ 64; omega
   · intro x hx
     obtain ⟨d, k⟩ := x
-    exact ⟨d.toUInt32, OkOn.pure _ _, hx⟩
+    exact ⟨d, OkOn.pure _ _, hx⟩
 
-/-! ### Loading a word -/
+/-! ### Loading a word (`W = 4`, `UInt32`, any byte view) -/
 
-theorem idx8 (h : Heap) (blk off i : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs) (hlt : off + i < bs.size) :
-    OkOn h (index8 (.ref (.blk blk) off) i) bs[off + i]! := by
-  have := index8_ok hb hlt
+theorem idx8 (h : Heap) (ref : BRef) (off i : Nat) (bs : Array UInt8) (hb : Space.get h ref = some bs)
+    (hlt : off + i < bs.size) :
+    OkOn h (index8 (.ref ref off) i) bs[off + i]! := by
+  have := Ptr.index_ok hb hlt
   rw [getElem!_pos bs (off + i) hlt]; exact this
 
 set_option maxRecDepth 4000 in
-theorem loadWord_ok (h : Heap) (blk off : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hlt : off + 8 ≤ bs.size) :
-    OkOn h (loadWord (.ref (.blk blk) off))
-      (wob bs[off + 0]! bs[off + 1]! bs[off + 2]! bs[off + 3]! bs[off + 4]! bs[off + 5]! bs[off + 6]! bs[off + 7]!) := by
+theorem loadWord_ok (h : Heap) (ref : BRef) (off : Nat) (bs : Array UInt8) (hb : Space.get h ref = some bs)
+    (hlt : off + 4 ≤ bs.size) :
+    OkOn h (loadWord (.ref ref off))
+      (wob bs[off + 0]! bs[off + 1]! bs[off + 2]! bs[off + 3]!) := by
   unfold loadWord
   simp only [forIn, Std.Legacy.Range.forIn'_eq_forIn'_range', Std.Legacy.Range.size]
   simp only [List.range'_succ, List.range'_zero, List.forIn'_cons, List.forIn'_nil]
-  refine OkOn.bind (x := wob bs[off + 0]! bs[off + 1]! bs[off + 2]! bs[off + 3]! bs[off + 4]! bs[off + 5]! bs[off + 6]! bs[off + 7]!) ?_ (OkOn.pure _ _)
-  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h blk off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
+  refine OkOn.bind (x := wob bs[off + 0]! bs[off + 1]! bs[off + 2]! bs[off + 3]!) ?_ (OkOn.pure _ _)
+  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h ref off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
   try dsimp only
-  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h blk off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
+  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h ref off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
   try dsimp only
-  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h blk off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
+  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h ref off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
   try dsimp only
-  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h blk off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
-  try dsimp only
-  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h blk off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
-  try dsimp only
-  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h blk off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
-  try dsimp only
-  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h blk off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
-  try dsimp only
-  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h blk off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
+  refine OkOn.bind (x := ForInStep.yield _) (OkOn.bind (idx8 h ref off _ bs hb (by omega)) (OkOn.pure _ _)) ?_
   try dsimp only
   exact OkOn.pure _ _
 
-/-! ### The braid tables -/
+/-! ### The braid tables (`N = 5`, `NLOW = 2`, `W = 4`) -/
 
-def psum (d : UInt64) : Nat → UInt32
-  | 0 => 0
-  | m + 1 => psum d m ^^^ pw (8 * (40 - m)) (bx d m)
+def bw5 (d : UInt32) : UInt32 :=
+  (pw (8 * 20) (bx d 0) ^^^ pw (8 * 19) (bx d 1)) ^^^
+  (pw (8 * 18) (bx d 2) ^^^ pw (8 * 17) (bx d 3))
 
-/-- the effect of the eight table lookups on a 64-bit word -/
-def bw (d : UInt64) : UInt32 := psum d 8
+def bw2 (d : UInt32) : UInt32 :=
+  (pw (8 * 8) (bx d 0) ^^^ pw (8 * 7) (bx d 1)) ^^^
+  (pw (8 * 6) (bx d 2) ^^^ pw (8 * 5) (bx d 3))
 
-theorem idx2_ok (h : Heap) (kn i : Nat) (hk : kn < 8) (hi : i < 256) :
-    OkOn h (idx2 Crc32H.crc_braid_table kn i) Crc32H.crc_braid_table[kn]![i]! := by
-  have hs := braid_size
-  have hrow : Crc32H.crc_braid_table[kn]? = some Crc32H.crc_braid_table[kn]! := by
-    rw [getElem!_pos Crc32H.crc_braid_table kn (by omega)]; simp
+theorem idx2_5_ok (h : Heap) (kn i : Nat) (hk : kn < 4) (hi : i < 256) :
+    OkOn h (idx2 Crc32H.crc_braid5_table kn i) Crc32H.crc_braid5_table[kn]![i]! := by
+  have hs := braid5_size
+  have hrow : Crc32H.crc_braid5_table[kn]? = some Crc32H.crc_braid5_table[kn]! := by
+    rw [getElem!_pos Crc32H.crc_braid5_table kn (by omega)]; simp
   have hrs := hs.2 ⟨kn, hk⟩
-  have hcol : Crc32H.crc_braid_table[kn]![i]? = some Crc32H.crc_braid_table[kn]![i]! := by
-    rw [getElem!_pos Crc32H.crc_braid_table[kn]! i (by simp only at hrs; omega)]; simp
+  have hcol : Crc32H.crc_braid5_table[kn]![i]? = some Crc32H.crc_braid5_table[kn]![i]! := by
+    rw [getElem!_pos Crc32H.crc_braid5_table[kn]! i (by simp only at hrs; omega)]; simp
   unfold idx2
   rw [hrow]
   simp only
   rw [hcol]
   exact OkOn.pure _ _
 
-theorem braidTab_ok (h : Heap) (kn : Nat) (hk : kn < 8) (word : UInt64) :
-    OkOn h (braidTab (Int32.ofNat kn) word) (pw (8 * (40 - kn)) (bx word kn)) := by
-  have h3 : (Int32.ofNat kn <<< 3).toInt.toNat.toUInt64 = (8 * kn).toUInt64 := by
-    rcases (by omega : kn = 0 ∨ kn = 1 ∨ kn = 2 ∨ kn = 3 ∨ kn = 4 ∨ kn = 5 ∨ kn = 6 ∨ kn = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  have hk' : (Int32.ofNat kn).toInt.toNat = kn := by
-    rcases (by omega : kn = 0 ∨ kn = 1 ∨ kn = 2 ∨ kn = 3 ∨ kn = 4 ∨ kn = 5 ∨ kn = 6 ∨ kn = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  have h64 : (8 * kn).toUInt64 < 64 := by
-    rcases (by omega : kn = 0 ∨ kn = 1 ∨ kn = 2 ∨ kn = 3 ∨ kn = 4 ∨ kn = 5 ∨ kn = 6 ∨ kn = 7) with
-      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  have hsh : OkOn h (shr64 word (8 * kn).toUInt64) (word >>> (8 * kn).toUInt64) := by
-    unfold shr64; rw [ite_eq_left h64]; exact OkOn.pure _ _
-  have hid := idx2_ok h kn ((word >>> (8 * kn).toUInt64) &&& 0xff).toNat hk (and255_lt _)
-  have hv : Crc32H.crc_braid_table[kn]![((word >>> (8 * kn).toUInt64) &&& 0xff).toNat]! =
-      pw (8 * (40 - kn)) (bx word kn) := by
-    have := braid_eq ⟨kn, hk⟩ ⟨_, and255_lt (word >>> (8 * kn).toUInt64)⟩
-    simp only at this
-    rw [this, toUInt32_ofNat_eq _ (and255_lt _)]; rfl
-  unfold braidTab
-  rw [h3, hk']
-  rw [hv] at hid
-  exact OkOn.bind hsh hid
+theorem idx2_2_ok (h : Heap) (kn i : Nat) (hk : kn < 4) (hi : i < 256) :
+    OkOn h (idx2 Crc32H.crc_braid2_table kn i) Crc32H.crc_braid2_table[kn]![i]! := by
+  have hs := braid2_size
+  have hrow : Crc32H.crc_braid2_table[kn]? = some Crc32H.crc_braid2_table[kn]! := by
+    rw [getElem!_pos Crc32H.crc_braid2_table kn (by omega)]; simp
+  have hrs := hs.2 ⟨kn, hk⟩
+  have hcol : Crc32H.crc_braid2_table[kn]![i]? = some Crc32H.crc_braid2_table[kn]![i]! := by
+    rw [getElem!_pos Crc32H.crc_braid2_table[kn]! i (by simp only at hrs; omega)]; simp
+  unfold idx2
+  rw [hrow]
+  simp only
+  rw [hcol]
+  exact OkOn.pure _ _
 
-theorem psum_eq (d : UInt64) : ∀ m, m ≤ 8 → psum d m = pw 256 (psiW d m) := by
-  intro m
-  induction m with
-  | zero => intro _; simp [psum, psiW, pw_zero]
-  | succ m ih =>
-    intro hm
-    simp only [psum, psiW, ih (by omega), pw_xor, ← pw_add]
-    congr 2; omega
+theorem bx_eq_shr (w : UInt32) :
+    bx w 0 = w &&& 0xff ∧ bx w 1 = (w >>> 8) &&& 0xff ∧
+    bx w 2 = (w >>> 16) &&& 0xff ∧ bx w 3 = (w >>> 24) &&& 0xff := by
+  simp only [bx]; exact ⟨by simp, rfl, rfl, rfl⟩
 
-theorem bw_eq (d : UInt64) : bw d = pw 256 (Psi d) := psum_eq d 8 (Nat.le_refl _)
+theorem crcWord5_ok (h : Heap) (w : UInt32) :
+    OkOn h (crcWord Crc32H.crc_braid5_table w) (bw5 w) := by
+  unfold crcWord bw5
+  have hbx := bx_eq_shr w
+  have hb0 := idx2_5_ok h 0 (w &&& 0xff).toNat (by decide) (and255_lt32 _)
+  have hb1 := idx2_5_ok h 1 ((w >>> 8) &&& 0xff).toNat (by decide) (and255_lt32 _)
+  have hb2 := idx2_5_ok h 2 ((w >>> 16) &&& 0xff).toNat (by decide) (and255_lt32 _)
+  have hb3 := idx2_5_ok h 3 ((w >>> 24) &&& 0xff).toNat (by decide) (and255_lt32 _)
+  rw [braid5_eq ⟨0, by decide⟩ ⟨_, and255_lt32 _⟩, toUInt32_ofNat_eq32 _ (and255_lt32 _), ← hbx.1] at hb0
+  rw [braid5_eq ⟨1, by decide⟩ ⟨_, and255_lt32 _⟩, toUInt32_ofNat_eq32 _ (and255_lt32 _), ← hbx.2.1] at hb1
+  rw [braid5_eq ⟨2, by decide⟩ ⟨_, and255_lt32 _⟩, toUInt32_ofNat_eq32 _ (and255_lt32 _), ← hbx.2.2.1] at hb2
+  rw [braid5_eq ⟨3, by decide⟩ ⟨_, and255_lt32 _⟩, toUInt32_ofNat_eq32 _ (and255_lt32 _), ← hbx.2.2.2] at hb3
+  exact OkOn.bind hb0 (OkOn.bind hb1 (OkOn.bind hb2 (OkOn.bind hb3 (OkOn.pure _ _))))
 
-/-- the word at byte offset `o` of `bs` -/
-def WA (bs : Array UInt8) (o : Nat) : UInt64 :=
-  wob bs[o + 0]! bs[o + 1]! bs[o + 2]! bs[o + 3]! bs[o + 4]! bs[o + 5]! bs[o + 6]! bs[o + 7]!
+theorem crcWord2_ok (h : Heap) (w : UInt32) :
+    OkOn h (crcWord Crc32H.crc_braid2_table w) (bw2 w) := by
+  unfold crcWord bw2
+  have hbx := bx_eq_shr w
+  have hb0 := idx2_2_ok h 0 (w &&& 0xff).toNat (by decide) (and255_lt32 _)
+  have hb1 := idx2_2_ok h 1 ((w >>> 8) &&& 0xff).toNat (by decide) (and255_lt32 _)
+  have hb2 := idx2_2_ok h 2 ((w >>> 16) &&& 0xff).toNat (by decide) (and255_lt32 _)
+  have hb3 := idx2_2_ok h 3 ((w >>> 24) &&& 0xff).toNat (by decide) (and255_lt32 _)
+  rw [braid2_eq ⟨0, by decide⟩ ⟨_, and255_lt32 _⟩, toUInt32_ofNat_eq32 _ (and255_lt32 _), ← hbx.1] at hb0
+  rw [braid2_eq ⟨1, by decide⟩ ⟨_, and255_lt32 _⟩, toUInt32_ofNat_eq32 _ (and255_lt32 _), ← hbx.2.1] at hb1
+  rw [braid2_eq ⟨2, by decide⟩ ⟨_, and255_lt32 _⟩, toUInt32_ofNat_eq32 _ (and255_lt32 _), ← hbx.2.2.1] at hb2
+  rw [braid2_eq ⟨3, by decide⟩ ⟨_, and255_lt32 _⟩, toUInt32_ofNat_eq32 _ (and255_lt32 _), ← hbx.2.2.2] at hb3
+  exact OkOn.bind hb0 (OkOn.bind hb1 (OkOn.bind hb2 (OkOn.bind hb3 (OkOn.pure _ _))))
 
-theorem wordAt_ok (h : Heap) (blk ow i : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hlt : ow + 8 * i + 8 ≤ bs.size) :
-    OkOn h (wordAt (.ref (.blk blk) ow) i) (WA bs (ow + 8 * i)) := by
+theorem bw5_eq (d : UInt32) : bw5 d = pw 128 (Psi d) := by
+  simp only [bw5, Psi, psiW, pw_xor, UInt32.zero_xor, ← pw_add]
+  have e0 : 128 + 8 * (4 - 0) = 8 * 20 := by decide
+  have e1 : 128 + 8 * (4 - 1) = 8 * 19 := by decide
+  have e2 : 128 + 8 * (4 - 2) = 8 * 18 := by decide
+  have e3 : 128 + 8 * (4 - 3) = 8 * 17 := by decide
+  rw [e0, e1, e2, e3]
+  ac_rfl
+
+theorem bw2_eq (d : UInt32) : bw2 d = pw 32 (Psi d) := by
+  simp only [bw2, Psi, psiW, pw_xor, UInt32.zero_xor, ← pw_add]
+  have e0 : 32 + 8 * (4 - 0) = 8 * 8 := by decide
+  have e1 : 32 + 8 * (4 - 1) = 8 * 7 := by decide
+  have e2 : 32 + 8 * (4 - 2) = 8 * 6 := by decide
+  have e3 : 32 + 8 * (4 - 3) = 8 * 5 := by decide
+  rw [e0, e1, e2, e3]
+  ac_rfl
+
+/-- the 32-bit word at byte offset `o` of `bs` -/
+def WA (bs : Array UInt8) (o : Nat) : UInt32 :=
+  wob bs[o + 0]! bs[o + 1]! bs[o + 2]! bs[o + 3]!
+
+theorem wordAt_ok (h : Heap) (ref : BRef) (ow i : Nat) (bs : Array UInt8) (hb : Space.get h ref = some bs)
+    (hlt : ow + 4 * i + 4 ≤ bs.size) :
+    OkOn h (wordAt (.ref ref ow) i) (WA bs (ow + 4 * i)) := by
   unfold wordAt
-  have hadd : OkOn h (Ptr.add (Ptr.ref (BRef.blk blk) ow) (8 * (i : Int))) (Ptr.ref (BRef.blk blk) (ow + 8 * i)) := by
-    have := Ptr.add_ok (r := BRef.blk blk) (off := ow) (k := 8 * (i : Int)) (a := bs) hb (by omega) (by omega)
-    have e : ((ow : Int) + 8 * (i : Int)).toNat = ow + 8 * i := by omega
+  have hadd : OkOn h (Ptr.add (Ptr.ref ref ow) (4 * (i : Int))) (Ptr.ref ref (ow + 4 * i)) := by
+    have := Ptr.add_ok (r := ref) (off := ow) (k := 4 * (i : Int)) (a := bs) hb (by omega) (by omega)
+    have e : ((ow : Int) + 4 * (i : Int)).toNat = ow + 4 * i := by omega
     rwa [e] at this
-  exact OkOn.bind hadd (loadWord_ok h blk (ow + 8 * i) bs hb hlt)
+  exact OkOn.bind hadd (loadWord_ok h ref (ow + 4 * i) bs hb hlt)
 
 theorem bind_of {α β : Type} {h : Heap} {m : M α} {f : α → M β} {y : β} (R : α → Prop)
     (hm : ∃ x, OkOn h m x ∧ R x) (hf : ∀ x, R x → OkOn h (f x) y) : OkOn h (m >>= f) y := by
   obtain ⟨x, hx, hR⟩ := hm
   exact OkOn.bind hx (hf x hR)
 
-theorem blockLittle_ok (h : Heap) (s : BL) (blk ow : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hlt : ow + 40 ≤ bs.size) (hw : s.words = .ref (.blk blk) ow) :
+theorem blockLittle_ok (h : Heap) (s : BL) (ref : BRef) (ow : Nat) (bs : Array UInt8) (hb : Space.get h ref = some bs)
+    (hlt : ow + 20 ≤ bs.size) (hw : s.words = .ref ref ow) :
     OkOn h (blockLittle s)
-      { crc0 := bw (s.crc0.toUInt64 ^^^ WA bs ow), crc1 := bw (s.crc1.toUInt64 ^^^ WA bs (ow + 8)),
-        crc2 := bw (s.crc2.toUInt64 ^^^ WA bs (ow + 16)), crc3 := bw (s.crc3.toUInt64 ^^^ WA bs (ow + 24)),
-        crc4 := bw (s.crc4.toUInt64 ^^^ WA bs (ow + 32)), words := .ref (.blk blk) (ow + 40), blks := s.blks } := by
-  have w0 := wordAt_ok h blk ow 0 bs hb (by omega)
-  have w1 := wordAt_ok h blk ow 1 bs hb (by omega)
-  have w2 := wordAt_ok h blk ow 2 bs hb (by omega)
-  have w3 := wordAt_ok h blk ow 3 bs hb (by omega)
-  have w4 := wordAt_ok h blk ow 4 bs hb (by omega)
+      { crc0 := bw5 (s.crc0 ^^^ WA bs ow), crc1 := bw5 (s.crc1 ^^^ WA bs (ow + 4)),
+        crc2 := bw5 (s.crc2 ^^^ WA bs (ow + 8)), crc3 := bw5 (s.crc3 ^^^ WA bs (ow + 12)),
+        crc4 := bw5 (s.crc4 ^^^ WA bs (ow + 16)), words := .ref ref (ow + 20), blks := s.blks } := by
+  have w0 := wordAt_ok h ref ow 0 bs hb (by omega)
+  have w1 := wordAt_ok h ref ow 1 bs hb (by omega)
+  have w2 := wordAt_ok h ref ow 2 bs hb (by omega)
+  have w3 := wordAt_ok h ref ow 3 bs hb (by omega)
+  have w4 := wordAt_ok h ref ow 4 bs hb (by omega)
   simp only [Nat.mul_zero, Nat.add_zero] at w0
-  have hadd : OkOn h (Ptr.add s.words 40) (Ptr.ref (BRef.blk blk) (ow + 40)) := by
+  have hadd : OkOn h (Ptr.add s.words 20) (Ptr.ref ref (ow + 20)) := by
     rw [hw]
-    have := Ptr.add_nat_ok (r := BRef.blk blk) (off := ow) (n := 40) (a := bs) hb hlt
+    have := Ptr.add_nat_ok (r := ref) (off := ow) (n := 20) (a := bs) hb hlt
     simpa using this
   rw [← hw] at w0 w1 w2 w3 w4
   unfold blockLittle
-  refine OkOn.bind w0 ?_
-  try dsimp only
-  refine OkOn.bind w1 ?_
-  try dsimp only
-  refine OkOn.bind w2 ?_
-  try dsimp only
-  refine OkOn.bind w3 ?_
-  try dsimp only
-  refine OkOn.bind w4 ?_
-  try dsimp only
-  refine OkOn.bind hadd ?_
-  try dsimp only
-  refine OkOn.bind (braidTab_ok h 0 (by omega) _) ?_
-  try dsimp only
-  refine OkOn.bind (braidTab_ok h 0 (by omega) _) ?_
-  try dsimp only
-  refine OkOn.bind (braidTab_ok h 0 (by omega) _) ?_
-  try dsimp only
-  refine OkOn.bind (braidTab_ok h 0 (by omega) _) ?_
-  try dsimp only
-  refine OkOn.bind (braidTab_ok h 0 (by omega) _) ?_
-  try dsimp only
-  generalize hW0 : s.crc0.toUInt64 ^^^ WA bs (ow + 8 * 0) = W0
-  generalize hW1 : s.crc1.toUInt64 ^^^ WA bs (ow + 8 * 1) = W1
-  generalize hW2 : s.crc2.toUInt64 ^^^ WA bs (ow + 8 * 2) = W2
-  generalize hW3 : s.crc3.toUInt64 ^^^ WA bs (ow + 8 * 3) = W3
-  generalize hW4 : s.crc4.toUInt64 ^^^ WA bs (ow + 8 * 4) = W4
-  refine bind_of (fun s => s = (bw W0, bw W1, bw W2, bw W3, bw W4, Int32.ofNat 8)) ?_ ?_
-  · refine cwhile_ok (fun cnt s => ∃ m, m + cnt = 8 ∧ 1 ≤ m ∧
-        s = (psum W0 m, psum W1 m, psum W2 m, psum W3 m, psum W4 m, Int32.ofNat m))
-      (fun s => s = (bw W0, bw W1, bw W2, bw W3, bw W4, Int32.ofNat 8)) ?_ ?_ (k := 7)
-      (s := (pw (8 * (40 - 0)) (bx W0 0), pw (8 * (40 - 0)) (bx W1 0), pw (8 * (40 - 0)) (bx W2 0),
-        pw (8 * (40 - 0)) (bx W3 0), pw (8 * (40 - 0)) (bx W4 0), 1)) ?_ ?_
-    · intro cnt s hP
-      obtain ⟨m, hm, hm1, rfl⟩ := hP
-      have hc : (Int32.ofNat m < W) = true := by
-        rcases (by omega : m = 1 ∨ m = 2 ∨ m = 3 ∨ m = 4 ∨ m = 5 ∨ m = 6 ∨ m = 7) with
-          rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-      have hk : Int32.ofNat m + 1 = Int32.ofNat (m + 1) := by
-        rcases (by omega : m = 1 ∨ m = 2 ∨ m = 3 ∨ m = 4 ∨ m = 5 ∨ m = 6 ∨ m = 7) with
-          rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-      refine ⟨(psum W0 m, psum W1 m, psum W2 m, psum W3 m, psum W4 m, Int32.ofNat m), (psum W0 (m + 1), psum W1 (m + 1), psum W2 (m + 1), psum W3 (m + 1), psum W4 (m + 1),
-        Int32.ofNat (m + 1)), ?_, ?_, ⟨m + 1, by omega, by omega, rfl⟩⟩
-      · show OkOn h (pure _) _
-        simp only [hc]
-        exact OkOn.pure _ _
-      · show OkOn h (do
-          let a0 ← braidTab (Int32.ofNat m) W0
-          let a1 ← braidTab (Int32.ofNat m) W1
-          let a2 ← braidTab (Int32.ofNat m) W2
-          let a3 ← braidTab (Int32.ofNat m) W3
-          let a4 ← braidTab (Int32.ofNat m) W4
-          pure (psum W0 m ^^^ a0, psum W1 m ^^^ a1, psum W2 m ^^^ a2, psum W3 m ^^^ a3, psum W4 m ^^^ a4,
-            Int32.ofNat m + 1)) _
-        rw [hk]
-        exact OkOn.bind (braidTab_ok h m (by omega) _) (OkOn.bind (braidTab_ok h m (by omega) _)
-          (OkOn.bind (braidTab_ok h m (by omega) _) (OkOn.bind (braidTab_ok h m (by omega) _)
-          (OkOn.bind (braidTab_ok h m (by omega) _) (OkOn.pure _ _)))))
-    · intro s hP
-      obtain ⟨m, hm, hm1, rfl⟩ := hP
-      have : m = 8 := by omega
-      subst this
-      have hc : (Int32.ofNat 8 < W) = false := by decide
-      refine ⟨_, ?_, rfl⟩
-      · show OkOn h (pure _) _
-        simp only [hc]
-        exact OkOn.pure _ _
-    · exact ⟨1, by omega, Nat.le_refl _, by simp [psum]⟩
-    · show 7 < 2 ^ 64; omega
-  · intro x hx
-    subst hx
-    exact OkOn.pure _ _
+  refine OkOn.bind w0 ?_; try dsimp only
+  refine OkOn.bind w1 ?_; try dsimp only
+  refine OkOn.bind w2 ?_; try dsimp only
+  refine OkOn.bind w3 ?_; try dsimp only
+  refine OkOn.bind w4 ?_; try dsimp only
+  refine OkOn.bind hadd ?_; try dsimp only
+  refine OkOn.bind (crcWord5_ok h _) ?_; try dsimp only
+  refine OkOn.bind (crcWord5_ok h _) ?_; try dsimp only
+  refine OkOn.bind (crcWord5_ok h _) ?_; try dsimp only
+  refine OkOn.bind (crcWord5_ok h _) ?_; try dsimp only
+  refine OkOn.bind (crcWord5_ok h _) ?_; try dsimp only
+  exact OkOn.pure _ _
+
+theorem blockLittle2_ok (h : Heap) (s : BL2) (ref : BRef) (ow : Nat) (bs : Array UInt8) (hb : Space.get h ref = some bs)
+    (hlt : ow + 8 ≤ bs.size) (hw : s.words = .ref ref ow) :
+    OkOn h (blockLittle2 s)
+      { crc0 := bw2 (s.crc0 ^^^ WA bs ow), crc1 := bw2 (s.crc1 ^^^ WA bs (ow + 4)),
+        words := .ref ref (ow + 8), blks := s.blks } := by
+  have w0 := wordAt_ok h ref ow 0 bs hb (by omega)
+  have w1 := wordAt_ok h ref ow 1 bs hb (by omega)
+  simp only [Nat.mul_zero, Nat.add_zero] at w0
+  have hadd : OkOn h (Ptr.add s.words 8) (Ptr.ref ref (ow + 8)) := by
+    rw [hw]
+    have := Ptr.add_nat_ok (r := ref) (off := ow) (n := 8) (a := bs) hb hlt
+    simpa using this
+  rw [← hw] at w0 w1
+  unfold blockLittle2
+  refine OkOn.bind w0 ?_; try dsimp only
+  refine OkOn.bind w1 ?_; try dsimp only
+  refine OkOn.bind hadd ?_; try dsimp only
+  refine OkOn.bind (crcWord2_ok h _) ?_; try dsimp only
+  refine OkOn.bind (crcWord2_ok h _) ?_; try dsimp only
+  exact OkOn.pure _ _
 
 /-! ### The register over a range of a byte array -/
 
@@ -1587,52 +1524,78 @@ theorem rbFrom_list (bs : Array UInt8) (n : Nat) : ∀ (c : UInt32) (o : Nat), o
     rw [rbFrom_succ, ih _ _ (by omega), this, List.take_succ_cons, rbl_cons]
     rw [getElem!_pos bs o ho]
 
-theorem rbFrom8 (bs : Array UInt8) (c : UInt32) (o : Nat) :
-    rbFrom bs c o 8 = rbl c [bs[o + 0]!, bs[o + 1]!, bs[o + 2]!, bs[o + 3]!, bs[o + 4]!, bs[o + 5]!, bs[o + 6]!, bs[o + 7]!] := rfl
+theorem rbFrom4 (bs : Array UInt8) (c : UInt32) (o : Nat) :
+    rbFrom bs c o 4 = rbl c [bs[o + 0]!, bs[o + 1]!, bs[o + 2]!, bs[o + 3]!] := rfl
 
-theorem Psi_WA (c : UInt32) (bs : Array UInt8) (o : Nat) : Psi (c.toUInt64 ^^^ WA bs o) = rbFrom bs c o 8 := by
-  rw [rbFrom8]; exact Psi_word c _ _ _ _ _ _ _ _
+theorem Psi_WA (c : UInt32) (bs : Array UInt8) (o : Nat) : Psi (c ^^^ WA bs o) = rbFrom bs c o 4 := by
+  rw [rbFrom4]; exact Psi_word c _ _ _ _
 
-theorem rbFrom8_xor (bs : Array UInt8) (a b : UInt32) (o : Nat) :
-    rbFrom bs (a ^^^ b) o 8 = rbFrom bs a o 8 ^^^ pw 64 b := by
-  rw [rbFrom_aff bs 8 (a ^^^ b), rbFrom_aff bs 8 a, pw_xor]
+theorem rbFrom4_xor (bs : Array UInt8) (a b : UInt32) (o : Nat) :
+    rbFrom bs (a ^^^ b) o 4 = rbFrom bs a o 4 ^^^ pw 32 b := by
+  rw [rbFrom_aff bs 4 (a ^^^ b), rbFrom_aff bs 4 a, pw_xor]
   simp only [Nat.reduceMul]
   ac_rfl
 
-/-! ### The five-word chain at the end of the braided loop -/
+/-! ### The five-word (`N = 5`) and two-word (`NLOW = 2`) chains -/
 
 def Val (c0 c1 c2 c3 c4 : UInt32) : UInt32 :=
-  pw 320 c0 ^^^ pw 256 c1 ^^^ pw 192 c2 ^^^ pw 128 c3 ^^^ pw 64 c4
+  pw 160 c0 ^^^ pw 128 c1 ^^^ pw 96 c2 ^^^ pw 64 c3 ^^^ pw 32 c4
 
 def chain (bs : Array UInt8) (c0 c1 c2 c3 c4 : UInt32) (o : Nat) : UInt32 :=
-  rbFrom bs (c4 ^^^ rbFrom bs (c3 ^^^ rbFrom bs (c2 ^^^ rbFrom bs (c1 ^^^ rbFrom bs c0 o 8) (o + 8) 8) (o + 16) 8)
-    (o + 24) 8) (o + 32) 8
+  rbFrom bs (c4 ^^^ rbFrom bs (c3 ^^^ rbFrom bs (c2 ^^^ rbFrom bs (c1 ^^^ rbFrom bs c0 o 4) (o + 4) 4) (o + 8) 4)
+    (o + 12) 4) (o + 16) 4
 
 theorem chain_aff (bs : Array UInt8) (c0 c1 c2 c3 c4 : UInt32) (o : Nat) :
     chain bs c0 c1 c2 c3 c4 o = Val c0 c1 c2 c3 c4 ^^^ chain bs 0 0 0 0 0 o := by
   unfold chain Val
-  simp only [rbFrom8_xor]
-  rw [rbFrom_aff bs 8 c0 o, rbFrom_aff bs 8 c1 (o + 8), rbFrom_aff bs 8 c2 (o + 16), rbFrom_aff bs 8 c3 (o + 24),
-    rbFrom_aff bs 8 c4 (o + 32)]
+  simp only [rbFrom4_xor]
+  rw [rbFrom_aff bs 4 c0 o, rbFrom_aff bs 4 c1 (o + 4), rbFrom_aff bs 4 c2 (o + 8), rbFrom_aff bs 4 c3 (o + 12),
+    rbFrom_aff bs 4 c4 (o + 16)]
   simp only [pw_xor, Nat.reduceMul, ← pw_add, Nat.reduceAdd]
   ac_rfl
 
-theorem chain_zero (bs : Array UInt8) (o : Nat) : chain bs 0 0 0 0 0 o = rbFrom bs 0 o 40 := by
+theorem chain_zero (bs : Array UInt8) (o : Nat) : chain bs 0 0 0 0 0 o = rbFrom bs 0 o 20 := by
   unfold chain
   simp only [UInt32.zero_xor]
-  have e1 : ∀ c o, rbFrom bs c o 40 = rbFrom bs (rbFrom bs c o 8) (o + 8) 32 := fun c o => rbFrom_add bs 8 32 c o
-  have e2 : ∀ c o, rbFrom bs c o 32 = rbFrom bs (rbFrom bs c o 8) (o + 8) 24 := fun c o => rbFrom_add bs 8 24 c o
-  have e3 : ∀ c o, rbFrom bs c o 24 = rbFrom bs (rbFrom bs c o 8) (o + 8) 16 := fun c o => rbFrom_add bs 8 16 c o
-  have e4 : ∀ c o, rbFrom bs c o 16 = rbFrom bs (rbFrom bs c o 8) (o + 8) 8 := fun c o => rbFrom_add bs 8 8 c o
+  have e1 : ∀ c o, rbFrom bs c o 20 = rbFrom bs (rbFrom bs c o 4) (o + 4) 16 := fun c o => rbFrom_add bs 4 16 c o
+  have e2 : ∀ c o, rbFrom bs c o 16 = rbFrom bs (rbFrom bs c o 4) (o + 4) 12 := fun c o => rbFrom_add bs 4 12 c o
+  have e3 : ∀ c o, rbFrom bs c o 12 = rbFrom bs (rbFrom bs c o 4) (o + 4) 8 := fun c o => rbFrom_add bs 4 8 c o
+  have e4 : ∀ c o, rbFrom bs c o 8 = rbFrom bs (rbFrom bs c o 4) (o + 4) 4 := fun c o => rbFrom_add bs 4 4 c o
   rw [e1, e2, e3, e4]
 
 set_option maxRecDepth 100000 in
-/-- `Val` after one pass of the braids: `pw 320` of the chain result -/
+/-- `Val` after one pass of the 5 braids: `pw 160` of the chain result -/
 theorem val_step (bs : Array UInt8) (c0 c1 c2 c3 c4 : UInt32) (o : Nat) :
-    Val (pw 256 (rbFrom bs c0 o 8)) (pw 256 (rbFrom bs c1 (o + 8) 8)) (pw 256 (rbFrom bs c2 (o + 16) 8))
-      (pw 256 (rbFrom bs c3 (o + 24) 8)) (pw 256 (rbFrom bs c4 (o + 32) 8)) = pw 320 (chain bs c0 c1 c2 c3 c4 o) := by
+    Val (pw 128 (rbFrom bs c0 o 4)) (pw 128 (rbFrom bs c1 (o + 4) 4)) (pw 128 (rbFrom bs c2 (o + 8) 4))
+      (pw 128 (rbFrom bs c3 (o + 12) 4)) (pw 128 (rbFrom bs c4 (o + 16) 4)) = pw 160 (chain bs c0 c1 c2 c3 c4 o) := by
   unfold chain Val
-  simp only [rbFrom8_xor, pw_xor, ← pw_add, Nat.reduceAdd]
+  simp only [rbFrom4_xor, pw_xor, ← pw_add, Nat.reduceAdd]
+  ac_rfl
+
+def Val2 (c0 c1 : UInt32) : UInt32 :=
+  pw 64 c0 ^^^ pw 32 c1
+
+def chain2 (bs : Array UInt8) (c0 c1 : UInt32) (o : Nat) : UInt32 :=
+  rbFrom bs (c1 ^^^ rbFrom bs c0 o 4) (o + 4) 4
+
+theorem chain2_aff (bs : Array UInt8) (c0 c1 : UInt32) (o : Nat) :
+    chain2 bs c0 c1 o = Val2 c0 c1 ^^^ chain2 bs 0 0 o := by
+  unfold chain2 Val2
+  simp only [rbFrom4_xor]
+  rw [rbFrom_aff bs 4 c0 o, rbFrom_aff bs 4 c1 (o + 4)]
+  simp only [pw_xor, Nat.reduceMul, ← pw_add, Nat.reduceAdd]
+  ac_rfl
+
+theorem chain2_zero (bs : Array UInt8) (o : Nat) : chain2 bs 0 0 o = rbFrom bs 0 o 8 := by
+  unfold chain2
+  simp only [UInt32.zero_xor]
+  exact (rbFrom_add bs 4 4 0 o).symm
+
+/-- `Val2` after one pass of the 2 braids: `pw 64` of the chain result -/
+theorem val2_step (bs : Array UInt8) (c0 c1 : UInt32) (o : Nat) :
+    Val2 (pw 32 (rbFrom bs c0 o 4)) (pw 32 (rbFrom bs c1 (o + 4) 4)) = pw 64 (chain2 bs c0 c1 o) := by
+  unfold chain2 Val2
+  simp only [rbFrom4_xor, pw_xor, ← pw_add, Nat.reduceAdd]
   ac_rfl
 
 /-! ### One byte of the table-driven CRC -/
@@ -1646,52 +1609,47 @@ theorem pw8_split (v : UInt32) : pw 8 v = (v >>> 8) ^^^ pw 8 (v &&& 0xff) :=
     (by intro x y; simp only [UInt32.shiftRight_xor, and_xor32, pw_xor]; ac_rfl)
     (fun t ht => pw8_basis ⟨t, ht⟩) v
 
-theorem wstep_u32 (v : UInt32) : wstep v.toUInt64 = (pw 8 v).toUInt64 := by
+theorem wstep_u32 (v : UInt32) : wstep v = pw 8 v := by
   unfold wstep
-  rw [tab_lookup, pw8_split v]
-  have h1 : (v.toUInt64 &&& 0xff).toUInt32 = v &&& 0xff := by
-    apply UInt32.toNat_inj.mp
-    rw [UInt64.toNat_toUInt32, UInt64.toNat_and, UInt32.toNat_and, UInt32.toNat_toUInt64]
-    have : (0xff : UInt64).toNat = 255 := by decide
-    have h2 : (0xff : UInt32).toNat = 255 := by decide
-    rw [this, h2]
-    exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt Nat.and_le_right (by decide))
-  have h2 : v.toUInt64 >>> 8 = (v >>> 8).toUInt64 := by
-    apply UInt64.toNat_inj.mp
-    rw [UInt64.toNat_shiftRight, UInt32.toNat_toUInt64, UInt32.toNat_toUInt64, UInt32.toNat_shiftRight]
-    rfl
-  rw [h1, h2, UInt32.toUInt64_xor]
+  rw [tab_lookup32, pw8_split v]
 
 theorem u8_u32_u64 (b : UInt8) : b.toUInt32.toUInt64 = b.toUInt64 := by
   apply UInt64.toNat_inj.mp
   simp
 
-theorem crcByte_ok (h : Heap) (hs : StaticsOK h) (blk o : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (ho : o < bs.size) (c : UInt32) :
-    OkOn h (crcByte c.toUInt64 (.ref (.blk blk) o))
-      ((ZlibF.Spec.crcByte c bs[o]!).toUInt64, Ptr.ref (BRef.blk blk) (o + 1)) := by
+theorem crcByte_ok (h : Heap) (hs : StaticsOK h) (ref : BRef) (o : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (ho : o < bs.size) (c : UInt32) :
+    OkOn h (crcByte c.toUInt64 (.ref ref o))
+      ((ZlibF.Spec.crcByte c bs[o]!).toUInt64, Ptr.ref ref (o + 1)) := by
   unfold crcByte
-  have hl := load8_ok hb ho
-  have hadd := Ptr.add_nat_ok (r := BRef.blk blk) (off := o) (n := 1) (a := bs) hb (by omega)
+  have hl := Ptr.load_ok hb ho
+  have hadd := Ptr.add_nat_ok (r := ref) (off := o) (n := 1) (a := bs) hb (by omega)
   have ht := crcTab_ok h hs ((c.toUInt64 ^^^ bs[o].toUInt64) &&& 0xff) (and255_lt _)
   have e : ((c.toUInt64 >>> 8) ^^^ Crc32H.crc_table[((c.toUInt64 ^^^ bs[o].toUInt64) &&& 0xff).toNat]!.toUInt64) =
       (ZlibF.Spec.crcByte c bs[o]).toUInt64 := by
-    have := wstep_u32 (c ^^^ bs[o].toUInt32)
-    rw [UInt32.toUInt64_xor, u8_u32_u64] at this
-    unfold wstep at this
-    have h8 : bs[o].toUInt64 >>> 8 = 0 := by
-      apply UInt64.toNat_inj.mp
-      rw [UInt64.toNat_shiftRight, Nat.shiftRight_eq_div_pow]
-      have := UInt8.toNat_lt bs[o]
-      simp
-      omega
-    rw [UInt64.shiftRight_xor, h8, UInt64.xor_zero] at this
-    rw [crcByte_eq, this]
+    have hstep := congrArg UInt32.toUInt64 (wstep_u32 (c ^^^ bs[o].toUInt32))
+    unfold wstep at hstep
+    rw [UInt32.toUInt64_xor] at hstep
+    have hshift : ((c ^^^ bs[o].toUInt32) >>> 8).toUInt64 = c.toUInt64 >>> 8 := by
+      have h8 : bs[o].toUInt64 >>> 8 = 0 := by
+        apply UInt64.toNat_inj.mp
+        rw [UInt64.toNat_shiftRight, Nat.shiftRight_eq_div_pow]
+        have := UInt8.toNat_lt bs[o]
+        simp; omega
+      have hsh : ((c ^^^ bs[o].toUInt32) >>> 8).toUInt64 = ((c ^^^ bs[o].toUInt32).toUInt64 >>> 8) := by
+        apply UInt64.toNat_inj.mp
+        rw [UInt64.toNat_shiftRight, UInt32.toNat_toUInt64, UInt32.toNat_toUInt64, UInt32.toNat_shiftRight]; rfl
+      rw [hsh, UInt32.toUInt64_xor, u8_u32_u64, UInt64.shiftRight_xor, h8, UInt64.xor_zero]
+    have hidx : ((c ^^^ bs[o].toUInt32) &&& 0xff).toNat = ((c.toUInt64 ^^^ bs[o].toUInt64) &&& 0xff).toNat := by
+      have h255 : (0xff : UInt32).toUInt64 = (0xff : UInt64) := rfl
+      rw [← u8_u32_u64, ← UInt32.toUInt64_xor, ← h255, ← UInt32.toUInt64_and]; simp
+    rw [hshift, hidx] at hstep
+    rw [crcByte_eq, hstep]
   rw [getElem!_pos bs o ho]
   rw [← e]
   exact OkOn.bind hl (OkOn.bind hadd (OkOn.bind ht (OkOn.pure _ _)))
 
-/-! ### The tail of `crc32_z`: the loops over eight bytes and over single bytes -/
+/-! ### The tail of `crc32_braid` and `crc32_z`: the loops over eight bytes and over single bytes -/
 
 def cond8 (x : UInt64 × BPtr × UInt64) : M (Bool × UInt64 × BPtr × UInt64) :=
   match x with
@@ -1740,7 +1698,16 @@ def body1 (x : UInt64 × BPtr × UInt64) : M (UInt64 × BPtr × UInt64) :=
     match __x with
     | (c, b) => pure (c, b, l)
 
-/-- the end of `crc32_z` (the local join point of the translation) -/
+/-- the tail of `crc32_braid` (without post-conditioning XOR) -/
+def tailBraid (crc : UInt64) (buf : BPtr) (len : UInt64) : M UInt64 := do
+  let __x ← cwhile cond8 body8 (crc, buf, len)
+  match __x with
+  | (c, b, l) => do
+    let __x ← cwhile cond1 body1 (c, b, l)
+    match __x with
+    | (c, _, _) => pure c
+
+/-- the end of `crc32_z` -/
 def tailP (crc : UInt64) (buf : BPtr) (len : UInt64) : M UInt64 := do
   let __x ← cwhile cond8 body8 (crc, buf, len)
   match __x with
@@ -1749,26 +1716,26 @@ def tailP (crc : UInt64) (buf : BPtr) (len : UInt64) : M UInt64 := do
     match __x with
     | (c, _, _) => pure (c ^^^ 4294967295)
 
-theorem body1_ok (h : Heap) (hs : StaticsOK h) (blk o : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (ho : o < bs.size) (c : UInt32) (l : UInt64) :
-    OkOn h (body1 (c.toUInt64, .ref (.blk blk) o, l))
-      ((ZlibF.Spec.crcByte c bs[o]!).toUInt64, Ptr.ref (BRef.blk blk) (o + 1), l - 1) := by
+theorem body1_ok (h : Heap) (hs : StaticsOK h) (ref : BRef) (o : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (ho : o < bs.size) (c : UInt32) (l : UInt64) :
+    OkOn h (body1 (c.toUInt64, .ref ref o, l))
+      ((ZlibF.Spec.crcByte c bs[o]!).toUInt64, Ptr.ref ref (o + 1), l - 1) := by
   unfold body1
-  exact OkOn.bind (crcByte_ok h hs blk o bs hb ho c) (OkOn.pure _ _)
+  exact OkOn.bind (crcByte_ok h hs ref o bs hb ho c) (OkOn.pure _ _)
 
-theorem body8_ok (h : Heap) (hs : StaticsOK h) (blk o : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (ho : o + 8 ≤ bs.size) (c : UInt32) (l : UInt64) :
-    OkOn h (body8 (c.toUInt64, .ref (.blk blk) o, l))
-      ((rbFrom bs c o 8).toUInt64, Ptr.ref (BRef.blk blk) (o + 8), l - 8) := by
+theorem body8_ok (h : Heap) (hs : StaticsOK h) (ref : BRef) (o : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (ho : o + 8 ≤ bs.size) (c : UInt32) (l : UInt64) :
+    OkOn h (body8 (c.toUInt64, .ref ref o, l))
+      ((rbFrom bs c o 8).toUInt64, Ptr.ref ref (o + 8), l - 8) := by
   unfold body8
-  refine OkOn.bind (crcByte_ok h hs blk o bs hb (by omega) c) ?_
-  refine OkOn.bind (crcByte_ok h hs blk (o + 1) bs hb (by omega) _) ?_
-  refine OkOn.bind (crcByte_ok h hs blk (o + 1 + 1) bs hb (by omega) _) ?_
-  refine OkOn.bind (crcByte_ok h hs blk (o + 1 + 1 + 1) bs hb (by omega) _) ?_
-  refine OkOn.bind (crcByte_ok h hs blk (o + 1 + 1 + 1 + 1) bs hb (by omega) _) ?_
-  refine OkOn.bind (crcByte_ok h hs blk (o + 1 + 1 + 1 + 1 + 1) bs hb (by omega) _) ?_
-  refine OkOn.bind (crcByte_ok h hs blk (o + 1 + 1 + 1 + 1 + 1 + 1) bs hb (by omega) _) ?_
-  refine OkOn.bind (crcByte_ok h hs blk (o + 1 + 1 + 1 + 1 + 1 + 1 + 1) bs hb (by omega) _) ?_
+  refine OkOn.bind (crcByte_ok h hs ref o bs hb (by omega) c) ?_
+  refine OkOn.bind (crcByte_ok h hs ref (o + 1) bs hb (by omega) _) ?_
+  refine OkOn.bind (crcByte_ok h hs ref (o + 1 + 1) bs hb (by omega) _) ?_
+  refine OkOn.bind (crcByte_ok h hs ref (o + 1 + 1 + 1) bs hb (by omega) _) ?_
+  refine OkOn.bind (crcByte_ok h hs ref (o + 1 + 1 + 1 + 1) bs hb (by omega) _) ?_
+  refine OkOn.bind (crcByte_ok h hs ref (o + 1 + 1 + 1 + 1 + 1) bs hb (by omega) _) ?_
+  refine OkOn.bind (crcByte_ok h hs ref (o + 1 + 1 + 1 + 1 + 1 + 1) bs hb (by omega) _) ?_
+  refine OkOn.bind (crcByte_ok h hs ref (o + 1 + 1 + 1 + 1 + 1 + 1 + 1) bs hb (by omega) _) ?_
   exact OkOn.pure _ _
 
 theorem rbFrom_snoc (bs : Array UInt8) (c : UInt32) (o j : Nat) :
@@ -1788,16 +1755,16 @@ theorem ofNat_sub64 (n k : Nat) (hk : k ≤ n) (hn : n < 2 ^ 64) :
 theorem ofNat_toNat_lt (n : Nat) (hn : n < 2 ^ 64) : (UInt64.ofNat n).toNat = n := by
   rw [UInt64.toNat_ofNat', Nat.mod_eq_of_lt hn]
 
-theorem loop1_ok (h : Heap) (hs : StaticsOK h) (blk o L : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (c : UInt32) :
-    OkOn h (cwhile cond1 body1 (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L))
-      ((rbFrom bs c o L).toUInt64, Ptr.ref (BRef.blk blk) (o + L), 0) := by
-  suffices H : ∃ s, OkOn h (cwhile cond1 body1 (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L)) s ∧
-      s = ((rbFrom bs c o L).toUInt64, Ptr.ref (BRef.blk blk) (o + L), 0) by
+theorem loop1_ok (h : Heap) (hs : StaticsOK h) (ref : BRef) (o L : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (c : UInt32) :
+    OkOn h (cwhile cond1 body1 (c.toUInt64, .ref ref o, UInt64.ofNat L))
+      ((rbFrom bs c o L).toUInt64, Ptr.ref ref (o + L), 0) := by
+  suffices H : ∃ s, OkOn h (cwhile cond1 body1 (c.toUInt64, .ref ref o, UInt64.ofNat L)) s ∧
+      s = ((rbFrom bs c o L).toUInt64, Ptr.ref ref (o + L), 0) by
     obtain ⟨s, hs', rfl⟩ := H; exact hs'
   refine cwhile_ok (fun k s => ∃ j, j + k = L ∧
-      s = ((rbFrom bs c o j).toUInt64, Ptr.ref (BRef.blk blk) (o + j), UInt64.ofNat (L - j))) _ ?_ ?_ (k := L)
-    (s := (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L)) ⟨0, by omega, by simp [rbFrom_zero]⟩ hL
+      s = ((rbFrom bs c o j).toUInt64, Ptr.ref ref (o + j), UInt64.ofNat (L - j))) _ ?_ ?_ (k := L)
+    (s := (c.toUInt64, .ref ref o, UInt64.ofNat L)) ⟨0, by omega, by simp [rbFrom_zero]⟩ hL
   · intro k s hP
     obtain ⟨j, hj, rfl⟩ := hP
     have hne : (UInt64.ofNat (L - j) != 0) = true := by
@@ -1808,12 +1775,13 @@ theorem loop1_ok (h : Heap) (hs : StaticsOK h) (blk o L : Nat) (bs : Array UInt8
         have h1 : (0 : UInt64).toNat = 0 := rfl
         omega
       simpa using this
-    refine ⟨((rbFrom bs c o j).toUInt64, Ptr.ref (BRef.blk blk) (o + j), UInt64.ofNat (L - j)), ((ZlibF.Spec.crcByte (rbFrom bs c o j) bs[o + j]!).toUInt64, Ptr.ref (BRef.blk blk) (o + j + 1),
+    refine ⟨((rbFrom bs c o j).toUInt64, Ptr.ref ref (o + j), UInt64.ofNat (L - j)),
+      ((ZlibF.Spec.crcByte (rbFrom bs c o j) bs[o + j]!).toUInt64, Ptr.ref ref (o + j + 1),
       UInt64.ofNat (L - j) - 1), ?_, ?_, ?_⟩
     · show OkOn h (pure _) _
       simp only [hne]
       exact OkOn.pure _ _
-    · exact body1_ok h hs blk (o + j) bs hb (by omega) _ _
+    · exact body1_ok h hs ref (o + j) bs hb (by omega) _ _
     · refine ⟨j + 1, by omega, ?_⟩
       rw [rbFrom_snoc, show (1 : UInt64) = UInt64.ofNat 1 from rfl, ofNat_sub64 _ _ (by omega) (by omega)]
       rw [show L - j - 1 = L - (j + 1) by omega]
@@ -1822,24 +1790,24 @@ theorem loop1_ok (h : Heap) (hs : StaticsOK h) (blk o L : Nat) (bs : Array UInt8
     obtain ⟨j, hj, rfl⟩ := hP
     have hjL : L = j := by omega
     subst hjL
-    refine ⟨((rbFrom bs c o L).toUInt64, Ptr.ref (BRef.blk blk) (o + L), UInt64.ofNat (L - L)), ?_, ?_⟩
+    refine ⟨((rbFrom bs c o L).toUInt64, Ptr.ref ref (o + L), UInt64.ofNat (L - L)), ?_, ?_⟩
     · show OkOn h (pure _) _
       simp only [Nat.sub_self]
       exact OkOn.pure _ _
     · simp [Nat.sub_self]
 
-theorem loop8_ok (h : Heap) (hs : StaticsOK h) (blk o L : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (c : UInt32) :
-    OkOn h (cwhile cond8 body8 (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L))
-      ((rbFrom bs c o (8 * (L / 8))).toUInt64, Ptr.ref (BRef.blk blk) (o + 8 * (L / 8)),
+theorem loop8_ok (h : Heap) (hs : StaticsOK h) (ref : BRef) (o L : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (c : UInt32) :
+    OkOn h (cwhile cond8 body8 (c.toUInt64, .ref ref o, UInt64.ofNat L))
+      ((rbFrom bs c o (8 * (L / 8))).toUInt64, Ptr.ref ref (o + 8 * (L / 8)),
         UInt64.ofNat (L - 8 * (L / 8))) := by
-  suffices H : ∃ s, OkOn h (cwhile cond8 body8 (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L)) s ∧
-      s = ((rbFrom bs c o (8 * (L / 8))).toUInt64, Ptr.ref (BRef.blk blk) (o + 8 * (L / 8)),
+  suffices H : ∃ s, OkOn h (cwhile cond8 body8 (c.toUInt64, .ref ref o, UInt64.ofNat L)) s ∧
+      s = ((rbFrom bs c o (8 * (L / 8))).toUInt64, Ptr.ref ref (o + 8 * (L / 8)),
         UInt64.ofNat (L - 8 * (L / 8))) by
     obtain ⟨s, hs', rfl⟩ := H; exact hs'
   refine cwhile_ok (fun k s => ∃ j, j + k = L / 8 ∧
-      s = ((rbFrom bs c o (8 * j)).toUInt64, Ptr.ref (BRef.blk blk) (o + 8 * j), UInt64.ofNat (L - 8 * j))) _ ?_ ?_
-    (k := L / 8) (s := (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L)) ⟨0, by omega, by simp [rbFrom_zero]⟩
+      s = ((rbFrom bs c o (8 * j)).toUInt64, Ptr.ref ref (o + 8 * j), UInt64.ofNat (L - 8 * j))) _ ?_ ?_
+    (k := L / 8) (s := (c.toUInt64, .ref ref o, UInt64.ofNat L)) ⟨0, by omega, by simp [rbFrom_zero]⟩
     (by show L / 8 < 2 ^ 64; omega)
   · intro k s hP
     obtain ⟨j, hj, rfl⟩ := hP
@@ -1848,13 +1816,13 @@ theorem loop8_ok (h : Heap) (hs : StaticsOK h) (blk o L : Nat) (bs : Array UInt8
       rw [ofNat_toNat_lt _ (by omega)]
       have : (8 : UInt64).toNat = 8 := rfl
       omega
-    refine ⟨((rbFrom bs c o (8 * j)).toUInt64, Ptr.ref (BRef.blk blk) (o + 8 * j), UInt64.ofNat (L - 8 * j)),
-      ((rbFrom bs (rbFrom bs c o (8 * j)) (o + 8 * j) 8).toUInt64, Ptr.ref (BRef.blk blk) (o + 8 * j + 8),
+    refine ⟨((rbFrom bs c o (8 * j)).toUInt64, Ptr.ref ref (o + 8 * j), UInt64.ofNat (L - 8 * j)),
+      ((rbFrom bs (rbFrom bs c o (8 * j)) (o + 8 * j) 8).toUInt64, Ptr.ref ref (o + 8 * j + 8),
         UInt64.ofNat (L - 8 * j) - 8), ?_, ?_, ?_⟩
     · show OkOn h (pure _) _
       simp only [hge]
       exact OkOn.pure _ _
-    · exact body8_ok h hs blk (o + 8 * j) bs hb (by omega) _ _
+    · exact body8_ok h hs ref (o + 8 * j) bs hb (by omega) _ _
     · refine ⟨j + 1, by omega, ?_⟩
       rw [show 8 * (j + 1) = 8 * j + 8 by omega, rbFrom_add,
         show (8 : UInt64) = UInt64.ofNat 8 from rfl, ofNat_sub64 _ _ (by omega) (by omega)]
@@ -1869,31 +1837,47 @@ theorem loop8_ok (h : Heap) (hs : StaticsOK h) (blk o L : Nat) (bs : Array UInt8
       have : (8 : UInt64).toNat = 8 := rfl
       omega
     subst hjq
-    refine ⟨((rbFrom bs c o (8 * (L / 8))).toUInt64, Ptr.ref (BRef.blk blk) (o + 8 * (L / 8)),
+    refine ⟨((rbFrom bs c o (8 * (L / 8))).toUInt64, Ptr.ref ref (o + 8 * (L / 8)),
       UInt64.ofNat (L - 8 * (L / 8))), ?_, rfl⟩
     show OkOn h (pure _) _
     simp only [hlt]
     exact OkOn.pure _ _
 
-theorem tail_ok (h : Heap) (hs : StaticsOK h) (blk o L : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (c : UInt32) :
-    OkOn h (tailP c.toUInt64 (.ref (.blk blk) o) (UInt64.ofNat L)) ((rbFrom bs c o L).toUInt64 ^^^ 0xffffffff) := by
-  unfold tailP
-  refine bind_of (fun x => x = ((rbFrom bs c o (8 * (L / 8))).toUInt64, Ptr.ref (BRef.blk blk) (o + 8 * (L / 8)),
-        UInt64.ofNat (L - 8 * (L / 8)))) ⟨_, loop8_ok h hs blk o L bs hb hle hL c, rfl⟩ ?_
+theorem tailBraid_ok (h : Heap) (hs : StaticsOK h) (ref : BRef) (o L : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (c : UInt32) :
+    OkOn h (tailBraid c.toUInt64 (.ref ref o) (UInt64.ofNat L)) (rbFrom bs c o L).toUInt64 := by
+  unfold tailBraid
+  refine bind_of (fun x => x = ((rbFrom bs c o (8 * (L / 8))).toUInt64, Ptr.ref ref (o + 8 * (L / 8)),
+        UInt64.ofNat (L - 8 * (L / 8)))) ⟨_, loop8_ok h hs ref o L bs hb hle hL c, rfl⟩ ?_
   intro x hx
   subst hx
   show OkOn h (cwhile cond1 body1 _ >>= _) _
   refine bind_of (fun x => x = ((rbFrom bs (rbFrom bs c o (8 * (L / 8))) (o + 8 * (L / 8)) (L - 8 * (L / 8))).toUInt64,
-      Ptr.ref (BRef.blk blk) (o + 8 * (L / 8) + (L - 8 * (L / 8))), 0))
-    ⟨_, loop1_ok h hs blk (o + 8 * (L / 8)) (L - 8 * (L / 8)) bs hb (by omega) (by omega) _, rfl⟩ ?_
+      Ptr.ref ref (o + 8 * (L / 8) + (L - 8 * (L / 8))), 0))
+    ⟨_, loop1_ok h hs ref (o + 8 * (L / 8)) (L - 8 * (L / 8)) bs hb (by omega) (by omega) _, rfl⟩ ?_
   intro x hx
   subst hx
-  rw [← rbFrom_add]
-  rw [show 8 * (L / 8) + (L - 8 * (L / 8)) = L by omega]
+  rw [← rbFrom_add, show 8 * (L / 8) + (L - 8 * (L / 8)) = L by omega]
   exact OkOn.pure _ _
 
-/-! ### The alignment loop -/
+theorem tail_ok (h : Heap) (hs : StaticsOK h) (ref : BRef) (o L : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (c : UInt32) :
+    OkOn h (tailP c.toUInt64 (.ref ref o) (UInt64.ofNat L)) ((rbFrom bs c o L).toUInt64 ^^^ 0xffffffff) := by
+  have := tailBraid_ok h hs ref o L bs hb hle hL c
+  unfold tailBraid at this
+  unfold tailP
+  refine OkOn.bind (loop8_ok h hs ref o L bs hb hle hL c) ?_
+  dsimp only
+  refine OkOn.bind (loop1_ok h hs ref (o + 8 * (L / 8)) (L - 8 * (L / 8)) bs hb (by omega) (by omega) _) ?_
+  dsimp only
+  rw [← rbFrom_add, show 8 * (L / 8) + (L - 8 * (L / 8)) = L by omega]
+  exact OkOn.pure _ _
+
+/-! ### The alignment loop (`W = 4`, any byte view) -/
+
+theorem addrOf_ref_ok (h : Heap) (ref : BRef) (offset : Nat) :
+    OkOn h (addrOf (.ref ref offset)) (UInt64.ofNat (ByteAddress.base h ref + offset)) := by
+  cases ref <;> simp [OkOn, addrOf, ByteAddress.address, ByteAddress.value, ByteAddress.base]
 
 def condA (x : UInt64 × BPtr × UInt64) : M (Bool × UInt64 × BPtr × UInt64) :=
   match x with
@@ -1912,30 +1896,33 @@ def bodyA (x : UInt64 × BPtr × UInt64) : M (UInt64 × BPtr × UInt64) :=
     match __x with
     | (c, b) => pure (c, b, l)
 
-theorem W_pred : (W - 1).toInt.toNat.toUInt64 = 7 := by decide
+theorem W_pred : (W - 1).toInt.toNat.toUInt64 = 3 := by decide
 
-theorem and7 (n : Nat) : (UInt64.ofNat n &&& 7).toNat = n % 8 := by
+theorem and3 (n : Nat) : (UInt64.ofNat n &&& 3).toNat = n % 4 := by
   rw [UInt64.toNat_and, UInt64.toNat_ofNat']
-  have : (7 : UInt64).toNat = 2 ^ 3 - 1 := by decide
+  have : (3 : UInt64).toNat = 2 ^ 2 - 1 := by decide
   rw [this, Nat.and_two_pow_sub_one_eq_mod]
-  have : (n % 2 ^ 64) % 2 ^ 3 = n % 2 ^ 3 := Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by decide))
+  have : (n % 2 ^ 64) % 2 ^ 2 = n % 2 ^ 2 := Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by decide))
   rw [this]
 
-def alignLen (o : Nat) : Nat := (8 - o % 8) % 8
+def alignLen (o : Nat) : Nat := (4 - o % 4) % 4
 
-theorem loopA_ok (h : Heap) (blk o L : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (h8 : 8 ≤ L) (hs : StaticsOK h) (c : UInt32) :
-    OkOn h (cwhile condA bodyA (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L))
-      ((rbFrom bs c o (alignLen o)).toUInt64, Ptr.ref (BRef.blk blk) (o + alignLen o),
-        UInt64.ofNat (L - alignLen o)) := by
-  suffices H : ∃ s, OkOn h (cwhile condA bodyA (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L)) s ∧
-      s = ((rbFrom bs c o (alignLen o)).toUInt64, Ptr.ref (BRef.blk blk) (o + alignLen o),
-        UInt64.ofNat (L - alignLen o)) by
+theorem loopA_ok (h : Heap) (ref : BRef) (o L : Nat) (bs : Array UInt8) (hb : Space.get h ref = some bs)
+    (hle : o + L ≤ bs.size) (hL : L < 2 ^ 64) (h4 : 4 ≤ L) (hs : StaticsOK h) (c : UInt32) :
+    OkOn h (cwhile condA bodyA (c.toUInt64, .ref ref o, UInt64.ofNat L))
+      ((rbFrom bs c o (alignLen (ByteAddress.base h ref + o))).toUInt64,
+        Ptr.ref ref (o + alignLen (ByteAddress.base h ref + o)),
+        UInt64.ofNat (L - alignLen (ByteAddress.base h ref + o))) := by
+  suffices H : ∃ s, OkOn h (cwhile condA bodyA (c.toUInt64, .ref ref o, UInt64.ofNat L)) s ∧
+      s = ((rbFrom bs c o (alignLen (ByteAddress.base h ref + o))).toUInt64,
+        Ptr.ref ref (o + alignLen (ByteAddress.base h ref + o)),
+        UInt64.ofNat (L - alignLen (ByteAddress.base h ref + o))) by
     obtain ⟨s, hs', rfl⟩ := H; exact hs'
-  have ha7 : alignLen o ≤ 7 := by unfold alignLen; omega
-  have hcondA : ∀ j, j ≤ alignLen o →
-      OkOn h (condA ((rbFrom bs c o j).toUInt64, Ptr.ref (BRef.blk blk) (o + j), UInt64.ofNat (L - j)))
-        (decide (j < alignLen o), (rbFrom bs c o j).toUInt64, Ptr.ref (BRef.blk blk) (o + j), UInt64.ofNat (L - j)) := by
+  have ha3 : alignLen (ByteAddress.base h ref + o) ≤ 3 := by unfold alignLen; omega
+  have hcondA : ∀ j, j ≤ alignLen (ByteAddress.base h ref + o) →
+      OkOn h (condA ((rbFrom bs c o j).toUInt64, Ptr.ref ref (o + j), UInt64.ofNat (L - j)))
+        (decide (j < alignLen (ByteAddress.base h ref + o)),
+          (rbFrom bs c o j).toUInt64, Ptr.ref ref (o + j), UInt64.ofNat (L - j)) := by
     intro j hj
     have hne : (UInt64.ofNat (L - j) == 0) = false := by
       have : UInt64.ofNat (L - j) ≠ 0 := by
@@ -1945,15 +1932,17 @@ theorem loopA_ok (h : Heap) (blk o L : Nat) (bs : Array UInt8) (hb : h.bytes blk
         have h1 : (0 : UInt64).toNat = 0 := rfl
         omega
       simpa using this
-    have hmod : decide ((UInt64.ofNat (o + j) &&& 7) ≠ 0) = decide (j < alignLen o) := by
-      have h1 : (UInt64.ofNat (o + j) &&& 7).toNat = (o + j) % 8 := and7 _
-      by_cases hj' : j < alignLen o
-      · have : (UInt64.ofNat (o + j) &&& 7) ≠ 0 := by
+    have hmod : decide ((UInt64.ofNat (ByteAddress.base h ref + o + j) &&& 3) ≠ 0) =
+        decide (j < alignLen (ByteAddress.base h ref + o)) := by
+      have h1 : (UInt64.ofNat (ByteAddress.base h ref + o + j) &&& 3).toNat =
+          (ByteAddress.base h ref + o + j) % 4 := and3 _
+      by_cases hj' : j < alignLen (ByteAddress.base h ref + o)
+      · have : (UInt64.ofNat (ByteAddress.base h ref + o + j) &&& 3) ≠ 0 := by
           intro h0; rw [h0] at h1
           have h2 : (0 : UInt64).toNat = 0 := rfl
           unfold alignLen at hj'; omega
         rw [decide_eq_true this, decide_eq_true hj']
-      · have : (UInt64.ofNat (o + j) &&& 7) = 0 := by
+      · have : (UInt64.ofNat (ByteAddress.base h ref + o + j) &&& 3) = 0 := by
           apply UInt64.toNat_inj.mp
           have h2 : (0 : UInt64).toNat = 0 := rfl
           rw [h1, h2]; unfold alignLen at hj hj'; omega
@@ -1961,70 +1950,88 @@ theorem loopA_ok (h : Heap) (blk o L : Nat) (bs : Array UInt8) (hb : h.bytes blk
     unfold condA
     dsimp only
     rw [ite_eq_right (by simp [hne])]
-    show OkOn h (addrOf (Ptr.ref (BRef.blk blk) (o + j)) >>= _) _
-    refine OkOn.bind (x := UInt64.ofNat (o + j)) (OkOn.pure _ _) ?_
+    show OkOn h (addrOf (Ptr.ref ref (o + j)) >>= _) _
+    refine OkOn.bind (x := UInt64.ofNat (ByteAddress.base h ref + o + j))
+      (by simpa only [Nat.add_assoc] using addrOf_ref_ok h ref (o + j)) ?_
     rw [W_pred]
     show OkOn h (pure _) _
-    have hb : ((UInt64.ofNat (o + j) &&& 7) != 0) = decide (j < alignLen o) := by
+    have hb : ((UInt64.ofNat (ByteAddress.base h ref + o + j) &&& 3) != 0) =
+        decide (j < alignLen (ByteAddress.base h ref + o)) := by
       rw [← hmod]
-      generalize UInt64.ofNat (o + j) &&& 7 = x
+      generalize UInt64.ofNat (ByteAddress.base h ref + o + j) &&& 3 = x
       by_cases hx : x = 0 <;> simp [hx]
     rw [hb]
     exact OkOn.pure _ _
-  refine cwhile_ok (fun k s => ∃ j, j + k = alignLen o ∧
-      s = ((rbFrom bs c o j).toUInt64, Ptr.ref (BRef.blk blk) (o + j), UInt64.ofNat (L - j))) _ ?_ ?_
-    (k := alignLen o) (s := (c.toUInt64, .ref (.blk blk) o, UInt64.ofNat L)) ⟨0, by omega, by simp [rbFrom_zero]⟩
-    (by show alignLen o < 2 ^ 64; omega)
+  refine cwhile_ok (fun k s => ∃ j, j + k = alignLen (ByteAddress.base h ref + o) ∧
+      s = ((rbFrom bs c o j).toUInt64, Ptr.ref ref (o + j), UInt64.ofNat (L - j))) _ ?_ ?_
+    (k := alignLen (ByteAddress.base h ref + o)) (s := (c.toUInt64, .ref ref o, UInt64.ofNat L))
+    ⟨0, by omega, by simp [rbFrom_zero]⟩ (by show alignLen (ByteAddress.base h ref + o) < 2 ^ 64; omega)
   · intro k s hP
     obtain ⟨j, hj, rfl⟩ := hP
-    refine ⟨((rbFrom bs c o j).toUInt64, Ptr.ref (BRef.blk blk) (o + j), UInt64.ofNat (L - j)),
-      ((ZlibF.Spec.crcByte (rbFrom bs c o j) bs[o + j]!).toUInt64, Ptr.ref (BRef.blk blk) (o + j + 1),
+    refine ⟨((rbFrom bs c o j).toUInt64, Ptr.ref ref (o + j), UInt64.ofNat (L - j)),
+      ((ZlibF.Spec.crcByte (rbFrom bs c o j) bs[o + j]!).toUInt64, Ptr.ref ref (o + j + 1),
       UInt64.ofNat (L - j) - 1), ?_, ?_, ?_⟩
     · have := hcondA j (by omega)
-      rwa [show decide (j < alignLen o) = true by simp; omega] at this
-    · exact body1_ok h hs blk (o + j) bs hb (by omega) _ _
+      rwa [show decide (j < alignLen (ByteAddress.base h ref + o)) = true by simp; omega] at this
+    · exact body1_ok h hs ref (o + j) bs hb (by omega) _ _
     · refine ⟨j + 1, by omega, ?_⟩
       rw [rbFrom_snoc, show (1 : UInt64) = UInt64.ofNat 1 from rfl, ofNat_sub64 _ _ (by omega) (by omega)]
       rw [show L - j - 1 = L - (j + 1) by omega]
       rfl
   · intro s hP
     obtain ⟨j, hj, rfl⟩ := hP
-    have hjL : alignLen o = j := by omega
+    have hjL : alignLen (ByteAddress.base h ref + o) = j := by omega
     subst hjL
-    refine ⟨((rbFrom bs c o (alignLen o)).toUInt64, Ptr.ref (BRef.blk blk) (o + alignLen o),
-      UInt64.ofNat (L - alignLen o)), ?_, rfl⟩
-    have := hcondA (alignLen o) (Nat.le_refl _)
+    refine ⟨((rbFrom bs c o (alignLen (ByteAddress.base h ref + o))).toUInt64,
+      Ptr.ref ref (o + alignLen (ByteAddress.base h ref + o)),
+      UInt64.ofNat (L - alignLen (ByteAddress.base h ref + o))), ?_, rfl⟩
+    have := hcondA (alignLen (ByteAddress.base h ref + o)) (Nat.le_refl _)
     simpa using this
 
-/-! ### The braided loop -/
+/-! ### The braided loops (`N = 5` and `NLOW = 2`) -/
 
 def condBlk (s : BL) : M (Bool × BL) :=
   have blks := s.blks - 1
   pure (blks != 0, { crc0 := s.crc0, crc1 := s.crc1, crc2 := s.crc2, crc3 := s.crc3, crc4 := s.crc4,
                      words := s.words, blks := blks })
 
-theorem bw_Psi (c : UInt32) (bs : Array UInt8) (o : Nat) :
-    bw (c.toUInt64 ^^^ WA bs o) = pw 256 (rbFrom bs c o 8) := by
-  rw [bw_eq, Psi_WA]
+def condBlk2 (s : BL2) : M (Bool × BL2) :=
+  have blks := s.blks - 1
+  pure (blks != 0, { crc0 := s.crc0, crc1 := s.crc1, words := s.words, blks := blks })
+
+theorem bw5_Psi (c : UInt32) (bs : Array UInt8) (o : Nat) :
+    bw5 (c ^^^ WA bs o) = pw 128 (rbFrom bs c o 4) := by
+  rw [bw5_eq, Psi_WA]
+
+theorem bw2_Psi (c : UInt32) (bs : Array UInt8) (o : Nat) :
+    bw2 (c ^^^ WA bs o) = pw 32 (rbFrom bs c o 4) := by
+  rw [bw2_eq, Psi_WA]
 
 theorem val_inv (bs : Array UInt8) (c0 c1 c2 c3 c4 R : UInt32) (ow : Nat)
-    (hV : Val c0 c1 c2 c3 c4 = pw 320 R) :
-    Val (pw 256 (rbFrom bs c0 ow 8)) (pw 256 (rbFrom bs c1 (ow + 8) 8)) (pw 256 (rbFrom bs c2 (ow + 16) 8))
-      (pw 256 (rbFrom bs c3 (ow + 24) 8)) (pw 256 (rbFrom bs c4 (ow + 32) 8)) = pw 320 (rbFrom bs R ow 40) := by
-  rw [val_step, chain_aff, hV, chain_zero, rbFrom_aff bs 40 R ow]
+    (hV : Val c0 c1 c2 c3 c4 = pw 160 R) :
+    Val (pw 128 (rbFrom bs c0 ow 4)) (pw 128 (rbFrom bs c1 (ow + 4) 4)) (pw 128 (rbFrom bs c2 (ow + 8) 4))
+      (pw 128 (rbFrom bs c3 (ow + 12) 4)) (pw 128 (rbFrom bs c4 (ow + 16) 4)) = pw 160 (rbFrom bs R ow 20) := by
+  rw [val_step, chain_aff, hV, chain_zero, rbFrom_aff bs 20 R ow]
 
-theorem loopBlk_ok (h : Heap) (blk o1 B : Nat) (bs : Array UInt8) (hb : h.bytes blk = some bs)
-    (hB : 1 ≤ B) (hle : o1 + 40 * B ≤ bs.size) (hB64 : B < 2 ^ 64) (c : UInt32) :
+theorem val2_inv (bs : Array UInt8) (c0 c1 R : UInt32) (ow : Nat)
+    (hV : Val2 c0 c1 = pw 64 R) :
+    Val2 (pw 32 (rbFrom bs c0 ow 4)) (pw 32 (rbFrom bs c1 (ow + 4) 4)) = pw 64 (rbFrom bs R ow 8) := by
+  rw [val2_step, chain2_aff, hV, chain2_zero, rbFrom_aff bs 8 R ow]
+
+theorem loopBlk_ok (h : Heap) (ref : BRef) (o1 B : Nat) (bs : Array UInt8) (hb : Space.get h ref = some bs)
+    (hB : 1 ≤ B) (hle : o1 + 20 * B ≤ bs.size) (hB64 : B < 2 ^ 64) (c : UInt32) :
     ∃ s : BL, OkOn h (cwhile condBlk blockLittle
-        { crc0 := c, crc1 := 0, crc2 := 0, crc3 := 0, crc4 := 0, words := (.ref (.blk blk) o1 : BPtr), blks := UInt64.ofNat B }) s ∧
-      Val s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 = pw 320 (rbFrom bs c o1 (40 * (B - 1))) ∧
-      s.words = .ref (.blk blk) (o1 + 40 * (B - 1)) := by
-  refine cwhile_ok (cond := condBlk) (body := blockLittle) (fun k s => ∃ j, j + k = B - 1 ∧ s.words = .ref (.blk blk) (o1 + 40 * j) ∧
+        { crc0 := c, crc1 := 0, crc2 := 0, crc3 := 0, crc4 := 0, words := (.ref ref o1 : BPtr), blks := UInt64.ofNat B }) s ∧
+      Val s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 = pw 160 (rbFrom bs c o1 (20 * (B - 1))) ∧
+      s.words = .ref ref (o1 + 20 * (B - 1)) := by
+  refine cwhile_ok (cond := condBlk) (body := blockLittle)
+    (fun k s => ∃ j, j + k = B - 1 ∧ s.words = .ref ref (o1 + 20 * j) ∧
       s.blks = UInt64.ofNat (B - j) ∧
-      Val s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 = pw 320 (rbFrom bs c o1 (40 * j)))
-    (fun s => Val s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 = pw 320 (rbFrom bs c o1 (40 * (B - 1))) ∧
-      s.words = .ref (.blk blk) (o1 + 40 * (B - 1))) ?_ ?_ (k := B - 1)
-    (s := { crc0 := c, crc1 := 0, crc2 := 0, crc3 := 0, crc4 := 0, words := (.ref (.blk blk) o1 : BPtr), blks := UInt64.ofNat B }) ?_ (by show B - 1 < 2 ^ 64; omega)
+      Val s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 = pw 160 (rbFrom bs c o1 (20 * j)))
+    (fun s => Val s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 = pw 160 (rbFrom bs c o1 (20 * (B - 1))) ∧
+      s.words = .ref ref (o1 + 20 * (B - 1))) ?_ ?_ (k := B - 1)
+    (s := { crc0 := c, crc1 := 0, crc2 := 0, crc3 := 0, crc4 := 0, words := (.ref ref o1 : BPtr), blks := UInt64.ofNat B })
+    ?_ (by show B - 1 < 2 ^ 64; omega)
   · intro k s hP
     obtain ⟨c0, c1, c2, c3, c4, words, blks⟩ := s
     obtain ⟨j, hj, hw, hbl, hV⟩ := hP
@@ -2040,8 +2047,8 @@ theorem loopBlk_ok (h : Heap) (blk o1 B : Nat) (bs : Array UInt8) (hb : h.bytes 
         omega
       simpa using this
     let s1 : BL := { crc0 := c0, crc1 := c1, crc2 := c2, crc3 := c3, crc4 := c4,
-                     words := (.ref (.blk blk) (o1 + 40 * j) : BPtr), blks := UInt64.ofNat (B - j) - 1 }
-    have hbk := blockLittle_ok h s1 blk (o1 + 40 * j) bs hb (by omega) rfl
+                     words := (.ref ref (o1 + 20 * j) : BPtr), blks := UInt64.ofNat (B - j) - 1 }
+    have hbk := blockLittle_ok h s1 ref (o1 + 20 * j) bs hb (by omega) rfl
     refine ⟨s1, _, ?_, hbk, ?_⟩
     · show OkOn h (pure _) _
       simp only [hne]
@@ -2050,11 +2057,11 @@ theorem loopBlk_ok (h : Heap) (blk o1 B : Nat) (bs : Array UInt8) (hb : h.bytes 
       · show UInt64.ofNat (B - j) - 1 = UInt64.ofNat (B - (j + 1))
         rw [show (1 : UInt64) = UInt64.ofNat 1 from rfl, ofNat_sub64 _ _ (by omega) (by omega)]
         rfl
-      · show Val (bw (c0.toUInt64 ^^^ WA bs (o1 + 40 * j))) (bw (c1.toUInt64 ^^^ WA bs (o1 + 40 * j + 8)))
-          (bw (c2.toUInt64 ^^^ WA bs (o1 + 40 * j + 16))) (bw (c3.toUInt64 ^^^ WA bs (o1 + 40 * j + 24)))
-          (bw (c4.toUInt64 ^^^ WA bs (o1 + 40 * j + 32))) = _
-        rw [bw_Psi, bw_Psi, bw_Psi, bw_Psi, bw_Psi, val_inv bs c0 c1 c2 c3 c4 _ _ hV]
-        rw [show 40 * (j + 1) = 40 * j + 40 by omega, rbFrom_add]
+      · show Val (bw5 (c0 ^^^ WA bs (o1 + 20 * j))) (bw5 (c1 ^^^ WA bs (o1 + 20 * j + 4)))
+          (bw5 (c2 ^^^ WA bs (o1 + 20 * j + 8))) (bw5 (c3 ^^^ WA bs (o1 + 20 * j + 12)))
+          (bw5 (c4 ^^^ WA bs (o1 + 20 * j + 16))) = _
+        rw [bw5_Psi, bw5_Psi, bw5_Psi, bw5_Psi, bw5_Psi, val_inv bs c0 c1 c2 c3 c4 _ _ hV]
+        rw [show 20 * (j + 1) = 20 * j + 20 by omega, rbFrom_add]
   · intro s hP
     obtain ⟨c0, c1, c2, c3, c4, words, blks⟩ := s
     obtain ⟨j, hj, hw, hbl, hV⟩ := hP
@@ -2066,12 +2073,72 @@ theorem loopBlk_ok (h : Heap) (blk o1 B : Nat) (bs : Array UInt8) (hb : h.bytes 
       rw [show B - (B - 1) = 1 by omega]
       decide
     refine ⟨{ crc0 := c0, crc1 := c1, crc2 := c2, crc3 := c3, crc4 := c4,
-              words := (.ref (.blk blk) (o1 + 40 * (B - 1)) : BPtr), blks := UInt64.ofNat (B - (B - 1)) - 1 }, ?_, hV, rfl⟩
+              words := (.ref ref (o1 + 20 * (B - 1)) : BPtr), blks := UInt64.ofNat (B - (B - 1)) - 1 }, ?_, hV, rfl⟩
     show OkOn h (pure _) _
     simp only [hz]
     exact OkOn.pure _ _
   · refine ⟨0, by omega, rfl, rfl, ?_⟩
     simp [Val, rbFrom_zero, pw_zero]
+
+theorem loopBlk2_ok (h : Heap) (ref : BRef) (o1 B : Nat) (bs : Array UInt8) (hb : Space.get h ref = some bs)
+    (hB : 1 ≤ B) (hle : o1 + 8 * B ≤ bs.size) (hB64 : B < 2 ^ 64) (c : UInt32) :
+    ∃ s : BL2, OkOn h (cwhile condBlk2 blockLittle2
+        { crc0 := c, crc1 := 0, words := (.ref ref o1 : BPtr), blks := UInt64.ofNat B }) s ∧
+      Val2 s.crc0 s.crc1 = pw 64 (rbFrom bs c o1 (8 * (B - 1))) ∧
+      s.words = .ref ref (o1 + 8 * (B - 1)) := by
+  refine cwhile_ok (cond := condBlk2) (body := blockLittle2)
+    (fun k s => ∃ j, j + k = B - 1 ∧ s.words = .ref ref (o1 + 8 * j) ∧
+      s.blks = UInt64.ofNat (B - j) ∧
+      Val2 s.crc0 s.crc1 = pw 64 (rbFrom bs c o1 (8 * j)))
+    (fun s => Val2 s.crc0 s.crc1 = pw 64 (rbFrom bs c o1 (8 * (B - 1))) ∧
+      s.words = .ref ref (o1 + 8 * (B - 1))) ?_ ?_ (k := B - 1)
+    (s := { crc0 := c, crc1 := 0, words := (.ref ref o1 : BPtr), blks := UInt64.ofNat B })
+    ?_ (by show B - 1 < 2 ^ 64; omega)
+  · intro k s hP
+    obtain ⟨c0, c1, words, blks⟩ := s
+    obtain ⟨j, hj, hw, hbl, hV⟩ := hP
+    simp only at hw hbl hV
+    subst hw hbl
+    have hne : (UInt64.ofNat (B - j) - 1 != 0) = true := by
+      rw [show (1 : UInt64) = UInt64.ofNat 1 from rfl, ofNat_sub64 _ _ (by omega) (by omega)]
+      have : UInt64.ofNat (B - j - 1) ≠ 0 := by
+        intro h0
+        have := congrArg UInt64.toNat h0
+        rw [ofNat_toNat_lt _ (by omega)] at this
+        have h1 : (0 : UInt64).toNat = 0 := rfl
+        omega
+      simpa using this
+    let s1 : BL2 := { crc0 := c0, crc1 := c1,
+                      words := (.ref ref (o1 + 8 * j) : BPtr), blks := UInt64.ofNat (B - j) - 1 }
+    have hbk := blockLittle2_ok h s1 ref (o1 + 8 * j) bs hb (by omega) rfl
+    refine ⟨s1, _, ?_, hbk, ?_⟩
+    · show OkOn h (pure _) _
+      simp only [hne]
+      exact OkOn.pure _ _
+    · refine ⟨j + 1, by omega, rfl, ?_, ?_⟩
+      · show UInt64.ofNat (B - j) - 1 = UInt64.ofNat (B - (j + 1))
+        rw [show (1 : UInt64) = UInt64.ofNat 1 from rfl, ofNat_sub64 _ _ (by omega) (by omega)]
+        rfl
+      · show Val2 (bw2 (c0 ^^^ WA bs (o1 + 8 * j))) (bw2 (c1 ^^^ WA bs (o1 + 8 * j + 4))) = _
+        rw [bw2_Psi, bw2_Psi, val2_inv bs c0 c1 _ _ hV]
+        rw [show 8 * (j + 1) = 8 * j + 8 by omega, rbFrom_add]
+  · intro s hP
+    obtain ⟨c0, c1, words, blks⟩ := s
+    obtain ⟨j, hj, hw, hbl, hV⟩ := hP
+    simp only at hw hbl hV
+    subst hw hbl
+    have hjB : j = B - 1 := by omega
+    subst hjB
+    have hz : (UInt64.ofNat (B - (B - 1)) - 1 != 0) = false := by
+      rw [show B - (B - 1) = 1 by omega]
+      decide
+    refine ⟨{ crc0 := c0, crc1 := c1,
+              words := (.ref ref (o1 + 8 * (B - 1)) : BPtr), blks := UInt64.ofNat (B - (B - 1)) - 1 }, ?_, hV, rfl⟩
+    show OkOn h (pure _) _
+    simp only [hz]
+    exact OkOn.pure _ _
+  · refine ⟨0, by omega, rfl, rfl, ?_⟩
+    simp [Val2, rbFrom_zero, pw_zero]
 
 theorem ofNat_div64 (n k : Nat) (hn : n < 2 ^ 64) (_hk : 0 < k) (hk64 : k < 2 ^ 64) :
     UInt64.ofNat n / UInt64.ofNat k = UInt64.ofNat (n / k) := by
@@ -2096,16 +2163,112 @@ theorem crc_init (crc : UInt64) : (~~~crc &&& 4294967295) = (~~~ crc.toUInt32).t
   simp only [e1, e2] at *
   omega
 
-theorem ge47 (L : Nat) (hL : L < 2 ^ 64) : (UInt64.ofNat L ≥ 47) ↔ 47 ≤ L := by
-  have : (47 : UInt64).toNat = 47 := rfl
+theorem ge11 (L : Nat) (hL : L < 2 ^ 64) : (UInt64.ofNat L ≥ 11) ↔ 11 ≤ L := by
+  have : (11 : UInt64).toNat = 11 := rfl
   rw [ge_iff_le, UInt64.le_iff_toNat_le, this, ofNat_toNat_lt _ hL]
 
-theorem NW_val : (N * W).toInt.toNat.toUInt64 = 40 := by decide
-theorem NWW_val : (N * W + W - 1).toInt.toNat.toUInt64 = 47 := by decide
+theorem lt320 (L : Nat) (hL : L < 2 ^ 64) : (UInt64.ofNat L < 320) ↔ L < 320 := by
+  have : (320 : UInt64).toNat = 320 := rfl
+  rw [UInt64.lt_iff_toNat_lt, this, ofNat_toNat_lt _ hL]
 
-theorem crc32_z_ok (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : Nat) (bs : Array UInt8)
-    (hb : h.bytes blk = some bs) (len : UInt64) (hlen : off + len.toNat ≤ bs.size) :
-    OkOn h (crc32_z crc (.ref (.blk blk) off) len)
+theorem lt23 (L : Nat) (hL : L < 2 ^ 64) : (UInt64.ofNat L < 23) ↔ L < 23 := by
+  have : (23 : UInt64).toNat = 23 := rfl
+  rw [UInt64.lt_iff_toNat_lt, this, ofNat_toNat_lt _ hL]
+
+theorem NW_val : (N * W).toInt.toNat.toUInt64 = 20 := by decide
+theorem NWW_val : (N * W + W - 1).toInt.toNat.toUInt64 = 23 := by decide
+theorem NMINWW_val : (NMIN * W + W - 1).toInt.toNat.toUInt64 = 11 := by decide
+theorem BRAID_CUT_val : BRAID_CUT.toInt.toNat.toUInt64 = 320 := by decide
+theorem NW2_val : (NLOW * W).toInt.toNat.toUInt64 = 8 := by decide
+theorem NWW2_val : (NLOW * W + W - 1).toInt.toNat.toUInt64 = 11 := by decide
+
+theorem xor_u64_toUInt32 (a b : UInt32) : (a.toUInt64 ^^^ b.toUInt64).toUInt32 = a ^^^ b := by
+  rw [← UInt32.toUInt64_xor, u32_roundtrip]
+
+theorem crc32_braid_ok_view (h : Heap) (hs : StaticsOK h) (c : UInt32) (ref : BRef) (off : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (len : UInt64) (hlen : off + len.toNat ≤ bs.size) :
+    OkOn h (crc32_braid c.toUInt64 (.ref ref off) len) (rbFrom bs c off len.toNat).toUInt64 := by
+  have hlen' : len = UInt64.ofNat len.toNat := UInt64.ofNat_toNat.symm
+  have hL : len.toNat < 2 ^ 64 := UInt64.toNat_lt len
+  generalize len.toNat = L at hlen' hlen hL ⊢
+  subst hlen'
+  unfold crc32_braid
+  dsimp only
+  by_cases h11 : 11 ≤ L
+  · rw [ite_eq_left (by rw [NWW2_val]; exact (ge11 L hL).mpr h11)]
+    have ha3 : alignLen (ByteAddress.base h ref + off) ≤ 3 := by unfold alignLen; omega
+    refine bind_of (fun x => x = ((rbFrom bs c off (alignLen (ByteAddress.base h ref + off))).toUInt64,
+      Ptr.ref ref (off + alignLen (ByteAddress.base h ref + off)),
+      UInt64.ofNat (L - alignLen (ByteAddress.base h ref + off))))
+      ⟨_, loopA_ok h ref off L bs hb hlen hL (by omega) hs c, rfl⟩ ?_
+    intro x hx
+    subst hx
+    dsimp only
+    rw [NW2_val]
+    rw [ite_eq_left (by decide), u32_roundtrip]
+    have hB1 : 1 ≤ (L - alignLen (ByteAddress.base h ref + off)) / 8 := by omega
+    have hBle : off + alignLen (ByteAddress.base h ref + off) + 8 * ((L - alignLen (ByteAddress.base h ref + off)) / 8) ≤ bs.size := by omega
+    have hdiv : UInt64.ofNat (L - alignLen (ByteAddress.base h ref + off)) / 8 =
+        UInt64.ofNat ((L - alignLen (ByteAddress.base h ref + off)) / 8) := by
+      rw [show (8 : UInt64) = UInt64.ofNat 8 from rfl, ofNat_div64 _ _ (by omega) (by omega) (by omega)]
+    have hrem : UInt64.ofNat (L - alignLen (ByteAddress.base h ref + off)) -
+        UInt64.ofNat ((L - alignLen (ByteAddress.base h ref + off)) / 8) * 8 =
+        UInt64.ofNat (L - alignLen (ByteAddress.base h ref + off) -
+          (L - alignLen (ByteAddress.base h ref + off)) / 8 * 8) := by
+      rw [show (8 : UInt64) = UInt64.ofNat 8 from rfl, ofNat_mul64 _ _ (by omega) (by omega) (by omega),
+        ofNat_sub64 _ _ (by omega) (by omega)]
+    rw [hdiv, hrem]
+    refine bind_of (fun s : BL2 => Val2 s.crc0 s.crc1 =
+        pw 64 (rbFrom bs (rbFrom bs c off (alignLen (ByteAddress.base h ref + off)))
+          (off + alignLen (ByteAddress.base h ref + off))
+          (8 * ((L - alignLen (ByteAddress.base h ref + off)) / 8 - 1))) ∧
+        s.words = .ref ref (off + alignLen (ByteAddress.base h ref + off) +
+          8 * ((L - alignLen (ByteAddress.base h ref + off)) / 8 - 1)))
+      (loopBlk2_ok h ref (off + alignLen (ByteAddress.base h ref + off))
+        ((L - alignLen (ByteAddress.base h ref + off)) / 8) bs hb hB1 hBle (by omega) _) ?_
+    intro s hR
+    obtain ⟨hV, hw⟩ := hR
+    rw [hw]
+    generalize hA : alignLen (ByteAddress.base h ref + off) = a at ha3 hB1 hBle hdiv hrem hV hw ⊢
+    generalize hB : (L - a) / 8 = B at hB1 hBle hdiv hrem hV hw ⊢
+    generalize hc' : rbFrom bs c off a = c' at hV ⊢
+    generalize how : off + a + 8 * (B - 1) = ow at hV hw ⊢
+    have w0 := wordAt_ok h ref ow 0 bs hb (by omega)
+    have w1 := wordAt_ok h ref ow 1 bs hb (by omega)
+    have hadd : OkOn h (Ptr.add (Ptr.ref ref ow) 8) (Ptr.ref ref (ow + 8)) := by
+      have := Ptr.add_nat_ok (r := ref) (off := ow) (n := 8) (a := bs) hb (by omega)
+      simpa using this
+    refine OkOn.bind w0 ?_
+    refine OkOn.bind (crc_word_ok h hs _) ?_
+    rw [Psi_WA]
+    refine OkOn.bind w1 ?_
+    rw [xor_u64_toUInt32]
+    refine OkOn.bind (crc_word_ok h hs _) ?_
+    rw [show s.crc1 ^^^ WA bs (ow + 4 * 1) ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4 =
+        (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) ^^^ WA bs (ow + 4 * 1) by ac_rfl, Psi_WA]
+    refine OkOn.bind hadd ?_
+    have hx2 : rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) (ow + 4 * 1) 4 =
+        rbFrom bs c' (off + a) (8 * B) := by
+      have h1 := chain2_aff bs s.crc0 s.crc1 ow
+      rw [hV, chain2_zero] at h1
+      change chain2 bs s.crc0 s.crc1 ow = _
+      rw [h1, ← rbFrom_aff bs 8 _ ow, ← how, ← rbFrom_add]
+      congr 1; omega
+    have hall : rbFrom bs c' (off + a) (8 * B + (L - a - B * 8)) = rbFrom bs c off L := by
+      rw [← hc']
+      have := rbFrom_add bs a (L - a) c off
+      rw [show a + (L - a) = L by omega] at this
+      rw [this, hc', show 8 * B + (L - a - B * 8) = L - a by omega]
+    rw [hx2]
+    rw [rbFrom_add, show off + a + 8 * B = ow + 8 by omega] at hall
+    rw [← hall]
+    exact tailBraid_ok h hs ref (ow + 8) (L - a - B * 8) bs hb (by omega) (by omega) _
+  · rw [ite_eq_right (by rw [NWW2_val]; exact fun hh => h11 ((ge11 L hL).mp hh))]
+    exact tailBraid_ok h hs ref off L bs hb hlen hL _
+
+theorem crc32_z_ok_view (h : Heap) (hs : StaticsOK h) (crc : UInt64) (ref : BRef) (off : Nat) (bs : Array UInt8)
+    (hb : Space.get h ref = some bs) (len : UInt64) (hlen : off + len.toNat ≤ bs.size) :
+    OkOn h (crc32_z crc (.ref ref off) len)
       ((rbFrom bs (~~~ crc.toUInt32) off len.toNat).toUInt64 ^^^ 0xffffffff) := by
   have hlen' : len = UInt64.ofNat len.toNat := UInt64.ofNat_toNat.symm
   have hL : len.toNat < 2 ^ 64 := UInt64.toNat_lt len
@@ -2115,86 +2278,386 @@ theorem crc32_z_ok (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : Nat) 
   rw [ite_eq_right (by simp)]
   dsimp only
   rw [crc_init]
-  by_cases hlong : 47 ≤ L
-  · rw [ite_eq_left (by rw [NWW_val]; exact (ge47 L hL).mpr hlong)]
-    have ha7 : alignLen off ≤ 7 := by unfold alignLen; omega
-    refine bind_of (fun x => x = ((rbFrom bs (~~~ crc.toUInt32) off (alignLen off)).toUInt64,
-      Ptr.ref (BRef.blk blk) (off + alignLen off), UInt64.ofNat (L - alignLen off)))
-      ⟨_, loopA_ok h blk off L bs hb hlen hL (by omega) hs _, rfl⟩ ?_
-    intro x hx
-    subst hx
-    dsimp only
-    rw [NW_val]
-    rw [ite_eq_left (by decide), u32_roundtrip]
-    have hB1 : 1 ≤ (L - alignLen off) / 40 := by omega
-    have hBle : off + alignLen off + 40 * ((L - alignLen off) / 40) ≤ bs.size := by omega
-    have hdiv : UInt64.ofNat (L - alignLen off) / 40 = UInt64.ofNat ((L - alignLen off) / 40) := by
-      rw [show (40 : UInt64) = UInt64.ofNat 40 from rfl, ofNat_div64 _ _ (by omega) (by omega) (by omega)]
-    have hrem : UInt64.ofNat (L - alignLen off) - UInt64.ofNat ((L - alignLen off) / 40) * 40 =
-        UInt64.ofNat (L - alignLen off - (L - alignLen off) / 40 * 40) := by
-      rw [show (40 : UInt64) = UInt64.ofNat 40 from rfl, ofNat_mul64 _ _ (by omega) (by omega) (by omega),
-        ofNat_sub64 _ _ (by omega) (by omega)]
-    rw [hdiv, hrem]
-    refine bind_of (fun s : BL => Val s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 =
-        pw 320 (rbFrom bs (rbFrom bs (~~~ crc.toUInt32) off (alignLen off)) (off + alignLen off)
-          (40 * ((L - alignLen off) / 40 - 1))) ∧
-        s.words = .ref (.blk blk) (off + alignLen off + 40 * ((L - alignLen off) / 40 - 1)))
-      (loopBlk_ok h blk (off + alignLen off) ((L - alignLen off) / 40) bs hb hB1 hBle (by omega) _) ?_
-    intro s hR
-    obtain ⟨hV, hw⟩ := hR
-    rw [hw]
-    generalize hA : alignLen off = a at ha7 hB1 hBle hdiv hrem hV hw ⊢
-    generalize hB : (L - a) / 40 = B at hB1 hBle hdiv hrem hV hw ⊢
-    generalize hc' : rbFrom bs (~~~crc.toUInt32) off a = c' at hV ⊢
-    generalize how : off + a + 40 * (B - 1) = ow at hV hw ⊢
-    have w0 := wordAt_ok h blk ow 0 bs hb (by omega)
-    have w1 := wordAt_ok h blk ow 1 bs hb (by omega)
-    have w2 := wordAt_ok h blk ow 2 bs hb (by omega)
-    have w3 := wordAt_ok h blk ow 3 bs hb (by omega)
-    have w4 := wordAt_ok h blk ow 4 bs hb (by omega)
-    have hadd : OkOn h (Ptr.add (Ptr.ref (BRef.blk blk) ow) 40) (Ptr.ref (BRef.blk blk) (ow + 40)) := by
-      have := Ptr.add_nat_ok (r := BRef.blk blk) (off := ow) (n := 40) (a := bs) hb (by omega)
-      simpa using this
-    have e1 : ∀ (a b : UInt32) (W : UInt64), a.toUInt64 ^^^ W ^^^ b.toUInt64 = (a ^^^ b).toUInt64 ^^^ W := by
-      intro a b W; rw [UInt32.toUInt64_xor]; ac_rfl
-    refine OkOn.bind w0 ?_
-    refine OkOn.bind (crc_word_ok h hs _) ?_
-    rw [Psi_WA]
-    refine OkOn.bind w1 ?_
-    rw [e1]
-    refine OkOn.bind (crc_word_ok h hs _) ?_
-    rw [Psi_WA]
-    refine OkOn.bind w2 ?_
-    rw [e1]
-    refine OkOn.bind (crc_word_ok h hs _) ?_
-    rw [Psi_WA]
-    refine OkOn.bind w3 ?_
-    rw [e1]
-    refine OkOn.bind (crc_word_ok h hs _) ?_
-    rw [Psi_WA]
-    refine OkOn.bind w4 ?_
-    rw [e1]
-    refine OkOn.bind (crc_word_ok h hs _) ?_
-    rw [Psi_WA]
-    refine OkOn.bind hadd ?_
-    have hx4 : rbFrom bs (s.crc4 ^^^ rbFrom bs (s.crc3 ^^^ rbFrom bs (s.crc2 ^^^ rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 8 * 0) 8)
-        (ow + 8 * 1) 8) (ow + 8 * 2) 8) (ow + 8 * 3) 8) (ow + 8 * 4) 8 = rbFrom bs c' (off + a) (40 * B) := by
-      have h1 := chain_aff bs s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 ow
-      rw [hV, chain_zero] at h1
-      change chain bs s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 ow = _
-      rw [h1, ← rbFrom_aff bs 40 _ ow, ← how, ← rbFrom_add]
-      congr 1; omega
-    have hall : rbFrom bs c' (off + a) (40 * B + (L - a - B * 40)) = rbFrom bs (~~~crc.toUInt32) off L := by
-      rw [← hc']
-      have := rbFrom_add bs a (L - a) (~~~crc.toUInt32) off
-      rw [show a + (L - a) = L by omega] at this
-      rw [this, hc', show 40 * B + (L - a - B * 40) = L - a by omega]
-    rw [hx4]
-    rw [rbFrom_add, show off + a + 40 * B = ow + 40 by omega] at hall
-    rw [← hall]
-    exact tail_ok h hs blk (ow + 40) (L - a - B * 40) bs hb (by omega) (by omega) _
-  · rw [ite_eq_right (by rw [NWW_val]; exact fun hh => hlong ((ge47 L hL).mp hh))]
-    exact tail_ok h hs blk off L bs hb hlen hL _
+  by_cases h11 : 11 ≤ L
+  · rw [ite_eq_left (by rw [NMINWW_val]; exact (ge11 L hL).mpr h11)]
+    by_cases hshort : L < 320
+    · have hcond : ((UInt64.ofNat L < BRAID_CUT.toInt.toNat.toUInt64 ||
+          UInt64.ofNat L < (N * W + W - 1).toInt.toNat.toUInt64) = true) := by
+        rw [BRAID_CUT_val, Bool.or_eq_true]
+        exact Or.inl (by simp [lt320 L hL, hshort])
+      rw [ite_eq_left hcond]
+      have hbr := crc32_braid_ok_view h hs (~~~ crc.toUInt32) ref off bs hb (UInt64.ofNat L)
+        (by simpa [ofNat_toNat_lt L hL] using hlen)
+      rw [ofNat_toNat_lt L hL] at hbr
+      exact OkOn.bind hbr (OkOn.pure _ _)
+    · have hcond : ¬ ((UInt64.ofNat L < BRAID_CUT.toInt.toNat.toUInt64 ||
+          UInt64.ofNat L < (N * W + W - 1).toInt.toNat.toUInt64) = true) := by
+        rw [BRAID_CUT_val, NWW_val, Bool.or_eq_true]
+        simp [lt320 L hL, lt23 L hL]
+        omega
+      rw [ite_eq_right hcond]
+      have ha3 : alignLen (ByteAddress.base h ref + off) ≤ 3 := by unfold alignLen; omega
+      refine bind_of (fun x => x = ((rbFrom bs (~~~ crc.toUInt32) off (alignLen (ByteAddress.base h ref + off))).toUInt64,
+        Ptr.ref ref (off + alignLen (ByteAddress.base h ref + off)),
+        UInt64.ofNat (L - alignLen (ByteAddress.base h ref + off))))
+        ⟨_, loopA_ok h ref off L bs hb hlen hL (by omega) hs _, rfl⟩ ?_
+      intro x hx
+      subst hx
+      dsimp only
+      rw [NW_val]
+      rw [ite_eq_left (by decide), u32_roundtrip]
+      have hB1 : 1 ≤ (L - alignLen (ByteAddress.base h ref + off)) / 20 := by omega
+      have hBle : off + alignLen (ByteAddress.base h ref + off) + 20 * ((L - alignLen (ByteAddress.base h ref + off)) / 20) ≤ bs.size := by omega
+      have hdiv : UInt64.ofNat (L - alignLen (ByteAddress.base h ref + off)) / 20 =
+          UInt64.ofNat ((L - alignLen (ByteAddress.base h ref + off)) / 20) := by
+        rw [show (20 : UInt64) = UInt64.ofNat 20 from rfl, ofNat_div64 _ _ (by omega) (by omega) (by omega)]
+      have hrem : UInt64.ofNat (L - alignLen (ByteAddress.base h ref + off)) -
+          UInt64.ofNat ((L - alignLen (ByteAddress.base h ref + off)) / 20) * 20 =
+          UInt64.ofNat (L - alignLen (ByteAddress.base h ref + off) -
+            (L - alignLen (ByteAddress.base h ref + off)) / 20 * 20) := by
+        rw [show (20 : UInt64) = UInt64.ofNat 20 from rfl, ofNat_mul64 _ _ (by omega) (by omega) (by omega),
+          ofNat_sub64 _ _ (by omega) (by omega)]
+      rw [hdiv, hrem]
+      refine bind_of (fun s : BL => Val s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 =
+          pw 160 (rbFrom bs (rbFrom bs (~~~ crc.toUInt32) off (alignLen (ByteAddress.base h ref + off)))
+            (off + alignLen (ByteAddress.base h ref + off))
+            (20 * ((L - alignLen (ByteAddress.base h ref + off)) / 20 - 1))) ∧
+          s.words = .ref ref (off + alignLen (ByteAddress.base h ref + off) +
+            20 * ((L - alignLen (ByteAddress.base h ref + off)) / 20 - 1)))
+        (loopBlk_ok h ref (off + alignLen (ByteAddress.base h ref + off))
+          ((L - alignLen (ByteAddress.base h ref + off)) / 20) bs hb hB1 hBle (by omega) _) ?_
+      intro s hR
+      obtain ⟨hV, hw⟩ := hR
+      rw [hw]
+      generalize hA : alignLen (ByteAddress.base h ref + off) = a at ha3 hB1 hBle hdiv hrem hV hw ⊢
+      generalize hB : (L - a) / 20 = B at hB1 hBle hdiv hrem hV hw ⊢
+      generalize hc' : rbFrom bs (~~~crc.toUInt32) off a = c' at hV ⊢
+      generalize how : off + a + 20 * (B - 1) = ow at hV hw ⊢
+      have w0 := wordAt_ok h ref ow 0 bs hb (by omega)
+      have w1 := wordAt_ok h ref ow 1 bs hb (by omega)
+      have w2 := wordAt_ok h ref ow 2 bs hb (by omega)
+      have w3 := wordAt_ok h ref ow 3 bs hb (by omega)
+      have w4 := wordAt_ok h ref ow 4 bs hb (by omega)
+      have hadd : OkOn h (Ptr.add (Ptr.ref ref ow) 20) (Ptr.ref ref (ow + 20)) := by
+        have := Ptr.add_nat_ok (r := ref) (off := ow) (n := 20) (a := bs) hb (by omega)
+        simpa using this
+      refine OkOn.bind w0 ?_
+      refine OkOn.bind (crc_word_ok h hs _) ?_
+      rw [Psi_WA]
+      refine OkOn.bind w1 ?_
+      rw [xor_u64_toUInt32]
+      refine OkOn.bind (crc_word_ok h hs _) ?_
+      rw [show s.crc1 ^^^ WA bs (ow + 4 * 1) ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4 =
+          (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) ^^^ WA bs (ow + 4 * 1) by ac_rfl, Psi_WA]
+      refine OkOn.bind w2 ?_
+      rw [xor_u64_toUInt32]
+      refine OkOn.bind (crc_word_ok h hs _) ?_
+      rw [show s.crc2 ^^^ WA bs (ow + 4 * 2) ^^^ rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) (ow + 4 * 1) 4 =
+          (s.crc2 ^^^ rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) (ow + 4 * 1) 4) ^^^ WA bs (ow + 4 * 2) by ac_rfl, Psi_WA]
+      refine OkOn.bind w3 ?_
+      rw [xor_u64_toUInt32]
+      refine OkOn.bind (crc_word_ok h hs _) ?_
+      rw [show s.crc3 ^^^ WA bs (ow + 4 * 3) ^^^ rbFrom bs (s.crc2 ^^^ rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) (ow + 4 * 1) 4) (ow + 4 * 2) 4 =
+          (s.crc3 ^^^ rbFrom bs (s.crc2 ^^^ rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) (ow + 4 * 1) 4) (ow + 4 * 2) 4) ^^^ WA bs (ow + 4 * 3) by ac_rfl, Psi_WA]
+      refine OkOn.bind w4 ?_
+      rw [xor_u64_toUInt32]
+      refine OkOn.bind (crc_word_ok h hs _) ?_
+      rw [show s.crc4 ^^^ WA bs (ow + 4 * 4) ^^^ rbFrom bs (s.crc3 ^^^ rbFrom bs (s.crc2 ^^^ rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) (ow + 4 * 1) 4) (ow + 4 * 2) 4) (ow + 4 * 3) 4 =
+          (s.crc4 ^^^ rbFrom bs (s.crc3 ^^^ rbFrom bs (s.crc2 ^^^ rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4) (ow + 4 * 1) 4) (ow + 4 * 2) 4) (ow + 4 * 3) 4) ^^^ WA bs (ow + 4 * 4) by ac_rfl, Psi_WA]
+      refine OkOn.bind hadd ?_
+      have hx4 : rbFrom bs (s.crc4 ^^^ rbFrom bs (s.crc3 ^^^ rbFrom bs (s.crc2 ^^^ rbFrom bs (s.crc1 ^^^ rbFrom bs s.crc0 (ow + 4 * 0) 4)
+          (ow + 4 * 1) 4) (ow + 4 * 2) 4) (ow + 4 * 3) 4) (ow + 4 * 4) 4 = rbFrom bs c' (off + a) (20 * B) := by
+        have h1 := chain_aff bs s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 ow
+        rw [hV, chain_zero] at h1
+        change chain bs s.crc0 s.crc1 s.crc2 s.crc3 s.crc4 ow = _
+        rw [h1, ← rbFrom_aff bs 20 _ ow, ← how, ← rbFrom_add]
+        congr 1; omega
+      have hall : rbFrom bs c' (off + a) (20 * B + (L - a - B * 20)) = rbFrom bs (~~~crc.toUInt32) off L := by
+        rw [← hc']
+        have := rbFrom_add bs a (L - a) (~~~crc.toUInt32) off
+        rw [show a + (L - a) = L by omega] at this
+        rw [this, hc', show 20 * B + (L - a - B * 20) = L - a by omega]
+      rw [hx4]
+      rw [rbFrom_add, show off + a + 20 * B = ow + 20 by omega] at hall
+      rw [← hall]
+      exact tail_ok h hs ref (ow + 20) (L - a - B * 20) bs hb (by omega) (by omega) _
+  · rw [ite_eq_right (by rw [NMINWW_val]; exact fun hh => h11 ((ge11 L hL).mp hh))]
+    exact tail_ok h hs ref off L bs hb hlen hL _
+
+/-! ### Unconditional heap-preservation (`PureH`) -/
+
+/-- A computation that leaves the heap untouched whenever it succeeds. -/
+def PureH {α : Type} (m : M α) : Prop := ∀ h v h', m h = .ok (v, h') → h' = h
+
+theorem pureH_pure {α : Type} (a : α) : PureH (pure a : M α) := fun _ _ _ h => by cases h; rfl
+theorem pureH_ub {α : Type} (s : String) : PureH (ub s : M α) := fun _ _ _ h => by cases h
+
+theorem pureH_bind {α β : Type} {m : M α} {f : α → M β} (hm : PureH m) (hf : ∀ x, PureH (f x)) :
+    PureH (m >>= f) := by
+  intro h v h' hr
+  rw [bind_app] at hr
+  cases he : m h with
+  | error e => rw [he] at hr; cases hr
+  | ok p => rw [he] at hr; exact (hf p.1 p.2 v h' hr).trans (hm h p.1 p.2 he)
+
+theorem pureH_ite {α : Type} {P : Prop} [Decidable P] {t e : M α} (ht : PureH t) (he : PureH e) :
+    PureH (if P then t else e) := by
+  by_cases hP : P <;> simp [hP, ht, he]
+
+theorem pureH_cwhile {σ : Type} {cond : σ → M (Bool × σ)} {body : σ → M σ}
+    (hc : ∀ s, PureH (cond s)) (hb : ∀ s, PureH (body s)) (s : σ) :
+    PureH (cwhile cond body s) := by
+  have key : ∀ n s, PureH (cwhile.go cond body n s) := by
+    intro n
+    induction n with
+    | zero => intro s h v h' hr; simp [cwhile.go] at hr
+    | succ n ih =>
+      intro s h v h' hr
+      simp only [cwhile.go, bind_app] at hr
+      cases hcnd : cond s h with
+      | error e => rw [hcnd] at hr; cases hr
+      | ok p =>
+        obtain ⟨⟨test, mid⟩, h1⟩ := p
+        rw [hcnd] at hr
+        have hp1 := hc s h (test, mid) h1 hcnd
+        cases test with
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte, pure_app] at hr
+          cases hr
+          exact hp1
+        | true =>
+          simp only [ite_true, bind_app] at hr
+          cases hbd : body mid h1 with
+          | error e => rw [hbd] at hr; cases hr
+          | ok q =>
+            rw [hbd] at hr
+            exact (ih q.1 q.2 v h' hr).trans ((hb mid h1 q.1 q.2 hbd).trans hp1)
+  exact key fuel s
+
+theorem pureH_list_forIn {α β : Type} (xs : List α)
+    (body : (x : α) → x ∈ xs → β → M (ForInStep β))
+    (hb : ∀ x hx s, PureH (body x hx s)) (init : β) : PureH (List.forIn' xs init body) := by
+  induction xs generalizing init with
+  | nil => simp only [List.forIn'_eq_forIn', List.forIn'_nil]; exact pureH_pure _
+  | cons a t ih =>
+    simp only [List.forIn'_eq_forIn', List.forIn'_cons]
+    refine pureH_bind (hb a (by simp) init) (fun st => ?_)
+    cases st with
+    | done v => exact pureH_pure _
+    | yield s => exact ih (fun x hx b => body x (by simp [hx]) b) (fun x hx b => hb x (by simp [hx]) b) s
+
+theorem pureH_ptr_add {R T : Type} [Space Heap R T] (p : Ptr R) (k : Int) : PureH (Ptr.add p k) := by
+  intro h v h' hr
+  unfold Ptr.add at hr
+  by_cases hk : k = 0
+  · simp [hk] at hr; exact hr.2.symm
+  · simp only [hk, ↓reduceIte] at hr
+    cases p with
+    | null => cases hr
+    | ref r off =>
+      simp only at hr
+      cases hs : Space.get h r with
+      | none => rw [hs] at hr; cases hr
+      | some a =>
+        rw [hs] at hr
+        by_cases hb : 0 ≤ (off : Int) + k ∧ (off : Int) + k ≤ (a.size : Int)
+        · simp [hb] at hr; exact hr.2.symm
+        · simp [hb] at hr
+
+theorem pureH_ptr_load {R T : Type} [Space Heap R T] (p : Ptr R) : PureH (Ptr.load (T := T) p) := by
+  intro h v h' hr
+  unfold Ptr.load at hr
+  cases p with
+  | null => cases hr
+  | ref r off =>
+    simp only at hr
+    cases hs : Space.get h r with
+    | none => rw [hs] at hr; cases hr
+    | some a =>
+      rw [hs] at hr
+      by_cases hk : off < a.size
+      · simp [hk] at hr; exact hr.2.symm
+      · simp [hk] at hr
+
+theorem pureH_ptr_index {R T : Type} [Space Heap R T] (p : Ptr R) (i : Int) : PureH (Ptr.index (T := T) p i) :=
+  pureH_bind (pureH_ptr_add p i) (fun _ => pureH_ptr_load _)
+
+theorem pureH_addrOf (p : BPtr) : PureH (Zlib.Crc32.addrOf p) := by
+  intro h v h' hr; cases hr; rfl
+
+theorem pureH_crcTab (i : UInt64) : PureH (Zlib.Crc32.crcTab i) :=
+  pureH_ptr_index _ _
+
+theorem pureH_idx1 {α : Type} (t : Array α) (i : Nat) : PureH (Zlib.Crc32.idx1 t i) := by
+  intro h v h' hr
+  unfold Zlib.Crc32.idx1 at hr
+  cases hx : t[i]? with
+  | none => simp [hx, C.ub] at hr
+  | some _ => simp [hx] at hr; exact hr.2.symm
+
+theorem pureH_idx2 {α : Type} (t : Array (Array α)) (k i : Nat) : PureH (Zlib.Crc32.idx2 t k i) := by
+  intro h v h' hr
+  unfold Zlib.Crc32.idx2 at hr
+  cases hk : t[k]? with
+  | none => simp [hk, C.ub] at hr
+  | some r => cases hi : r[i]? with
+    | none => simp [hk, hi, C.ub] at hr
+    | some _ => simp [hk, hi] at hr; exact hr.2.symm
+
+theorem pureH_loadWord (p : BPtr) : PureH (Zlib.Crc32.loadWord p) := by
+  unfold Zlib.Crc32.loadWord
+  simp only [forIn, Std.Legacy.Range.forIn'_eq_forIn'_range', Std.Legacy.Range.size]
+  refine pureH_bind (pureH_list_forIn _ _ (fun _ _ _ => ?_) _) (fun _ => pureH_pure _)
+  exact pureH_bind (pureH_ptr_index _ _) (fun _ => pureH_pure _)
+
+theorem pureH_wordAt (words : BPtr) (i : Nat) : PureH (Zlib.Crc32.wordAt words i) := by
+  unfold Zlib.Crc32.wordAt
+  exact pureH_bind (pureH_ptr_add _ _) (fun _ => pureH_loadWord _)
+
+theorem pureH_crcWord (t : Array (Array UInt32)) (w : UInt32) : PureH (Zlib.Crc32.crcWord t w) := by
+  unfold Zlib.Crc32.crcWord
+  exact pureH_bind (pureH_idx2 _ _ _) (fun _ =>
+    pureH_bind (pureH_idx2 _ _ _) (fun _ =>
+    pureH_bind (pureH_idx2 _ _ _) (fun _ =>
+    pureH_bind (pureH_idx2 _ _ _) (fun _ => pureH_pure _))))
+
+theorem pureH_crc_word (data : UInt32) : PureH (Zlib.Crc32.crc_word data) := by
+  unfold Zlib.Crc32.crc_word
+  refine pureH_bind (pureH_cwhile (fun _ => pureH_pure _) (fun _ => ?_) _) (fun _ => pureH_pure _)
+  exact pureH_bind (pureH_crcTab _) (fun _ => pureH_pure _)
+
+theorem pureH_crc_word_big (data : UInt32) : PureH (Zlib.Crc32.crc_word_big data) := by
+  unfold Zlib.Crc32.crc_word_big
+  refine pureH_bind (pureH_cwhile (fun _ => pureH_pure _) (fun _ => ?_) _) (fun _ => pureH_pure _)
+  exact pureH_bind (pureH_idx1 _ _) (fun _ => pureH_pure _)
+
+theorem pureH_blockLittle2 (s : BL2) : PureH (Zlib.Crc32.blockLittle2 s) := by
+  unfold Zlib.Crc32.blockLittle2
+  exact pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_ptr_add _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ => pureH_pure _)))))
+
+theorem pureH_blockBig2 (s : BB2) : PureH (Zlib.Crc32.blockBig2 s) := by
+  unfold Zlib.Crc32.blockBig2
+  exact pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_ptr_add _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ => pureH_pure _)))))
+
+theorem pureH_blockLittle (s : BL) : PureH (Zlib.Crc32.blockLittle s) := by
+  unfold Zlib.Crc32.blockLittle
+  exact pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_ptr_add _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ => pureH_pure _)))))))))))
+
+theorem pureH_blockBig (s : BB) : PureH (Zlib.Crc32.blockBig s) := by
+  unfold Zlib.Crc32.blockBig
+  exact pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_wordAt _ _) (fun _ =>
+    pureH_bind (pureH_ptr_add _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ =>
+    pureH_bind (pureH_crcWord _ _) (fun _ => pureH_pure _)))))))))))
+
+theorem pureH_crcByte (crc : UInt64) (buf : BPtr) : PureH (Zlib.Crc32.crcByte crc buf) := by
+  unfold Zlib.Crc32.crcByte
+  exact pureH_bind (pureH_ptr_load _) (fun _ =>
+    pureH_bind (pureH_ptr_add _ _) (fun _ =>
+    pureH_bind (pureH_crcTab _) (fun _ => pureH_pure _)))
+
+theorem pureH_crc8_step (c : UInt64) (b : BPtr) (l : UInt64) : PureH (do
+    let l := l - 8
+    let (c, b) ← Zlib.Crc32.crcByte c b
+    let (c, b) ← Zlib.Crc32.crcByte c b
+    let (c, b) ← Zlib.Crc32.crcByte c b
+    let (c, b) ← Zlib.Crc32.crcByte c b
+    let (c, b) ← Zlib.Crc32.crcByte c b
+    let (c, b) ← Zlib.Crc32.crcByte c b
+    let (c, b) ← Zlib.Crc32.crcByte c b
+    let (c, b) ← Zlib.Crc32.crcByte c b
+    pure (c, b, l)) :=
+  pureH_bind (pureH_crcByte _ _) fun _ =>
+  pureH_bind (pureH_crcByte _ _) fun _ =>
+  pureH_bind (pureH_crcByte _ _) fun _ =>
+  pureH_bind (pureH_crcByte _ _) fun _ =>
+  pureH_bind (pureH_crcByte _ _) fun _ =>
+  pureH_bind (pureH_crcByte _ _) fun _ =>
+  pureH_bind (pureH_crcByte _ _) fun _ =>
+  pureH_bind (pureH_crcByte _ _) fun _ => pureH_pure _
+
+theorem pureH_crc32_braid (crc : UInt64) (buf : BPtr) (len : UInt64) : PureH (Zlib.Crc32.crc32_braid crc buf len) := by
+  unfold Zlib.Crc32.crc32_braid
+  repeat' first
+    | with_reducible exact pureH_pure _
+    | with_reducible exact pureH_ub _
+    | with_reducible exact pureH_crc8_step _ _ _
+    | with_reducible exact pureH_crcByte _ _
+    | with_reducible exact pureH_addrOf _
+    | with_reducible exact pureH_blockLittle2 _
+    | with_reducible exact pureH_blockBig2 _
+    | with_reducible exact pureH_wordAt _ _
+    | with_reducible exact pureH_crc_word _
+    | with_reducible exact pureH_crc_word_big _
+    | with_reducible exact pureH_ptr_add _ _
+    | with_reducible (refine pureH_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply pureH_ite
+    | with_reducible (refine pureH_bind ?_ (fun _ => ?_))
+
+/-- Every non-faulting execution of `crc32_z` leaves the heap unchanged. -/
+theorem crc32_z_heap_unchanged (crc : UInt64) (buf : BPtr) (len : UInt64) : PureH (Zlib.Crc32.crc32_z crc buf len) := by
+  unfold Zlib.Crc32.crc32_z
+  by_cases h0 : buf == .null
+  · simp [h0, pureH_pure]
+  · simp only [h0, Bool.false_eq_true, ↓reduceIte]
+    by_cases h1 : len ≥ (Zlib.Crc32.NMIN * Zlib.Crc32.W + Zlib.Crc32.W - 1).toInt.toNat.toUInt64
+    · simp only [h1, ↓reduceIte]
+      by_cases h2 : (len < Zlib.Crc32.BRAID_CUT.toInt.toNat.toUInt64 || len < (Zlib.Crc32.N * Zlib.Crc32.W + Zlib.Crc32.W - 1).toInt.toNat.toUInt64) = true
+      · simp only [h2, ↓reduceIte]
+        exact pureH_bind (pureH_crc32_braid _ _ _) (fun _ => pureH_pure _)
+      · simp only [h2, Bool.false_eq_true, ↓reduceIte]
+        repeat' first
+          | with_reducible exact pureH_pure _
+          | with_reducible exact pureH_ub _
+          | with_reducible exact pureH_crc32_braid _ _ _
+          | with_reducible exact pureH_crc8_step _ _ _
+          | with_reducible exact pureH_crcByte _ _
+          | with_reducible exact pureH_addrOf _
+          | with_reducible exact pureH_blockLittle _
+          | with_reducible exact pureH_blockBig _
+          | with_reducible exact pureH_wordAt _ _
+          | with_reducible exact pureH_crc_word _
+          | with_reducible exact pureH_crc_word_big _
+          | with_reducible exact pureH_ptr_add _ _
+          | with_reducible (refine pureH_cwhile (fun _ => ?_) (fun _ => ?_) _)
+          | with_reducible apply pureH_ite
+          | with_reducible (refine pureH_bind ?_ (fun _ => ?_))
+    · simp only [h1, ↓reduceIte]
+      repeat' first
+        | with_reducible exact pureH_pure _
+        | with_reducible exact pureH_crc8_step _ _ _
+        | with_reducible exact pureH_crcByte _ _
+        | with_reducible (refine pureH_cwhile (fun _ => ?_) (fun _ => ?_) _)
+        | with_reducible (refine pureH_bind ?_ (fun _ => ?_))
+
+/-- Every non-faulting execution of `crc32` leaves the heap unchanged. -/
+theorem crc32_heap_unchanged (crc : UInt64) (buf : BPtr) (len : UInt32) : PureH (Zlib.Crc32.crc32 crc buf len) :=
+  crc32_z_heap_unchanged crc buf len.toUInt64
 
 /-! ### Statement helpers -/
 
@@ -2235,18 +2698,14 @@ theorem crc32_z_null (h : Heap) (crc len : UInt64) :
   rw [ite_eq_left (by decide)]
   rfl
 
-/-- **crc32_z, correctness.** For every heap whose static tables are the ones of `crc32.h` (`StaticsOK`), every `crc`
-(only its low 32 bits matter, as in C), and every buffer in a heap block (`off + len ≤ size` of the block; the model
-resolves the alignment test `(z_size_t)buf & 7` through the offset in the block, see `crc32.c.lean`): `crc32_z` returns the
-CRC-32 of the `len` bytes at `buf` continuing `crc`, that is `ZlibF.Spec.crc32Update` of the byte list, and leaves the
-heap unchanged. This covers every length (the byte loop, the 8-byte loop, the braided word loop of 5 words of 8 bytes)
-and every alignment of `off`. This statement covers only heap byte blocks. Static and embedded arrays require
-the general byte-view result, including their symbolic origin residues. -/
-theorem crc32_z_correct (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : Nat) (bs : Array UInt8)
-    (hb : h.bytes blk = some bs) (len : UInt64) (hlen : off + len.toNat ≤ bs.size) :
-    C.run (crc32_z crc (.ref (.blk blk) off) len) h =
+/-- **crc32_z, correctness over any byte view.** For every heap whose static tables are the ones of `crc32.h`
+(`StaticsOK`), every `crc`, and every readable byte view slice (`Space.get h ref = some bs` and `off + len ≤ bs.size`):
+`crc32_z` returns `ZlibF.Spec.crc32Update` of the byte list and leaves the heap unchanged. -/
+theorem crc32_z_correct_view (h : Heap) (hs : StaticsOK h) (crc : UInt64) (ref : BRef) (off : Nat)
+    (bs : Array UInt8) (hb : Space.get h ref = some bs) (len : UInt64) (hlen : off + len.toNat ≤ bs.size) :
+    C.run (crc32_z crc (.ref ref off) len) h =
       .ok (((ZlibF.Spec.crc32Update crc.toUInt32 ((bs.toList.drop off).take len.toNat))).toUInt64, h) := by
-  have := crc32_z_ok h hs crc blk off bs hb len hlen
+  have := crc32_z_ok_view h hs crc ref off bs hb len hlen
   unfold OkOn at this
   unfold C.run
   rw [this, rbFrom_list bs len.toNat _ off hlen]
@@ -2254,18 +2713,32 @@ theorem crc32_z_correct (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : 
       ~~~ rbl (~~~ crc.toUInt32) ((bs.toList.drop off).take len.toNat) := rfl
   rw [e1, not32_toUInt64]
 
+/-- **crc32_z, correctness.** Specialisation of `crc32_z_correct_view` to heap byte blocks. -/
+theorem crc32_z_correct (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : Nat) (bs : Array UInt8)
+    (hb : h.bytes blk = some bs) (len : UInt64) (hlen : off + len.toNat ≤ bs.size) :
+    C.run (crc32_z crc (.ref (.blk blk) off) len) h =
+      .ok (((ZlibF.Spec.crc32Update crc.toUInt32 ((bs.toList.drop off).take len.toNat))).toUInt64, h) :=
+  crc32_z_correct_view h hs crc (.blk blk) off bs hb len hlen
+
 /-- **crc32, `buf == NULL`.** Returns `0` for every `crc` and `len`; heap unchanged. -/
 theorem crc32_null (h : Heap) (crc : UInt64) (len : UInt32) :
     C.run (crc32 crc .null len) h = .ok (0, h) := crc32_z_null h crc len.toUInt64
+
+/-- **crc32, correctness over any byte view.** As `crc32_z_correct_view` with `len : uInt` (32 bits). -/
+theorem crc32_correct_view (h : Heap) (hs : StaticsOK h) (crc : UInt64) (ref : BRef) (off : Nat)
+    (bs : Array UInt8) (hb : Space.get h ref = some bs) (len : UInt32) (hlen : off + len.toNat ≤ bs.size) :
+    C.run (crc32 crc (.ref ref off) len) h =
+      .ok (((ZlibF.Spec.crc32Update crc.toUInt32 ((bs.toList.drop off).take len.toNat))).toUInt64, h) := by
+  have := crc32_z_correct_view h hs crc ref off bs hb len.toUInt64 (by rwa [UInt32.toNat_toUInt64])
+  rw [UInt32.toNat_toUInt64] at this
+  exact this
 
 /-- **crc32, correctness.** As `crc32_z_correct` with `len : uInt` (32 bits). -/
 theorem crc32_correct (h : Heap) (hs : StaticsOK h) (crc : UInt64) (blk off : Nat) (bs : Array UInt8)
     (hb : h.bytes blk = some bs) (len : UInt32) (hlen : off + len.toNat ≤ bs.size) :
     C.run (crc32 crc (.ref (.blk blk) off) len) h =
-      .ok (((ZlibF.Spec.crc32Update crc.toUInt32 ((bs.toList.drop off).take len.toNat))).toUInt64, h) := by
-  have := crc32_z_correct h hs crc blk off bs hb len.toUInt64 (by rwa [UInt32.toNat_toUInt64])
-  rw [UInt32.toNat_toUInt64] at this
-  exact this
+      .ok (((ZlibF.Spec.crc32Update crc.toUInt32 ((bs.toList.drop off).take len.toNat))).toUInt64, h) :=
+  crc32_correct_view h hs crc (.blk blk) off bs hb len hlen
 
 /-! ### `get_crc_table` -/
 
@@ -2318,32 +2791,30 @@ theorem idx1_ok {α : Type} [Inhabited α] (h : Heap) (t : Array α) (i : Nat) (
 
 /-- **crc_word_big, safety.** The big-endian word step (dead on the little-endian target, translated for
 completeness) does not fault for any `data`; heap unchanged. Its correctness is not proved. -/
-theorem crc_word_big_safe (h : Heap) (data : UInt64) :
+theorem crc_word_big_safe (h : Heap) (data : UInt32) :
     ∃ r, C.run (crc_word_big data) h = .ok (r, h) := by
   have key : ∃ y, OkOn h (crc_word_big data) y ∧ True := by
     unfold crc_word_big
-    refine OkOn.bind_ex (R := fun _ : UInt64 × Int32 => True) ?_ (fun x _ => ⟨x.1, OkOn.pure _ _, trivial⟩)
-    refine cwhile_ok (fun cnt s => ∃ i, i + cnt = 8 ∧ s.2 = Int32.ofNat i) (fun _ => True) ?_ ?_ (k := 8)
-      (s := (data, (0 : Int32))) ⟨0, rfl, rfl⟩ (by show 8 < 2 ^ 64; omega)
+    refine OkOn.bind_ex (R := fun _ : UInt32 × Int32 => True) ?_ (fun x _ => ⟨x.1, OkOn.pure _ _, trivial⟩)
+    refine cwhile_ok (fun cnt s => ∃ i, i + cnt = 4 ∧ s.2 = Int32.ofNat i) (fun _ => True) ?_ ?_ (k := 4)
+      (s := (data, (0 : Int32))) ⟨0, rfl, rfl⟩ (by show 4 < 2 ^ 64; omega)
     · intro cnt s hP
       obtain ⟨d, k⟩ := s
       obtain ⟨i, hi, hk⟩ := hP
       simp only at hk
       subst hk
-      have hc : (Int32.ofNat i < (8 : Int32)) = true := by
-        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-          rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+      have hc : (Int32.ofNat i < (4 : Int32)) = true := by
+        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3) with rfl | rfl | rfl | rfl <;> decide
       have hk : Int32.ofNat i + 1 = Int32.ofNat (i + 1) := by
-        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
-          rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-      have ht := idx1_ok h Crc32H.crc_big_table ((d >>> 56) &&& 0xff).toNat (by
-        rw [crc_big_table_size]; exact and255_lt _)
-      refine ⟨(d, Int32.ofNat i), ((d <<< 8) ^^^ Crc32H.crc_big_table[((d >>> 56) &&& 0xff).toNat]!, Int32.ofNat (i + 1)),
+        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3) with rfl | rfl | rfl | rfl <;> decide
+      have ht := idx1_ok h Crc32H.crc_big_table ((d >>> 24) &&& 0xff).toNat (by
+        rw [crc_big_table_size]; exact and255_lt32 _)
+      refine ⟨(d, Int32.ofNat i), ((d <<< 8) ^^^ Crc32H.crc_big_table[((d >>> 24) &&& 0xff).toNat]!, Int32.ofNat (i + 1)),
         ?_, ?_, ⟨i + 1, by omega, rfl⟩⟩
       · show OkOn h (pure _) _
         simp only [W, hc]
         exact OkOn.pure _ _
-      · show OkOn h (do let t ← idx1 Crc32H.crc_big_table (((d >>> 56) &&& 0xff).toNat); pure ((d <<< 8) ^^^ t, Int32.ofNat i + 1)) _
+      · show OkOn h (do let t ← idx1 Crc32H.crc_big_table (((d >>> 24) &&& 0xff).toNat); pure ((d <<< 8) ^^^ t, Int32.ofNat i + 1)) _
         rw [hk]
         exact OkOn.bind ht (OkOn.pure _ _)
     · intro s hP
@@ -2351,10 +2822,10 @@ theorem crc_word_big_safe (h : Heap) (data : UInt64) :
       obtain ⟨i, hi, hk⟩ := hP
       simp only at hk
       subst hk
-      have : i = 8 := by omega
+      have : i = 4 := by omega
       subst this
-      have hc : (Int32.ofNat 8 < (8 : Int32)) = false := by decide
-      refine ⟨(d, Int32.ofNat 8), ?_, trivial⟩
+      have hc : (Int32.ofNat 4 < (4 : Int32)) = false := by decide
+      refine ⟨(d, Int32.ofNat 4), ?_, trivial⟩
       show OkOn h (pure _) _
       simp only [W, hc]
       exact OkOn.pure _ _
@@ -2372,8 +2843,11 @@ a fresh block; the hypotheses of the theorems hold there and the translated func
 /-- the empty heap with the static tables of `crc32.h` -/
 def h0 : Heap := { Heap.empty with static := Zlib.Crc32.initStatics Heap.empty.static }
 
-/-- 100 bytes, enough for the braided path at an unaligned offset -/
+/-- 100 bytes, enough for `crc32_braid` (`11 <= len < 320`) at an unaligned offset -/
 def buf100 : Array UInt8 := (Array.range 100).map (fun i => UInt8.ofNat (i * 7 + 3))
+
+/-- 340 bytes, enough for the 5-braid loop (`len >= 320`) at an unaligned offset -/
+def buf340 : Array UInt8 := (Array.range 340).map (fun i => UInt8.ofNat (i * 7 + 3))
 
 example : StaticsOK h0 := ⟨rfl, rfl⟩
 
@@ -2382,12 +2856,17 @@ example : ∃ p h1, C.allocBytes buf100 h0 = .ok (p, h1) ∧ p = .ref (.blk 0) 0
     h1.bytes 0 = some buf100 ∧ 3 + (90 : UInt64).toNat ≤ buf100.size :=
   ⟨_, _, rfl, rfl, ⟨rfl, rfl⟩, rfl, by decide +kernel⟩
 
-/-- `crc32_z_correct` on a concrete heap: 90 bytes from the unaligned offset 3 (alignment loop, braided loop,
-tails), value as in the specification. -/
+/-- `crc32_z_correct` on a concrete heap: 90 bytes (`crc32_braid`, 2-braid) from unaligned offset 3. -/
 example : ∃ p h1, C.allocBytes buf100 h0 = .ok (p, h1) ∧
     C.run (crc32_z 0 (.ref (.blk 0) 3) 90) h1 =
       .ok ((ZlibF.Spec.crc32Update 0 ((buf100.toList.drop 3).take 90)).toUInt64, h1) :=
   ⟨_, _, rfl, crc32_z_correct _ ⟨rfl, rfl⟩ 0 0 3 buf100 rfl 90 (by decide +kernel)⟩
+
+/-- `crc32_z_correct` on a concrete heap: 330 bytes (`N = 5` braid) from unaligned offset 3. -/
+example : ∃ p h1, C.allocBytes buf340 h0 = .ok (p, h1) ∧
+    C.run (crc32_z 0 (.ref (.blk 0) 3) 330) h1 =
+      .ok ((ZlibF.Spec.crc32Update 0 ((buf340.toList.drop 3).take 330)).toUInt64, h1) :=
+  ⟨_, _, rfl, crc32_z_correct _ ⟨rfl, rfl⟩ 0 0 3 buf340 rfl 330 (by decide +kernel)⟩
 
 /-- the heap after `allocBytes arr` on `h0` -/
 def heapOf (arr : Array UInt8) : Heap := match C.allocBytes arr h0 with | .ok (_, h1) => h1 | .error _ => h0
@@ -2395,8 +2874,7 @@ def heapOf (arr : Array UInt8) : Heap := match C.allocBytes arr h0 with | .ok (_
 /-- the value of a run, `0` on a fault -/
 def valOf (r : Except Fault (UInt64 × Heap)) : UInt64 := match r with | .ok (v, _) => v | .error _ => 0
 
-/-- the value computed by running the translation on the 90 bytes from offset 3 equals the specification (an
-independent check of the theorem on this instance) -/
+/-- the value computed by running the translation on the 90 bytes from offset 3 equals the specification -/
 example : valOf (C.run (crc32_z 0 (.ref (.blk 0) 3) 90) (heapOf buf100)) =
     (ZlibF.Spec.crc32Update 0 ((buf100.toList.drop 3).take 90)).toUInt64 := by decide +kernel
 

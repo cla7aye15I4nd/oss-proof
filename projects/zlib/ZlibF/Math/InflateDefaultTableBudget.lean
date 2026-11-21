@@ -38,9 +38,9 @@ theorem complete_min_le_requested {ls : List Nat} {requested : Nat}
   rw [total] at strict
   omega
 
-/-- Root nine never increases for a complete alphabet with at most 286 codes. -/
+/-- Root ten never increases for a complete alphabet with at most 286 codes. -/
 theorem lens_root_not_increased {ls : List Nat}
-    (complete : K ls (nz ls) = 2 ^ 15) (count : nz ls ≤ 286) : L ls 0 ≤ 9 :=
+    (complete : K ls (nz ls) = 2 ^ 15) (count : nz ls ≤ 286) : L ls 0 ≤ 10 :=
   complete_min_le_requested complete (by omega) (by omega)
 
 /-- If all lengths fit in the requested root, only the root table exists. -/
@@ -272,61 +272,7 @@ theorem kraft_suffix_length_bound (ls : List Nat) (a b lower : Nat)
     rw [K_succ, show b + 1 - a = (b - a) + 1 by omega, Nat.succ_mul]
     omega
 
-/-- A complete LENS alphabet with at most 286 used symbols has at least
-two codes in the root table; a single short leaf cannot supply enough mass. -/
-theorem lens_at_least_two_short {ls : List Nat}
-    (positive : 0 < nz ls) (complete : K ls (nz ls) = 2 ^ 15)
-    (count : nz ls ≤ 286) : 2 ≤ offL ls 10 := by
-  by_cases two : 2 ≤ offL ls 10
-  · exact two
-  apply False.elim
-  have firstLength := (L_interval ls positive).1
-  have firstPower : 2 ^ (15 - L ls 0) ≤ 2 ^ 14 :=
-    Nat.pow_le_pow_right (by omega) (by omega)
-  have first : K ls 1 ≤ 2 ^ 14 := by
-    simpa [K_succ, K_zero] using firstPower
-  have remaining : ∀ i, 1 ≤ i → i < nz ls → 10 ≤ L ls i := by
-    intro i after inside
-    have classify := lt_offL_iff ls inside (l := 9)
-    change i < offL ls 10 ↔ L ls i ≤ 9 at classify
-    omega
-  have tail := kraft_suffix_length_bound ls 1 (nz ls) 10 (by omega) remaining
-  rw [complete] at tail
-  simp only [Nat.reducePow, Nat.reduceSub] at first tail
-  omega
-
-/-- Combining the canonical-forest overhead, two short LENS leaves and
-parity gives precisely the default ENOUGH_LENS value. -/
-theorem lens_default_capacity_from_forest (groups : List (Nat × Nat × List Nat))
-    (bounds : ∀ g ∈ groups, 1 ≤ g.1 ∧ g.1 ≤ g.2.1 ∧ g.2.1 ≤ 6)
-    (ordered : groups.Pairwise (fun g h => g.2.1 ≤ h.1))
-    (levels : ∀ g ∈ groups, g.2.2.length = g.2.1 - g.1 + 1)
-    (complete : ∀ g ∈ groups, CompleteFrontier (2 ^ g.1) g.2.2)
-    (longCount : (groups.map fun g => g.2.2.sum).sum ≤ 284) :
-    512 + (groups.map fun g => 2 ^ g.2.1).sum ≤ 852 := by
-  have overhead := complete_lens_forest_budget groups bounds ordered levels complete
-  have sumEven : ∀ xs : List (Nat × Nat × List Nat),
-      (∀ g ∈ xs, 1 ≤ g.2.1) → 2 ∣ (xs.map fun g => 2 ^ g.2.1).sum := by
-    intro xs
-    induction xs with
-    | nil => intro _; exact Nat.dvd_zero 2
-    | cons g gs ih =>
-      intro positive
-      simp only [List.map_cons, List.sum_cons]
-      apply Nat.dvd_add
-      · exact Nat.dvd_trans (show 2 ∣ 2 ^ 1 by decide)
-          (Nat.pow_dvd_pow 2 (positive g (by simp)))
-      · exact ih (by intro h mem; exact positive h (by simp [mem]))
-  have parity := sumEven groups (by
-    intro g mem
-    have interval := bounds g mem
-    omega)
-  obtain ⟨half, even⟩ := parity
-  omega
-
 #print axioms kraft_suffix_length_bound
-#print axioms lens_at_least_two_short
-#print axioms lens_default_capacity_from_forest
 
 
 /-- The actual descriptor budget is exactly the root allocation plus the
@@ -352,16 +298,16 @@ for the complete default LENS alphabet. -/
 theorem lens_root_clamp_eq {ls : List Nat}
     (positive : 0 < nz ls) (complete : K ls (nz ls) = 2 ^ 15)
     (count : nz ls ≤ 286) :
-    max (L ls 0) (min 9 (L ls (nz ls - 1))) = min 9 (L ls (nz ls - 1)) := by
+    max (L ls 0) (min 10 (L ls (nz ls - 1))) = min 10 (L ls (nz ls - 1)) := by
   have shortest := lens_root_not_increased complete count
   have last := L_mono ls (show 0 ≤ nz ls - 1 by omega) (show nz ls - 1 < nz ls by omega)
   omega
 
-/-- Long-table cases use exactly root nine after the real min/max clamp. -/
+/-- Long-table cases use exactly root ten after the real min/max clamp. -/
 theorem lens_root_clamp_long {ls : List Nat}
     (positive : 0 < nz ls) (complete : K ls (nz ls) = 2 ^ 15)
-    (count : nz ls ≤ 286) (long : 9 < L ls (nz ls - 1)) :
-    max (L ls 0) (min 9 (L ls (nz ls - 1))) = 9 := by
+    (count : nz ls ≤ 286) (long : 10 < L ls (nz ls - 1)) :
+    max (L ls 0) (min 10 (L ls (nz ls - 1))) = 10 := by
   rw [lens_root_clamp_eq positive complete count]
   omega
 
@@ -865,194 +811,233 @@ theorem desc_used_even {ls : List Nat} {root mx i : Nat}
     · rw [desc_succ_of_not ls root mx i start]
       exact previous
 
-/-- Exact ENOUGH_LENS bound for the real descriptor, for complete codes
-using the default nine-bit root. There is no capacity precondition. -/
-theorem lens_desc_used_le_852 {ls : List Nat} {mx : Nat}
-    (code : CompleteCode ls 9 mx) (count : nz ls ≤ 286) :
-    (desc ls 9 mx (nz ls - 1)).used ≤ 852 := by
+/-- For any strict prefix of a complete canonical code (up to length 15), the remaining Kraft
+mass is at least a unit at depth `k`. -/
+theorem kraft_remaining_ge_pow (ls : List Nat) (k : Nat)
+    (complete : K ls (nz ls) = 2 ^ 15) (strict : k < nz ls) (le15 : k ≤ 15) :
+    K ls k + 2 ^ (15 - k) ≤ 2 ^ 15 := by
+  induction k with
+  | zero => simp [K_zero]
+  | succ k ih =>
+    have hk : k < nz ls := by omega
+    have prev := ih hk (by omega)
+    by_cases hlong : k + 1 < L ls k
+    · have hpow : 2 ^ (15 - L ls k) ≤ 2 ^ (15 - (k + 1)) :=
+        Nat.pow_le_pow_right (by omega) (by omega)
+      have hhalf : 2 ^ (15 - k) = 2 * 2 ^ (15 - (k + 1)) := by
+        rw [show 15 - k = (15 - (k + 1)) + 1 by omega, Nat.pow_succ]
+        omega
+      rw [K_succ]
+      omega
+    · have hdvd : ∀ j, j ≤ k + 1 → 2 ^ (15 - (k + 1)) ∣ K ls j := by
+        intro j hj
+        induction j with
+        | zero => simp [K_zero]
+        | succ j ihj =>
+          have hj_le : j ≤ k := by omega
+          have hord := L_mono ls hj_le hk
+          have hterm : 2 ^ (15 - (k + 1)) ∣ 2 ^ (15 - L ls j) :=
+            Nat.pow_dvd_pow 2 (by omega)
+          rw [K_succ]
+          exact Nat.dvd_add (ihj (by omega)) hterm
+      obtain ⟨q, hq⟩ := hdvd (k + 1) (Nat.le_refl _)
+      obtain ⟨m, hm⟩ := Nat.pow_dvd_pow 2 (by omega : 15 - (k + 1) ≤ 15)
+      have hlt : K ls (k + 1) < 2 ^ 15 := by
+        have hs := K_strict ls strict
+        rw [complete] at hs
+        exact hs
+      rw [hq, hm] at hlt ⊢
+      have hqlt : q < m := Nat.lt_of_mul_lt_mul_left hlt
+      have hmul : 2 ^ (15 - (k + 1)) * (q + 1) ≤ 2 ^ (15 - (k + 1)) * m :=
+        Nat.mul_le_mul_left _ (by omega)
+      rw [Nat.mul_succ] at hmul
+      exact hmul
+
+/-- Exact `ENOUGH_LENS` bound for the real descriptor, for complete codes
+using the default ten-bit root. There is no capacity precondition. -/
+theorem lens_desc_used_le_1332 {ls : List Nat} {mx : Nat}
+    (code : CompleteCode ls 10 mx) (count : nz ls ≤ 286) :
+    (desc ls 10 mx (nz ls - 1)).used ≤ 1332 := by
   have lastInside : nz ls - 1 < nz ls := by have := code.pos; omega
-  by_cases short : L ls (nz ls - 1) ≤ 9
+  by_cases short : L ls (nz ls - 1) ≤ 10
   · rw [desc_short ls lastInside short]
     simp only [desc]
     decide
-  let first := offL ls 10
-  have enoughShort := lens_at_least_two_short code.pos code.complete count
+  let first := offL ls 11
+  have maxLong : 10 < mx := by rw [code.mx_eq]; omega
+  have atLeastThree : 3 ≤ nz ls := by
+    by_cases many : 3 ≤ nz ls
+    · exact many
+    have bound := kraft_remaining_ge_pow ls (nz ls - 1) code.complete (by have := code.pos; omega) (by omega)
+    have lastPower : 2 ^ (15 - L ls (nz ls - 1)) ≤ 2 ^ 4 :=
+      Nat.pow_le_pow_right (by omega) (by have := code.mx_eq; omega)
+    have step : K ls (nz ls) = K ls (nz ls - 1) + 2 ^ (15 - L ls (nz ls - 1)) := by
+      simpa [show nz ls - 1 + 1 = nz ls by have := code.pos; omega] using K_succ ls (nz ls - 1)
+    have minRem : 2 ^ 13 ≤ 2 ^ (15 - (nz ls - 1)) :=
+      Nat.pow_le_pow_right (by omega) (by omega)
+    rw [code.complete] at step
+    simp only [Nat.reducePow] at bound lastPower minRem
+    omega
+  have twoBound := kraft_remaining_ge_pow ls 2 code.complete (by omega) (by omega)
+  have enoughShort : 3 ≤ offL ls 11 := by
+    by_cases enough : 3 ≤ offL ls 11
+    · exact enough
+    have remaining : ∀ i, 2 ≤ i → i < nz ls → 11 ≤ L ls i := by
+      intro i after inside
+      have classify := lt_offL_iff ls inside (l := 10)
+      change i < offL ls 11 ↔ L ls i ≤ 10 at classify
+      omega
+    have tail := kraft_suffix_length_bound ls 2 (nz ls) 11 (by omega) remaining
+    rw [code.complete] at tail
+    simp only [Nat.reducePow, Nat.reduceSub] at twoBound tail
+    omega
   have firstInside : first < nz ls := by
-    have classify := lt_offL_iff ls lastInside (l := 9)
-    change nz ls - 1 < first ↔ L ls (nz ls - 1) ≤ 9 at classify
+    have classify := lt_offL_iff ls lastInside (l := 10)
+    change nz ls - 1 < first ↔ L ls (nz ls - 1) ≤ 10 at classify
     omega
   have positive : 1 ≤ first := by dsimp only [first]; omega
   have beforeInside : first - 1 < nz ls := by omega
-  have previousShort : L ls (first - 1) ≤ 9 := by
-    apply (lt_offL_iff ls beforeInside (l := 9)).mp
+  have previousShort : L ls (first - 1) ≤ 10 := by
+    apply (lt_offL_iff ls beforeInside (l := 10)).mp
     change first - 1 < first
     omega
-  have firstLong : 9 < L ls first := by
-    have classify := lt_offL_iff ls firstInside (l := 9)
-    change first < first ↔ L ls first ≤ 9 at classify
+  have firstLong : 10 < L ls first := by
+    have classify := lt_offL_iff ls firstInside (l := 10)
+    change first < first ↔ L ls first ≤ 10 at classify
     omega
-  have start : startsAt ls 9 (first - 1) := by
+  have start : startsAt ls 10 (first - 1) := by
     unfold startsAt
     rw [show first - 1 + 1 = first by omega]
     exact ⟨firstLong, Or.inl previousShort⟩
   have tail := desc_long_tail_amortized code positive firstInside start
   rw [desc_short ls beforeInside previousShort] at tail
   simp only [desc, Nat.reducePow] at tail
-  have smallDepth : L ls first - 9 ≤ mx - 9 := by
-    have := code.L_le_mx firstInside
-    omega
-  have six : mx - 9 ≤ 6 := by have := code.mx_le; omega
-  have rootPotential := power_linear_growth six
-  have firstPotential := power_linear_growth (show 1 ≤ L ls first - 9 by omega)
+  have five : mx - 10 ≤ 5 := by have := code.mx_le; omega
+  have rootPotential := power_linear_growth five
+  have firstPotential := power_linear_growth (show 1 ≤ L ls first - 10 by omega)
   simp only [Nat.reducePow] at rootPotential firstPotential
-  have shortCount : 2 ≤ first := enoughShort
-  have rough : (desc ls 9 mx (nz ls - 1)).used ≤ 853 := by omega
+  have shortCount : 3 ≤ first := enoughShort
+  have rough : (desc ls 10 mx (nz ls - 1)).used ≤ 1333 := by omega
   obtain ⟨half, even⟩ := desc_used_even code lastInside
   omega
 
 /-- The actual min/max clamp is included: short complete alphabets use
-only their smaller root table; long ones satisfy the nine-bit bound. -/
+only their smaller root table; long ones satisfy the ten-bit bound. -/
 theorem lens_default_desc_budget {ls : List Nat} {root mx : Nat}
     (code : CompleteCode ls root mx) (count : nz ls ≤ 286)
-    (clamped : root = max (L ls 0) (min 9 mx)) :
-    (desc ls root mx (nz ls - 1)).used ≤ 852 := by
+    (clamped : root = max (L ls 0) (min 10 mx)) :
+    (desc ls root mx (nz ls - 1)).used ≤ 1332 := by
   have firstLength := code.L_le_mx (show 0 < nz ls from code.pos)
-  by_cases short : mx ≤ 9
+  by_cases short : mx ≤ 10
   · have same : root = mx := by omega
     have single := desc_requested_short code (show nz ls - 1 < nz ls by have := code.pos; omega)
       (show mx ≤ root by omega)
     rw [single]
-    have power := Nat.pow_le_pow_right (n := 2) (by omega) (show root ≤ 9 by omega)
-    have small : 2 ^ 9 ≤ 852 := by decide
+    have power := Nat.pow_le_pow_right (n := 2) (by omega) (show root ≤ 10 by omega)
+    have small : 2 ^ 10 ≤ 1332 := by decide
     omega
   · have shortest := lens_root_not_increased code.complete count
-    have same : root = 9 := by omega
+    have same : root = 10 := by omega
     rw [same] at code ⊢
-    exact lens_desc_used_le_852 code count
+    exact lens_desc_used_le_1332 code count
 
 #print axioms desc_used_even
-#print axioms lens_desc_used_le_852
+#print axioms kraft_remaining_ge_pow
+#print axioms lens_desc_used_le_1332
 #print axioms lens_default_desc_budget
 
-
 /-- A complete distance alphabet that needs secondary tables has at least
-three short codes when it contains at most 30 used symbols. -/
-theorem dist_at_least_three_short {ls : List Nat} {mx : Nat}
-    (code : CompleteCode ls 6 mx) (count : nz ls ≤ 30) (long : 6 < mx) :
-    3 ≤ offL ls 7 := by
-  have lastInside : nz ls - 1 < nz ls := by have := code.pos; omega
-  have lastLong : 6 < L ls (nz ls - 1) := by rw [← code.mx_eq]; exact long
-  have firstLength := (L_interval ls code.pos).1
-  have firstPower : 2 ^ (15 - L ls 0) ≤ 2 ^ 14 :=
-    Nat.pow_le_pow_right (by omega) (by omega)
-  have firstMass : K ls 1 ≤ 16384 := by simpa [K_succ, K_zero] using firstPower
-  have atLeastThree : 3 ≤ nz ls := by
-    by_cases many : 3 ≤ nz ls
+five short codes when it contains at most 30 used symbols. -/
+theorem dist_at_least_five_short {ls : List Nat} {mx : Nat}
+    (code : CompleteCode ls 8 mx) (count : nz ls ≤ 30) (long : 8 < mx) :
+    5 ≤ offL ls 9 := by
+  have atLeastFive : 5 ≤ nz ls := by
+    by_cases many : 5 ≤ nz ls
     · exact many
-    have cases : nz ls = 1 ∨ nz ls = 2 := by have := code.pos; omega
-    have complete := code.complete
-    rcases cases with one | two
-    · have oneLong : 6 < L ls 0 := by simpa [one] using lastLong
-      have power : 2 ^ (15 - L ls 0) ≤ 2 ^ 8 := Nat.pow_le_pow_right (by omega) (by omega)
-      rw [one, K_succ, K_zero] at complete
-      simp only [Nat.zero_add, Nat.reducePow] at complete power
-      omega
-    · have secondLong : 6 < L ls 1 := by simpa [two] using lastLong
-      have power : 2 ^ (15 - L ls 1) ≤ 2 ^ 8 := Nat.pow_le_pow_right (by omega) (by omega)
-      rw [two, K_succ] at complete
-      simp only [Nat.reducePow] at complete power
-      omega
-  have secondInside : 1 < nz ls := by omega
-  have secondPositive := (L_interval ls secondInside).1
-  have ordered := L_mono ls (show 0 ≤ 1 by omega) secondInside
-  have secondTwo : 2 ≤ L ls 1 := by
-    by_cases wide : 2 ≤ L ls 1
-    · exact wide
-    have one : L ls 1 = 1 := by omega
-    have firstOne : L ls 0 = 1 := by omega
-    have full : K ls 2 = 2 ^ 15 := by simp [K_succ, K_zero, one, firstOne]
-    have after := K_strict ls (show 2 < nz ls by omega)
-    rw [full, code.complete] at after
+    have bound := kraft_remaining_ge_pow ls (nz ls - 1) code.complete (by have := code.pos; omega) (by omega)
+    have lastPower : 2 ^ (15 - L ls (nz ls - 1)) ≤ 2 ^ 6 :=
+      Nat.pow_le_pow_right (by omega) (by have := code.mx_eq; omega)
+    have step : K ls (nz ls) = K ls (nz ls - 1) + 2 ^ (15 - L ls (nz ls - 1)) := by
+      simpa [show nz ls - 1 + 1 = nz ls by have := code.pos; omega] using K_succ ls (nz ls - 1)
+    have minRem : 2 ^ 11 ≤ 2 ^ (15 - (nz ls - 1)) :=
+      Nat.pow_le_pow_right (by omega) (by omega)
+    rw [code.complete] at step
+    simp only [Nat.reducePow] at bound lastPower minRem
     omega
-  have secondPower : 2 ^ (15 - L ls 1) ≤ 2 ^ 13 :=
-    Nat.pow_le_pow_right (by omega) (by omega)
-  have twoMass : K ls 2 ≤ 24576 := by
-    rw [K_succ]
-    simp only [Nat.reducePow] at secondPower
-    omega
-  by_cases enough : 3 ≤ offL ls 7
+  have fourBound := kraft_remaining_ge_pow ls 4 code.complete (by omega) (by omega)
+  by_cases enough : 5 ≤ offL ls 9
   · exact enough
-  have remaining : ∀ i, 2 ≤ i → i < nz ls → 7 ≤ L ls i := by
+  have remaining : ∀ i, 4 ≤ i → i < nz ls → 9 ≤ L ls i := by
     intro i after inside
-    have classify := lt_offL_iff ls inside (l := 6)
-    change i < offL ls 7 ↔ L ls i ≤ 6 at classify
+    have classify := lt_offL_iff ls inside (l := 8)
+    change i < offL ls 9 ↔ L ls i ≤ 8 at classify
     omega
-  have tail := kraft_suffix_length_bound ls 2 (nz ls) 7 (by omega) remaining
+  have tail := kraft_suffix_length_bound ls 4 (nz ls) 9 (by omega) remaining
   rw [code.complete] at tail
-  simp only [Nat.reducePow, Nat.reduceSub] at tail
+  simp only [Nat.reducePow, Nat.reduceSub] at fourBound tail
   omega
 
-/-- Real default six-bit distance descriptors use at most 592 slots. -/
-theorem dist_desc_used_le_592 {ls : List Nat} {mx : Nat}
-    (code : CompleteCode ls 6 mx) (count : nz ls ≤ 30) :
-    (desc ls 6 mx (nz ls - 1)).used ≤ 592 := by
+/-- Real default eight-bit distance descriptors use at most 400 slots. -/
+theorem dist_desc_used_le_400 {ls : List Nat} {mx : Nat}
+    (code : CompleteCode ls 8 mx) (count : nz ls ≤ 30) :
+    (desc ls 8 mx (nz ls - 1)).used ≤ 400 := by
   have lastInside : nz ls - 1 < nz ls := by have := code.pos; omega
-  by_cases short : L ls (nz ls - 1) ≤ 6
+  by_cases short : L ls (nz ls - 1) ≤ 8
   · rw [desc_short ls lastInside short]
     simp only [desc]
     decide
-  let first := offL ls 7
-  have maxLong : 6 < mx := by rw [code.mx_eq]; omega
-  have enoughShort := dist_at_least_three_short code count maxLong
+  let first := offL ls 9
+  have maxLong : 8 < mx := by rw [code.mx_eq]; omega
+  have enoughShort := dist_at_least_five_short code count maxLong
   have firstInside : first < nz ls := by
-    have classify := lt_offL_iff ls lastInside (l := 6)
-    change nz ls - 1 < first ↔ L ls (nz ls - 1) ≤ 6 at classify
+    have classify := lt_offL_iff ls lastInside (l := 8)
+    change nz ls - 1 < first ↔ L ls (nz ls - 1) ≤ 8 at classify
     omega
   have positive : 1 ≤ first := by dsimp only [first]; omega
   have beforeInside : first - 1 < nz ls := by omega
-  have previousShort : L ls (first - 1) ≤ 6 := by
-    apply (lt_offL_iff ls beforeInside (l := 6)).mp
+  have previousShort : L ls (first - 1) ≤ 8 := by
+    apply (lt_offL_iff ls beforeInside (l := 8)).mp
     change first - 1 < first
     omega
-  have firstLong : 6 < L ls first := by
-    have classify := lt_offL_iff ls firstInside (l := 6)
-    change first < first ↔ L ls first ≤ 6 at classify
+  have firstLong : 8 < L ls first := by
+    have classify := lt_offL_iff ls firstInside (l := 8)
+    change first < first ↔ L ls first ≤ 8 at classify
     omega
-  have start : startsAt ls 6 (first - 1) := by
+  have start : startsAt ls 8 (first - 1) := by
     unfold startsAt
     rw [show first - 1 + 1 = first by omega]
     exact ⟨firstLong, Or.inl previousShort⟩
   have tail := desc_long_tail_amortized code positive firstInside start
   rw [desc_short ls beforeInside previousShort] at tail
   simp only [desc, Nat.reducePow] at tail
-  have nine : mx - 6 ≤ 9 := by have := code.mx_le; omega
-  have rootPotential := power_linear_growth nine
-  have firstPotential := power_linear_growth (show 1 ≤ L ls first - 6 by omega)
+  have seven : mx - 8 ≤ 7 := by have := code.mx_le; omega
+  have rootPotential := power_linear_growth seven
+  have firstPotential := power_linear_growth (show 1 ≤ L ls first - 8 by omega)
   simp only [Nat.reducePow] at rootPotential firstPotential
-  have shortCount : 3 ≤ first := enoughShort
-  have rough : (desc ls 6 mx (nz ls - 1)).used ≤ 593 := by omega
+  have shortCount : 5 ≤ first := enoughShort
+  have rough : (desc ls 8 mx (nz ls - 1)).used ≤ 401 := by omega
   obtain ⟨half, even⟩ := desc_used_even code lastInside
   omega
 
 /-- The default distance bound includes the real min/max root adjustment. -/
 theorem dist_default_desc_budget {ls : List Nat} {root mx : Nat}
     (code : CompleteCode ls root mx) (count : nz ls ≤ 30)
-    (clamped : root = max (L ls 0) (min 6 mx)) :
-    (desc ls root mx (nz ls - 1)).used ≤ 592 := by
+    (clamped : root = max (L ls 0) (min 8 mx)) :
+    (desc ls root mx (nz ls - 1)).used ≤ 400 := by
   have firstLength := code.L_le_mx (show 0 < nz ls from code.pos)
-  by_cases short : mx ≤ 6
+  by_cases short : mx ≤ 8
   · have same : root = mx := by omega
     have single := desc_requested_short code (show nz ls - 1 < nz ls by have := code.pos; omega)
       (show mx ≤ root by omega)
     rw [single]
-    have power := Nat.pow_le_pow_right (n := 2) (by omega) (show root ≤ 6 by omega)
-    have small : 2 ^ 6 ≤ 592 := by decide
+    have power := Nat.pow_le_pow_right (n := 2) (by omega) (show root ≤ 8 by omega)
+    have small : 2 ^ 8 ≤ 400 := by decide
     omega
   · have shortest := complete_min_le_requested code.complete
-        (show nz ls < 2 ^ 6 by omega) (show 6 ≤ 15 by omega)
-    have same : root = 6 := by omega
+        (show nz ls < 2 ^ 8 by omega) (show 8 ≤ 15 by omega)
+    have same : root = 8 := by omega
     rw [same] at code ⊢
-    exact dist_desc_used_le_592 code count
+    exact dist_desc_used_le_400 code count
 
 /-- Accepted empty and single-symbol alphabets have no repeated descriptor
 allocation; their actual one-bit representation uses two slots. -/
@@ -1062,8 +1047,8 @@ theorem small_alphabet_desc_budget {ls : List Nat} {root mx : Nat}
   rw [show nz ls - 1 = 0 by omega, oneBit]
   rfl
 
-#print axioms dist_at_least_three_short
-#print axioms dist_desc_used_le_592
+#print axioms dist_at_least_five_short
+#print axioms dist_desc_used_le_400
 #print axioms dist_default_desc_budget
 #print axioms small_alphabet_desc_budget
 

@@ -1,4 +1,4 @@
-<!-- source-sha256: 8b05b0336cb4a0a62cb0553b9907c2aaff85ababc50ece28011289dd48e1f6cc -->
+<!-- source-sha256: e26a2ef38d936d0dbbe644c199a52b55114daf497102d891aff854f8f4893a07 -->
 # 快速解码：`inflate_fast` 为什么是安全的
 
 源文件：`zlib/inffast.c`。翻译：`ZlibF/Zlib/inffast.c.lean`。
@@ -23,10 +23,10 @@
 
 - **`inflateBack`。** `fast_env` 证明入口条件。`LEN_fast_p` 从它取得这些条件，并应用 `fast_consumes`。这在 `inflate_back_sequence_safety` 的证明内部。从 `inflateBack` 发出的调用靠它才安全，这个调用者的循环也靠它才终止。
 - **`inflate`，输入和输出位于两个不同的堆块。** `inflate_fast_raw_entry` 在这条前提（`ib ≠ ob`）下证明入口条件，然后对它们应用 `inflate_fast_safe_progress`。
-- **`inflate`，每一种布局。** `inflate_sequence_safety_public` 允许输入和输出是同一个块里的两段。对快速调用，它的证明用的是 `inflate_fast_default_view_buffers_progress`，它是那个证明的一条引理。这条引理对块没有前提。它是对同一个翻译后的函数的第二个证明，针对调用者的区域和解码器不变量陈述；它不使用 `EnvG`。`fast_consumes` 没有用于 `inflate`。见[流式解码](inflate.md#the-fast-path)。
+- **`inflate`，每一种布局。** `inflate_sequence_safety_public` 允许输入和输出是同一个块里的两段。对快速调用，它的证明用的是 `inflate_fast_default_view_buffers_progress`，这是一个薄包装，经由 `fast_view_exec` 从 `inflate_fast_safe_progress_origin` 证明（直接使用 `Env`，因为 `Env.hsep` 同时覆盖不同块以及同一块内互不重叠的两段）。`fast_consumes` 没有用于 `inflate`。见[流式解码](inflate.md#the-fast-path)。
 - **`inflate`，功能结论。** `inflate_fast_entry` 对每一种布局证明入口条件。功能定理 `fast_call_meaning` 用到它；安全结论不用它。
 
-`FastPost` 说的是：流的 `next_in`、`avail_in`、`next_out`、`avail_out` 和 `msg`，以及状态的 `mode`、`hold` 和 `bits` 被写过；输出字节只在本次调用写入的范围内发生变化；`bits < 8` 和 `hold < 2^bits` 重新成立；模式不变，或者变成 `TYPE`（块结束），或者变成 `BAD`。堆里其他东西都没有变，也没有发生分配。
+`FastPost` 说的是：流的 `next_in`、`avail_in`、`next_out`、`avail_out` 和 `msg`，以及状态的 `mode`、`hold` 和 `bits` 被写过；对于 `inflate`（`alias = false`），`next_out` 起 `avail_out` 字节之外的输出字节均未改变（而对于 `inflateBack`，即 `alias = true`，输出字节只在本次调用写入的范围内发生变化）；`bits < 8` 和 `hold < 2^bits` 重新成立；模式不变，或者变成 `TYPE`（块结束），或者变成 `BAD`。堆里其他东西都没有变，也没有发生分配。
 
 关于 `inflate_fast` 也有功能结论，见[功能结论](#functional-results)。
 

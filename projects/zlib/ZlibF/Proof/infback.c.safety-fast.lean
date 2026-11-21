@@ -207,11 +207,17 @@ theorem fast_env (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat}
     hbeg := by change s.wsize.toNat - l.left.toNat ≤ woff + (n - l.left.toNat); omega,
     hsep := hsep'.imp (fun ne same => ne (BRef.blk.inj same))
       (fun ⟨same, apart⟩ => ⟨congrArg BRef.blk same, apart⟩),
-    hbits := short, hhold := I.bits.2, hsane := st.1, hws := wsize32, hwh := st.2.2,
+    hbits := short, hhold := I.bits.2, hsane := st.1,
+    hmode := by change s.mode = LEN; exact mode,
+    halias_win := fun _ => by change s.window ≠ .null; rw [win, hw]; simp,
+    hws := wsize32, hwh := st.2.2,
     hwn := by change s.wnext.toNat ≤ s.wsize.toNat; rw [st.2.1]; exact Nat.zero_le _,
     wb := w, woff := woff, W := wa,
     hwin := fun _ => ⟨by change s.window = _; rw [win, hw],
       fun _ => ⟨st.2.1, by change woff + s.wsize.toNat ≤ woff + (n - l.left.toNat) + l.left.toNat; omega⟩,
+      hA1, by change woff + s.wsize.toNat ≤ wa.size; omega⟩,
+    hwinLive := fun _ => ⟨by change s.window = _; rw [win, hw],
+      ⟨rfl, st.2.1, by change woff + s.wsize.toNat = woff + (n - l.left.toNat) + l.left.toNat; omega⟩,
       hA1, by change woff + s.wsize.toNat ≤ wa.size; omega⟩,
     rl := rl, ol := ol, LCA := LCA, hlc := hlc, hLCA := hLCA, hlt := hlt,
     rd := rd, od := od, DCA := DCA, hdc := hdc, hDCA := hDCA, hdt := hdt }
@@ -287,7 +293,7 @@ theorem LEN_fast_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Na
   have wf1 : s1.WellFormed := wf_with wf s1 (by rw [hs1]) (by rw [hs1]) (by rw [hs1])
   have IB := IA.setState hsA s1 (by rw [hs1]) (by rw [hs1]) (by rw [hs1]) wf1
     (by rw [hs1]; exact I.mode s hs) (by rw [hs1]; exact ⟨rfl, rfl, Or.inl rfl⟩)
-  have IC := IB.storeWindow hw hA hsize (fun j hj => frame j (by omega))
+  have IC := IB.storeWindow hw hA hsize (fun j hj => frame j (by simp; omega))
   have hsC : (winHeap (setI (r.put h z1) i s1) w bytes).istates i = some s1 := by simp [winHeap, setI]
   have tabs2 : TablesOk i s2 := by rw [hs2, hs1]; exact tabs
   have mode2 : ModeOk i s2 := by

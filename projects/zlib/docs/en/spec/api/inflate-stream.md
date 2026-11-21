@@ -13,9 +13,10 @@ For whole-buffer zlib decoding, see [uncompress](utility.md#uncompress2_z).
 | Adjust or branch | [Prime bits](#inflateprime), [validation](#inflatevalidate), [distance option](#inflateundermine), [copy](#inflatecopy) |
 | Release storage | [End](#inflateend) |
 
-The contracts follow the pinned `inflate.c` with patch 0001 applied and `zlib.h`, in the default
-LP64 Linux build, with gzip enabled and without the optional invalid-distance or strict-distance
-modes. Patch 0001 changes `inflateCopy` only ([patches](../../../../patches/README.md)).
+The contracts follow the pinned `inflate.c` (upstream `1.4.0.1-motley`) and `zlib.h`, in the
+default LP64 Linux build, with gzip enabled and without the optional invalid-distance or
+strict-distance modes. None of the remaining [patches](../../../../patches/README.md) modify
+`inflate.c` (`inflateCopy` pointer equality from PR #1369 is merged upstream).
 These are focused contracts: Pre describes ordinary correct use and is deliberately narrower than
 what the function accepts. Cases outside Pre that the C still handles appear under Errors or Edges.
 A call outside Pre is not thereby undefined, and it need not return an error code.
@@ -952,8 +953,8 @@ record onto itself with `zmemcpy(dest, source, sizeof(z_stream))`, which is unde
 and afterwards sets `dest->state` to the new state. **To confirm**: nothing then points to the
 original state.
 With a refused source the C returns `Z_STREAM_ERROR` before the copy, as in any other refusal.
-The unpatched C compares unrelated pointers in this function; patch 0001 replaces
-the comparison ([patches](../../../../patches/README.md)).
+(In zlib 1.4 prior to PR #1369, `inflateCopy` compared unrelated pointers; the pinned `1.4.0.1-motley`
+source already checks pointer equality.)
 
 </details>
 

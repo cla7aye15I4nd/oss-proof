@@ -6,6 +6,9 @@
 #include <string.h>
 #include <errno.h>
 #include "zlib.h"
+#ifndef Z_LARGE64
+ZEXTERN uLong ZEXPORT adler32_combine64(uLong, uLong, z_off64_t);
+#endif
 
 static unsigned long long parse_u(const char *s) {
     char *e; errno = 0;

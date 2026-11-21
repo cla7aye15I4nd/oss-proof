@@ -60,7 +60,7 @@ def runCase (_tab : String) (wsize whave wnext : Nat) (hold : UInt64) (bits avai
         window := win, hold := hold, bits := bits.toUInt32, sane := 1, nlen := nlen.toUInt32,
         ndist := dist.size.toUInt32,
         lens := (lit ++ dist) ++ Array.replicate (320 - nlen - dist.size) 0,
-        work := Array.replicate 288 0, codes := Array.replicate 1444 ⟨0, 0, 0⟩ }
+        work := Array.replicate 288 0, codes := Array.replicate 1732 ⟨0, 0, 0⟩ }
   stInflateState ipt st
   let mut tabfail := false
   if fixed then
@@ -68,17 +68,17 @@ def runCase (_tab : String) (wsize whave wnext : Nat) (hold : UInt64) (bits avai
   else
     let next0 : CodePtr := .ref (.istate_codes id) 0
     let s ← ldInflateState ipt
-    stInflateState ipt { s with next := next0, lencode := next0, lenbits := 9 }
-    let (ret, next1, lb) ← Zlib.Inftrees.inflate_table LENS (.ref (.istate_lens id) 0) nlen.toUInt32 next0 9
+    stInflateState ipt { s with next := next0, lencode := next0, lenbits := 10 }
+    let (ret, next1, lb) ← Zlib.Inftrees.inflate_table LENS (.ref (.istate_lens id) 0) nlen.toUInt32 next0 10
       (.ref (.istate_work id) 0)
     let s ← ldInflateState ipt
     stInflateState ipt { s with next := next1, lenbits := lb }
     if ret != 0 then tabfail := true
     else
       let s ← ldInflateState ipt
-      stInflateState ipt { s with distcode := next1, distbits := 6 }
+      stInflateState ipt { s with distcode := next1, distbits := 8 }
       let (ret, next2, db) ← Zlib.Inftrees.inflate_table DISTS (.ref (.istate_lens id) nlen) dist.size.toUInt32
-        next1 6 (.ref (.istate_work id) 0)
+        next1 8 (.ref (.istate_work id) 0)
       let s ← ldInflateState ipt
       stInflateState ipt { s with next := next2, distbits := db }
       if ret != 0 then tabfail := true

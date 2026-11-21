@@ -85,7 +85,7 @@ theorem copiedGeneric_no_window_inv
     {old nextOff distOff : Nat} {z oldDest : ZStream} {s : InflateState}
     (current : InflateInv h source old z s)
     (destGet : dest.get h = some oldDest)
-    (nextBound : nextOff ≤ 1444) (distBound : distOff ≤ 1443)
+    (nextBound : nextOff ≤ 1732) (distBound : distOff ≤ 1731)
     (dynamicDist : s.lencode = .ref (.istate_codes old) 0 →
       s.distcode = .ref (.istate_codes old) distOff)
     (noWindow : s.window = .null) :
@@ -121,7 +121,7 @@ theorem copiedWindowHeap_inv
     {s : InflateState} (sourceArray : Array UInt8)
     (current : InflateInv h source old z s)
     (destGet : dest.get h = some oldDest)
-    (nextBound : nextOff ≤ 1444) (distBound : distOff ≤ 1443)
+    (nextBound : nextOff ≤ 1732) (distBound : distOff ≤ 1731)
     (dynamicDist : s.lencode = .ref (.istate_codes old) 0 →
       s.distcode = .ref (.istate_codes old) distOff)
     (hasWindow : s.window ≠ .null) :
@@ -216,7 +216,7 @@ theorem inflateCopy_invariant {h after : Heap} {source dest : ZStreamRef} {zs : 
         intro eq
         cases fixed.1.symm.trans eq
       have destination := copiedGeneric_no_window_inv current destGet nextBound
-        (by decide : 0 ≤ 1443) impossible window
+        (by decide : 0 ≤ 1731) impossible window
       exact finish run (by rw [heapEq]; exact destination) (by exact id)
   · rcases current.origin with dynamic | fixed
     · obtain ⟨nextOff, distOff, nextPtr, nextBound, distPtr, distBound, _, _⟩ :=
@@ -236,7 +236,7 @@ theorem inflateCopy_invariant {h after : Heap} {source dest : ZStreamRef} {zs : 
         intro eq
         cases fixed.1.symm.trans eq
       have destination := copiedWindowHeap_inv sourceArray current destGet nextBound
-        (by decide : 0 ≤ 1443) impossible window
+        (by decide : 0 ≤ 1731) impossible window
       exact finish run (by rw [heapEq]; exact destination) (by exact id)
 
 #print axioms inflateCopy_invariant

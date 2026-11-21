@@ -16,14 +16,22 @@ theorem inflate_LEN_exact_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {
       runX (inflate_LEN c) l h = .ok ((outcome, regs), after) ∧
       Good after r zs stream state ∧ regs.left.toNat + made = l.left.toNat ∧
       regs.put = inputAdvance l.put made ∧
-      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made⟩] := by
+      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
   have active : DataTableMode s.mode := by rw [mode]; unfold DataTableMode; decide
   by_cases fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true
   · obtain ⟨regs, after, stream, state, made, run, current, count, put, frame⟩ :=
-      inflate_LEN_fast_exact_frame E invariant buffers active fast
+      inflate_LEN_fast_exact_frame E invariant buffers mode fast
     exact ⟨.ok (), regs, after, stream, state, made, run, current.good, count, put, frame⟩
-  · exact inflate_LEN_slow_exact_frame E invariant.good (invariant.tables active) buffers
-      (by rw [invariant.pending.sane]; decide) fast
+  · obtain ⟨outcome, regs, after, stream, state, made, run, current, count, put, frame⟩ :=
+      inflate_LEN_slow_exact_frame E invariant.good (invariant.tables active) buffers
+        (by rw [invariant.pending.sane]; decide) fast
+    obtain ⟨dest, _array, off, pointer, _get, _write, _⟩ :=
+      callerRange_slow_output invariant.good l buffers.output.range buffers.output.nonnull
+        buffers.output.count buffers.output.produced
+    have wide : BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
+      rw [pointer] at frame ⊢
+      exact BufferFrame.singleton_widen frame (Nat.le_refl off) (by omega)
+    exact ⟨outcome, regs, after, stream, state, made, run, current, count, put, wide⟩
 
 /-- LEN_ establishes the same initialized relation at LEN before entering
 its real slow or fast continuation. No caller-domain restriction is added. -/
@@ -35,7 +43,7 @@ theorem inflate_LEN_start_exact_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStream
       runX (inflate_LEN_ c) l h = .ok ((outcome, regs), after) ∧
       Good after r zs stream state ∧ regs.left.toNat + made = l.left.toNat ∧
       regs.put = inputAdvance l.put made ∧
-      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made⟩] := by
+      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
   let current := { s with mode := LEN }
   let heap := setI h zs current
   have stateFrame : DecodeStateFrame s current := rfl
@@ -75,7 +83,7 @@ theorem inflate_LEN_start_exact_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStream
   refine ⟨outcome, regs, after, stream, state, made, actual, final, count, put, ?_⟩
   rw [pointer] at frame ⊢
   have frame' : BufferFrame (setI (r.put h z) zs current) after
-      (fun b => StreamRoot r b ∨ b = zs) [⟨.ref dest off, made⟩] := by
+      (fun b => StreamRoot r b ∨ b = zs) [⟨.ref dest off, l.left.toNat⟩] := by
     simpa only [ZStreamRef.put_self E.hz] using frame
   exact metadata_then_output_buffer_frame E.hz E.hs get write frame' writable
 

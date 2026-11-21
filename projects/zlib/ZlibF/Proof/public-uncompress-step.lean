@@ -132,7 +132,8 @@ structure SafeState (e : Env) (l : UncLoop) (H : Heap) (log : DataLog) (i : Nat)
   nextIn : z.next_in = advance e.source log.input.length
   outCount : log.output.length + z.avail_out.toNat + l.left.toNat = e.cap
   nextOut : z.next_out = advance e.out0 log.output.length
-  agree : Agree e.h₀.live (writeOut e.h₀ e.out0 log.output) H
+  agree : ∃ written, log.output <+: written ∧ written.length ≤ e.cap ∧
+    Agree e.h₀.live (writeOut e.h₀ e.out0 written) H
   notOwned : ∀ b, e.h₀.live b ∨ b = e.k ∨ b = e.k + 1 → ¬ InflateOwned i s b
   liveOnly : ∀ b, H.live b → e.h₀.live b ∨ b = e.k ∨ b = e.k + 1 ∨ InflateOwned i s b
   reservedBytes : H.bytes (e.k + 1) = some (reservedBytes e.h₀)
@@ -343,11 +344,12 @@ theorem SafeState.refill {e : Env} {l : UncLoop} {H : Heap} {log : DataLog} {i :
         exact st.reservedBytes
       reservedRo := by rw [H1eq]; exact st.reservedRo
       nalloc := by rw [H1eq]; exact st.nalloc }
-  · refine ⟨fun b live => (st.agree.blocks b live).trans (sameOut b (fun e' => k0 (e' ▸ live))), ?_, ?_, ?_, ?_⟩
-    · rw [H1eq]; exact st.agree.static
-    · rw [H1eq]; exact st.agree.allocOk
-    · rw [H1eq]; exact st.agree.garbage
-    · rw [H1eq]; exact st.agree.borrow
+  · obtain ⟨written, hpref, hlen, hag⟩ := st.agree
+    refine ⟨written, hpref, hlen, ⟨fun b live => (hag.blocks b live).trans (sameOut b (fun e' => k0 (e' ▸ live))), ?_, ?_, ?_, ?_⟩⟩
+    · rw [H1eq]; exact hag.static
+    · rw [H1eq]; exact hag.allocOk
+    · rw [H1eq]; exact hag.garbage
+    · rw [H1eq]; exact hag.borrow
   · intro b live
     rw [H1eq, put_tab_live hz] at live
     exact st.liveOnly b live

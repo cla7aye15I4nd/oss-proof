@@ -148,22 +148,85 @@ theorem keep_fast_inflate_fast_body (c : Zlib.Inffast.Ctx) (l : L) : KeepM (Zlib
     | with_reducible exact keep_fast_shl32 _ _
     | keep_m_step
 
+theorem keep_ptr_le {R T : Type} [Space Heap R T] [DecidableEq R] (p q : Ptr R) :
+    KeepM (Ptr.le p q) :=
+  KeepM.bind (keep_ptr_lt q p) (fun b => KeepM.pure (!b))
+
+theorem keep_fast_load64 (p : BPtr) : KeepM (Zlib.Inffast.load64 p) := by
+  unfold Zlib.Inffast.load64
+  keep_m
+
+theorem keep_fast_store64 (out : BPtr) (v : UInt64) : KeepM (Zlib.Inffast.store64 out v) := by
+  unfold Zlib.Inffast.store64
+  keep_m
+
+theorem keep_fast_copy_back (out : BPtr) (dist len : UInt32) :
+    KeepM (Zlib.Inffast.copy_back out dist len) := by
+  unfold Zlib.Inffast.copy_back
+  repeat' first
+    | with_reducible exact keep_fast_subn _ _
+    | with_reducible exact keep_fast_load64 _
+    | with_reducible exact keep_fast_store64 _ _
+    | keep_m_step
+
+theorem keep_fast_refill64 (l : L) : KeepM (Zlib.Inffast.refill64 l) := by
+  unfold Zlib.Inffast.refill64
+  repeat' first
+    | with_reducible exact keep_fast_load64 _
+    | with_reducible exact keep_fast_shl64 _ _
+    | keep_m_step
+
+theorem keep_fast_copyMatch8 (c : Zlib.Inffast.Ctx) (l : L) :
+    KeepM (Zlib.Inffast.copyMatch8 c l) := by
+  unfold Zlib.Inffast.copyMatch8
+  repeat' first
+    | with_reducible exact keep_fast_badData _ _
+    | with_reducible exact keep_fast_copy_back _ _ _
+    | with_reducible exact keep_fast_subn _ _
+    | keep_m_step
+
+theorem keep_fast_dodist8 (c : Zlib.Inffast.Ctx) (l : L) : KeepM (Zlib.Inffast.dodist8 c l) := by
+  unfold Zlib.Inffast.dodist8
+  repeat' first
+    | with_reducible exact keep_fast_copyMatch8 _ _
+    | with_reducible exact keep_fast_badData _ _
+    | with_reducible exact keep_fast_refill64 _
+    | with_reducible exact keep_fast_shr64 _ _
+    | with_reducible exact keep_fast_shl64 _ _
+    | with_reducible exact keep_fast_shl32 _ _
+    | keep_m_step
+
+theorem keep_fast_dolen8 (c : Zlib.Inffast.Ctx) (l : L) : KeepM (Zlib.Inffast.dolen8 c l) := by
+  unfold Zlib.Inffast.dolen8
+  repeat' first
+    | with_reducible exact keep_fast_dodist8 _ _
+    | with_reducible exact keep_fast_badData _ _
+    | with_reducible exact keep_fast_refill64 _
+    | with_reducible exact keep_fast_shr64 _ _
+    | with_reducible exact keep_fast_shl64 _ _
+    | with_reducible exact keep_fast_shl32 _ _
+    | keep_m_step
+
+theorem keep_fast_inflate_fast_body8 (c : Zlib.Inffast.Ctx) (l : L) :
+    KeepM (Zlib.Inffast.inflate_fast_body8 c l) := by
+  unfold Zlib.Inffast.inflate_fast_body8
+  repeat' first
+    | with_reducible exact keep_fast_dolen8 _ _
+    | with_reducible exact keep_fast_refill64 _
+    | with_reducible exact keep_fast_shr64 _ _
+    | with_reducible exact keep_fast_shl32 _ _
+    | keep_m_step
+
+set_option maxHeartbeats 400000 in
 theorem keep_fast_inflate_fast (strm : ZStreamPtr) (start : UInt32) : KeepM (Zlib.Inffast.inflate_fast strm start) := by
   unfold Zlib.Inffast.inflate_fast
   repeat' first
     | with_reducible exact keep_fast_inflate_fast_body _ _
-    | with_reducible exact keep_fast_dolen _ _
-    | with_reducible exact keep_fast_dodist _ _
-    | with_reducible exact keep_fast_copyMatch _ _
-    | with_reducible exact keep_fast_badData _ _
-    | with_reducible exact keep_fast_copyOp _
-    | with_reducible exact keep_fast_copy1 _
-    | with_reducible exact keep_fast_pull _
+    | with_reducible exact keep_fast_inflate_fast_body8 _ _
     | with_reducible exact keep_fast_subn _ _
     | with_reducible exact keep_fast_chk64 _
-    | with_reducible exact keep_fast_shr64 _ _
-    | with_reducible exact keep_fast_shl64 _ _
     | with_reducible exact keep_fast_shl32 _ _
+    | with_reducible exact keep_ptr_le _ _
     | keep_m_step
 
 

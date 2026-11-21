@@ -27,7 +27,7 @@ theorem inflateMark_default_state {h : Heap} {r : ZStreamRef} {zs : Nat}
 retains the full decoder invariant with unchanged storage. -/
 theorem inflateCodesUsed_default_state {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} (invariant : DefaultStateJ h r zs z s) :
-    ∃ offset, offset ≤ 1444 ∧ s.next = .ref (.istate_codes zs) offset ∧
+    ∃ offset, offset ≤ 1732 ∧ s.next = .ref (.istate_codes zs) offset ∧
       C.run (inflateCodesUsed (some r)) h = .ok (UInt64.ofNat offset, h) ∧
       DefaultStateJ h r zs z s := by
   obtain ⟨offset, bounded, pointer, actual⟩ := inflateCodesUsed_spec invariant.good

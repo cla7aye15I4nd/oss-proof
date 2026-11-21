@@ -15,7 +15,7 @@ theorem inflateCopy_fixed_no_window_exec
     (allocation : h.allocOk h.nalloc = true)
     (noWindow : s.window = .null)
     (nextPtr : s.next = .ref (.istate_codes zs) nextOff)
-    (nextBound : nextOff ≤ 1444)
+    (nextBound : nextOff ≤ 1732)
     (fixed : s.lencode = .ref .st_lenfix 0 ∧
       s.distcode = .ref .st_distfix 0) :
     ∃ after,
@@ -86,7 +86,7 @@ theorem inflateCopy_fixed_no_window_exec
   let backState := { s with strm := some dest }
   have backGet : backlinked.istates h.nextBlk = some backState := by
     simp [backlinked, backState]
-  have codeSize : s.codes.size = 1444 := good.inv.wf.2.2
+  have codeSize : s.codes.size = 1732 := good.inv.wf.2.2
   have nextDiff : Ptr.diff (.ref (CodeRef.istate_codes zs) nextOff)
       (.ref (CodeRef.istate_codes zs) 0) backlinked =
         .ok (Int64.ofInt (nextOff : Int), backlinked) :=
@@ -188,7 +188,7 @@ theorem inflateCopy_fixed_no_window_J
       different allocation noWindow nextPtr nextBound fixed
   subst copied
   have nextJ := copiedGeneric_no_window_J invariant destGet
-    (Or.inr fixed) nextBound (by decide : 0 ≤ 1443) (by intro impossible; cases fixed.1.symm.trans impossible) noWindow
+    (Or.inr fixed) nextBound (by decide : 0 ≤ 1731) (by intro impossible; cases fixed.1.symm.trans impossible) noWindow
   refine ⟨after, copiedGeneric dest zs h.nextBlk nextOff 0 .null s,
     run, ?_, sourceGet, sourceState⟩
   rw [heapEq]

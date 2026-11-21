@@ -34,20 +34,20 @@ theorem inflate_dispatch_construction_exact_frame
       runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) ∧
       Good after r zs stream state ∧ regs.left.toNat + made = l.left.toNat ∧
       regs.put = inputAdvance l.put made ∧
-      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made⟩] := by
+      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
   obtain ⟨regs, after, stream, state, used, _bound, nextJ, _config, preFrame,
     packet, _sizes, _cursor, _count, put, left, _total, _bits, _budget, stopped | continued⟩ :=
     inflate_dispatch_construction_record_boundary E invariant buffers mode
   · obtain ⟨outcome, run, _why⟩ := stopped
     refine ⟨outcome, regs, after, stream, state, 0, run, nextJ.good,
       by rw [left]; omega, by rw [inputAdvance_zero]; exact put, ?_⟩
-    simpa only [DecoderRecordRoot] using preFrame.buffer [⟨l.put, 0⟩]
+    simpa only [DecoderRecordRoot] using preFrame.buffer [⟨l.put, l.left.toNat⟩]
   · obtain ⟨nextMode, source⟩ := continued
     by_cases trees : c.flush = Z_TREES
     · rw [ite_eq_left trees] at source
       refine ⟨.error Ex.leave, regs, after, stream, state, 0, source, nextJ.good,
         by rw [left]; omega, by rw [inputAdvance_zero]; exact put, ?_⟩
-      simpa only [DecoderRecordRoot] using preFrame.buffer [⟨l.put, 0⟩]
+      simpa only [DecoderRecordRoot] using preFrame.buffer [⟨l.put, l.left.toNat⟩]
     · rw [ite_eq_right trees] at source
       have nextEnv : Env c after r zs stream state :=
         ⟨E.strm, E.st, nextJ.good.live.hz, nextJ.good.live.hs⟩
@@ -64,7 +64,7 @@ theorem inflate_dispatch_construction_exact_frame
         exact write
       refine ⟨outcome, finalRegs, finalHeap, finalStream, finalState, made, actual, current,
         by rw [left] at leftCount; exact leftCount, by rw [output, put], ?_⟩
-      rw [put, pointer] at frame
+      rw [put, left, pointer] at frame
       rw [pointer]
       exact record_frame_then_output preFrame frame get write writeAfter
 

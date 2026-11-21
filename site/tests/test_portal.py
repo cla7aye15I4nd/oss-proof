@@ -23,7 +23,7 @@ class PortalTests(unittest.TestCase):
         self.assertEqual(summary.proved_functions, 86)
         self.assertEqual(summary.proved_required_goals, summary.required_goals)
         self.assertEqual(summary.findings_count, 8)
-        self.assertEqual(summary.patches_count, 7)
+        self.assertEqual(summary.patches_count, 6)
 
     def test_portal_and_subsite_outputs_exist(self):
         dist = SITE_DIR / "dist"

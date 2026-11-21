@@ -11,13 +11,13 @@ RESTORE, the complete fast call, LOAD and the TYPE back-counter update. -/
 theorem inflate_LEN_fast_exact_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8}
     (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (mode : DataTableMode s.mode)
+    (buffers : DispatchBuffers h r l bs) (mode : s.mode = LEN)
     (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ regs after stream state made,
       runX (inflate_LEN c) l h = .ok ((.ok (), regs), after) ∧
       DefaultStateJ after r zs stream state ∧ regs.left.toNat + made = l.left.toNat ∧
       regs.put = inputAdvance l.put made ∧
-      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made⟩] := by
+      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
   have facts : (6 ≤ l.have_ ∧ 258 ≤ l.left) ∧ l.bits < 8 := by
     simpa only [Bool.and_eq_true, decide_eq_true_eq] using fast
   have bitBound : l.bits.toNat ≤ 39 := by
@@ -48,7 +48,7 @@ theorem inflate_LEN_fast_exact_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStreamR
   have writable : Space.ro finished dest = false := by
     cases dest <;> simp only [Space.ro] at write ⊢
     all_goals first | exact write | (rw [ro, setI_ro, ZStreamRef.put_ro]; exact write) | rfl
-  have fullFrame : BufferFrame h finished (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made⟩] := by
+  have fullFrame : BufferFrame h finished (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
     rw [pointer] at fastFrame ⊢
     exact metadata_then_output_buffer_frame E.hz E.hs get write fastFrame writable
   have count : stream.avail_out.toNat + made = l.left.toNat := accounting.2.2.2.1

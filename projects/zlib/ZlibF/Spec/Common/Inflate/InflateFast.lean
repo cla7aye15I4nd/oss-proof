@@ -51,7 +51,7 @@ def FastPost {α : Bool} (e : Proofs.EnvG α) (after : Heap) : Prop :=
     after = e.r.put
       (Space.put (Zlib.Inflate.Spec.setI e.h0 e.stid { e.s0 with mode, bits, hold }) e.ob bytes)
       { e.sm0 with next_in := .ref e.ib (e.i0 + inputUsed), next_out := .ref e.ob (e.o0 + outputUsed), avail_in := UInt32.ofNat (e.sm0.avail_in.toNat - inputUsed), avail_out := UInt32.ofNat (e.sm0.avail_out.toNat - outputUsed), msg } ∧
-    (∀ index, (index < e.o0 ∨ e.o0 + outputUsed ≤ index) → bytes[index]? = e.A0[index]?) ∧
+    (∀ index, (index < e.o0 ∨ (if α then e.o0 + outputUsed else e.o0 + e.sm0.avail_out.toNat) ≤ index) → bytes[index]? = e.A0[index]?) ∧
     ((mode = e.s0.mode ∧ msg = e.sm0.msg) ∨ (mode = TYPE ∧ msg = e.sm0.msg) ∨ mode = BAD) ∧
     (mode ≠ TYPE → mode ≠ BAD →
       e.sm0.avail_in.toNat - inputUsed < 6 + bufferedBytes ∨

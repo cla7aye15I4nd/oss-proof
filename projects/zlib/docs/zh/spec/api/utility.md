@@ -1,4 +1,4 @@
-<!-- source-sha256: 2a4849694dbb26004b70706b7658902ae18a296001d134035c6cabc56baf6432 -->
+<!-- source-sha256: e6d862e4f3c7976d3c75448024bdf6c09b4f413593874b909f525ab0617b9571 -->
 
 # 缓冲区工具与库信息
 
@@ -420,7 +420,7 @@ int ZEXPORT uncompress2_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z
 - **保证。**
     - *返回。* 调用返回。如果 `sourceLen` 或 `destLen` 为 NULL、`source` 为 NULL 而 `*sourceLen` 非零，或 `dest` 为 NULL 而 `*destLen` 非零，返回值是 `Z_STREAM_ERROR`。否则返回值是 `Z_OK`、`Z_BUF_ERROR`、`Z_DATA_ERROR` 或 `Z_MEM_ERROR`，并且只有在某次分配确实失败之后才返回 `Z_MEM_ERROR`（`AllocationFailed`）。
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
-    - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；`*sourceLen`，写入一个不超过其进入值的计数；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，两个单元都保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
+    - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；`*sourceLen`，写入一个不超过其进入值的计数；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，两个单元都保持进入时的值。其他对象都不变（`StorePrefix`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
 - **不在本目标内。** 长度单元与缓冲区或另一个长度单元重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress2_z`（不在计划内；未完成）。
 
@@ -486,7 +486,7 @@ int ZEXPORT uncompress2(Bytef *dest, uLongf *destLen, const Bytef *source, uLong
 - **保证。**
     - *返回。* 调用返回。如果 `source` 为 NULL 而 `*sourceLen` 非零，或 `dest` 为 NULL 而 `*destLen` 非零，返回值是 `Z_STREAM_ERROR`。否则返回值是 `Z_OK`、`Z_BUF_ERROR`、`Z_DATA_ERROR` 或 `Z_MEM_ERROR`，并且只有在某次分配确实失败之后才返回 `Z_MEM_ERROR`（`AllocationFailed`）。
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
-    - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；`*sourceLen`，写入一个不超过其进入值的计数；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，两个单元都保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
+    - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；`*sourceLen`，写入一个不超过其进入值的计数；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，两个单元都保持进入时的值。其他对象都不变（`StorePrefix`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
 - **不在本目标内。** 长度单元与缓冲区或另一个长度单元重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress2`（不在计划内；未完成）。
 
@@ -542,7 +542,7 @@ int ZEXPORT uncompress_z(Bytef *dest, z_size_t *destLen, const Bytef *source, z_
 - **保证。**
     - *返回。* 调用返回。如果 `destLen` 为 NULL、`source` 为 NULL 而 `sourceLen` 非零，或 `dest` 为 NULL 而 `*destLen` 非零，返回值是 `Z_STREAM_ERROR`。否则返回值是 `Z_OK`、`Z_BUF_ERROR`、`Z_DATA_ERROR` 或 `Z_MEM_ERROR`，并且只有在某次分配确实失败之后才返回 `Z_MEM_ERROR`（`AllocationFailed`）。
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
-    - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，该单元保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
+    - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，该单元保持进入时的值。其他对象都不变（`StorePrefix`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
 - **不在本目标内。** 长度单元与缓冲区重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress_z`（不在计划内；未完成）。
 
@@ -599,7 +599,7 @@ int ZEXPORT uncompress(Bytef *dest, uLongf *destLen, const Bytef *source, uLong 
 - **保证。**
     - *返回。* 调用返回。如果 `source` 为 NULL 而 `sourceLen` 非零，或 `dest` 为 NULL 而 `*destLen` 非零，返回值是 `Z_STREAM_ERROR`。否则返回值是 `Z_OK`、`Z_BUF_ERROR`、`Z_DATA_ERROR` 或 `Z_MEM_ERROR`，并且只有在某次分配确实失败之后才返回 `Z_MEM_ERROR`（`AllocationFailed`）。
     - *状态。* 不保留任何状态：调用结束后，它用过的流、状态和窗口都不存在。
-    - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，该单元保持进入时的值。其他对象都不变（`Store`、`SameObjectsUpToTableShape`）。
+    - *写入。* 因上述参数返回 `Z_STREAM_ERROR` 时，不写任何内容。其他情况下只写：`dest` 处的字节，至多为进入时给出的 `*destLen` 个；以及 `*destLen`，写入已写出的字节数。返回 `Z_MEM_ERROR` 时，也可能一个字节都没写，该单元保持进入时的值。其他对象都不变（`StorePrefix`、`SameObjectsUpToTableShape`）。
     - *分配。* 调用分配的每个块都在返回之前释放，每条路径都是如此：已分配的块与调用前相同。
 - **不在本目标内。** 长度单元与缓冲区重叠，以及 `source` 与 `dest` 重叠：在所有目标之外（见[偏离记录](../../deviations.md)中“计数解压”一行）。哪种输入返回哪个状态码，以及写出的字节：功能目标 `Goal.uncompress`（不在计划内；未完成）。
 

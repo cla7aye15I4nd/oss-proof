@@ -1,7 +1,7 @@
 /* C side of the differential test for inffast.c: links the REAL zlib (patched copy).
  * Line:  inflate_fast <tab> <wsize> <whave> <wnext> <hold> <bits> <avail_out> <window> <prior> <input>
  *   tab     fixed | dyn:<lit lens>:<dist lens>   (hex digit per symbol; the tables are built as inflate() does:
- *           lencode = codes, inflate_table(LENS, ..., 9), distcode = next, inflate_table(DISTS, ..., 6))
+ *           lencode = codes, inflate_table(LENS, ..., 10), distcode = next, inflate_table(DISTS, ..., 8))
  *   window  hex of wsize bytes, or - (wsize 0: window is NULL)
  *   prior   hex of the bytes already written before next_out in the same buffer, or -
  *   input   hex, at least 6 bytes
@@ -88,12 +88,12 @@ int main(void) {
             for (unsigned i = 0; i < st->ndist; i++) st->lens[st->nlen + i] = (unsigned short)hexval(dist[i]);
             st->next = st->codes;
             st->lencode = (const code *)(st->next);
-            st->lenbits = 9;
+            st->lenbits = 10;
             int ret = inflate_table(LENS, st->lens, st->nlen, &(st->next), &(st->lenbits), st->work);
             if (ret) tabfail = 1;
             else {
                 st->distcode = (const code *)(st->next);
-                st->distbits = 6;
+                st->distbits = 8;
                 ret = inflate_table(DISTS, st->lens + st->nlen, st->ndist, &(st->next), &(st->distbits), st->work);
                 if (ret) tabfail = 1;
             }

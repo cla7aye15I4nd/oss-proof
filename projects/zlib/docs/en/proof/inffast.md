@@ -37,18 +37,19 @@ How the callers use these theorems:
   `inflate_fast_safe_progress` is applied to them.
 - **`inflate`, every layout.** `inflate_sequence_safety_public` allows the input
   and the output to be two ranges of one block. For the fast call its proof uses
-  `inflate_fast_default_view_buffers_progress`, a lemma
-  of that proof. That lemma has no premise on the blocks. It is a second proof of the same
-  translated function, stated on the caller's ranges and the decoder invariant;
-  it does not use `EnvG`. `fast_consumes` is not used for
+  `inflate_fast_default_view_buffers_progress`, a thin wrapper proved via `fast_view_exec`
+  from `inflate_fast_safe_progress_origin` (which uses `Env`, since `Env.hsep` covers both
+  distinct blocks and disjoint ranges of one block). `fast_consumes` is not used for
   `inflate`. See [stream decoding](inflate.md#the-fast-path).
 - **`inflate`, functional results.** `inflate_fast_entry` proves the entry conditions for every
   layout. The functional theorem `fast_call_meaning` uses it; the safety results do not.
 
 `FastPost` says: the stream's `next_in`, `avail_in`, `next_out`, `avail_out` and `msg` and the
-state's `mode`, `hold` and `bits` were written; output bytes changed only in the range this
-call wrote; `bits < 8` and `hold < 2^bits` again; the mode is unchanged, or `TYPE` (end of
-block), or `BAD`. Nothing else in the heap changed, and nothing was allocated.
+state's `mode`, `hold` and `bits` were written; for `inflate` (`alias = false`), output bytes
+outside the `avail_out` bytes at `next_out` are unchanged (whereas for `inflateBack`,
+`alias = true`, output bytes changed only in the range this call wrote); `bits < 8` and
+`hold < 2^bits` again; the mode is unchanged, or `TYPE` (end of block), or `BAD`. Nothing else in
+the heap changed, and nothing was allocated.
 
 Functional results about `inflate_fast` also exist; see [Functional results](#functional-results).
 

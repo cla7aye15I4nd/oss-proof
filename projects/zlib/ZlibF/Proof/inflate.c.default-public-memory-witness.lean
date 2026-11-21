@@ -21,7 +21,7 @@ theorem inflate_default_public_memory_witness :
       Bytes after stream.next_out output.length output ∧
       BufferFrame incoming after (fun b => StreamRoot (.tab 0) b ∨ InflateOwned witnessHeap.nextBlk s b ∨
           s.head = some (.tab b))
-        (⟨stream.next_out, output.length⟩ :: HeaderRegions incoming s.head) ∧
+        (⟨stream.next_out, stream.avail_out.toNat⟩ :: HeaderRegions incoming s.head) ∧
       LiveChange incoming after
         (fun b => InflateOwned witnessHeap.nextBlk finalState b ∧ ¬ incoming.live b) (fun _ => False) := by
   obtain ⟨initialized, z, s, incoming, stream, _rc, _after, _finalStream, _finalState,

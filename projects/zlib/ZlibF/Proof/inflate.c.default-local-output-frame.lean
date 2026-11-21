@@ -50,40 +50,32 @@ theorem inflate_default_view_local_exact_frame
       match result with
       | .error (.ret value) => pure value
       | _ => inflate_leave c regs) h = .ok (rc, after))
-    (get : r.get after = some stream) (account : StreamAccounting z stream used made) :
+    (_get : r.get after = some stream) (_account : StreamAccounting z stream used made) :
     BufferFrame h after (fun b => CallChanged c r zs s.head b ∨ InflateOwned zs s b)
-      (⟨z.next_out, made⟩ :: HeaderRegions h s.head) := by
-  obtain ⟨bs, exit, regs, loopHeap, loopZ, loopS, _used0, made0, _bound, loop, current,
+      (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head) := by
+  obtain ⟨bs, exit, regs, loopHeap, loopZ, loopS, _used0, _made0, _bound, loop, current,
     ⟨_, _, packet⟩, _, bits, _sizes, _next, _inputCount, put, left, metadata, _head, outputFrame⟩ :=
     inflate_run_default_view_exact_frame E invariant buffers nonnull inputValid local_ facts
-  have publicCount := account.2.2.2.1
   have baseFrame : BufferFrame h loopHeap (fun b => CallChanged c r zs s.head b ∨ InflateOwned zs s b)
-      (⟨z.next_out, made0⟩ :: HeaderRegions h s.head) :=
+      (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head) :=
     BufferFrame.mono_changed outputFrame fun _ inside => Or.inl inside
   rw [bind_app, loop] at run
   cases exit with
   | ret value =>
     change Except.ok (value, loopHeap) = Except.ok (rc, after) at run
     cases run
-    have outputLeft := inflate_run_direct_output_left E invariant buffers nonnull inputValid local_ loop get
-    rw [outputLeft] at publicCount
-    have same : made0 = made := by omega
-    simpa only [same] using baseFrame
+    exact baseFrame
   | leave =>
     change inflate_leave c regs loopHeap = .ok (rc, after) at run
     have env0 : Env c loopHeap r zs loopZ loopS :=
       ⟨E.strm, E.st, current.good.live.hz, current.good.live.hs⟩
     have fixed := streamFrameX_inflate_run r c E.strm IL.init h (.error .leave) regs loopHeap loop
     have allocator0 := fixed.allocator E.hz current.good.live.hz allocator
-    obtain ⟨rc2, after2, stream2, _state2, leaveRun, finalJ, _, _, _, _, outputLeft, _⟩ :=
+    obtain ⟨rc2, after2, stream2, _state2, leaveRun, finalJ, _, _, _, _, _outputLeft, _⟩ :=
       inflate_leave_default_public_accounting env0 current allocator0 packet bits
         (inflate_run_default_low_out E invariant buffers nonnull inputValid local_ loop current.good.live.hs)
     have sameRun := Except.ok.inj (leaveRun.symm.trans run)
     cases sameRun
-    have sameStream : stream2 = stream := Option.some.inj (finalJ.good.live.hz.symm.trans get)
-    rw [sameStream] at outputLeft
-    rw [outputLeft] at publicCount
-    have sameMade : made0 = made := by omega
     have leaveFrame := inflate_leave_frame_public env0 current allocator0 packet bits run
     have window := inflate_run_window_unchanged E.strm E.hs current.good.live.hs loop
     have oldLeaveFrame : Frame loopHeap after (fun b => StreamRoot r b ∨ InflateOwned zs s b) := by
@@ -94,9 +86,8 @@ theorem inflate_default_view_local_exact_frame
       exact inflate_frame_mono oldLeaveFrame fun _ inside =>
         inside.elim (fun root => Or.inl (Or.inl root)) Or.inr
     have liveEq : loopHeap.live = h.live := congrArg (fun x => x.2.2.2.2.2.2) metadata
-    have complete := BufferFrame.trans_within baseFrame rightFrame (RegionsWithin.nil _)
+    exact BufferFrame.trans_within baseFrame rightFrame (RegionsWithin.nil _)
       facts.views.head_length (fun b live => by rw [liveEq]; exact live)
-    simpa only [sameMade] using complete
 
 #print axioms inflate_default_view_local_exact_frame
 end Zlib.Inflate.Proofs

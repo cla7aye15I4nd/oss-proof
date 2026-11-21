@@ -24,7 +24,8 @@ theorem inflate_COPY_frame_of_run {c : Ctx} {l regs : IL} {h after : Heap}
     cases same
     have zero : made = 0 := by change l.left.toNat + made = l.left.toNat at count; omega
     subst made
-    exact (fast_terminal_buffer_frame E.hz E.hs [⟨l.put, 0⟩]).1
+    have frame := (fastWriteback_heap_frame E.hz E.hs z { s with mode := TYPE } [⟨l.put, 0⟩]).1
+    simpa only [ZStreamRef.put_self E.hz] using frame
   · let n := copyAmt s.length l.have_ l.left
     obtain ⟨_, inputBound, outputBound⟩ := copyAmt_le s.length l.have_ l.left
     change n.toNat ≤ l.have_.toNat at inputBound

@@ -169,11 +169,150 @@ theorem outputCounterM_fast_body (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
     | with_reducible apply outputCounterM_ite
     | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
 
+theorem outputCounterM_ptr_le {R T : Type} [Space Heap R T] [DecidableEq R]
+    (r : ZStreamRef) (p q : Ptr R) : OutputCounterM r (p.le q) :=
+  outputCounterM_bind (outputCounterM_ptr_lt r q p) (fun b => outputCounterM_pure r (!b))
+
+theorem outputCounterM_fast_load64 (r : ZStreamRef) (p : BPtr) :
+    OutputCounterM r (Zlib.Inffast.load64 p) := by
+  unfold Zlib.Inffast.load64
+  repeat' first
+    | with_reducible exact outputCounterM_ptr_index r _ _
+    | with_reducible exact outputCounterM_pure r _
+    | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
+
+theorem outputCounterM_fast_store64 (r : ZStreamRef) (out : BPtr) (v : UInt64) :
+    OutputCounterM r (Zlib.Inffast.store64 out v) := by
+  unfold Zlib.Inffast.store64
+  repeat' first
+    | with_reducible exact outputCounterM_store8 r _ _
+    | with_reducible exact outputCounterM_ptr_add r _ _
+    | with_reducible exact outputCounterM_pure r _
+    | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
+
+theorem outputCounterM_fast_copy_back (r : ZStreamRef) (out : BPtr) (dist len : UInt32) :
+    OutputCounterM r (Zlib.Inffast.copy_back out dist len) := by
+  unfold Zlib.Inffast.copy_back
+  repeat' first
+    | with_reducible exact outputCounterM_fast_subn r _ _
+    | with_reducible exact outputCounterM_fast_load64 r _
+    | with_reducible exact outputCounterM_fast_store64 r _ _
+    | with_reducible exact outputCounterM_memcpyB r _ _ _
+    | with_reducible exact outputCounterM_ptr_load r _
+    | with_reducible exact outputCounterM_ptr_add r _ _
+    | with_reducible exact outputCounterM_ptr_lt r _ _
+    | with_reducible exact outputCounterM_pure r _
+    | with_reducible (refine outputCounterM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply outputCounterM_ite
+    | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
+    | (intro p; cases p; dsimp only)
+
+theorem outputCounterM_fast_refill64 (r : ZStreamRef) (state : Zlib.Inffast.L) :
+    OutputCounterM r (Zlib.Inffast.refill64 state) := by
+  unfold Zlib.Inffast.refill64
+  repeat' first
+    | with_reducible exact outputCounterM_fast_load64 r _
+    | with_reducible exact outputCounterM_fast_shl64 r _ _
+    | with_reducible exact outputCounterM_ptr_add r _ _
+    | with_reducible exact outputCounterM_pure r _
+    | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
+
+theorem outputCounterM_fast_copyMatch8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    OutputCounterM r (Zlib.Inffast.copyMatch8 context state) := by
+  unfold Zlib.Inffast.copyMatch8
+  repeat' first
+    | with_reducible exact outputCounterM_fast_badData r _ root _
+    | with_reducible exact outputCounterM_fast_copy_back r _ _ _
+    | with_reducible exact outputCounterM_fast_subn r _ _
+    | with_reducible exact outputCounterM_memcpyB r _ _ _
+    | with_reducible exact outputCounterM_ldS r _
+    | with_reducible exact outputCounterM_stS r _ _
+    | with_reducible exact outputCounterM_ptr_add r _ _
+    | with_reducible exact outputCounterM_ptr_diff r _ _
+    | with_reducible exact outputCounterM_ptr_lt r _ _
+    | with_reducible exact outputCounterM_pure r _
+    | with_reducible exact outputCounterM_ub r _
+    | with_reducible (refine outputCounterM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine outputCounterM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply outputCounterM_ite
+    | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
+
+theorem outputCounterM_fast_dodist8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    OutputCounterM r (Zlib.Inffast.dodist8 context state) := by
+  unfold Zlib.Inffast.dodist8
+  repeat' first
+    | with_reducible exact outputCounterM_fast_badData r _ root _
+    | with_reducible exact outputCounterM_fast_copyMatch8 r _ root _
+    | with_reducible exact outputCounterM_fast_refill64 r _
+    | with_reducible exact outputCounterM_fast_shl32 r _ _
+    | with_reducible exact outputCounterM_fast_shl64 r _ _
+    | with_reducible exact outputCounterM_fast_shr64 r _ _
+    | with_reducible exact outputCounterM_fast_chk64 r _
+    | with_reducible exact outputCounterM_ldS r _
+    | with_reducible exact outputCounterM_stS r _ _
+    | with_reducible exact outputCounterM_ptr_load r _
+    | with_reducible exact outputCounterM_ptr_index r _ _
+    | with_reducible exact outputCounterM_ptr_add r _ _
+    | with_reducible exact outputCounterM_ptr_diff r _ _
+    | with_reducible exact outputCounterM_ptr_lt r _ _
+    | with_reducible exact outputCounterM_pure r _
+    | with_reducible exact outputCounterM_ub r _
+    | with_reducible (refine outputCounterM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine outputCounterM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply outputCounterM_ite
+    | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
+
+theorem outputCounterM_fast_dolen8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    OutputCounterM r (Zlib.Inffast.dolen8 context state) := by
+  unfold Zlib.Inffast.dolen8
+  repeat' first
+    | with_reducible exact outputCounterM_fast_badData r _ root _
+    | with_reducible exact outputCounterM_fast_dodist8 r _ root _
+    | with_reducible exact outputCounterM_fast_refill64 r _
+    | with_reducible exact outputCounterM_fast_shl32 r _ _
+    | with_reducible exact outputCounterM_fast_shl64 r _ _
+    | with_reducible exact outputCounterM_fast_shr64 r _ _
+    | with_reducible exact outputCounterM_fast_chk64 r _
+    | with_reducible exact outputCounterM_store8 r _ _
+    | with_reducible exact outputCounterM_ldS r _
+    | with_reducible exact outputCounterM_stS r _ _
+    | with_reducible exact outputCounterM_ptr_load r _
+    | with_reducible exact outputCounterM_ptr_index r _ _
+    | with_reducible exact outputCounterM_ptr_add r _ _
+    | with_reducible exact outputCounterM_ptr_diff r _ _
+    | with_reducible exact outputCounterM_ptr_lt r _ _
+    | with_reducible exact outputCounterM_pure r _
+    | with_reducible exact outputCounterM_ub r _
+    | with_reducible (refine outputCounterM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine outputCounterM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply outputCounterM_ite
+    | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
+
+theorem outputCounterM_fast_body8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    OutputCounterM r (Zlib.Inffast.inflate_fast_body8 context state) := by
+  unfold Zlib.Inffast.inflate_fast_body8
+  repeat' first
+    | with_reducible exact outputCounterM_fast_dolen8 r _ root _
+    | with_reducible exact outputCounterM_fast_refill64 r _
+    | with_reducible exact outputCounterM_fast_shr64 r _ _
+    | with_reducible exact outputCounterM_store8 r _ _
+    | with_reducible exact outputCounterM_ptr_load r _
+    | with_reducible exact outputCounterM_ptr_add r _ _
+    | with_reducible exact outputCounterM_pure r _
+    | with_reducible (refine outputCounterM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply outputCounterM_ite
+    | with_reducible (refine outputCounterM_bind ?_ (fun _ => ?_))
+
 theorem outputCounterM_inflate_fast (r : ZStreamRef) (start : UInt32) :
     OutputCounterM r (Zlib.Inffast.inflate_fast (some r) start) := by
   unfold Zlib.Inffast.inflate_fast
   repeat' first
     | with_reducible exact outputCounterM_fast_body r _ rfl _
+    | with_reducible exact outputCounterM_fast_body8 r _ rfl _
     | with_reducible exact outputCounterM_fast_subn r _ _
     | with_reducible exact outputCounterM_fast_shl32 r _ _
     | with_reducible exact outputCounterM_fast_chk64 r _
@@ -184,6 +323,7 @@ theorem outputCounterM_inflate_fast (r : ZStreamRef) (start : UInt32) :
     | with_reducible exact outputCounterM_ptr_add r _ _
     | with_reducible exact outputCounterM_ptr_diff r _ _
     | with_reducible exact outputCounterM_ptr_lt r _ _
+    | with_reducible exact outputCounterM_ptr_le r _ _
     | with_reducible exact outputCounterM_pure r _
     | with_reducible exact outputCounterM_ub r _
     | with_reducible (refine outputCounterM_ldZ_update r _ _ (fun _ => ?_) (fun _ => ?_))

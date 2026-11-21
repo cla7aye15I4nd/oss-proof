@@ -26,14 +26,14 @@ theorem tooBig_false_of_budget (e : Env) {used : UInt32} (bound : used.toNat ≤
     simp [CODES, LENS] at capacity
     have small : ¬ used > ENOUGH_LENS.toUInt32 := by
       rw [gt_iff_lt, UInt32.lt_iff_toNat_lt]
-      change ¬ 852 < used.toNat
+      change ¬ 1332 < used.toNat
       omega
     simp [tooBig, LENS, DISTS, small]
   · rw [type] at capacity ⊢
     simp [CODES, LENS, DISTS] at capacity
     have small : ¬ used > ENOUGH_DISTS.toUInt32 := by
       rw [gt_iff_lt, UInt32.lt_iff_toNat_lt]
-      change ¬ 592 < used.toNat
+      change ¬ 400 < used.toNat
       omega
     simp [tooBig, LENS, DISTS, small]
 
@@ -111,7 +111,7 @@ theorem openBody_no_refusal (e : Env) (i : Nat) (s : TS) (ca : Array Code)
   have capacity : (used + (1 <<< cs)).toNat ≤ e.cap := by
     rw [u32_add (a := used) (b := 1 <<< cs) (by
       have cap := e.h_cap
-      have maxCap : e.cap ≤ 852 := by
+      have maxCap : e.cap ≤ 1332 := by
         rcases e.h_type with t | t | t <;> simp [t, CODES, LENS, DISTS] at cap <;> omega
       have power : 2 ^ cs.toNat ≤ 2 ^ 15 := Nat.pow_le_pow_right (by omega) (by omega)
       omega), hu]
@@ -886,8 +886,8 @@ theorem itTail_cells_wp_budget (e : Env) (budget : ∀ j, j < e.m → (e.D j).us
 /-- The real accepted constructor environment supplies all descriptor
 budgets from its default payload root and the proved mathematical bounds. -/
 theorem env_default_payload_budget (e : Env)
-    (defaults : (e.c.type = LENS ∧ e.n ≤ 286 ∧ e.R = max (e.l 0) (min 9 e.mx)) ∨
-      (e.c.type = DISTS ∧ e.n ≤ 30 ∧ e.R = max (e.l 0) (min 6 e.mx))) :
+    (defaults : (e.c.type = LENS ∧ e.n ≤ 286 ∧ e.R = max (e.l 0) (min 10 e.mx)) ∨
+      (e.c.type = DISTS ∧ e.n ≤ 30 ∧ e.R = max (e.l 0) (min 8 e.mx))) :
     ∀ j, j < e.m → (e.D j).used ≤ e.cap := by
   intro j inside
   have index : j < Canon.nz e.ls := by rw [e.nz_eq]; exact inside
@@ -936,8 +936,8 @@ theorem env_default_payload_budget (e : Env)
 /-- The translated constructor tail returns success for its real default
 payload environment; all capacity tests are now discharged mathematically. -/
 theorem itTail_default_payload_wp (e : Env)
-    (defaults : (e.c.type = LENS ∧ e.n ≤ 286 ∧ e.R = max (e.l 0) (min 9 e.mx)) ∨
-      (e.c.type = DISTS ∧ e.n ≤ 30 ∧ e.R = max (e.l 0) (min 6 e.mx)))
+    (defaults : (e.c.type = LENS ∧ e.n ≤ 286 ∧ e.R = max (e.l 0) (min 10 e.mx)) ∨
+      (e.c.type = DISTS ∧ e.n ≤ 30 ∧ e.R = max (e.l 0) (min 8 e.mx)))
     (ca : Array Code) (count : Array UInt16) (bits min : UInt32) (left : Int32)
     (hcnt : CountOK e count 0) (hmin : min.toNat = e.l 0) (hsz : e.oc + e.cap ≤ ca.size) :
     Wp (itTail e.c.type e.c.lens e.c.table bits e.c.work count e.c.max min e.c.root left e.c.base e.c.extra e.c.match_) (e.hc ca)
@@ -971,8 +971,8 @@ theorem itB_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat}
     (hmin : min.toNat = lenAt P.f codes.toNat 0)
     (hr1 : 1 ≤ root.toNat) (hr0 : lenAt P.f codes.toNat 0 ≤ root.toNat) (hrm : root.toNat ≤ mxl P.f codes.toNat)
     (hrC : type = CODES → root.toNat = mxl P.f codes.toNat)
-    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ root.toNat = Max.max (lenAt P.f codes.toNat 0) (Min.min 9 (mxl P.f codes.toNat))) ∨
-      (type = DISTS ∧ codes.toNat ≤ 30 ∧ root.toNat = Max.max (lenAt P.f codes.toNat 0) (Min.min 6 (mxl P.f codes.toNat)))) :
+    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ root.toNat = Max.max (lenAt P.f codes.toNat 0) (Min.min 10 (mxl P.f codes.toNat))) ∨
+      (type = DISTS ∧ codes.toNat ≤ 30 ∧ root.toNat = Max.max (lenAt P.f codes.toNat 0) (Min.min 8 (mxl P.f codes.toNat)))) :
     Wp (itB type (Ptr.ref rl ol) codes (Ptr.ref rc oc) bits (Ptr.ref rw ow) count max min root) h
       (fun r h' => (Result h rw rc ow oc (capOf type) codes.toNat P.wa P.ca (Ptr.ref rc oc) bits r h' ∧
         RetInfo type P.f codes.toNat r) ∧ r.1 ≠ 1) := by
@@ -1090,8 +1090,8 @@ theorem itB_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat}
           rw [hcc l h1 h2]; exact (rem_zero (f := P.f) (n := codes.toNat) h1).symm⟩
         have hhc : e.hc P.ca = Space.put h' rw wa1 :=
           cput_self (by rw [cget_put_word]; exact P.hgc)
-        have := itTail_default_payload_wp e (show (e.c.type = LENS ∧ e.n ≤ 286 ∧ e.R = Max.max (e.l 0) (Min.min 9 e.mx)) ∨
-            (e.c.type = DISTS ∧ e.n ≤ 30 ∧ e.R = Max.max (e.l 0) (Min.min 6 e.mx)) from defaults) P.ca count bits min left hcnt0 hmin P.hca
+        have := itTail_default_payload_wp e (show (e.c.type = LENS ∧ e.n ≤ 286 ∧ e.R = Max.max (e.l 0) (Min.min 10 e.mx)) ∨
+            (e.c.type = DISTS ∧ e.n ≤ 30 ∧ e.R = Max.max (e.l 0) (Min.min 8 e.mx)) from defaults) P.ca count bits min left hcnt0 hmin P.hca
         rw [hhc] at this
         refine Wp.mono this ?_
         rintro r h3 ⟨ca', rfl, hf, hr, hrne, noRefusal⟩
@@ -1131,8 +1131,8 @@ theorem itA_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat}
     (hcs : count.size = 16) (hcc : ∀ l, 1 ≤ l → l ≤ 15 → (count.getD l 0).toNat = cnt P.f codes.toNat l)
     (hmaxq : (Tc P.f codes.toNat 15 = 0 ∧ max.toNat = 0) ∨ (0 < Tc P.f codes.toNat 15 ∧ max.toNat = mxl P.f codes.toNat))
     (hroot : root.toNat ≤ max.toNat) (hrC : type = CODES → root.toNat = max.toNat)
-    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ root.toNat = Min.min 9 max.toNat) ∨
-      (type = DISTS ∧ codes.toNat ≤ 30 ∧ root.toNat = Min.min 6 max.toNat)) :
+    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ root.toNat = Min.min 10 max.toNat) ∨
+      (type = DISTS ∧ codes.toNat ≤ 30 ∧ root.toNat = Min.min 8 max.toNat)) :
     Wp (itA type (Ptr.ref rl ol) codes (Ptr.ref rc oc) bits (Ptr.ref rw ow) count max root) h
       (fun r h' => (Result h rw rc ow oc (capOf type) codes.toNat P.wa P.ca (Ptr.ref rc oc) bits r h' ∧
         RetInfo type P.f codes.toNat r) ∧ r.1 ≠ 1) := by
@@ -1232,8 +1232,8 @@ theorem itA_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat}
 
 theorem itTop_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat} {codes : UInt32} {rc : CodeRef} {oc : Nat}
     {bits : UInt32} {rw : WRef} {ow : Nat} (P : CallPre h type rl ol codes rc oc bits rw ow)
-    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 9) ∨
-      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 6)) :
+    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 10) ∨
+      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 8)) :
     Wp (itTop type (Ptr.ref rl ol) codes (Ptr.ref rc oc) bits (Ptr.ref rw ow)) h
       (fun r h' => (Result h rw rc ow oc (capOf type) codes.toNat P.wa P.ca (Ptr.ref rc oc) bits r h' ∧
         RetInfo type P.f codes.toNat r) ∧ r.1 ≠ 1) := by
@@ -1262,12 +1262,12 @@ theorem itTop_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Na
         · left
           refine ⟨typeL, sizeL, ?_⟩
           rw [requested] at greater
-          change max.toNat < 9 at greater
+          change max.toNat < 10 at greater
           omega
         · right
           refine ⟨typeD, sizeD, ?_⟩
           rw [requested] at greater
-          change max.toNat < 6 at greater
+          change max.toNat < 8 at greater
           omega)
   · rw [ite_eq_right hgt]
     have hle : bits.toNat ≤ max.toNat := by
@@ -1284,14 +1284,14 @@ theorem itTop_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Na
         · left
           refine ⟨typeL, sizeL, ?_⟩
           rw [requested] at hle ⊢
-          change 9 ≤ max.toNat at hle
-          change 9 = Min.min 9 max.toNat
+          change 10 ≤ max.toNat at hle
+          change 10 = Min.min 10 max.toNat
           omega
         · right
           refine ⟨typeD, sizeD, ?_⟩
           rw [requested] at hle ⊢
-          change 6 ≤ max.toNat at hle
-          change 6 = Min.min 6 max.toNat
+          change 8 ≤ max.toNat at hle
+          change 8 = Min.min 8 max.toNat
           omega)
 
 
@@ -1300,13 +1300,13 @@ theorem itTop_default_payload_wp {h : Heap} {type : UInt32} {rl : WRef} {ol : Na
 #print axioms itTop_default_payload_wp
 
 /-- The real translated inflate_table call cannot report capacity refusal
-for the exact default payload callers: LENS with <=286 symbols/root nine,
-or DISTS with <=30 symbols/root six. Invalid alphabets may still return -1. -/
+for the exact default payload callers: LENS with <=286 symbols/root ten,
+or DISTS with <=30 symbols/root eight. Invalid alphabets may still return -1. -/
 theorem inflate_table_default_payload_no_refusal
     {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat} {codes : UInt32} {rc : CodeRef} {oc : Nat}
     {bits : UInt32} {rw : WRef} {ow : Nat} (P : CallPre h type rl ol codes rc oc bits rw ow)
-    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 9) ∨
-      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 6)) :
+    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 10) ∨
+      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 8)) :
     ∃ result after, C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h = .ok (result, after) ∧
       Result h rw rc ow oc (capOf type) codes.toNat P.wa P.ca (.ref rc oc) bits result after ∧
       RetInfo type P.f codes.toNat result ∧ result.1 ≠ 1 := by
@@ -1319,8 +1319,8 @@ cases. This is a theorem about execution, with no callee contract assumed. -/
 theorem inflate_table_default_payload_success_iff
     {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat} {codes : UInt32} {rc : CodeRef} {oc : Nat}
     {bits : UInt32} {rw : WRef} {ow : Nat} (P : CallPre h type rl ol codes rc oc bits rw ow)
-    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 9) ∨
-      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 6)) :
+    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 10) ∨
+      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 8)) :
     ∃ result after, C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h = .ok (result, after) ∧
       Result h rw rc ow oc (capOf type) codes.toNat P.wa P.ca (.ref rc oc) bits result after ∧
       (result.1 = 0 ↔ ZlibF.Spec.Acceptable (kindOf type) (lensList P.la ol codes.toNat)) ∧ result.1 ≠ 1 := by
@@ -1347,8 +1347,8 @@ constructor return zero, with the actual frame and moved pointer retained. -/
 theorem inflate_table_default_payload_success
     {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat} {codes : UInt32} {rc : CodeRef} {oc : Nat}
     {bits : UInt32} {rw : WRef} {ow : Nat} (P : CallPre h type rl ol codes rc oc bits rw ow)
-    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 9) ∨
-      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 6))
+    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 10) ∨
+      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 8))
     (valid : ZlibF.Spec.Acceptable (kindOf type) (lensList P.la ol codes.toNat)) :
     ∃ result after, C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h = .ok (result, after) ∧
       Result h rw rc ow oc (capOf type) codes.toNat P.wa P.ca (.ref rc oc) bits result after ∧ result.1 = 0 := by
@@ -1365,8 +1365,8 @@ canonical decoding meaning on the same real execution. -/
 theorem inflate_table_default_payload_installed
     {h : Heap} {type : UInt32} {rl : WRef} {ol : Nat} {codes : UInt32} {rc : CodeRef} {oc : Nat}
     {bits : UInt32} {rw : WRef} {ow : Nat} (P : CallPre h type rl ol codes rc oc bits rw ow)
-    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 9) ∨
-      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 6))
+    (defaults : (type = LENS ∧ codes.toNat ≤ 286 ∧ bits = 10) ∨
+      (type = DISTS ∧ codes.toNat ≤ 30 ∧ bits = 8))
     (valid : ZlibF.Spec.Acceptable (kindOf type) (lensList P.la ol codes.toNat)) :
     ∃ result after, C.run (inflate_table type (.ref rl ol) codes (.ref rc oc) bits (.ref rw ow)) h = .ok (result, after) ∧
       Result h rw rc ow oc (capOf type) codes.toNat P.wa P.ca (.ref rc oc) bits result after ∧ result.1 = 0 ∧

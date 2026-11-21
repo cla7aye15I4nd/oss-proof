@@ -7,8 +7,9 @@ Deterministic: fixed seed, no clock, no environment. Lines:
   crc32_combine_gen <len2>   crc32_combine_gen64 <len2>   crc32_combine_op <c1> <c2> <op>
   get_crc_table
 with <buf> = null:<len> | hex:<digits> | off:<k>:<digits> (see the C driver).
-The braided path starts at len >= 47 (N*W+W-1) and works on blocks of 40 bytes (N*W); the byte loops
-unroll by 8; the pointer alignment (k mod 8) decides how many bytes precede the word loop.
+The braided path starts at len >= 11 (NLOW*W+W-1, NLOW=2, W=4), switches to 5 braids at len >= 320
+(BRAID_CUT=320) working on blocks of 20 bytes (N*W), and the byte loops unroll by 8; the pointer alignment
+(k mod 4) decides how many bytes precede the word loop.
 """
 import random
 
@@ -52,11 +53,12 @@ for n in range(0, 141):
             out.append("crc32_z %d %s" % (crc, hexbuf(d)))
         out.append("crc32 %d %s" % (rand_crc(), hexbuf(d)))
 
-# 2. Every alignment 0..7 at lengths around the thresholds (the alignment loop consumes 0..7 bytes and
-#    the braided path needs at least one 40-byte block afterwards; 47 - 7 = 40).
+# 2. Every alignment 0..7 at lengths around the thresholds (the alignment loop consumes 0..3 bytes and
+#    the 2-braid path needs at least one 8-byte block afterwards, while the 5-braid path starts at 320
+#    with 20-byte blocks).
 for k in range(8):
-    for n in sorted(set(list(range(0, 20)) + list(range(36, 60)) + list(range(76, 100)) + list(range(116, 140))
-                        + [160, 200, 255, 256, 257, 1000])):
+    for n in sorted(set(list(range(0, 31)) + list(range(36, 60)) + list(range(76, 100)) + list(range(116, 140))
+                        + [160, 200, 255, 256, 257] + list(range(315, 345)) + [1000])):
         d = kind_bytes("rand", n)
         out.append("crc32_z %d %s" % (rand_crc(), offbuf(k, d)))
         out.append("crc32 %d %s" % (rand_crc(), offbuf(k, d)))

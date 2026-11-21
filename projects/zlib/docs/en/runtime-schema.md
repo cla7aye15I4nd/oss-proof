@@ -4,7 +4,7 @@ This page says how each struct of zlib is represented in the Lean model: one row
 the C type, the Lean type and the reason. The Lean records and the tables of this page are
 generated together from the headers
 `zlib.h`, `zutil.h`, `inftrees.h`, `inflate.h`, `deflate.h`, `trees.h`, `gzguts.h` and `crc32.h` of the verified source
-(zlib commit `99623ef7097352da7993ba614161fd6a311e046e`) through clang's JSON AST dump, in the default x86_64 Linux build
+(zlib commit `617e19a81f38c15ff04de9f86882f42ad8a8ffd1`) through clang's JSON AST dump, in the default x86_64 Linux build
 (`./configure --static`, LP64, `-D_LARGEFILE64_SOURCE=1`).
 
 ## How C types map to Lean types
@@ -371,8 +371,8 @@ not in the table is a fault. A literal is `BRef.str i`: read-only, always live, 
 " * Generated automatically by makefixed()."
 " */"
 " 3_6?"
-" deflate 1.4 Copyright 1995-2026 Jean-loup Gailly and Mark Adler "
-" inflate 1.4 Copyright 1995-2026 Mark Adler "
+" deflate 1.4.0.1 Copyright 1995-2026 Jean-loup Gailly and Mark Adler "
+" inflate 1.4.0.1 Copyright 1995-2026 Mark Adler "
 " l %2d v %4x "
 " start %u, match %d, length %d\n"
 "%1u%s"
@@ -392,7 +392,7 @@ not in the table is a fault. A literal is `BRef.str i`: read-only, always live, 
 "/* crc32.h -- tables for rapid CRC calculation\n * Generated automatically by crc32.c\n */\n\nlocal const z_crc_t FAR crc_table[] = {\n    "
 "/* header created automatically with -DGEN_TREES_H */\n\n"
 "/* inffixed.h -- table for decoding fixed codes"
-"1.4"
+"1.4.0.1-motley"
 ": "
 "<fd:%d>"
 "C"

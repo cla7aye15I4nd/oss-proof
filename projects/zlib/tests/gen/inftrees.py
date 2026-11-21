@@ -9,8 +9,8 @@ removed), all-zero lengths, the single length-1 code (accepted for LENS and DIST
 deflate, requested root sizes from 0 to 30 (below the shortest, above the longest, equal to both), and the
 offsets of the lens and of the table inside their arrays, as the callers in inflate.c use them.
 Bounds that the C needs: DISTS has at most 32 symbols (dbase and dext have 32 entries; a longer set with a code
-length on a symbol above 31 reads past them); lens + loff stays in 320 entries, the table needs at most 852 (LENS), 592 (DISTS) entries
-after toff in 1444; CODES uses lengths up to 7 only, as inflate.c does (3-bit code length code lengths).
+length on a symbol above 31 reads past them); lens + loff stays in 320 entries, the table needs at most 1332 (LENS), 400 (DISTS) entries
+after toff in 1732; CODES uses lengths up to 7 only, as inflate.c does (3-bit code length code lengths).
 """
 import random
 
@@ -52,7 +52,7 @@ def emit(type_, bits, loff, toff, arr):
     out.append("inflate_table %d %d %d %d %s" % (type_, bits, loff, toff, hexs(arr)))
 
 def emit_all_variants(type_, arr, roots):
-    toffs = [0] if type_ == 1 else ([0, 852] if type_ == 2 else [0, 5])
+    toffs = [0] if type_ == 1 else ([0, 1332] if type_ == 2 else [0, 5])
     for b in roots:
         emit(type_, b, rng.choice([0, 0, 7, 286 - len(arr) if 286 - len(arr) >= 0 else 0]),
              rng.choice(toffs), arr)
@@ -80,12 +80,12 @@ for b in (9, 5, 7, 8, 10, 15, 0):
 out.append("inflate_fixed")
 
 # 2. Edge sets.
-emit(1, 9, 0, 0, [])                        # no symbols at all
-emit(2, 6, 0, 0, [])
+emit(1, 10, 0, 0, [])                       # no symbols at all
+emit(2, 8, 0, 0, [])
 emit(0, 7, 0, 0, [])
 for n in (1, 2, 5, 19, 100, 288):
     for t in (0, 1, 2):
-        emit(t, 7 if t == 0 else 9 if t == 1 else 6, 0, 0, [0] * n)
+        emit(t, 7 if t == 0 else 10 if t == 1 else 8, 0, 0, [0] * n)
 for t in (0, 1, 2):
     for L in (1, 2, 3, 7, 8, 15):
         if t == 0 and L > 7:
@@ -124,18 +124,18 @@ for _ in range(330):
     total = rng.choice([286, 288, max(n, 257)]) if n <= 286 else 288
     lens = complete(n, 15, rng.randrange(2) == 0)
     arr = place(lens, max(total, n))
-    b = rng.choice([9, 9, 9, 8, 10, 5, rng.choice(ROOTS)])
-    emit(1, b, rng.choice([0, 0, 7]), rng.choice([0, 0, 100, 592]), arr)
+    b = rng.choice([10, 10, 10, 9, 8, 5, rng.choice(ROOTS)])
+    emit(1, b, rng.choice([0, 0, 7]), rng.choice([0, 0, 100, 400]), arr)
     if rng.randrange(3) == 0:
         for a in perturb(arr, 15):
-            emit(1, 9, 0, 0, a)
+            emit(1, 10, 0, 0, a)
 # Deep codes (length up to 15 with many symbols at depth 15/14/13: sub-tables of several sizes).
 for depth_max in (10, 11, 12, 13, 14, 15):
     for _ in range(25):
         n = rng.randrange(16, 289)
         lens = complete(n, depth_max, True)
         arr = place(lens, 288)
-        for b in (9, 8, 6, 12):
+        for b in (10, 9, 8, 6, 12):
             emit(1, b, 0, 0, arr)
 
 # 5. DISTS: complete codes with up to 32 symbols (30 valid), lengths up to 15, several roots, offsets as in inflate.c.
@@ -143,11 +143,11 @@ for _ in range(320):
     n = rng.choice([2, 3, 4, 5, 8, 16, 20, 30, 31, 32, rng.randrange(2, 33)])
     lens = complete(n, 15, rng.randrange(2) == 0)
     arr = place(lens, rng.choice([30, 32, max(n, 30)]))
-    b = rng.choice([6, 6, 6, 5, 7, 4, rng.choice(ROOTS)])
-    emit(2, b, rng.choice([0, 0, 286, 257]), rng.choice([0, 0, 100, 852]), arr)
+    b = rng.choice([8, 8, 8, 7, 6, 4, rng.choice(ROOTS)])
+    emit(2, b, rng.choice([0, 0, 286, 257]), rng.choice([0, 0, 100, 1332]), arr)
     if rng.randrange(3) == 0:
         for a in perturb(arr, 15):
-            emit(2, 6, 0, 0, a)
+            emit(2, 8, 0, 0, a)
 
 # 6. Space limit: sets that need more table entries than ENOUGH_LENS / ENOUGH_DISTS for a given root
 #    (the code returns 1), tried with large roots and many sub-tables.
@@ -159,7 +159,7 @@ for _ in range(60):
 for _ in range(60):
     n = rng.randrange(16, 33)
     arr = place(complete(n, 15, True), 32)
-    for b in (15, 14, 11, 10, 9):
+    for b in (15, 14, 11, 10, 9, 8):
         emit(2, b, 0, 0, arr)
 
 # 7. Every root request on one code of each type (root below the shortest, inside, above the longest).

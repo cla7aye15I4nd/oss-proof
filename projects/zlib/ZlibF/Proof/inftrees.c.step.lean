@@ -389,14 +389,14 @@ theorem tooBig_le (e : Env) {u : UInt32} (h : tooBig e.c.type u = false) (hne : 
     simp only [tooBig, LENS, DISTS, CODES] at h hcap
     have h2 : ¬ (u > ENOUGH_LENS.toUInt32) := by simpa using h
     rw [UInt32.not_lt, UInt32.le_iff_toNat_le] at h2
-    have : (ENOUGH_LENS.toUInt32).toNat = 852 := rfl
+    have : (ENOUGH_LENS.toUInt32).toNat = 1332 := rfl
     simp at hcap
     omega
   · rw [ht] at h hcap
     simp only [tooBig, LENS, DISTS, CODES] at h hcap
     have h2 : ¬ (u > ENOUGH_DISTS.toUInt32) := by simpa using h
     rw [UInt32.not_lt, UInt32.le_iff_toNat_le] at h2
-    have : (ENOUGH_DISTS.toUInt32).toNat = 592 := rfl
+    have : (ENOUGH_DISTS.toUInt32).toNat = 400 := rfl
     simp at hcap
     omega
 
@@ -715,7 +715,7 @@ theorem openBody_wp (e : Env) (i : Nat) (s : TS) (ca : Array Code) (h : OB e i s
   rintro u h' ⟨rfl, rfl⟩
   have hu : ((1 : UInt32) <<< cs).toNat = 2 ^ cs.toNat := u32_shl1 hcs32
   have hpow14 : 2 ^ cs.toNat ≤ 2 ^ 14 := Nat.pow_le_pow_right (by omega) (by omega)
-  have hcap_le : e.cap ≤ 852 := by
+  have hcap_le : e.cap ≤ 1332 := by
     have := e.h_cap
     rcases e.h_type with ht | ht | ht <;> simp [ht, CODES, LENS, DISTS] at this <;> omega
   have hused' : (used + (1 <<< cs)).toNat = used.toNat + 2 ^ cs.toNat := by

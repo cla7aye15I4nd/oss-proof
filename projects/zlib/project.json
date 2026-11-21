@@ -6,7 +6,7 @@
   "upstream": {
     "submodule": "zlib",
     "repository": "https://github.com/madler/zlib",
-    "version": "1.4",
+    "version": "1.4.0.1-motley",
     "target": "default x86_64 Linux LP64 static build, default allocator",
     "patches_dir": "patches"
   },
@@ -60,10 +60,10 @@
     "checker": "docs/web/check.py",
     "js_tests": "docs/web/tests/*.test.mjs",
     "findings_count": 8,
-    "patches_count": 7,
+    "patches_count": 6,
     "summary": {
-      "en": "Every documented public function of the default x86_64 Linux build of zlib 1.4 (with seven patches) is proved safe over every call sequence, together with the round trip of the default zlib stream.",
-      "zh": "默认 x86_64 Linux 构建下 zlib 1.4（含七个补丁）中每个有文档公开函数对任意输入与调用序列均已证明安全，并证明默认 zlib 流的往返性质。"
+      "en": "Every documented public function of the default x86_64 Linux build of zlib 1.4.0.1-motley (with six patches) is proved safe over every call sequence, together with the round trip of the default zlib stream.",
+      "zh": "默认 x86_64 Linux 构建下 zlib 1.4.0.1-motley（含六个补丁）中每个有文档公开函数对任意输入与调用序列均已证明安全，并证明默认 zlib 流的往返性质。"
     }
   }
 }

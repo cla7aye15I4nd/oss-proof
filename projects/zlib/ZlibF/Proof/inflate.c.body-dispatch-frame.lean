@@ -1,3 +1,4 @@
+import ZlibF.Proof.«crc32.c»
 import ZlibF.Proof.«inflate.c.memory-meta-frame-run»
 
 /-!
@@ -544,76 +545,11 @@ theorem bodyCfgM_adler32_z (seed : UInt64) (buffer : BPtr) (length : UInt64) :
 theorem bodyCfgM_adler32 (seed : UInt64) (buffer : BPtr) (length : UInt32) :
     BodyCfgM (Zlib.Adler32.adler32 seed buffer length) := bodyCfgM_adler32_z seed buffer length.toUInt64
 
-theorem bodyCfgM_crc_shr64 (value shift : UInt64) : BodyCfgM (Zlib.Crc32.shr64 value shift) := by
-  unfold Zlib.Crc32.shr64
-  exact bodyCfgM_ite (bodyCfgM_pure _) (bodyCfgM_ub _)
-
-theorem bodyCfgM_crc_table (index : UInt64) : BodyCfgM (Zlib.Crc32.crcTab index) :=
-  bodyCfgM_ptr_index _ _
-
-theorem bodyCfgM_crc_idx1 {α : Type} (table : Array α) (index : Nat) : BodyCfgM (Zlib.Crc32.idx1 table index) := by
-  unfold Zlib.Crc32.idx1
-  split
-  · exact bodyCfgM_pure _
-  · exact bodyCfgM_ub _
-
-theorem bodyCfgM_crc_idx2 {α : Type} (table : Array (Array α)) (row index : Nat) :
-    BodyCfgM (Zlib.Crc32.idx2 table row index) := by
-  unfold Zlib.Crc32.idx2
-  split
-  · split
-    · exact bodyCfgM_pure _
-    · exact bodyCfgM_ub _
-  · exact bodyCfgM_ub _
-
-theorem bodyCfgM_crc_address (buffer : BPtr) : BodyCfgM (Zlib.Crc32.addrOf buffer) := by
-  intro h value after run
-  cases run
-  rfl
-
-theorem bodyCfgM_crc_loadWord (buffer : BPtr) : BodyCfgM (Zlib.Crc32.loadWord buffer) := by
-  unfold Zlib.Crc32.loadWord
-  simp only [forIn, Std.Legacy.Range.forIn'_eq_forIn'_range', Std.Legacy.Range.size]
-  refine bodyCfgM_bind (bodyCfgM_list_forIn _ _ ?_ _) (fun _ => bodyCfgM_pure _)
-  intro index membership state
-  exact bodyCfgM_bind (bodyCfgM_ptr_index _ _) (fun _ => bodyCfgM_pure _)
-
-theorem bodyCfgM_crc_word (word : UInt64) : BodyCfgM (Zlib.Crc32.crc_word word) := by
-  unfold Zlib.Crc32.crc_word
-  body_cfg_m
-
-theorem bodyCfgM_crc_word_big (word : UInt64) : BodyCfgM (Zlib.Crc32.crc_word_big word) := by
-  unfold Zlib.Crc32.crc_word_big
-  body_cfg_m
-
-theorem bodyCfgM_crc_wordAt (buffer : BPtr) (index : Nat) : BodyCfgM (Zlib.Crc32.wordAt buffer index) := by
-  unfold Zlib.Crc32.wordAt
-  body_cfg_m
-
-theorem bodyCfgM_crc_braid (index : Int32) (word : UInt64) : BodyCfgM (Zlib.Crc32.braidTab index word) := by
-  unfold Zlib.Crc32.braidTab
-  body_cfg_m
-
-theorem bodyCfgM_crc_braid_big (index : Int32) (word : UInt64) : BodyCfgM (Zlib.Crc32.braidBigTab index word) := by
-  unfold Zlib.Crc32.braidBigTab
-  body_cfg_m
-
-theorem bodyCfgM_crc_block_little (state : Zlib.Crc32.BL) : BodyCfgM (Zlib.Crc32.blockLittle state) := by
-  unfold Zlib.Crc32.blockLittle
-  body_cfg_m
-
-theorem bodyCfgM_crc_block_big (state : Zlib.Crc32.BB) : BodyCfgM (Zlib.Crc32.blockBig state) := by
-  unfold Zlib.Crc32.blockBig
-  body_cfg_m
-
-theorem bodyCfgM_crc_byte (seed : UInt64) (buffer : BPtr) : BodyCfgM (Zlib.Crc32.crcByte seed buffer) := by
-  unfold Zlib.Crc32.crcByte
-  body_cfg_m
-
 theorem bodyCfgM_crc_whole (seed : UInt64) (buffer : BPtr) (length : UInt64) :
     BodyCfgM (Zlib.Crc32.crc32_z seed buffer length) := by
-  unfold Zlib.Crc32.crc32_z
-  body_cfg_m
+  intro h result after run
+  cases Zlib.Crc32.Proofs.crc32_z_heap_unchanged seed buffer length h result after run
+  rfl
 
 theorem bodyCfgM_crc32 (seed : UInt64) (buffer : BPtr) (length : UInt32) :
     BodyCfgM (Zlib.Crc32.crc32 seed buffer length) := bodyCfgM_crc_whole seed buffer length.toUInt64
@@ -736,11 +672,111 @@ theorem bodyCfgM_fast_body (context : Zlib.Inffast.Ctx) (state : Zlib.Inffast.L)
   unfold Zlib.Inffast.inflate_fast_body
   body_cfg_m
 
+theorem bodyCfgM_ptr_le {R T : Type} [Space Heap R T] [DecidableEq R] (p q : Ptr R) :
+    BodyCfgM (p.le q) :=
+  bodyCfgM_bind (bodyCfgM_ptr_lt q p) (fun b => bodyCfgM_pure (!b))
+
+theorem bodyCfgM_fast_load64 (p : BPtr) : BodyCfgM (Zlib.Inffast.load64 p) := by
+  unfold Zlib.Inffast.load64
+  body_cfg_m
+
+theorem bodyCfgM_fast_store64 (out : BPtr) (v : UInt64) : BodyCfgM (Zlib.Inffast.store64 out v) := by
+  unfold Zlib.Inffast.store64
+  body_cfg_m
+
+set_option hygiene false in
+local macro "body_cfg_m_fast_step" : tactic =>
+  `(tactic| first
+    | with_reducible assumption
+    | with_reducible exact bodyCfgM_fast_shl32 _ _
+    | with_reducible exact bodyCfgM_fast_shl64 _ _
+    | with_reducible exact bodyCfgM_fast_shr64 _ _
+    | with_reducible exact bodyCfgM_fast_chk64 _
+    | with_reducible exact bodyCfgM_fast_subn _ _
+    | with_reducible exact bodyCfgM_memcpyB _ _ _
+    | with_reducible exact bodyCfgM_store8 _ _
+    | with_reducible exact bodyCfgM_store16 _ _
+    | with_reducible exact bodyCfgM_ldS _
+    | with_reducible exact bodyCfgM_ldZ _
+    | with_reducible exact bodyCfgM_stZ _ _
+    | with_reducible exact bodyCfgM_castI _
+    | with_reducible exact bodyCfgM_strLit _
+    | with_reducible exact bodyCfgM_ptr_load _
+    | with_reducible exact bodyCfgM_ptr_index _ _
+    | with_reducible exact bodyCfgM_ptr_add _ _
+    | with_reducible exact bodyCfgM_ptr_diff _ _
+    | with_reducible exact bodyCfgM_ptr_lt _ _
+    | with_reducible exact bodyCfgM_pure _
+    | with_reducible exact bodyCfgM_ub _
+    | with_reducible (refine bodyCfgM_ld_st_bind _ _ _ (fun _ => ?_) (fun _ => ?_))
+    | with_reducible (refine bodyCfgM_ld_st _ _ (fun _ => ?_))
+    | with_reducible (refine bodyCfgM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine bodyCfgM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply bodyCfgM_ite
+    | with_reducible (refine bodyCfgM_bind ?_ (fun _ => ?_))
+    | rfl)
+
+theorem bodyCfgM_fast_copy_back (out : BPtr) (dist len : UInt32) :
+    BodyCfgM (Zlib.Inffast.copy_back out dist len) := by
+  unfold Zlib.Inffast.copy_back
+  repeat' first
+    | with_reducible exact bodyCfgM_fast_subn _ _
+    | with_reducible exact bodyCfgM_fast_load64 _
+    | with_reducible exact bodyCfgM_fast_store64 _ _
+    | with_reducible (rintro ⟨_, _⟩; dsimp only)
+    | body_cfg_m_fast_step
+
+theorem bodyCfgM_fast_refill64 (l : Zlib.Inffast.L) : BodyCfgM (Zlib.Inffast.refill64 l) := by
+  unfold Zlib.Inffast.refill64
+  repeat' first
+    | with_reducible exact bodyCfgM_fast_load64 _
+    | with_reducible exact bodyCfgM_fast_shl64 _ _
+    | body_cfg_m_fast_step
+
+theorem bodyCfgM_fast_copyMatch8 (context : Zlib.Inffast.Ctx) (state : Zlib.Inffast.L) :
+    BodyCfgM (Zlib.Inffast.copyMatch8 context state) := by
+  unfold Zlib.Inffast.copyMatch8
+  repeat' first
+    | with_reducible exact bodyCfgM_fast_badData _ _
+    | with_reducible exact bodyCfgM_fast_copy_back _ _ _
+    | with_reducible exact bodyCfgM_fast_subn _ _
+    | body_cfg_m_fast_step
+
+theorem bodyCfgM_fast_dodist8 (context : Zlib.Inffast.Ctx) (state : Zlib.Inffast.L) :
+    BodyCfgM (Zlib.Inffast.dodist8 context state) := by
+  unfold Zlib.Inffast.dodist8
+  repeat' first
+    | with_reducible exact bodyCfgM_fast_copyMatch8 _ _
+    | with_reducible exact bodyCfgM_fast_badData _ _
+    | with_reducible exact bodyCfgM_fast_refill64 _
+    | body_cfg_m_fast_step
+
+theorem bodyCfgM_fast_dolen8 (context : Zlib.Inffast.Ctx) (state : Zlib.Inffast.L) :
+    BodyCfgM (Zlib.Inffast.dolen8 context state) := by
+  unfold Zlib.Inffast.dolen8
+  repeat' first
+    | with_reducible exact bodyCfgM_fast_dodist8 _ _
+    | with_reducible exact bodyCfgM_fast_badData _ _
+    | with_reducible exact bodyCfgM_fast_refill64 _
+    | body_cfg_m_fast_step
+
+theorem bodyCfgM_fast_body8 (context : Zlib.Inffast.Ctx) (state : Zlib.Inffast.L) :
+    BodyCfgM (Zlib.Inffast.inflate_fast_body8 context state) := by
+  unfold Zlib.Inffast.inflate_fast_body8
+  repeat' first
+    | with_reducible exact bodyCfgM_fast_dolen8 _ _
+    | with_reducible exact bodyCfgM_fast_refill64 _
+    | body_cfg_m_fast_step
+
 /-- The whole fast decoder writes the stream, output bytes and `mode`, `hold`, `bits` only. -/
 theorem bodyCfgM_inflate_fast (strm : ZStreamPtr) (start : UInt32) :
     BodyCfgM (Zlib.Inffast.inflate_fast strm start) := by
   unfold Zlib.Inffast.inflate_fast
-  body_cfg_m
+  repeat' first
+    | with_reducible exact bodyCfgM_fast_body _ _
+    | with_reducible exact bodyCfgM_fast_body8 _ _
+    | with_reducible exact bodyCfgM_ptr_le _ _
+    | body_cfg_m_fast_step
 
 /-! ## Composition in `X` -/
 

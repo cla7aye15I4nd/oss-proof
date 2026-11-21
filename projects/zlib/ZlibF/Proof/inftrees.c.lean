@@ -18,8 +18,8 @@ array `la` from offset `ol`, `work` the array `wa` from offset `ow`, and `*table
 * `type` is `CODES`, `LENS` or `DISTS`;
 * `lens` has at least `codes` entries, each at most 15 (`MAXBITS`; the C only assumes it), and `work` has at least
   `codes` entries; `lens` and `work` are different arrays;
-* `ca` is writable and has at least `Spec.capOf type` entries from `oc` on: 128 for `CODES`, `ENOUGH_LENS` (852) for
-  `LENS`, `ENOUGH_DISTS` (592) for `DISTS`, which is what `inflate.c` provides;
+* `ca` is writable and has at least `Spec.capOf type` entries from `oc` on: 128 for `CODES`, `ENOUGH_LENS` (1332) for
+  `LENS`, `ENOUGH_DISTS` (400) for `DISTS`, which is what `inflate.c` provides;
 * `codes` is at most 19 (`CODES`), 288 (`LENS`; `inflate.c` has at most 286) or 32 (`DISTS`; `inflate.c` has at most
   30), so that `work[sym] - match` stays inside the 31 or 32 entries of `lbase`, `lext`, `dbase`, `dext`;
 * for `CODES` every length is at most 7 and `*bits` is at least 7 (the caller passes `7`): without them a `CODES`
@@ -57,8 +57,8 @@ lengths, and `1` (table too large for `ENOUGH_LENS` / `ENOUGH_DISTS`) only for `
 
 Callers covered. `inflate.c` (and `infback.c`) call `inflate_table(CODES, lens, 19, &next, &lenbits(=7), work)` on
 3-bit lengths (so at most 7), `inflate_table(LENS, lens, nlen, ...)` with `nlen <= 286` and
-`inflate_table(DISTS, lens + nlen, ndist, ...)` with `ndist <= 30`, with `next` inside `codes[1444]` such that at
-least 852 (`LENS`) or 592 (`DISTS`) entries remain, and `work[288]`. These satisfy the hypotheses: `CODES` needs
+`inflate_table(DISTS, lens + nlen, ndist, ...)` with `ndist <= 30`, with `next` inside `codes[1732]` such that at
+least 1332 (`LENS`) or 400 (`DISTS`) entries remain, and `work[288]`. These satisfy the hypotheses: `CODES` needs
 `codes <= 19`, every length `<= 7` and `bits >= 7` (they pass exactly 7); `LENS` needs `codes <= 288`; `DISTS` needs
 `codes <= 32`. The theorem is wider than the callers in `codes` (288 and 32 instead of 286 and 30) and in `bits`
 (arbitrary for `LENS` and `DISTS`). The fixed-code tables are not built by `inflate_table` in the default build. -/
@@ -111,7 +111,7 @@ def witHeap : Heap :=
   | .ok (_, h) => h
   | .error _ => Heap.empty
 
-/-! The kernel builds an `Array.ofFn` slowly: the 1444 entries of `codes` alone take gigabytes. `witHeap_eq` rewrites
+/-! The kernel builds an `Array.ofFn` slowly: the 1732 entries of `codes` alone take gigabytes. `witHeap_eq` rewrites
 `witHeap` to the same heap with its arrays written by `Array.replicate`, which the kernel builds directly. -/
 
 /-- The inflate state of `witHeap`, its arrays written by `Array.replicate`. -/
@@ -119,7 +119,7 @@ def witStateR : InflateState :=
   { InflateState.garbage (fun _ => 0) with
     lens := (((Array.replicate 320 (Junk.of 0 : UInt16)).set! 0 1).set! 1 2).set! 2 2
     work := Array.replicate 288 (Junk.of 0 : UInt16)
-    codes := Array.replicate 1444 (Code.garbage (fun _ => 0)) }
+    codes := Array.replicate 1732 (Code.garbage (fun _ => 0)) }
 
 /-- `witHeap`, its arrays written by `Array.replicate`. -/
 def witHeapR : Heap :=

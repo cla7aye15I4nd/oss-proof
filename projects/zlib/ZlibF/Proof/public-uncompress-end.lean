@@ -281,7 +281,9 @@ theorem epilogue {e : Env} (ok : EnvOK e) {sourceLen destLen : BPtr}
     {n64 cap64 : UInt64} (cells : Cells e sourceLen destLen n64 cap64) {l : UncLoop} {rc : Int32}
     {Hp H : Heap} {logp : DataLog} {input output : List UInt8} {u i : Nat} {zp z : ZStream}
     {sp s : InflateState} (fin : SafeFinal e l rc Hp H logp input output u i zp z sp s) :
-    ∃ H1 H2 H3,
+    ∃ written H1 H2 H3,
+      (logp.output ++ output) <+: written ∧
+      written.length ≤ e.cap ∧
       load64 sourceLen H = .ok (n64, H) ∧
       store64 sourceLen (n64 - (l.len + z.avail_in.toUInt64)) H = .ok ((), H1) ∧
       load64 destLen H1 = .ok (cap64, H1) ∧
@@ -290,13 +292,13 @@ theorem epilogue {e : Env} (ok : EnvOK e) {sourceLen destLen : BPtr}
       H3.bytes (e.k + 1) = some (reservedBytes e.h₀) ∧ H3.ro (e.k + 1) = false ∧
       (∃ zz, (reservedFreed H3 e.k).streams e.k = some zz) ∧
       SameObjectsUpToTableShape
-        (writeOut (writeOut (writeOut e.h₀ e.out0 (logp.output ++ output)) sourceLen
+        (writeOut (writeOut (writeOut e.h₀ e.out0 written) sourceLen
           (lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))) destLen
           (lengthBytes (cap64 - (l.left + z.avail_out.toUInt64))))
         (freedHeap H3 e.k) ∧
       (rc = Z_MEM_ERROR → AllocationFailed e.h₀ (freedHeap H3 e.k)) := by
   have outC := fin.outCount
-  have outLe : (logp.output ++ output).length ≤ e.cap := by omega
+  obtain ⟨written, hpref, outLe, finAgree⟩ := fin.agree
   have k0 : ¬ e.h₀.live e.k := ok.fresh e.k (Nat.le_refl _)
   have k1 : ¬ e.h₀.live (e.k + 1) := ok.fresh (e.k + 1) (Nat.le_succ _)
   have away : ∀ (q : BPtr) (v : UInt64), LengthCell e.h₀ q v → ∀ rr j, q = .ref rr j → ∀ c,
@@ -305,12 +307,12 @@ theorem epilogue {e : Env} (ok : EnvOK e) {sourceLen destLen : BPtr}
     exact fin.notOwned c (Or.inl (cell_blocks cell rr j hq c hc)) (streamOwned_of fin.good own)
   -- the source-length cell
   have cellS_E := cell_after_output ok cells.scell cells.sepS outLe
-  have cellS_H := fin.agree.cell cellS_E (cell_blocks cells.scell)
+  have cellS_H := finAgree.cell cellS_E (cell_blocks cells.scell)
   obtain ⟨H1, run1, st1⟩ := store64_writable (n64 - (l.len + z.avail_in.toUInt64)) cellS_H.2
   have lbne : ∀ v, lengthBytes v ≠ [] := by intro v h; have := congrArg List.length h; simp [lengthBytes_length] at this
   have H1eq := store_eq_writeOut st1 (lbne _)
   subst H1eq
-  have agree1 := fin.agree.writeOut_both (xs := lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))
+  have agree1 := finAgree.writeOut_both (xs := lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))
     (cell_blocks cells.scell)
   -- the output-length cell
   have cellD_E := cell_after_output ok cells.dcell cells.sepD outLe
@@ -390,14 +392,14 @@ theorem epilogue {e : Env} (ok : EnvOK e) {sourceLen destLen : BPtr}
     rw [H3eq]
     exact ⟨a1.trans (c1.trans b1), a2.trans (c2.trans b2), a3.trans (c3.trans b3), a4.trans (c4.trans b4),
       a5.trans (c5.trans b5)⟩
-  refine ⟨W1, W2, H3, load64_cell cellS_H, run1.trans (by rw [hW1]), load64_cell cellD_H1, run2, runE,
-    res3.1, res3.2, ⟨{ z with state := none }, ?_⟩, ?_, ?_⟩
+  refine ⟨written, W1, W2, H3, hpref, outLe, load64_cell cellS_H, run1.trans (by rw [hW1]),
+    load64_cell cellD_H1, run2, runE, res3.1, res3.2, ⟨{ z with state := none }, ?_⟩, ?_, ?_⟩
   · simp only [reservedFreed]
     have := get3
     simp only [Env.r, ZStreamRef.get] at this
     exact this
   · -- every block: the same objects, or empty on both sides
-    have E2live : ∀ b, (writeOut (writeOut (writeOut e.h₀ e.out0 (logp.output ++ output)) sourceLen
+    have E2live : ∀ b, (writeOut (writeOut (writeOut e.h₀ e.out0 written) sourceLen
         (lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))) destLen
         (lengthBytes (cap64 - (l.left + z.avail_out.toUInt64)))).live b ↔ e.h₀.live b := by
       intro b; rw [writeOut_live, writeOut_live, writeOut_live]
@@ -448,10 +450,10 @@ theorem epilogue {e : Env} (ok : EnvOK e) {sourceLen destLen : BPtr}
       · exact absurd x n0
       · exact absurd x n1
       · exact absurd ((ownedBy b).1 x) notOwn
-    have per : ∀ b, SameAt (writeOut (writeOut (writeOut e.h₀ e.out0 (logp.output ++ output)) sourceLen
+    have per : ∀ b, SameAt (writeOut (writeOut (writeOut e.h₀ e.out0 written) sourceLen
         (lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))) destLen
         (lengthBytes (cap64 - (l.left + z.avail_out.toUInt64)))) (freedHeap H3 e.k) b ∨
-        (¬ (writeOut (writeOut (writeOut e.h₀ e.out0 (logp.output ++ output)) sourceLen
+        (¬ (writeOut (writeOut (writeOut e.h₀ e.out0 written) sourceLen
         (lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))) destLen
         (lengthBytes (cap64 - (l.left + z.avail_out.toUInt64)))).live b ∧ ¬ (freedHeap H3 e.k).live b) := by
       intro b
@@ -467,19 +469,19 @@ theorem epilogue {e : Env} (ok : EnvOK e) {sourceLen destLen : BPtr}
         exact ⟨fun x => live ((E2live b).1 x), fun x => live (Flive b x)⟩
     have tbl : ∀ {α : Type} (get : Heap → Nat → Option α),
         (∀ b X Y, SameAt X Y b → get Y b = get X b) → (∀ X b, ¬ X.live b → get X b = none) →
-        ∀ b, get (freedHeap H3 e.k) b = get (writeOut (writeOut (writeOut e.h₀ e.out0 (logp.output ++ output))
+        ∀ b, get (freedHeap H3 e.k) b = get (writeOut (writeOut (writeOut e.h₀ e.out0 written)
           sourceLen (lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))) destLen
           (lengthBytes (cap64 - (l.left + z.avail_out.toUInt64)))) b := by
       intro α get hs hn b
       rcases per b with x | ⟨x, y⟩
       · exact hs b _ _ x
       · rw [hn _ b x, hn _ b y]
-    obtain ⟨eS, eA, eG, eN, eNa, -⟩ := writeOut_globals (writeOut (writeOut e.h₀ e.out0 (logp.output ++ output))
+    obtain ⟨eS, eA, eG, eN, eNa, -⟩ := writeOut_globals (writeOut (writeOut e.h₀ e.out0 written)
       sourceLen (lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))) destLen
       (lengthBytes (cap64 - (l.left + z.avail_out.toUInt64)))
-    obtain ⟨fS, fA, fG, fN, fNa, -⟩ := writeOut_globals (writeOut e.h₀ e.out0 (logp.output ++ output))
+    obtain ⟨fS, fA, fG, fN, fNa, -⟩ := writeOut_globals (writeOut e.h₀ e.out0 written)
       sourceLen (lengthBytes (n64 - (l.len + z.avail_in.toUInt64)))
-    obtain ⟨gS, gA, gG, gN, gNa, -⟩ := writeOut_globals e.h₀ e.out0 (logp.output ++ output)
+    obtain ⟨gS, gA, gG, gN, gNa, -⟩ := writeOut_globals e.h₀ e.out0 written
     have hk : e.k < H.nextBlk := by
       by_cases lt : e.k < H.nextBlk
       · exact lt

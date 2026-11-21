@@ -364,7 +364,7 @@ def back_TABLE (c : BCtx) : X Unit := do
   if (← Ptr.index (lensP c.st) 256) == (0 : UInt16) then
     badMode c "invalid code -- missing end-of-block"
     return
-  wrS c.st fun s => { s with next := codesP c.st, lencode := codesP c.st, lenbits := 9 }
+  wrS c.st fun s => { s with next := codesP c.st, lencode := codesP c.st, lenbits := 10 }
   let s ← ldInflateState c.st
   let (r, nx, lb) ← inflate_table LENS (lensP c.st) s.nlen s.next s.lenbits (workP c.st)
   wrS c.st fun s => { s with next := nx, lenbits := lb }
@@ -372,7 +372,7 @@ def back_TABLE (c : BCtx) : X Unit := do
   if r != 0 then
     badMode c "invalid literal/lengths set"
     return
-  wrS c.st fun s => { s with distcode := s.next, distbits := 6 }
+  wrS c.st fun s => { s with distcode := s.next, distbits := 8 }
   let s ← ldInflateState c.st
   let (r, nx, db) ← inflate_table DISTS (← (lensP c.st).add (s.nlen.toNat : Int)) s.ndist s.next s.distbits (workP c.st)
   wrS c.st fun s => { s with next := nx, distbits := db }

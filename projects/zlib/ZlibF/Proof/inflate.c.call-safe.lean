@@ -37,7 +37,7 @@ theorem InflateCall.safe {h : Heap} {r : ZStreamRef} {i : Nat} {z : ZStream} {s 
     simp only [StreamWriteRegions, current.good.live.hz, current.good.live.zst, current.good.live.hs]
   refine ⟨rc, after, heapCall_of_actual_run run default, ?_, ?_⟩
   · rw [regions]
-    apply inflate_buffer_frame_mono (BufferFrame.widen_head frame accounting.2.1)
+    apply inflate_buffer_frame_mono frame
     intro b changed
     rcases changed with root | own | head
     · exact Or.inl root

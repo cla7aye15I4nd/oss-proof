@@ -174,6 +174,144 @@ theorem streamFrameM_fast_body (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
     | with_reducible apply streamFrameM_ite
     | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
 
+theorem streamFrameM_ptr_le {R T : Type} [Space Heap R T] [DecidableEq R]
+    (r : ZStreamRef) (p q : Ptr R) : StreamFrameM r (p.le q) :=
+  streamFrameM_bind (streamFrameM_ptr_lt r q p) (fun b => streamFrameM_pure r (!b))
+
+theorem streamFrameM_fast_load64 (r : ZStreamRef) (p : BPtr) :
+    StreamFrameM r (Zlib.Inffast.load64 p) := by
+  unfold Zlib.Inffast.load64
+  repeat' first
+    | with_reducible exact streamFrameM_ptr_index r _ _
+    | with_reducible exact streamFrameM_pure r _
+    | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
+
+theorem streamFrameM_fast_store64 (r : ZStreamRef) (out : BPtr) (v : UInt64) :
+    StreamFrameM r (Zlib.Inffast.store64 out v) := by
+  unfold Zlib.Inffast.store64
+  repeat' first
+    | with_reducible exact streamFrameM_store8 r _ _
+    | with_reducible exact streamFrameM_ptr_add r _ _
+    | with_reducible exact streamFrameM_pure r _
+    | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
+
+theorem streamFrameM_fast_copy_back (r : ZStreamRef) (out : BPtr) (dist len : UInt32) :
+    StreamFrameM r (Zlib.Inffast.copy_back out dist len) := by
+  unfold Zlib.Inffast.copy_back
+  repeat' first
+    | with_reducible exact streamFrameM_fast_subn r _ _
+    | with_reducible exact streamFrameM_fast_load64 r _
+    | with_reducible exact streamFrameM_fast_store64 r _ _
+    | with_reducible exact streamFrameM_memcpyB r _ _ _
+    | with_reducible exact streamFrameM_ptr_load r _
+    | with_reducible exact streamFrameM_ptr_add r _ _
+    | with_reducible exact streamFrameM_ptr_lt r _ _
+    | with_reducible exact streamFrameM_pure r _
+    | with_reducible (refine streamFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply streamFrameM_ite
+    | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
+    | (intro p; cases p; dsimp only)
+
+theorem streamFrameM_fast_refill64 (r : ZStreamRef) (state : Zlib.Inffast.L) :
+    StreamFrameM r (Zlib.Inffast.refill64 state) := by
+  unfold Zlib.Inffast.refill64
+  repeat' first
+    | with_reducible exact streamFrameM_fast_load64 r _
+    | with_reducible exact streamFrameM_fast_shl64 r _ _
+    | with_reducible exact streamFrameM_ptr_add r _ _
+    | with_reducible exact streamFrameM_pure r _
+    | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
+
+theorem streamFrameM_fast_copyMatch8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    StreamFrameM r (Zlib.Inffast.copyMatch8 context state) := by
+  unfold Zlib.Inffast.copyMatch8
+  repeat' first
+    | with_reducible exact streamFrameM_fast_badData r _ root _
+    | with_reducible exact streamFrameM_fast_copy_back r _ _ _
+    | with_reducible exact streamFrameM_fast_subn r _ _
+    | with_reducible exact streamFrameM_memcpyB r _ _ _
+    | with_reducible exact streamFrameM_ldS r _
+    | with_reducible exact streamFrameM_stS r _ _
+    | with_reducible exact streamFrameM_ptr_add r _ _
+    | with_reducible exact streamFrameM_ptr_diff r _ _
+    | with_reducible exact streamFrameM_ptr_lt r _ _
+    | with_reducible exact streamFrameM_pure r _
+    | with_reducible exact streamFrameM_ub r _
+    | with_reducible (refine streamFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine streamFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply streamFrameM_ite
+    | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
+
+theorem streamFrameM_fast_dodist8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    StreamFrameM r (Zlib.Inffast.dodist8 context state) := by
+  unfold Zlib.Inffast.dodist8
+  repeat' first
+    | with_reducible exact streamFrameM_fast_badData r _ root _
+    | with_reducible exact streamFrameM_fast_copyMatch8 r _ root _
+    | with_reducible exact streamFrameM_fast_refill64 r _
+    | with_reducible exact streamFrameM_fast_shl32 r _ _
+    | with_reducible exact streamFrameM_fast_shl64 r _ _
+    | with_reducible exact streamFrameM_fast_shr64 r _ _
+    | with_reducible exact streamFrameM_fast_chk64 r _
+    | with_reducible exact streamFrameM_ldS r _
+    | with_reducible exact streamFrameM_stS r _ _
+    | with_reducible exact streamFrameM_ptr_load r _
+    | with_reducible exact streamFrameM_ptr_index r _ _
+    | with_reducible exact streamFrameM_ptr_add r _ _
+    | with_reducible exact streamFrameM_ptr_diff r _ _
+    | with_reducible exact streamFrameM_ptr_lt r _ _
+    | with_reducible exact streamFrameM_pure r _
+    | with_reducible exact streamFrameM_ub r _
+    | with_reducible (refine streamFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine streamFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply streamFrameM_ite
+    | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
+
+theorem streamFrameM_fast_dolen8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    StreamFrameM r (Zlib.Inffast.dolen8 context state) := by
+  unfold Zlib.Inffast.dolen8
+  repeat' first
+    | with_reducible exact streamFrameM_fast_badData r _ root _
+    | with_reducible exact streamFrameM_fast_dodist8 r _ root _
+    | with_reducible exact streamFrameM_fast_refill64 r _
+    | with_reducible exact streamFrameM_fast_shl32 r _ _
+    | with_reducible exact streamFrameM_fast_shl64 r _ _
+    | with_reducible exact streamFrameM_fast_shr64 r _ _
+    | with_reducible exact streamFrameM_fast_chk64 r _
+    | with_reducible exact streamFrameM_store8 r _ _
+    | with_reducible exact streamFrameM_ldS r _
+    | with_reducible exact streamFrameM_stS r _ _
+    | with_reducible exact streamFrameM_ptr_load r _
+    | with_reducible exact streamFrameM_ptr_index r _ _
+    | with_reducible exact streamFrameM_ptr_add r _ _
+    | with_reducible exact streamFrameM_ptr_diff r _ _
+    | with_reducible exact streamFrameM_ptr_lt r _ _
+    | with_reducible exact streamFrameM_pure r _
+    | with_reducible exact streamFrameM_ub r _
+    | with_reducible (refine streamFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine streamFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply streamFrameM_ite
+    | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
+
+theorem streamFrameM_fast_body8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    StreamFrameM r (Zlib.Inffast.inflate_fast_body8 context state) := by
+  unfold Zlib.Inffast.inflate_fast_body8
+  repeat' first
+    | with_reducible exact streamFrameM_fast_dolen8 r _ root _
+    | with_reducible exact streamFrameM_fast_refill64 r _
+    | with_reducible exact streamFrameM_fast_shr64 r _ _
+    | with_reducible exact streamFrameM_store8 r _ _
+    | with_reducible exact streamFrameM_ptr_load r _
+    | with_reducible exact streamFrameM_ptr_add r _ _
+    | with_reducible exact streamFrameM_pure r _
+    | with_reducible (refine streamFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply streamFrameM_ite
+    | with_reducible (refine streamFrameM_bind ?_ (fun _ => ?_))
+
 /-- The whole actual fast decoder preserves the caller's state root,
 allocator functions, opaque argument and reserved field on every successful
 run. No raw-buffer or callee-safety contract is assumed by this frame. -/
@@ -182,6 +320,7 @@ theorem streamFrameM_inflate_fast (r : ZStreamRef) (start : UInt32) :
   unfold Zlib.Inffast.inflate_fast
   repeat' first
     | with_reducible exact streamFrameM_fast_body r _ rfl _
+    | with_reducible exact streamFrameM_fast_body8 r _ rfl _
     | with_reducible exact streamFrameM_fast_subn r _ _
     | with_reducible exact streamFrameM_fast_shl32 r _ _
     | with_reducible exact streamFrameM_fast_chk64 r _
@@ -192,6 +331,7 @@ theorem streamFrameM_inflate_fast (r : ZStreamRef) (start : UInt32) :
     | with_reducible exact streamFrameM_ptr_add r _ _
     | with_reducible exact streamFrameM_ptr_diff r _ _
     | with_reducible exact streamFrameM_ptr_lt r _ _
+    | with_reducible exact streamFrameM_ptr_le r _ _
     | with_reducible exact streamFrameM_pure r _
     | with_reducible exact streamFrameM_ub r _
     | with_reducible (refine streamFrameM_ldZ_update r _ _ (fun _ => ?_) (fun _ => ?_))

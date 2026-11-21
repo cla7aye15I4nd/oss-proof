@@ -12,13 +12,14 @@ theorem inflate_LEN_fast_raw_progress_run {c : Ctx} {l : IL} {h : Heap} {r : ZSt
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
     (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ regs after state, runX (inflate_LEN c) l h = .ok ((.ok (), regs), after) ∧
       after.istates zs = some state ∧
       (state.mode = TYPE ∨ state.mode = BAD ∨ regs.left.toNat < l.left.toNat) := by
   obtain ⟨entry, heap1, cut, _, _, _, refEq, idEq, _, streamEq, _, _, progress⟩ :=
-    inflate_LEN_fast_raw_cut_progress E good fit tables buffers pending input output different fast
+    inflate_LEN_fast_raw_cut_progress E good fit tables buffers pending mode input output different fast
   obtain ⟨stream1, state1, streamGet, stateGet, advancing⟩ := progress
   change entry.r.get heap1 = some stream1 at streamGet
   change heap1.istates entry.stid = some state1 at stateGet
@@ -49,6 +50,7 @@ theorem inflate_LEN_fast_raw_buffers_progress {c : Ctx} {l : IL} {h : Heap} {r :
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
     (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ used made regs after stream state, used ≤ bs.length ∧
@@ -58,9 +60,9 @@ theorem inflate_LEN_fast_raw_buffers_progress {c : Ctx} {l : IL} {h : Heap} {r :
       regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧ regs.bits.toNat < 8 ∧ (state.mode = TYPE ∨ state.mode = BAD ∨ 0 < made) := by
   obtain ⟨used, made, regs, after, stream, state, bound, run, current, data, nextPending,
     packet, sizes, next, haveCount, put, left, bits⟩ :=
-    inflate_LEN_fast_raw_buffers E good fit tables buffers pending input output different fast
+    inflate_LEN_fast_raw_buffers E good fit tables buffers pending mode input output different fast
   obtain ⟨regs2, after2, state2, progressRun, stateGet, progress⟩ :=
-    inflate_LEN_fast_raw_progress_run E good fit tables buffers pending input output different fast
+    inflate_LEN_fast_raw_progress_run E good fit tables buffers pending mode input output different fast
   obtain ⟨localEq, heapEq⟩ := Prod.mk.inj (Except.ok.inj (run.symm.trans progressRun))
   have regsEq : regs2 = regs := (congrArg Prod.snd localEq).symm
   subst regs2

@@ -49,7 +49,7 @@ theorem llInstall_code_length_contents {c : Ctx} {l : IL} {h : Heap} {zs : Nat} 
     (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
     (wf : s.WellFormed) (lengths : Good3 s.lens 19) :
     ∃ (ret : Int32) (next : CodePtr) (root : UInt32) (work : Array UInt16) (codes : Array Code),
-      work.size = 288 ∧ codes.size = 1444 ∧
+      work.size = 288 ∧ codes.size = 1732 ∧
       (∀ index, 19 ≤ index → work[index]? = s.work[index]?) ∧
       (∀ index, 128 ≤ index → codes[index]? = s.codes[index]?) ∧
       runX (llInstall c) l h = .ok ((.ok ret, { l with ret := ret }),

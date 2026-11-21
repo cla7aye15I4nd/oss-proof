@@ -23,7 +23,7 @@ theorem inflate_default_view_public_exact_frame
       used ≤ z.avail_in.toNat ∧ made ≤ z.avail_out.toNat ∧
       StreamAccounting z stream used made ∧
       BufferFrame h after (fun b => StreamRoot r b ∨ InflateOwned zs s b ∨ s.head = some (.tab b))
-        (⟨z.next_out, made⟩ :: HeaderRegions h s.head) := by
+        (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head) := by
   let c : Ctx := ⟨some r, some (.tab zs), syncBuf h, flush⟩
   have allocated := default_state_syncAlloc invariant
   have local_ : HeaderLocal c (syncAlloc h) r s (dispatchRegs z s) := entry_header_local invariant.good.fresh entry flush
@@ -73,7 +73,7 @@ theorem inflate_default_view_public_exact_frame
     rw [HeaderRegions.of_headers _ (syncAlloc_gzheaders h)] at localFrame
     have publicFrame : BufferFrame h (freeWin heap1 (syncBuf h))
         (fun b => StreamRoot r b ∨ InflateOwned zs s b ∨ s.head = some (.tab b))
-        (⟨z.next_out, made⟩ :: HeaderRegions h s.head) := by
+        (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head) := by
       apply BufferFrame.mono_live (buffer_frame_cancel_local_regions invariant.good.fresh localFrame)
       intro b live inside
       rcases inside with (root | state | local_ | head) | owned

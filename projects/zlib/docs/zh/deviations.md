@@ -1,4 +1,4 @@
-<!-- source-sha256: c892156d56cd4a4ab58e1b84b2114fc019a76a1217dd01ad450737847efa3e57 -->
+<!-- source-sha256: ea37d4b54e29e549f3ef2e0e255e17a27401552f40e5b5958b087f8cbcde7cc8 -->
 # 偏离记录：一次调用要满足什么
 
 本页写给调用 zlib 的人，回答一个问题：我的调用被安全定理覆盖了吗？下面的核对清单按函数族、用 C 的说法作答。清单之后的各表给出每一行背后的 Lean 前提、陈述它的目标，以及它的理由。
@@ -13,7 +13,7 @@
 
 **每一次调用**
 
-- 库是默认的 x86_64 Linux 构建：LP64、静态链接，由 zlib 1.4（上游提交 `99623ef7`）加七个[补丁](../../patches/README.md)编译而成。
+- 库是默认的 x86_64 Linux 构建：LP64、静态链接，由 zlib 1.4.0.1-motley（上游提交 `617e19a8`）加六个[补丁](../../patches/README.md)编译而成。
 - 每个 `z_stream` 的 `zalloc` 和 `zfree` 都是 `Z_NULL`，于是 zlib 使用它的默认分配器（`DefaultOrNull`）。自定义分配器不被覆盖。`malloc` 失败是被覆盖的。
 - 内存中没有任何单个对象达到或超过 2^63 字节（`ByteObjectsFit`）。这是 LP64 下单个对象的上限 `PTRDIFF_MAX`；它不限制内存总量，也不限制流的长度。
 - 这些行对整段历史成立。一个流或一个文件上的某次调用被覆盖，前提是从它的初始化或打开算起，此前在它上面的每次调用也都满足各自的行；那些调用返回什么都可以（`StreamReachable`、`GzHistory`、`BackSafeReachable`）。

@@ -1,12 +1,8 @@
 {
   "kind": "actual-selected-c-webassembly-example",
   "source_repository": "https://github.com/madler/zlib",
-  "source_commit": "99623ef7097352da7993ba614161fd6a311e046e",
+  "source_commit": "617e19a81f38c15ff04de9f86882f42ad8a8ffd1",
   "source_patches": [
-    {
-      "path": "patches/0001-inflate-copy-pointer-equality.patch",
-      "sha256": "3f6cfc505bd777a3632e679a7d71f03cb8bf62371947c5e601c32df5f7d8601c"
-    },
     {
       "path": "patches/0002-gzseek-negative-position-overflow.patch",
       "sha256": "7a4483de9066053741acb45ba2c2daabc3bd1c77847adb4a46d94cf8373f7428"
@@ -62,31 +58,31 @@
     },
     {
       "path": "crc32.c",
-      "sha256": "dd941a0a499a27517e3be0624c2e0dc683f0591bf29dd1ed54e65443cb19beb6"
+      "sha256": "b27d9a3e0d8a8038ae6334f15a51924e7625a0a95ffd49f24d6440ff283be1c0"
     },
     {
       "path": "deflate.c",
-      "sha256": "4f79382b7613b6d9b32400ac38324a4f5afe9f965f2867a3a006758db9f12fea"
+      "sha256": "c4c5c703efd6675c5f536f8b43acdc03288bdacae2fd379302c29676ea4f0500"
     },
     {
       "path": "trees.c",
-      "sha256": "8807b9f4075fd7f0322361359bfd5001e2c3430a7f17aede8ae26c642892d5f8"
+      "sha256": "5a53b3cdf09d58a6f6364d990071a1c6ccd1c3db95be56645c5ba6f582680b2d"
     },
     {
       "path": "zutil.c",
-      "sha256": "c195fe0ff472545b231542ab6a633a97117710cea64f98c5d468775ed89eff55"
+      "sha256": "00a17684d598ab7e6a2c3a5c464a41bd478d425f572d35b99bb9635d7b95ac63"
     },
     {
       "path": "inflate.c",
-      "sha256": "50004434b8a091d718da994b3f13552b42017216abf8aaad0e515bec0fc04e58"
+      "sha256": "0b468bde122398a3543d069f1cbce647c4c4e62e7b0d4273b42afd68c07ae020"
     },
     {
       "path": "inftrees.c",
-      "sha256": "7ab9c04acc2e9888c8c1fddefc730a850f69a3d80a7a702433a35383e36efa9c"
+      "sha256": "6dd0db68997735840e478f17c7573d4efe75dcc3d3986f4ef8c8f06b5bc1a18d"
     },
     {
       "path": "inffast.c",
-      "sha256": "f96787a11bb7131ffd2221fb40db27f6a5a1dfb12f59c0bc388807010749c34a"
+      "sha256": "d480101f3d26cfffb28af565109ece43c94ead5269ef9bc764763d199363843b"
     }
   ],
   "wrapper": {
@@ -99,8 +95,8 @@
       "bytes": 8216
     },
     "zlib-playground.wasm": {
-      "sha256": "9530cb5580c277eccfa76923659555133285684a89ed30630d73dc8944baead2",
-      "bytes": 60604
+      "sha256": "c15d62f9edfee72b9dcf045348ed82994d859ce3ce1ffbb2f5db3088485b2722",
+      "bytes": 60146
     }
   },
   "configuration": {
@@ -117,7 +113,7 @@
   "source_headers": [
     {
       "path": "crc32.h",
-      "sha256": "9a2223575183ac2ee8a247f20bf3ac066e8bd0140369556bdbdffc777435749e"
+      "sha256": "4f7b85fb8c6be1288081db8415660c640115bfc2b1961fe2631a260bee39473b"
     },
     {
       "path": "deflate.h",
@@ -141,7 +137,7 @@
     },
     {
       "path": "inftrees.h",
-      "sha256": "97897f41e5d55b426b106c230111e99fec44cd5197a71e6a3750d2e7e17b16bc"
+      "sha256": "face06ff506e648b0330d4c6784fe5a1bc7e64d6bf73e4f96648a47d1f810b3f"
     },
     {
       "path": "trees.h",
@@ -149,15 +145,15 @@
     },
     {
       "path": "zconf.h",
-      "sha256": "1e91041e94e3f13a12b770be849c4c674e37caddf94e37acddf853bb54a09adf"
+      "sha256": "8b3f65b6e27958ceca5cea8e878c75a4c26a4d0efd5af69e414edebd1fc9ad24"
     },
     {
       "path": "zlib.h",
-      "sha256": "2c404dcaa08709c2a129aea18f3dad4fb5acc5cb52ef12b6223bf8e78c195801"
+      "sha256": "8894df41f4837f39ba21a75c4325d200b43bc4675abeb0d045887b223731337f"
     },
     {
       "path": "zutil.h",
-      "sha256": "a12243cc6d338ffad0c8e3500fbc05bc7fdcdc25a469393b1c2f7e5df307fff3"
+      "sha256": "28cb00f3a00d895208ead235a39ac2d4807fa002aa85ba24c4d225b7137bdfdc"
     }
   ]
 }

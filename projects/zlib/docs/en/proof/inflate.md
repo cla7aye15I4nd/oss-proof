@@ -329,7 +329,7 @@ it.
 | `CODELENS` | Table lookup, `lens[have++]`, `lens[have - 1]` | Clause `lengths`. A repeat that would pass `nlen + ndist` is rejected. Code 16 with `have = 0` is rejected before `lens[have - 1]` |
 | End of `CODELENS` | Two calls of `inflate_table` into `codes[1444]` | `852 + 592 = 1444`. `inflate_table_safe` gives no fault; `inflate_table_decoder_safe` gives the table shape that clause `tables` needs |
 | `LEN` to `DISTEXT` | Table lookups | Clause `tables`: a masked index is inside the table and the entry is a leaf or a link to leaves |
-| `LEN`, fast path | The call of `inflate_fast` | The call is proved from the invariant and `StreamBuffers`, on the heap that `RESTORE()` leaves, for every layout that `StreamBuffers` allows (`inflate_fast_default_view_buffers`); see [the fast path](#the-fast-path) |
+| `LEN`, fast path | The call of `inflate_fast` | The call is proved from the invariant and `StreamBuffers`, on the heap that `RESTORE()` leaves, for every layout that `StreamBuffers` allows (`inflate_fast_default_view_buffers_progress`); see [the fast path](#the-fast-path) |
 | `MATCH` | Copy from the window or from earlier output | `offset > 0` (clause `pending`). A distance beyond the output of this call goes to the window, and `sane = 1` makes the C reject it when it exceeds `whave`. W bounds the window index |
 | `LIT` | One byte to `*put` | `left > 0` is tested first |
 | `CHECK` | Checksum over the `out` bytes before `put`: the output since the start of the call. A call computes it at most once: after it the mode is `LENGTH`, `DONE` or `BAD` | The bytes were written by this call, inside the output range |
@@ -349,9 +349,9 @@ safety proofs, and the third belongs to the functional results.
   [fast decoding](inffast.md#assumptions) and so reuses the theorems of that page. It has the
   premise that the input and the output are in two different heap blocks. The lemmas built on
   it carry the same premise, named `RawFastIO`; `inflate_dispatch_data_rank` is one of them.
-- `inflate_fast_default_view_buffers` has no premise
-  on the blocks. It proves the run of `inflate_fast` directly from the decoder invariant and the
-  caller's ranges, also when input and output are two ranges of one block.
+- `inflate_fast_default_view_buffers_progress` builds `Env` directly via `fast_view_exec` from
+  the decoder invariant and the caller's ranges (including when input and output are disjoint ranges
+  of one block) and reuses `inflate_fast_safe_progress_origin`.
   `inflate_dispatch_data_view_state_rank` uses it for every fast call and is the lemma of
   the data modes that the proof of `inflate_call` rests on. This is the way the safety results
   take.
@@ -483,8 +483,8 @@ return `Z_MEM_ERROR` after it has written bytes. `Goal.inflate` keeps that effec
 
 ## A defect found in `inflateCopy`
 
-The unpatched `inflateCopy` tests whether `lencode` lies inside `codes` with `>=` and `<=`. When
-`lencode` points at the static fixed table, the two pointers belong to different objects and the
-comparison is undefined behaviour. Patch 0001 replaces the test with pointer equality
-(`patches/README.md`; [finding](../findings.md)).
-The translation and `inflateCopy_safety` are for the patched source.
+In zlib 1.4 prior to PR #1369, `inflateCopy` tested whether `lencode` lies inside `codes` with
+`>=` and `<=`. When `lencode` points at the static fixed table, the two pointers belong to
+different objects and the comparison is undefined behaviour. PR #1369 merged the pointer-equality
+fix upstream in zlib 1.4.0.1-motley ([finding](../findings.md)), and the translation and
+`inflateCopy_safety` target that updated source without needing a patch.

@@ -39,7 +39,7 @@ theorem inflate_LEN_fast_view_step
   obtain ⟨finished, stream, state, used, made, loaded, usedBound, call,
     current, fastPacket, sizes, next, count, put, left, small, budget,
     window, modes, shape, progress⟩ :=
-    inflate_fast_default_view_buffers_progress restored packet dataMode
+    inflate_fast_default_view_buffers_progress restored packet mode
       rfl rfl rfl rfl rfl rfl fast
   have execution : Zlib.Inffast.inflate_fast c.strm l.out_
       (setI (r.put h (leaveStream z l)) zs (leaveState s l)) = .ok ((), finished) := by

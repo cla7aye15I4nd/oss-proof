@@ -24,14 +24,16 @@ theorem headDefaultCheck_output_frame {c : Ctx} {h after : Heap} {r : ZStreamRef
     have heapEq : after = badHeap h r zs z s i :=
       congrArg Prod.snd (Except.ok.inj (run.symm.trans actual))
     rw [heapEq]
-    exact (badHeap_buffer_frame E.hz E.hs i regions).1
+    exact (fastWriteback_heap_frame E.hz E.hs
+      { z with msg := .ref (.str i) 0 } { s with mode := BAD } regions).1
   have headerFalse : headHeaderRejected s l = false := by cases test : headHeaderRejected s l <;> simp_all
   by_cases method : headMethodRejected l = true
   · obtain ⟨i, actual⟩ := headDefaultCheck_bad_method E l headerFalse method
     have heapEq : after = badHeap h r zs z s i :=
       congrArg Prod.snd (Except.ok.inj (run.symm.trans actual))
     rw [heapEq]
-    exact (badHeap_buffer_frame E.hz E.hs i regions).1
+    exact (fastWriteback_heap_frame E.hz E.hs
+      { z with msg := .ref (.str i) 0 } { s with mode := BAD } regions).1
   have methodFalse : headMethodRejected l = false := by cases test : headMethodRejected l <;> simp_all
   have accepted (actual : runX (headDefaultCheck c s l) l h = .ok ((.ok (), { headWindowRegs l with hold := 0, bits := 0 }),
       setI (r.put h { z with adler := 1 }) zs (headDefaultState s l))) :
@@ -46,7 +48,8 @@ theorem headDefaultCheck_output_frame {c : Ctx} {h after : Heap} {r : ZStreamRef
     have heapEq : after = badHeap h r zs z s i :=
       congrArg Prod.snd (Except.ok.inj (run.symm.trans actual))
     rw [heapEq]
-    exact (badHeap_buffer_frame E.hz E.hs i regions).1
+    exact (fastWriteback_heap_frame E.hz E.hs
+      { z with msg := .ref (.str i) 0 } { s with mode := BAD } regions).1
   by_cases zero : s.wbits = 0
   · by_cases big : 15 < (headWindowRegs l).len.toNat
     · obtain ⟨i, actual⟩ := headDefaultCheck_bad_window_zero E l headerFalse methodFalse big

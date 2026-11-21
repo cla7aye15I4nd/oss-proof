@@ -72,7 +72,7 @@ fi
 # whose patched build still faults, fails the run.
 if [ -z "${ONLY:-}" ] || [ "$ONLY" = patches ]; then
   [ -n "${ZLIB_SRC:-}" ] || { echo "run.sh: the patch reproductions need ZLIB_SRC" >&2; exit 2; }
-  for case in inflate-copy-fixed gzseek-pushback-overflow gzread-transparent-stale-next gzread-pos-overflow \
+  for case in gzseek-pushback-overflow gzread-transparent-stale-next gzread-pos-overflow \
       gzwrite-pos-overflow gzoffset-negative-lseek deflatebound-fixed-far-matches deflatebound-gzip-extra-length; do
     echo "== patch reproduction: $case"
     ZLIB_SRC="$ZLIB_SRC" bash "$here/regression/$case/run.sh" || { echo "FAIL: patch reproduction $case" >&2; exit 1; }

@@ -12,7 +12,7 @@
 #define TRACE_REGION ((size_t)65536)
 #define TRACE_INPUT_SIZE (3 * TRACE_REGION)
 #define TRACE_CHUNK 4096u
-#define TRACE_SOURCE "99623ef7097352da7993ba614161fd6a311e046e"
+#define TRACE_SOURCE "617e19a81f38c15ff04de9f86882f42ad8a8ffd1"
 
 struct trace_bytes {
     unsigned char *data;
@@ -297,8 +297,7 @@ int main(int argc, char **argv) {
     printf("{\n  \"schema\": 1,\n  \"kind\": \"fixed-source-native-example-runs\",\n");
     printf("  \"source_commit\": \"%s\",\n  \"zlib_version\": \"%s\",\n", TRACE_SOURCE, zlibVersion());
     printf("  \"source_patches\": [");
-    printf("\"0001-inflate-copy-pointer-equality.patch\"");
-    printf(", \"0002-gzseek-negative-position-overflow.patch\"");
+    printf("\"0002-gzseek-negative-position-overflow.patch\"");
     printf(", \"0003-gzread-stale-next-and-position-overflow.patch\"");
     printf(", \"0004-gzwrite-position-overflow.patch\"");
     printf(", \"0005-gzoffset-negative-lseek.patch\"");

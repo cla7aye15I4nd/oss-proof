@@ -56,6 +56,7 @@ structure PlatformEntry where
   hbits : s0.bits.toNat < 8
   hhold : s0.hold.toNat < 2 ^ s0.bits.toNat
   hsane : s0.sane ≠ 0
+  hmode : s0.mode = LEN
   -- the window
   hws : s0.wsize.toNat ≤ 32768
   hwh : s0.whave.toNat ≤ s0.wsize.toNat
@@ -64,6 +65,8 @@ structure PlatformEntry where
   woff : Nat
   W : Array UInt8
   hwin : s0.whave ≠ 0 →
+    s0.window = .ref (BRef.blk wb) woff ∧ wb ≠ ob ∧ h0.bytes wb = some W ∧ woff + s0.wsize.toNat ≤ W.size
+  hwinLive : s0.window ≠ .null →
     s0.window = .ref (BRef.blk wb) woff ∧ wb ≠ ob ∧ h0.bytes wb = some W ∧ woff + s0.wsize.toNat ≤ W.size
   -- the tables
   rl : CodeRef
@@ -116,6 +119,8 @@ def PlatformEntry.toEnv (e : PlatformEntry) : Env where
   hbits := e.hbits
   hhold := e.hhold
   hsane := e.hsane
+  hmode := e.hmode
+  halias_win := fun h => by cases h
   hws := e.hws
   hwh := e.hwh
   hwn := e.hwn
@@ -124,6 +129,9 @@ def PlatformEntry.toEnv (e : PlatformEntry) : Env where
   W := e.W
   hwin := fun nonzero =>
     let ⟨window, apart, get, room⟩ := e.hwin nonzero
+    ⟨window, fun same => apart (BRef.blk.inj same), get, room⟩
+  hwinLive := fun nonnull =>
+    let ⟨window, apart, get, room⟩ := e.hwinLive nonnull
     ⟨window, fun same => apart (BRef.blk.inj same), get, room⟩
   rl := e.rl
   ol := e.ol

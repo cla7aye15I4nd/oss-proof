@@ -4,7 +4,7 @@ import ZlibF.Runtime.LibcStrings
 /-!
 # Runtime schema (GENERATED, do not edit)
 
-Generated from the C headers of the verified source (zlib commit `99623ef7097352da7993ba614161fd6a311e046e`).
+Generated from the C headers of the verified source (zlib commit `617e19a81f38c15ff04de9f86882f42ad8a8ffd1`).
 Default build: x86_64 Linux, LP64. The decisions are explained in `docs/en/runtime-schema.md`.
 
 Contents: the constants of the headers, the reference types (where an array or a struct lives), the record of
@@ -22,11 +22,12 @@ def Buf_size : Int32 := 16
 def COMMENT_STATE : Int32 := 91
 def DEF_MEM_LEVEL : Int32 := 8
 def DEF_WBITS : Int32 := 15
+def DISTBITS : Int32 := 8
 def DYN_TREES : Int32 := 2
 def D_CODES : Int32 := 30
-def ENOUGH : Int32 := 1444
-def ENOUGH_DISTS : Int32 := 592
-def ENOUGH_LENS : Int32 := 852
+def ENOUGH : Int32 := 1732
+def ENOUGH_DISTS : Int32 := 400
+def ENOUGH_LENS : Int32 := 1332
 def EXTRA_STATE : Int32 := 69
 def FINISH_STATE : Int32 := 666
 def GZBUFSIZE : Int32 := 8192
@@ -41,6 +42,7 @@ def GZ_WRITE : Int32 := 31153
 def HCRC_STATE : Int32 := 103
 def HEAP_SIZE : Int32 := 573
 def INIT_STATE : Int32 := 42
+def LENBITS : Int32 := 10
 def LENGTH_CODES : Int32 := 29
 def LITERALS : Int32 := 256
 def LIT_BUFS : Int32 := 4
@@ -58,11 +60,11 @@ def PRESET_DICT : Int32 := 32
 def STATIC_TREES : Int32 := 1
 def STORED_BLOCK : Int32 := 0
 def WIN_INIT : Int32 := 258
-def ZLIB_VERNUM : Int32 := 5120
+def ZLIB_VERNUM : Int32 := 5121
 def ZLIB_VER_MAJOR : Int32 := 1
 def ZLIB_VER_MINOR : Int32 := 4
 def ZLIB_VER_REVISION : Int32 := 0
-def ZLIB_VER_SUBREVISION : Int32 := 0
+def ZLIB_VER_SUBREVISION : Int32 := 1
 def Z_ASCII : Int32 := 1
 def Z_BEST_COMPRESSION : Int32 := 9
 def Z_BEST_SPEED : Int32 := 1
@@ -95,7 +97,7 @@ def Z_TREES : Int32 := 6
 def Z_UNKNOWN : Int32 := 2
 def Z_VERSION_ERROR : Int32 := (-6 : Int32)
 def _LARGEFILE_SOURCE : Int32 := 1
-def ZLIB_VERSION : String := "1.4"
+def ZLIB_VERSION : String := "1.4.0.1-motley"
 
 /-! ## Enumerators
 
@@ -223,11 +225,11 @@ touched by `nextBlk`, and the same in every heap. `strLitRef` (in `Libc.lean`) i
 def strTable : Array String := #[
   "",
   "\n    ",
-  "\n#else /* W == 4 */\n\nlocal const z_crc_t FAR crc_braid_table[][256] = {\n",
+  "\n#else /* W == 4 */\n\nlocal const z_crc_t FAR crc_braid%d_table[][256] = {\n",
   "\n#else /* W == 4 */\n\nlocal const z_word_t FAR crc_big_table[] = {\n    ",
   "\n#endif\n",
-  "\n#if N == %d\n",
-  "\n#if W == 8\n\nlocal const z_crc_t FAR crc_braid_table[][256] = {\n",
+  "\n#if N == %d || NLOW == %d\n",
+  "\n#if W == 8\n\nlocal const z_crc_t FAR crc_braid%d_table[][256] = {\n",
   "\n#ifdef W\n\n#if W == 8\n\nlocal const z_word_t FAR crc_big_table[] = {\n    ",
   "\nbit length overflow\n",
   "\nbl code %2d ",
@@ -257,8 +259,8 @@ def strTable : Array String := #[
   " * Generated automatically by makefixed().",
   " */",
   " 3_6?",
-  " deflate 1.4 Copyright 1995-2026 Jean-loup Gailly and Mark Adler ",
-  " inflate 1.4 Copyright 1995-2026 Mark Adler ",
+  " deflate 1.4.0.1 Copyright 1995-2026 Jean-loup Gailly and Mark Adler ",
+  " inflate 1.4.0.1 Copyright 1995-2026 Mark Adler ",
   " l %2d v %4x ",
   " start %u, match %d, length %d\n",
   "%1u%s",
@@ -278,7 +280,7 @@ def strTable : Array String := #[
   "/* crc32.h -- tables for rapid CRC calculation\n * Generated automatically by crc32.c\n */\n\nlocal const z_crc_t FAR crc_table[] = {\n    ",
   "/* header created automatically with -DGEN_TREES_H */\n\n",
   "/* inffixed.h -- table for decoding fixed codes",
-  "1.4",
+  "1.4.0.1-motley",
   ": ",
   "<fd:%d>",
   "C",
@@ -398,7 +400,7 @@ def strTable : Array String := #[
   "};\n",
   "};\n\n#endif\n",
   "};\n\n#endif\n\n#endif\n",
-  "};\n\nlocal const z_word_t FAR crc_braid_big_table[][256] = {\n"
+  "};\n\nlocal const z_word_t FAR crc_braid%d_big_table[][256] = {\n"
 ]
 
 /-- The bytes of a string literal in memory: its text and the terminating NUL. -/
@@ -880,7 +882,7 @@ structure InflateState where
   lens : Array UInt16
   /-- `unsigned short[288]` -/
   work : Array UInt16
-  /-- `code[1444]` -/
+  /-- `code[1732]` -/
   codes : Array Code
   /-- `int` -/
   sane : Int32
@@ -1289,10 +1291,10 @@ def InflateState.garbage (g : Nat → UInt64) : InflateState where
   next := default
   lens := Array.ofFn (n := 320) fun i => Junk.of (g (25 + i.val))
   work := Array.ofFn (n := 288) fun i => Junk.of (g (345 + i.val))
-  codes := Array.ofFn (n := 1444) fun i => Code.garbage (fun j => g (633 + 3 * i.val + j))
-  sane := Junk.of (g 4965)
-  back := Junk.of (g 4966)
-  was := Junk.of (g 4967)
+  codes := Array.ofFn (n := 1732) fun i => Code.garbage (fun j => g (633 + 3 * i.val + j))
+  sane := Junk.of (g 5829)
+  back := Junk.of (g 5830)
+  was := Junk.of (g 5831)
 
 /-- The record after `memset(p, 0, sizeof *p)` (`zmemzero`): every integer 0, every pointer NULL. -/
 def InflateState.zeroed : InflateState := InflateState.garbage (fun _ => 0)
@@ -1420,7 +1422,7 @@ theorem Code.garbage_wf (g : Nat → UInt64) : (Code.garbage g).WellFormed := by
 theorem Code.zeroed_wf : Code.zeroed.WellFormed := Code.garbage_wf _
 
 /-- The array fields of a `inflate_state` have the lengths of the C declaration. -/
-def InflateState.WellFormed (v : InflateState) : Prop := v.lens.size = 320 ∧ v.work.size = 288 ∧ v.codes.size = 1444
+def InflateState.WellFormed (v : InflateState) : Prop := v.lens.size = 320 ∧ v.work.size = 288 ∧ v.codes.size = 1732
 
 theorem InflateState.garbage_wf (g : Nat → UInt64) : (InflateState.garbage g).WellFormed := by
   simp [InflateState.garbage, InflateState.WellFormed]

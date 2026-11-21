@@ -103,7 +103,19 @@ theorem BufferFrame.singleton_trans
     exact (finalOutside index (by omega) outside).trans
       (middleOutside index bound outside)
 
+theorem bufferFrame_weaken
+    {before after : Heap} {changed wider : Nat → Prop}
+    {regions : List Region}
+    (subset : ∀ b, changed b → wider b)
+    (frame : BufferFrame before after changed regions) :
+    BufferFrame before after wider regions := by
+  rcases frame with ⟨⟨static, allocOk, garbage, nextBlk, nalloc, outside⟩, bytes⟩
+  refine ⟨⟨static, allocOk, garbage, nextBlk, nalloc, ?_⟩, bytes⟩
+  intro b live unchanged
+  exact outside b live (fun changed => unchanged (subset b changed))
+
 #print axioms BufferFrame.singleton_trans
+#print axioms bufferFrame_weaken
 
 #print axioms frame_reset_byte_view
 #print axioms frame_trans_shape

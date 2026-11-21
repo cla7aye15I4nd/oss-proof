@@ -61,9 +61,9 @@ theorem CopyTableOrigin.dynamic_geometry
     (good : Good h r zs z s)
     (dynamic : s.lencode = .ref (.istate_codes zs) 0) :
     ∃ nextOff distOff,
-      s.next = .ref (.istate_codes zs) nextOff ∧ nextOff ≤ 1444 ∧
-      s.distcode = .ref (.istate_codes zs) distOff ∧ distOff ≤ 1443 ∧
-      Space.get h (CodeRef.istate_codes zs) = some s.codes ∧ s.codes.size = 1444 := by
+      s.next = .ref (.istate_codes zs) nextOff ∧ nextOff ≤ 1732 ∧
+      s.distcode = .ref (.istate_codes zs) distOff ∧ distOff ≤ 1731 ∧
+      Space.get h (CodeRef.istate_codes zs) = some s.codes ∧ s.codes.size = 1732 := by
   obtain ⟨nextGeom, tableGeom⟩ := good.inv.ptr
   obtain ⟨nextOff, nextPtr, nextBound⟩ := nextGeom
   rcases tableGeom with dynamicGeom | fixedGeom
@@ -82,13 +82,13 @@ theorem copy_next_diff_safe
     {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState}
     (good : Good h r zs z s) :
-    ∃ off : Nat, off ≤ 1444 ∧
+    ∃ off : Nat, off ≤ 1732 ∧
       C.run (Ptr.diff s.next (.ref (.istate_codes zs) 0)) h =
         .ok (Int64.ofInt (off : Int), h) := by
   obtain ⟨off, pointer, bound⟩ := good.inv.ptr.1
   have get : Space.get h (CodeRef.istate_codes zs) = some s.codes :=
     CodeRef.get_istate_codes good.live.hs
-  have size : s.codes.size = 1444 := good.inv.wf.2.2
+  have size : s.codes.size = 1732 := good.inv.wf.2.2
   have run := Ptr.diff_ok (r := CodeRef.istate_codes zs)
     (a := s.codes) (o1 := off) (o2 := 0) get
     (by omega) (by omega)
@@ -105,7 +105,7 @@ theorem copy_dist_diff_safe
     {z : ZStream} {s : InflateState}
     (good : Good h r zs z s)
     (dynamic : s.lencode = .ref (.istate_codes zs) 0) :
-    ∃ off : Nat, off ≤ 1443 ∧
+    ∃ off : Nat, off ≤ 1731 ∧
       C.run (Ptr.diff s.distcode (.ref (.istate_codes zs) 0)) h =
         .ok (Int64.ofInt (off : Int), h) := by
   obtain ⟨nextOff, distOff, nextPtr, nextBound,
