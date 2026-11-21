@@ -34,17 +34,34 @@ jobs:
       - name: Framework self-tests
         run: python3 -m unittest discover -s framework/tests -p "test_*.py"
 
-      - name: Options, Lakefiles, toolchains, and strict ISO C17 runtime UB policy
+      - name: Options, Lakefiles, toolchains, forbidden constructs, and strict ISO C17 runtime UB policy
         run: |
           python3 framework/check_options.py
+          python3 framework/check_forbidden.py
           python3 framework/check_runtime_ub.py
 
       - name: Compute affected project matrices
         id: matrix
         env:
           EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: python3 framework/ci_matrix.py
+
+  oss-proof-core:
+    needs: scope
+    if: ${{ github.event_name == 'push' || needs.scope.outputs.has_build == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/lean-environment
+        id: lean
+
+      - name: Build and kernel-audit shared OssProof core
+        run: |
+          LEAN_NUM_THREADS=4 lake --dir framework/lean build --wfail OssProof
+          (cd framework/lean && lake env lean --run PartialCheck.lean OssProof compiler-helpers.txt)
 
   build:
     needs: scope
@@ -161,17 +178,19 @@ jobs:
 
   gate:
     if: always()
-    needs: [scope, build, differential-test]
+    needs: [scope, oss-proof-core, build, differential-test]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Verify all scheduled verification jobs succeeded
         env:
           SCOPE_RESULT: ${{ needs.scope.result }}
+          CORE_RESULT: ${{ needs.oss-proof-core.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           DIFFTEST_RESULT: ${{ needs.differential-test.result }}
         run: |
-          echo "scope=$SCOPE_RESULT build=$BUILD_RESULT differential-test=$DIFFTEST_RESULT"
+          echo "scope=$SCOPE_RESULT oss-proof-core=$CORE_RESULT build=$BUILD_RESULT differential-test=$DIFFTEST_RESULT"
           [ "$SCOPE_RESULT" = "success" ]
+          [ "$CORE_RESULT" = "success" ] || [ "$CORE_RESULT" = "skipped" ]
           [ "$BUILD_RESULT" = "success" ] || [ "$BUILD_RESULT" = "skipped" ]
           [ "$DIFFTEST_RESULT" = "success" ] || [ "$DIFFTEST_RESULT" = "skipped" ]

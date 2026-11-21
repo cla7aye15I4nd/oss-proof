@@ -11,9 +11,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from framework._py import ensure_python311
+
+ensure_python311()
 from framework.manifest import Project, REPO, load_all_projects
 
 SHARED_INFRA_PREFIXES = (".github/", "framework/", "lean-toolchain", ".gitmodules")
+PROJECT_DOC_ONLY_EXACT = frozenset({"AGENTS.md", "README.md", "patches/README.md"})
+PROJECT_DOC_ONLY_PREFIXES = ("docs/",)
 
 
 def commit_exists(repo: Path, rev: str) -> bool:
@@ -29,12 +34,24 @@ def changed_files(repo: Path, base: str, head: str = "HEAD") -> list[str]:
 
 
 def is_shared_change(path: str) -> bool:
+    # Pure documentation files under framework/ (README.md, TEMPLATE_AGENTS.md, PROOF_PLAYBOOK.md)
+    # do not affect Lean proofs or verification code.
+    if path.startswith("framework/") and path.endswith(".md"):
+        return False
     return any(path == p or path.startswith(p) for p in SHARED_INFRA_PREFIXES)
+
+
+def is_project_doc_only(rel_path: str) -> bool:
+    return rel_path in PROJECT_DOC_ONLY_EXACT or any(
+        rel_path.startswith(prefix) for prefix in PROJECT_DOC_ONLY_PREFIXES
+    )
 
 
 def matches_difftest(proj: Project, rel_path: str) -> bool:
     difftest = proj.data.get("difftest")
     if not difftest:
+        return False
+    if is_project_doc_only(rel_path):
         return False
     always = {"lakefile.toml", "lean-toolchain", "project.json"}
     if rel_path in always or re.match(r"^tests/[^/]+$", rel_path):
@@ -71,6 +88,8 @@ def compute_matrices(
         prefix = f"projects/{proj.id}/"
         proj_changes = [path[len(prefix) :] for path in changed if path.startswith(prefix)]
         if not proj_changes:
+            continue
+        if all(is_project_doc_only(rel) for rel in proj_changes):
             continue
         build_ids.append(proj.id)
         if proj.data.get("difftest") and any(matches_difftest(proj, rel) for rel in proj_changes):

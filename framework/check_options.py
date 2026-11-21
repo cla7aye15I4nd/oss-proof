@@ -14,16 +14,25 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from framework._py import ensure_python311
+
+ensure_python311()
+import tomllib
+
 from framework.manifest import REPO, load_all_projects, load_project
 
 ALLOWED_OPTIONS = {"autoImplicit", "maxHeartbeats", "maxRecDepth", "hygiene"}
 ALLOWED_PREFIXES = ("linter.",)
 
-LAKEFILE_KEYS = {"": {"name", "version", "defaultTargets", "lean_lib"}, "lean_lib": {"name", "roots"}}
+LAKEFILE_KEYS = {
+    "": {"name", "version", "defaultTargets", "require", "lean_lib"},
+    "require": {"name", "path"},
+    "lean_lib": {"name", "roots"},
+}
+SHARED_CORE_REQUIRE = {"name": "OssProof", "path": "../../framework/lean"}
 TESTS_LAKEFILE_KEYS = {
     "": {"name", "version", "require", "lean_lib", "lean_exe"},
     "require": {"name", "path"},
@@ -87,7 +96,13 @@ def check_project_options(project_root: Path, package: str, root_toolchain: str 
         errors.append(f"{main_lake.relative_to(base)}: missing lakefile.toml")
     else:
         data = tomllib.loads(main_lake.read_text())
-        errors += table_errors(str(main_lake.relative_to(base)), data, LAKEFILE_KEYS)
+        label = str(main_lake.relative_to(base))
+        errors += table_errors(label, data, LAKEFILE_KEYS)
+        reqs = data.get("require", [])
+        if reqs and reqs != [SHARED_CORE_REQUIRE]:
+            errors.append(
+                f"{label}: project lakefile.toml may only require local OssProof ({SHARED_CORE_REQUIRE})"
+            )
     tests_lake = project_root / "tests/lakefile.toml"
     if tests_lake.is_file():
         data = tomllib.loads(tests_lake.read_text())
@@ -114,8 +129,23 @@ def check_repo(repo: Path = REPO, project_ids: list[str] | None = None) -> list[
         root_toolchain = None
     else:
         root_toolchain = tc_path.read_text()
-    fw_lean = sorted((repo / "framework/lean").rglob("*.lean")) if (repo / "framework/lean").is_dir() else []
+    fw_dir = repo / "framework/lean"
+    fw_lean = sorted(fw_dir.rglob("*.lean")) if fw_dir.is_dir() else []
     errors += scan_lean_options(fw_lean, repo)
+    if (fw_dir / "lakefile.lean").exists():
+        errors.append("framework/lean/lakefile.lean: a Lean Lake configuration is not allowed")
+    fw_lake = fw_dir / "lakefile.toml"
+    if fw_lake.is_file():
+        fw_data = tomllib.loads(fw_lake.read_text())
+        errors += table_errors("framework/lean/lakefile.toml", fw_data, LAKEFILE_KEYS)
+        if fw_data.get("require"):
+            errors.append("framework/lean/lakefile.toml: shared OssProof core may not declare require dependencies")
+        fw_tc = fw_dir / "lean-toolchain"
+        if root_toolchain is not None:
+            if not fw_tc.is_file():
+                errors.append("framework/lean/lean-toolchain: missing lean-toolchain")
+            elif fw_tc.read_text() != root_toolchain:
+                errors.append("framework/lean/lean-toolchain: toolchain differs from root lean-toolchain")
     projects = [load_project(pid, repo) for pid in project_ids] if project_ids else load_all_projects(repo)
     for proj in projects:
         errors += check_project_options(proj.root, proj.package, root_toolchain=root_toolchain, base=repo)

@@ -40,9 +40,9 @@ mechanically):
 
 ## Local commands
 
-From repository root (Python 3.11+, `LEAN_NUM_THREADS=4` under 16 GB RAM):
+From repository root (Python 3.11+ auto-selected; uses `~/.config/oss-proof/builders.toml` when configured, or serialized local execution):
 
 ```bash
-LEAN_NUM_THREADS=4 lake --dir projects/<id> build --wfail <Package> <Package>.Results
-python3 framework/check_project.py <id> --skip-build
+python3 framework/preflight.py
+python3 framework/build_guarded.py <id> --mode gate
 ```

@@ -19,7 +19,6 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "projects/zlib/docs/web"))
 
 from framework.manifest import Project, load_all_projects
-from syntax import color_blocks
 
 SHARED_STATIC_FILES = (
     "base.css",
@@ -123,7 +122,7 @@ def summarize_project(proj: Project) -> ProjectSummary:
 
     site_cfg = proj.data.get("site", {})
     upstream_cfg = proj.data["upstream"]
-    done = req_count > 0 and proved_req == req_count
+    done = req_count > 0 and proved_req == req_count and (doc_fns == 0 or proved_fns == doc_fns)
     has_full_book = bool(site_cfg.get("builder"))
     has_articles = (proj.root / "docs/en/read/codec.md").is_file()
     return ProjectSummary(
@@ -173,6 +172,8 @@ def copy_shared_static() -> None:
 
 
 def write_html(path: Path, content: str) -> None:
+    from syntax import color_blocks
+
     content = color_blocks(content)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
