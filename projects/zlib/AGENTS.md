@@ -7,8 +7,8 @@ and no arguing "benign UB").
 
 ## Scope (`ZlibF`)
 
-Kernel-checked Lean 4 proofs about a statement-by-statement translation of upstream `zlib` 1.4
-(commit `99623ef7097352da7993ba614161fd6a311e046e` plus `patches/*.patch`), for the default x86_64
+Kernel-checked Lean 4 proofs about a statement-by-statement translation of upstream `zlib` 1.4.0.1-motley
+(commit `617e19a81f38c15ff04de9f86882f42ad8a8ffd1` plus `patches/*.patch`), for the default x86_64
 Linux LP64 static build (`86` documented public functions):
 
 1. **Safety (proved / done):** `inflate`, `deflate`, `compress*`, `uncompress*`, checksums, utility

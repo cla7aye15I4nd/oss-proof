@@ -372,6 +372,7 @@ theorem inflate_fast_entry {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : 
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref ib io) (output : l.put = .ref ob oo)
     (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ e : Zlib.Inffast.Proofs.Env,
@@ -422,23 +423,25 @@ theorem inflate_fast_entry {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : 
     unfold heap0 state0 leaveState
     rw [code_views_set_bits (by simpa using E.hs), code_views_put_stream]
   have window : ∃ (wb : Nat) (wa : Array UInt8),
-      state0.whave ≠ 0 → state0.window = .ref (.blk wb) 0 ∧ BRef.blk wb ≠ ob ∧
-        heap0.bytes wb = some wa ∧ state0.wsize.toNat ≤ wa.size := by
+      (state0.window ≠ .null → state0.window = .ref (.blk wb) 0 ∧ BRef.blk wb ≠ ob ∧
+        heap0.bytes wb = some wa ∧ state0.wsize.toNat ≤ wa.size) := by
     rcases good.inv.win.block with null | ⟨wb, wa, ptr, get, ro, size⟩
-    · refine ⟨0, #[], ?_⟩
-      intro live
-      have zero := good.inv.win.nullws null
-      have whave := good.inv.win.hv
-      have : s.whave = 0 := UInt32.toNat_inj.mp (by rw [zero] at whave; simpa using whave)
-      exact False.elim (live this)
-    · refine ⟨wb, wa, ?_⟩
-      intro _
-      refine ⟨ptr, fun eq => privateWindow wb ptr eq.symm, by simpa [heap0] using get, ?_⟩
+    · exact ⟨0, #[], fun nonnull => False.elim (nonnull null)⟩
+    · refine ⟨wb, wa, fun _ => ⟨ptr, fun eq => privateWindow wb ptr eq.symm, by simpa [heap0] using get, ?_⟩⟩
       have := good.inv.win.ws
       change s.wsize.toNat ≤ wa.size
       rw [size]
       omega
-  obtain ⟨wb, wa, win⟩ := window
+  obtain ⟨wb, wa, winLive⟩ := window
+  have win : state0.whave ≠ 0 → state0.window = .ref (.blk wb) 0 ∧ BRef.blk wb ≠ ob ∧
+      heap0.bytes wb = some wa ∧ state0.wsize.toNat ≤ wa.size := by
+    intro live
+    apply winLive
+    intro null
+    have zero := good.inv.win.nullws null
+    have whave := good.inv.win.hv
+    rw [zero] at whave
+    exact live (UInt32.toNat_inj.mp (by simpa [state0, leaveState] using whave))
   have wsize : s.wsize.toNat ≤ 32768 := by
     have pow := Nat.pow_le_pow_right (by decide : 0 < 2) good.inv.win.wbits
     have := good.inv.win.ws
@@ -468,9 +471,11 @@ theorem inflate_fast_entry {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : 
       · exact Or.inl same
     hbits := bits, hhold := buffers.bits.hold_lt,
     hsane := by change s.sane ≠ 0; rw [pending.sane]; decide
+    hmode := mode,
+    halias_win := (fun h => by cases h),
     hws := wsize, hwh := good.inv.win.hv,
     hwn := by change s.wnext.toNat ≤ s.wsize.toNat; have := good.inv.win.wn; omega
-    wb, woff := 0, W := wa, hwin := by simpa using win
+    wb, woff := 0, W := wa, hwin := by simpa using win, hwinLive := by simpa using winLive
     rl := lr, ol := lo, LCA := la, hlc := lp, hLCA := by rw [codeViews]; exact lg, hlt := ls
     rd := dr, od := doff, DCA := da, hdc := dp, hDCA := by rw [codeViews]; exact dg, hdt := ds }
   exact ⟨e, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
@@ -535,7 +540,7 @@ theorem fast_call_meaning {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZSt
   have heldEq : held = natBits l.bits.toNat l.hold.toNat := MeaningBits.HeldBits.eq_natBits heldBits
   have outEq0 : out = f.logOut ++ callOut := outputEq
   obtain ⟨e, heapEq, strmEq, startEq, refEq, idEq, streamEq, stateEq, ibEq, i0Eq, obEq, o0Eq⟩ :=
-    inflate_fast_entry E good fit tables buffers pending input output fast
+    inflate_fast_entry E good fit tables buffers pending mode input output fast
   have margins : (6 ≤ l.have_ ∧ 258 ≤ l.left) ∧ l.bits < 8 := by
     simpa only [Bool.and_eq_true, decide_eq_true_eq] using fast
   have haveSix : 6 ≤ l.have_.toNat := by simpa [UInt32.le_iff_toNat_le] using margins.1.1

@@ -368,6 +368,7 @@ theorem inflate_fast_raw_entry {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {z
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
     (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ entry : Zlib.Inffast.Spec.PlatformEntry,
@@ -405,23 +406,30 @@ theorem inflate_fast_raw_entry {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {z
     unfold heap0 state0 leaveState
     rw [code_views_set_bits (by simpa using E.hs), code_views_put_stream]
   have window : ∃ (wb : Nat) (wa : Array UInt8),
-      state0.whave ≠ 0 → state0.window = .ref (.blk wb) 0 ∧ wb ≠ ob ∧
-        heap0.bytes wb = some wa ∧ state0.wsize.toNat ≤ wa.size := by
+      (state0.window ≠ .null → state0.window = .ref (.blk wb) 0 ∧ wb ≠ ob ∧
+        heap0.bytes wb = some wa ∧ state0.wsize.toNat ≤ wa.size) := by
     rcases good.inv.win.block with null | ⟨wb, wa, ptr, get, ro, size⟩
-    · refine ⟨0, #[], ?_⟩
-      intro live
-      have zero := good.inv.win.nullws null
-      have whave := good.inv.win.hv
-      have : s.whave = 0 := UInt32.toNat_inj.mp (by rw [zero] at whave; simpa using whave)
-      exact False.elim (live this)
-    · refine ⟨wb, wa, ?_⟩
-      intro _
-      refine ⟨ptr, fun eq => privateWindow wb ptr (by rw [eq]), by simpa [heap0] using get, ?_⟩
+    · exact ⟨0, #[], fun nonnull => False.elim (nonnull null)⟩
+    · refine ⟨wb, wa, fun _ => ⟨ptr, fun eq => privateWindow wb ptr (by rw [eq]), by simpa [heap0] using get, ?_⟩⟩
       have := good.inv.win.ws
       change s.wsize.toNat ≤ wa.size
       rw [size]
       omega
-  obtain ⟨wb, wa, win⟩ := window
+  obtain ⟨wb, wa, winLive⟩ := window
+  have win : state0.whave ≠ 0 → state0.window = .ref (.blk wb) 0 ∧ wb ≠ ob ∧
+      heap0.bytes wb = some wa ∧ state0.wsize.toNat ≤ wa.size := by
+    intro live
+    apply winLive
+    intro null
+    have zero := good.inv.win.nullws null
+    have whave := good.inv.win.hv
+    change state0.whave ≠ 0 at live
+    have hs0 : state0.whave.toNat = 0 := by
+      change s.whave.toNat = 0
+      change s.whave.toNat ≤ s.wsize.toNat at whave
+      have hzero : s.wsize.toNat = 0 := by rw [zero]; rfl
+      omega
+    exact live (UInt32.toNat_inj.mp hs0)
   have wsize : s.wsize.toNat ≤ 32768 := by
     have pow := Nat.pow_le_pow_right (by decide : 0 < 2) good.inv.win.wbits
     have := good.inv.win.ws
@@ -435,8 +443,9 @@ theorem inflate_fast_raw_entry {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {z
     hro := by simpa [heap0] using outwrite, hao := outputRoom, hAsz := outsize
     hstart := buffers.output.count, hbeg := made, hsep := different
     hbits := bits, hhold := buffers.bits.hold_lt, hsane := by change s.sane ≠ 0; rw [pending.sane]; decide
+    hmode := mode
     hws := wsize, hwh := good.inv.win.hv, hwn := by change s.wnext.toNat ≤ s.wsize.toNat; have := good.inv.win.wn; omega
-    wb, woff := 0, W := wa, hwin := by simpa using win
+    wb, woff := 0, W := wa, hwin := by simpa using win, hwinLive := by simpa using winLive
     rl := lr, ol := lo, LCA := la, hlc := lp, hLCA := by rw [codeViews]; exact lg, hlt := ls
     rd := dr, od := doff, DCA := da, hdc := dp, hDCA := by rw [codeViews]; exact dg, hdt := ds }
   exact ⟨entry, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
@@ -455,6 +464,7 @@ theorem inflate_LEN_fast_raw_cut_progress {c : Ctx} {l : IL} {h : Heap} {r : ZSt
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
     (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ (entry : Zlib.Inffast.Spec.PlatformEntry) (after : Heap),
@@ -463,7 +473,7 @@ theorem inflate_LEN_fast_raw_cut_progress {c : Ctx} {l : IL} {h : Heap} {r : ZSt
       entry.strm = c.strm ∧ entry.r = r ∧ entry.stid = zs ∧ entry.s0 = leaveState s l ∧ entry.sm0 = leaveStream z l ∧
       entry.h0 = setI (r.put h (leaveStream z l)) zs (leaveState s l) ∧ entry.ob = ob ∧ Zlib.Inffast.Proofs.FastProgress entry.toEnv after := by
   obtain ⟨entry, heapEq, streamEq, startEq, refEq, stateId, stream0, state0, _, _, outBlock, _⟩ :=
-    inflate_fast_raw_entry E good fit tables buffers pending input output different fast
+    inflate_fast_raw_entry E good fit tables buffers pending mode input output different fast
   obtain ⟨after, call, post, progress⟩ := Zlib.Inffast.Proofs.inflate_fast_safe_progress entry.toEnv
   change C.run (Zlib.Inffast.inflate_fast entry.strm entry.start) entry.h0 = .ok ((), after) at call
   have platform := Zlib.Inffast.Proofs.PlatformEntry.fit_after entry post
@@ -485,6 +495,7 @@ theorem inflate_LEN_fast_raw_cut {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} 
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
     (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ (entry : Zlib.Inffast.Spec.PlatformEntry) (after : Heap),
@@ -493,7 +504,7 @@ theorem inflate_LEN_fast_raw_cut {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} 
       entry.strm = c.strm ∧ entry.r = r ∧ entry.stid = zs ∧ entry.s0 = leaveState s l ∧ entry.sm0 = leaveStream z l ∧
       entry.h0 = setI (r.put h (leaveStream z l)) zs (leaveState s l) ∧ entry.ob = ob := by
   obtain ⟨entry, after, run, post, fit, strm, ref, id, state, stream, heap, out, _⟩ :=
-    inflate_LEN_fast_raw_cut_progress E good fit tables buffers pending input output different fast
+    inflate_LEN_fast_raw_cut_progress E good fit tables buffers pending mode input output different fast
   exact ⟨entry, after, run, post, fit, strm, ref, id, state, stream, heap, out⟩
 
 /-- LOAD and the final TYPE back-counter write execute on a live fast

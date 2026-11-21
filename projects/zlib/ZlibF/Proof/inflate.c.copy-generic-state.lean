@@ -20,8 +20,8 @@ def copiedGeneric (dest : ZStreamRef) (old fresh nextOff distOff : Nat)
 
 theorem copy_codes_off_diff
     {h : Heap} {i off : Nat} {s : InflateState}
-    (get : h.istates i = some s) (size : s.codes.size = 1444)
-    (bound : off ≤ 1444) :
+    (get : h.istates i = some s) (size : s.codes.size = 1732)
+    (bound : off ≤ 1732) :
     (Ptr.diff (.ref (CodeRef.istate_codes i) off)
       (.ref (CodeRef.istate_codes i) 0)) h =
       .ok (Int64.ofInt (off : Int), h) := by
@@ -36,8 +36,8 @@ theorem copy_codes_off_diff
 
 theorem copy_codes_off_add
     {h : Heap} {i off : Nat} {s : InflateState}
-    (get : h.istates i = some s) (size : s.codes.size = 1444)
-    (bound : off ≤ 1444) :
+    (get : h.istates i = some s) (size : s.codes.size = 1732)
+    (bound : off ≤ 1732) :
     (Ptr.add (.ref (CodeRef.istate_codes i) 0) (off : Int)) h =
       .ok (.ref (CodeRef.istate_codes i) off, h) := by
   have table : Space.get h (CodeRef.istate_codes i) = some s.codes :=
@@ -53,8 +53,8 @@ theorem copiedGeneric_ptr
     {old fresh nextOff distOff : Nat} {dest : ZStreamRef}
     {window : BPtr} {s : InflateState}
     (origin : CopyTableOrigin old s)
-    (nextBound : nextOff ≤ 1444)
-    (distBound : distOff ≤ 1443) :
+    (nextBound : nextOff ≤ 1732)
+    (distBound : distOff ≤ 1731) :
     PtrInv fresh (copiedGeneric dest old fresh nextOff distOff window s) := by
   refine ⟨⟨nextOff, rfl, nextBound⟩, ?_⟩
   rcases origin with dynamic | fixed
@@ -326,8 +326,8 @@ theorem copiedGeneric_no_window_good
     (good : Good h source old z s)
     (destGet : dest.get h = some oldDest)
     (origin : CopyTableOrigin old s)
-    (nextBound : nextOff ≤ 1444)
-    (distBound : distOff ≤ 1443)
+    (nextBound : nextOff ≤ 1732)
+    (distBound : distOff ≤ 1731)
     (noWindow : s.window = .null) :
     let fresh := h.nextBlk
     let copied := copiedGeneric dest old fresh nextOff distOff .null s
@@ -374,8 +374,8 @@ theorem copiedGeneric_window_good_of_heap_facts
     {z : ZStream} {s : InflateState} {a : Array UInt8}
     (sourceGood : Good h source old z s)
     (origin : CopyTableOrigin old s)
-    (nextBound : nextOff ≤ 1444)
-    (distBound : distOff ≤ 1443)
+    (nextBound : nextOff ≤ 1732)
+    (distBound : distOff ≤ 1731)
     (destGet : dest.get after = some { z with state := some (.inflate fresh) })
     (stateGet : after.istates fresh = some
       (copiedGeneric dest old fresh nextOff distOff
@@ -420,8 +420,8 @@ theorem copiedGeneric_no_window_J
     (invariant : DefaultStateJ h source old z s)
     (destGet : dest.get h = some oldDest)
     (origin : CopyTableOrigin old s)
-    (nextBound : nextOff ≤ 1444)
-    (distBound : distOff ≤ 1443)
+    (nextBound : nextOff ≤ 1732)
+    (distBound : distOff ≤ 1731)
     (dynamicDist : s.lencode = .ref (.istate_codes old) 0 →
       s.distcode = .ref (.istate_codes old) distOff)
     (noWindow : s.window = .null) :
@@ -471,8 +471,8 @@ theorem copiedGeneric_no_window_source_J
     (different : source ≠ dest)
     (origin : CopyTableOrigin old s)
     (nextPtr : s.next = .ref (.istate_codes old) nextOff)
-    (nextBound : nextOff ≤ 1444)
-    (distBound : distOff ≤ 1443)
+    (nextBound : nextOff ≤ 1732)
+    (distBound : distOff ≤ 1731)
     (dynamicDist : s.lencode = .ref (.istate_codes old) 0 →
       s.distcode = .ref (.istate_codes old) distOff)
     (noWindow : s.window = .null) :

@@ -1,31 +1,21 @@
 # Patches
 
-The verified source is zlib 1.4 (upstream commit `99623ef7`) with the seven patches of this
-directory applied in name order. Every theorem is about that patched source.
+The verified source is zlib 1.4.0.1-motley (upstream commit `617e19a8`) with the six patches of this
+directory applied in name order (`0002`–`0007`). Every theorem is about that patched source. (An
+earlier patch `0001` for `inflateCopy` from PR #1369 is now merged upstream in `617e19a8`.)
 
 Each patch fixes one issue of zlib without whose fix a safety statement cannot be proved, or a
 promise of `zlib.h` does not hold, except 0003, which fixes two issues that share code. Each is as
 small as the fix allows, and each is a fix submitted upstream. Each applies to the pinned source
 on its own.
 [Findings](https://www.dataisland.org/oss-proof/zlib/en/findings.html) lists the issues in one table, with
-the calls that reach each issue and the evidence. Each issue has one reproduction under
+the calls that reach each issue and the evidence. Each unmerged issue has one reproduction under
 `tests/regression/`, which the differential test runs: it builds the source with every patch but its
 own and shows the defect on the real C, and builds the verified source
 and shows none. The two reproductions of 0003 leave out the same patch.
 `gzseek64` and `gz_skip_have` compute `x.next += 0` on a pointer that may never have
 been written or may point into a freed caller buffer; that needs no patch, because the model accepts
 adding zero to any pointer, a stated limit of the model.
-
-## 0001-inflate-copy-pointer-equality.patch
-
-`inflateCopy` compares a pointer into the static fixed-code table with a pointer into the state's
-own code array using `>=` and `<=`, which C defines only for pointers into one object. The patch
-tests the same condition with pointer equality.
-
-Covered by: `Goal.inflateCopy_safety`.
-
-Upstream: the patch is the commit of [PR #1369](https://github.com/madler/zlib/pull/1369), which
-the maintainer answered with "Applied". zlib 1.4 does not contain it.
 
 ## 0002-gzseek-negative-position-overflow.patch
 

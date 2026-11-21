@@ -1,5 +1,6 @@
 import ZlibF.Proof.«inflate.c.call-dispatch-frame»
 import ZlibF.Proof.«inflate.c.entry-header»
+import ZlibF.Proof.«inflate.c.caller-input-frame»
 
 /-!
 # inflate.c: the caller facts the call frame needs

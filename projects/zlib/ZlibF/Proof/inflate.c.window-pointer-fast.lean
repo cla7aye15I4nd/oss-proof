@@ -181,12 +181,155 @@ theorem windowFrameM_fast_body (r : ZStreamRef) (owner : InflateStatePtr) (conte
     | with_reducible apply windowFrameM_ite
     | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
 
+theorem windowFrameM_ptr_le {R T : Type} [Space Heap R T] [DecidableEq R]
+    (r : ZStreamRef) (owner : InflateStatePtr) (p q : Ptr R) :
+    WindowFrameM r owner (p.le q) :=
+  windowFrameM_bind (windowFrameM_ptr_lt r owner q p) (fun b => windowFrameM_pure r owner (!b))
+
+theorem windowFrameM_fast_load64 (r : ZStreamRef) (owner : InflateStatePtr) (p : BPtr) :
+    WindowFrameM r owner (Zlib.Inffast.load64 p) := by
+  unfold Zlib.Inffast.load64
+  repeat' first
+    | with_reducible exact windowFrameM_ptr_index r owner _ _
+    | with_reducible exact windowFrameM_pure r owner _
+    | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
+
+theorem windowFrameM_fast_store64 (r : ZStreamRef) (owner : InflateStatePtr) (out : BPtr) (v : UInt64) :
+    WindowFrameM r owner (Zlib.Inffast.store64 out v) := by
+  unfold Zlib.Inffast.store64
+  repeat' first
+    | with_reducible exact windowFrameM_store8 r owner _ _
+    | with_reducible exact windowFrameM_ptr_add r owner _ _
+    | with_reducible exact windowFrameM_pure r owner _
+    | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
+
+theorem windowFrameM_fast_copy_back (r : ZStreamRef) (owner : InflateStatePtr) (out : BPtr)
+    (dist len : UInt32) : WindowFrameM r owner (Zlib.Inffast.copy_back out dist len) := by
+  unfold Zlib.Inffast.copy_back
+  repeat' first
+    | with_reducible exact windowFrameM_fast_subn r owner _ _
+    | with_reducible exact windowFrameM_fast_load64 r owner _
+    | with_reducible exact windowFrameM_fast_store64 r owner _ _
+    | with_reducible exact windowFrameM_memcpyB r owner _ _ _
+    | with_reducible exact windowFrameM_ptr_load r owner _
+    | with_reducible exact windowFrameM_ptr_add r owner _ _
+    | with_reducible exact windowFrameM_ptr_lt r owner _ _
+    | with_reducible exact windowFrameM_pure r owner _
+    | with_reducible (refine windowFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply windowFrameM_ite
+    | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
+    | (intro p; cases p; dsimp only)
+
+theorem windowFrameM_fast_refill64 (r : ZStreamRef) (owner : InflateStatePtr) (state : Zlib.Inffast.L) :
+    WindowFrameM r owner (Zlib.Inffast.refill64 state) := by
+  unfold Zlib.Inffast.refill64
+  repeat' first
+    | with_reducible exact windowFrameM_fast_load64 r owner _
+    | with_reducible exact windowFrameM_fast_shl64 r owner _ _
+    | with_reducible exact windowFrameM_ptr_add r owner _ _
+    | with_reducible exact windowFrameM_pure r owner _
+    | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
+
+theorem windowFrameM_fast_copyMatch8 (r : ZStreamRef) (owner : InflateStatePtr) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    WindowFrameM r owner (Zlib.Inffast.copyMatch8 context state) := by
+  unfold Zlib.Inffast.copyMatch8
+  repeat' first
+    | with_reducible exact windowFrameM_fast_badData r owner _ root _
+    | with_reducible exact windowFrameM_fast_copy_back r owner _ _ _
+    | with_reducible exact windowFrameM_fast_subn r owner _ _
+    | with_reducible exact windowFrameM_memcpyB r owner _ _ _
+    | with_reducible exact windowFrameM_ldS r owner _
+    | with_reducible exact windowFrameM_ldS_store r owner _ _ (fun _ => rfl)
+    | with_reducible refine windowFrameM_ldS_update r owner _ _ _ (fun _ => rfl) (fun _ => ?_)
+    | with_reducible exact windowFrameM_ptr_add r owner _ _
+    | with_reducible exact windowFrameM_ptr_diff r owner _ _
+    | with_reducible exact windowFrameM_ptr_lt r owner _ _
+    | with_reducible exact windowFrameM_pure r owner _
+    | with_reducible exact windowFrameM_ub r owner _
+    | with_reducible (refine windowFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine windowFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply windowFrameM_ite
+    | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
+
+theorem windowFrameM_fast_dodist8 (r : ZStreamRef) (owner : InflateStatePtr) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    WindowFrameM r owner (Zlib.Inffast.dodist8 context state) := by
+  unfold Zlib.Inffast.dodist8
+  repeat' first
+    | with_reducible exact windowFrameM_fast_badData r owner _ root _
+    | with_reducible exact windowFrameM_fast_copyMatch8 r owner _ root _
+    | with_reducible exact windowFrameM_fast_refill64 r owner _
+    | with_reducible exact windowFrameM_fast_shl32 r owner _ _
+    | with_reducible exact windowFrameM_fast_shl64 r owner _ _
+    | with_reducible exact windowFrameM_fast_shr64 r owner _ _
+    | with_reducible exact windowFrameM_fast_chk64 r owner _
+    | with_reducible exact windowFrameM_ldS r owner _
+    | with_reducible exact windowFrameM_ldS_store r owner _ _ (fun _ => rfl)
+    | with_reducible refine windowFrameM_ldS_update r owner _ _ _ (fun _ => rfl) (fun _ => ?_)
+    | with_reducible exact windowFrameM_ptr_load r owner _
+    | with_reducible exact windowFrameM_ptr_index r owner _ _
+    | with_reducible exact windowFrameM_ptr_add r owner _ _
+    | with_reducible exact windowFrameM_ptr_diff r owner _ _
+    | with_reducible exact windowFrameM_ptr_lt r owner _ _
+    | with_reducible exact windowFrameM_pure r owner _
+    | with_reducible exact windowFrameM_ub r owner _
+    | with_reducible (refine windowFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine windowFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply windowFrameM_ite
+    | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
+
+theorem windowFrameM_fast_dolen8 (r : ZStreamRef) (owner : InflateStatePtr) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    WindowFrameM r owner (Zlib.Inffast.dolen8 context state) := by
+  unfold Zlib.Inffast.dolen8
+  repeat' first
+    | with_reducible exact windowFrameM_fast_badData r owner _ root _
+    | with_reducible exact windowFrameM_fast_dodist8 r owner _ root _
+    | with_reducible exact windowFrameM_fast_refill64 r owner _
+    | with_reducible exact windowFrameM_fast_shl32 r owner _ _
+    | with_reducible exact windowFrameM_fast_shl64 r owner _ _
+    | with_reducible exact windowFrameM_fast_shr64 r owner _ _
+    | with_reducible exact windowFrameM_fast_chk64 r owner _
+    | with_reducible exact windowFrameM_store8 r owner _ _
+    | with_reducible exact windowFrameM_ldS r owner _
+    | with_reducible exact windowFrameM_ldS_store r owner _ _ (fun _ => rfl)
+    | with_reducible refine windowFrameM_ldS_update r owner _ _ _ (fun _ => rfl) (fun _ => ?_)
+    | with_reducible exact windowFrameM_ptr_load r owner _
+    | with_reducible exact windowFrameM_ptr_index r owner _ _
+    | with_reducible exact windowFrameM_ptr_add r owner _ _
+    | with_reducible exact windowFrameM_ptr_diff r owner _ _
+    | with_reducible exact windowFrameM_ptr_lt r owner _ _
+    | with_reducible exact windowFrameM_pure r owner _
+    | with_reducible exact windowFrameM_ub r owner _
+    | with_reducible (refine windowFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine windowFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply windowFrameM_ite
+    | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
+
+theorem windowFrameM_fast_body8 (r : ZStreamRef) (owner : InflateStatePtr) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    WindowFrameM r owner (Zlib.Inffast.inflate_fast_body8 context state) := by
+  unfold Zlib.Inffast.inflate_fast_body8
+  repeat' first
+    | with_reducible exact windowFrameM_fast_dolen8 r owner _ root _
+    | with_reducible exact windowFrameM_fast_refill64 r owner _
+    | with_reducible exact windowFrameM_fast_shr64 r owner _ _
+    | with_reducible exact windowFrameM_store8 r owner _ _
+    | with_reducible exact windowFrameM_ptr_load r owner _
+    | with_reducible exact windowFrameM_ptr_add r owner _ _
+    | with_reducible exact windowFrameM_pure r owner _
+    | with_reducible (refine windowFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply windowFrameM_ite
+    | with_reducible (refine windowFrameM_bind ?_ (fun _ => ?_))
+
 /-- The whole actual fast decoder preserves decoder window pointers, through its actual record writes, on every successful run. -/
 theorem windowFrameM_inflate_fast (r : ZStreamRef) (owner : InflateStatePtr) (start : UInt32) :
     WindowFrameM r owner (Zlib.Inffast.inflate_fast (some r) start) := by
   unfold Zlib.Inffast.inflate_fast
   repeat' first
     | with_reducible exact windowFrameM_fast_body r owner _ rfl _
+    | with_reducible exact windowFrameM_fast_body8 r owner _ rfl _
     | with_reducible exact windowFrameM_fast_subn r owner _ _
     | with_reducible exact windowFrameM_fast_shl32 r owner _ _
     | with_reducible exact windowFrameM_fast_chk64 r owner _
@@ -198,6 +341,7 @@ theorem windowFrameM_inflate_fast (r : ZStreamRef) (owner : InflateStatePtr) (st
     | with_reducible exact windowFrameM_ptr_add r owner _ _
     | with_reducible exact windowFrameM_ptr_diff r owner _ _
     | with_reducible exact windowFrameM_ptr_lt r owner _ _
+    | with_reducible exact windowFrameM_ptr_le r owner _ _
     | with_reducible exact windowFrameM_pure r owner _
     | with_reducible exact windowFrameM_ub r owner _
     | with_reducible exact windowFrameM_stZ r owner _ _

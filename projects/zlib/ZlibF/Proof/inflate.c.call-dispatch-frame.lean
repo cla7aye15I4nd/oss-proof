@@ -149,9 +149,9 @@ theorem RegionRoot.head_length {pointer : BPtr} {n m : Nat} {rest : List Region}
 and the produced output, or runs in a header mode: it then writes the call's
 blocks and the header record's caller buffers, keeps the attached record and
 only drops its regions. -/
-def DispatchCallFrame (c : Ctx) (r : ZStreamRef) (zs : Nat) (s : InflateState) (l : IL) (made : Nat)
+def DispatchCallFrame (c : Ctx) (r : ZStreamRef) (zs : Nat) (s : InflateState) (l : IL)
     (h after : Heap) : Prop :=
-  BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made⟩] ∨
+  BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] ∨
     (HEAD ≤ s.mode ∧ s.mode ≤ HCRC ∧
       BufferFrame h after (CallChanged c r zs s.head) (HeaderRegions h s.head) ∧
       ∀ state, after.istates zs = some state →
@@ -160,22 +160,32 @@ def DispatchCallFrame (c : Ctx) (r : ZStreamRef) (zs : Nat) (s : InflateState) (
 /-- Every dispatch of a public call has its call frame. -/
 theorem inflate_dispatch_call_frame
     {c : Ctx} {l regs : IL} {h after : Heap} {r : ZStreamRef} {zs : Nat}
-    {z : ZStream} {s : InflateState} {bs : List UInt8} {outcome : Except Ex Unit} {made : Nat}
+    {z : ZStream} {s : InflateState} {bs : List UInt8} {outcome : Except Ex Unit}
     (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
     (buffers : DispatchBuffers h r l bs) (local_ : HeaderLocal c h r s l) (incoming : l.bits.toNat ≤ 39)
-    (run : runX (inflate_dispatch c) l h = .ok ((outcome, regs), after))
-    (count : regs.left.toNat + made = l.left.toNat) :
-    DispatchCallFrame c r zs s l made h after := by
-  have output {outcome2 : Except Ex Unit} {regs2 : IL} {after2 : Heap} {made2 : Nat}
+    (run : runX (inflate_dispatch c) l h = .ok ((outcome, regs), after)) :
+    DispatchCallFrame c r zs s l h after := by
+  have outputWide {outcome2 : Except Ex Unit} {regs2 : IL} {after2 : Heap}
+      (run2 : runX (inflate_dispatch c) l h = .ok ((outcome2, regs2), after2))
+      (frame : BufferFrame h after2 (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩]) :
+      DispatchCallFrame c r zs s l h after := by
+    rw [run] at run2
+    cases run2
+    exact Or.inl frame
+  have outputNarrow {outcome2 : Except Ex Unit} {regs2 : IL} {after2 : Heap} {made2 : Nat}
       (run2 : runX (inflate_dispatch c) l h = .ok ((outcome2, regs2), after2))
       (count2 : regs2.left.toNat + made2 = l.left.toNat)
       (frame : BufferFrame h after2 (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made2⟩]) :
-      DispatchCallFrame c r zs s l made h after := by
+      DispatchCallFrame c r zs s l h after := by
     rw [run] at run2
     cases run2
-    have same : made2 = made := by omega
-    subst same
-    exact Or.inl frame
+    obtain ⟨dest, _array, off, pointer, _get, _write, _⟩ :=
+      callerRange_slow_output invariant.good l buffers.output.range buffers.output.nonnull
+        buffers.output.count buffers.output.produced
+    have wide : BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
+      rw [pointer] at frame ⊢
+      exact BufferFrame.singleton_widen frame (Nat.le_refl off) (by omega)
+    exact Or.inl wide
   rcases defaultMode_cases invariant.modes with head | dictionary | type | stored | construction | data | trailer | terminal | gzipHeader
   · by_cases gzip : GzipAllowed s.wrap
     · have inRange : HEAD ≤ s.mode ∧ s.mode ≤ HCRC := by rw [head]; decide
@@ -193,31 +203,31 @@ theorem inflate_dispatch_call_frame
       exact ⟨rfl, RegionsWithin.refl _⟩
     obtain ⟨_, _, _, _, _, made2, run2, _, count2, _, frame⟩ :=
       inflate_dispatch_HEAD_exact_frame E invariant buffers head gzip incoming
-    exact output run2 count2 frame
+    exact outputNarrow run2 count2 frame
   · obtain ⟨_, _, _, _, _, made2, run2, _, count2, _, frame⟩ :=
       inflate_dispatch_metadata_exact_frame E invariant buffers (by
         rcases dictionary with selected | selected <;> simp only [MetadataMode, selected] <;> simp) incoming
-    exact output run2 count2 frame
+    exact outputNarrow run2 count2 frame
   · obtain ⟨_, _, _, _, _, made2, run2, _, count2, _, frame⟩ :=
       inflate_dispatch_metadata_exact_frame E invariant buffers (by
         rcases type with selected | selected <;> simp only [MetadataMode, selected] <;> simp) incoming
-    exact output run2 count2 frame
+    exact outputNarrow run2 count2 frame
   · obtain ⟨_, _, _, _, _, made2, run2, _, count2, _, frame⟩ :=
       inflate_dispatch_stored_exact_frame E invariant buffers stored incoming
-    exact output run2 count2 frame
-  · obtain ⟨_, _, _, _, _, made2, run2, _, count2, _, frame⟩ :=
+    exact outputNarrow run2 count2 frame
+  · obtain ⟨_, _, _, _, _, _, run2, _, _, _, frame⟩ :=
       inflate_dispatch_construction_exact_frame E invariant buffers construction
-    exact output run2 count2 frame
-  · obtain ⟨_, _, _, _, _, made2, run2, _, count2, _, frame⟩ :=
+    exact outputWide run2 frame
+  · obtain ⟨_, _, _, _, _, _, run2, _, _, _, frame⟩ :=
       inflate_dispatch_data_exact_frame E invariant buffers data
-    exact output run2 count2 frame
+    exact outputWide run2 frame
   · obtain ⟨_, _, _, _, _, made2, run2, _, count2, _, frame⟩ :=
       inflate_dispatch_metadata_exact_frame E invariant buffers (by
         rcases trailer with selected | selected <;> simp only [MetadataMode, selected] <;> simp) incoming
-    exact output run2 count2 frame
+    exact outputNarrow run2 count2 frame
   · obtain ⟨_, _, _, _, _, made2, run2, _, count2, _, frame⟩ :=
       inflate_dispatch_terminal_exact_frame E invariant.good terminal
-    exact output run2 count2 frame
+    exact outputNarrow run2 count2 frame
   · have inRange : HEAD ≤ s.mode ∧ s.mode ≤ HCRC := by
       obtain ⟨low, high, _⟩ := gzipHeader
       exact ⟨UInt32.le_trans (by decide : HEAD ≤ FLAGS) low, high⟩

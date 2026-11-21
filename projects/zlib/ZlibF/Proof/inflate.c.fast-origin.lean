@@ -13,12 +13,13 @@ theorem inflate_LEN_fast_raw_bit_budget_run {c : Ctx} {l : IL} {h : Heap} {r : Z
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
     (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ regs after, runX (inflate_LEN c) l h = .ok ((.ok (), regs), after) ∧
       regs.bits.toNat ≤ l.bits.toNat + 8 * (l.have_.toNat - regs.have_.toNat) := by
   obtain ⟨entry, heapEq, strmEq, startEq, refEq, idEq, streamEq, stateEq, _, _, _, _⟩ :=
-    inflate_fast_raw_entry E good fit tables buffers pending input output different fast
+    inflate_fast_raw_entry E good fit tables buffers pending mode input output different fast
   obtain ⟨heap1, call, _, _, origin⟩ := Zlib.Inffast.Proofs.inflate_fast_safe_progress_origin entry.toEnv
   change C.run (Zlib.Inffast.inflate_fast entry.strm entry.start) entry.h0 = .ok ((), heap1) at call
   have execution : Zlib.Inffast.inflate_fast c.strm l.out_
@@ -53,6 +54,7 @@ theorem inflate_LEN_fast_raw_buffers_budget_progress {c : Ctx} {l : IL} {h : Hea
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
     (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ used made regs after stream state, used ≤ bs.length ∧
@@ -62,9 +64,9 @@ theorem inflate_LEN_fast_raw_buffers_budget_progress {c : Ctx} {l : IL} {h : Hea
       regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧ regs.bits.toNat < 8 ∧ (state.mode = TYPE ∨ state.mode = BAD ∨ 0 < made) ∧ regs.bits.toNat ≤ l.bits.toNat + 8 * used := by
   obtain ⟨used, made, regs, after, stream, state, bound, run, current, data, nextPending,
     packet, sizes, next, haveCount, put, left, bits, progress⟩ :=
-    inflate_LEN_fast_raw_buffers_progress E good fit tables buffers pending input output different fast
+    inflate_LEN_fast_raw_buffers_progress E good fit tables buffers pending mode input output different fast
   obtain ⟨regs2, after2, budgetRun, budget⟩ :=
-    inflate_LEN_fast_raw_bit_budget_run E good fit tables buffers pending input output different fast
+    inflate_LEN_fast_raw_bit_budget_run E good fit tables buffers pending mode input output different fast
   obtain ⟨localEq, heapEq⟩ := Prod.mk.inj (Except.ok.inj (run.symm.trans budgetRun))
   have regsEq : regs2 = regs := (congrArg Prod.snd localEq).symm
   subst regs2
@@ -103,7 +105,7 @@ theorem inflate_LEN_start_fast_raw_buffers_budget_progress {c : Ctx} {l : IL} {h
   have fit0 := sizes0.platform fit
   obtain ⟨used, made, regs, after, stream, state, usedBound, run, nextGood, nextTables,
     nextPending, nextPacket, sizes, next, haveCount, put, left, bitCount, progress, budget⟩ :=
-    inflate_LEN_fast_raw_buffers_budget_progress env0 good0 fit0 tables0 packet0 pending0 input output different fast
+    inflate_LEN_fast_raw_buffers_budget_progress env0 good0 fit0 tables0 packet0 pending0 rfl input output different fast
   refine ⟨used, made, regs, after, stream, state, usedBound, ?_, nextGood, nextTables,
     nextPending, nextPacket, sizes0.trans sizes, next, haveCount, put, left, bitCount, progress, budget⟩
   unfold inflate_LEN_

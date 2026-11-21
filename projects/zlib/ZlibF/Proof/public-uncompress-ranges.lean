@@ -276,4 +276,166 @@ theorem Agree.writable {keep : Nat → Prop} {E H : Heap} (agree : Agree keep E 
   · have k := agree.get (kept r i rfl)
     exact Or.inr ⟨r, i, a, rfl, by rw [k.1]; exact g, by rw [k.2]; exact ro, fit⟩
 
+theorem writeOut_writeOut_prefix {h : Heap} {r : BRef} {i₀ : Nat} {a₀ : Array UInt8}
+    (g : Space.get h r = some a₀) (ro : Space.ro h r = false)
+    {logOut suf tail : List UInt8} {cap : Nat}
+    (fit : i₀ + cap ≤ a₀.size)
+    (prevLe : (logOut ++ suf).length ≤ cap)
+    (bound : logOut.length + tail.length ≤ cap)
+    (htail : tail ≠ []) :
+    writeOut (writeOut h (.ref r i₀) (logOut ++ suf)) (.ref r (i₀ + logOut.length)) tail =
+      writeOut h (.ref r i₀) (logOut ++ tail ++ suf.drop tail.length) := by
+  have wne : logOut ++ tail ++ suf.drop tail.length ≠ [] := by
+    intro e
+    simp only [List.append_eq_nil_iff] at e
+    exact htail e.1.2
+  by_cases ep : logOut ++ suf = []
+  · rw [ep, writeOut_nil]
+    simp only [List.append_eq_nil_iff] at ep
+    obtain ⟨rfl, rfl⟩ := ep
+    simp
+  · have g1 := byte_view_get_put g ro
+      (a₀.extract 0 i₀ ++ (logOut ++ suf).toArray ++ a₀.extract (i₀ + (logOut ++ suf).length) a₀.size)
+    simp only [writeOut, g, ep, htail, wne, ite_false, g1, put_put_any]
+    congr 1
+    apply Array.ext'
+    apply List.ext_getElem?
+    intro t
+    simp only [Array.getElem?_toList]
+    have fitPrev : i₀ + (logOut ++ suf).length ≤ a₀.size := by omega
+    have prevLe' : logOut.length + suf.length ≤ cap := by
+      simpa only [List.length_append] using prevLe
+    have fitW : i₀ + (logOut ++ tail ++ suf.drop tail.length).length ≤ a₀.size := by
+      simp only [List.length_append, List.length_drop]
+      omega
+    have sz1 : (a₀.extract 0 i₀ ++ (logOut ++ suf).toArray ++
+        a₀.extract (i₀ + (logOut ++ suf).length) a₀.size).size = a₀.size :=
+      written_size a₀ i₀ (logOut ++ suf) fitPrev
+    rw [written_get? _ (i₀ + logOut.length) tail (by rw [sz1]; omega),
+      written_get? a₀ i₀ (logOut ++ tail ++ suf.drop tail.length) fitW]
+    have w1 := written_get? a₀ i₀ (logOut ++ suf) fitPrev t
+    try simp only [Array.extract_size] at w1
+    rw [w1]
+    simp only [List.length_append, List.length_drop]
+    by_cases t1 : t < i₀
+    · simp [t1, show t < i₀ + logOut.length by omega]
+    by_cases t2 : t < i₀ + logOut.length
+    · have ltLog : t - i₀ < logOut.length := by omega
+      have ltLT : t - i₀ < (logOut ++ tail).length := by simp only [List.length_append]; omega
+      simp only [t1, t2, ite_false, ite_true,
+        show t < i₀ + (logOut.length + suf.length) by omega,
+        show t < i₀ + (logOut.length + tail.length + (suf.length - tail.length)) by omega]
+      rw [List.getElem?_append_left ltLog, List.getElem?_append_left ltLT,
+        List.getElem?_append_left ltLog]
+    by_cases t3 : t < i₀ + logOut.length + tail.length
+    · have geLog : logOut.length ≤ t - i₀ := by omega
+      have ltTail : t - i₀ - logOut.length < tail.length := by omega
+      have ltLT : t - i₀ < (logOut ++ tail).length := by simp only [List.length_append]; omega
+      simp only [t1, t2, t3, ite_false, ite_true,
+        show t < i₀ + (logOut.length + tail.length + (suf.length - tail.length)) by omega,
+        show t - (i₀ + logOut.length) = t - i₀ - logOut.length by omega]
+      rw [List.getElem?_append_left ltLT, List.getElem?_append_right geLog]
+    by_cases t4 : t < i₀ + (logOut.length + suf.length)
+    · have geLog : logOut.length ≤ t - i₀ := by omega
+      have geLT : (logOut ++ tail).length ≤ t - i₀ := by simp only [List.length_append]; omega
+      simp only [t1, t2, t3, t4, ite_false, ite_true,
+        show t < i₀ + (logOut.length + tail.length + (suf.length - tail.length)) by omega]
+      rw [List.getElem?_append_right geLog, List.getElem?_append_right geLT, List.getElem?_drop]
+      simp only [List.length_append]
+      congr 1
+      omega
+    · have nltW : ¬ (t < i₀ + (logOut.length + tail.length + (suf.length - tail.length))) := by omega
+      simp [t1, t2, t3, t4, nltW]
+
+/-- One decoder call with output window `availOut` preserves agreement with a bounded
+prefix write starting at `p₀` and extending `logOut` with the newly emitted `out`. -/
+theorem agree_after_call_prefix {keep : Nat → Prop} {E₀ H H' : Heap} {changed : Nat → Prop}
+    {p₀ : BPtr} {logOut prev out : List UInt8} {cap availOut : Nat}
+    (agree : Agree keep (writeOut E₀ p₀ prev) H)
+    (elive : ∀ b, keep b → E₀.live b) (eback : ∀ b, E₀.live b → keep b)
+    (outside : ∀ b, keep b → ¬ changed b)
+    (hpref : logOut <+: prev) (prevLe : prev.length ≤ cap)
+    (bound : logOut.length + availOut ≤ cap)
+    (w0 : 0 < availOut → Writable E₀ p₀ cap)
+    (frame : BufferFrame H H' changed [⟨advance p₀ logOut.length, availOut⟩])
+    (written : Bytes H' (advance p₀ logOut.length) out.length out)
+    (outLe : out.length ≤ availOut)
+    (borrow : H'.libcErrorBorrow = H.libcErrorBorrow) :
+    ∃ written', (logOut ++ out) <+: written' ∧ written'.length ≤ cap ∧
+      Agree keep (writeOut E₀ p₀ written') H' := by
+  let E := writeOut E₀ p₀ prev
+  have elive' : ∀ b, keep b → E.live b := fun b hb => (writeOut_live b).2 (elive b hb)
+  have eback' : ∀ b, E.live b → keep b := fun b hb => eback b ((writeOut_live b).1 hb)
+  by_cases ha : availOut = 0
+  · subst ha
+    have hOutLen : out.length = 0 := by omega
+    have hOutNil : out = [] := List.eq_nil_of_length_eq_zero hOutLen
+    subst hOutNil
+    have agree' := agree_after_call agree elive' eback' outside frame written
+      (fun h => absurd rfl h) borrow
+    rw [writeOut_nil] at agree'
+    exact ⟨prev, by simpa using hpref, prevLe, agree'⟩
+  · have haPos : 0 < availOut := Nat.pos_of_ne_zero ha
+    obtain ⟨suf, rfl⟩ := hpref
+    have wE₀ : Writable E₀ p₀ cap := w0 haPos
+    have wE_full : Writable (writeOut E₀ p₀ (logOut ++ suf)) p₀ cap :=
+      writable_writeOut wE₀ prevLe wE₀
+    have wE_sub : Writable (writeOut E₀ p₀ (logOut ++ suf)) (advance p₀ logOut.length) availOut :=
+      writable_sub wE_full bound
+    rcases wE₀ with ⟨rfl, hcap0⟩ | ⟨r, i₀, a₀, rfl, g₀, ro₀, fit₀⟩
+    · exfalso; omega
+    simp only [advance] at wE_sub frame written
+    rcases wE_sub with ⟨h0, -⟩ | ⟨r', off', aE, hEq, gE, roE, fitE⟩
+    · cases h0
+    cases hEq
+    have gH : Space.get H r = some aE := by
+      have rk : ∀ c, BRef.block r = some c → keep c :=
+        fun c hc => eback' c (view_block_live gE c hc)
+      rw [(agree.get rk).1]
+      exact gE
+    obtain ⟨a', g', size', -⟩ :=
+      frame.2 ⟨.ref r (i₀ + logOut.length), availOut⟩ (List.mem_singleton_self _)
+        r (i₀ + logOut.length) aE rfl gH
+    let tail : List UInt8 := (a'.toList.drop (i₀ + logOut.length)).take availOut
+    have htailLen : tail.length = availOut := by
+      dsimp [tail]
+      rw [List.length_take, List.length_drop, Array.length_toList]
+      omega
+    have hbytesTail : Bytes H' (.ref r (i₀ + logOut.length)) tail.length tail :=
+      Or.inr ⟨r, i₀ + logOut.length, a', rfl, g', by omega, by rw [htailLen]⟩
+    have hframeTail : BufferFrame H H' changed [⟨.ref r (i₀ + logOut.length), tail.length⟩] := by
+      rw [htailLen]
+      exact frame
+    have hwETail : tail ≠ [] →
+        Writable (writeOut E₀ (.ref r i₀) (logOut ++ suf)) (.ref r (i₀ + logOut.length)) tail.length := by
+      intro _
+      rw [htailLen]
+      exact Or.inr ⟨r, i₀ + logOut.length, aE, rfl, gE, roE, fitE⟩
+    have agreeTail := agree_after_call agree elive' eback' outside hframeTail hbytesTail hwETail borrow
+    have htailNe : tail ≠ [] := fun h => by
+      rw [h] at htailLen
+      simp only [List.length_nil] at htailLen
+      omega
+    have heqW := writeOut_writeOut_prefix g₀ ro₀ fit₀ prevLe (by rw [htailLen]; exact bound) htailNe
+    rw [heqW] at agreeTail
+    have htake : tail.take out.length = out := by
+      rcases written with ⟨hnull, -⟩ | ⟨r2, i2, a2, hp2, g2, -, eq2⟩
+      · cases hnull
+      · cases hp2
+        rw [g'] at g2
+        cases g2
+        dsimp [tail]
+        rw [List.take_take, Nat.min_eq_left outLe, ← eq2]
+    have houtPref : out <+: tail := by
+      rw [← htake]
+      exact List.take_prefix out.length tail
+    obtain ⟨rem, hrem⟩ := houtPref
+    have prevLe' : logOut.length + suf.length ≤ cap := by
+      simpa only [List.length_append] using prevLe
+    refine ⟨logOut ++ tail ++ suf.drop tail.length,
+      ⟨rem ++ suf.drop tail.length, ?_⟩, ?_, agreeTail⟩
+    · simp only [← hrem, List.append_assoc]
+    · simp only [List.length_append, List.length_drop, htailLen]
+      omega
+
 end ZlibF.Spec.Public.Proofs.Uncompress

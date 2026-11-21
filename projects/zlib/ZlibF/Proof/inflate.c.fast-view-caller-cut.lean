@@ -44,7 +44,7 @@ theorem inflate_LEN_fast_view_cut
     {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8}
     (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (mode : DataTableMode s.mode)
+    (buffers : DispatchBuffers h r l bs) (mode : s.mode = LEN)
     (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ after zNext sNext used made,
       runX (inflate_LEN c) l h = runX (inflateAfterFast c) l after ∧
@@ -77,7 +77,7 @@ theorem inflate_LEN_fast_view_run
     {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {bs : List UInt8}
     (E : Env c h r zs z s) (invariant : DefaultStateJ h r zs z s)
-    (buffers : DispatchBuffers h r l bs) (mode : DataTableMode s.mode)
+    (buffers : DispatchBuffers h r l bs) (mode : s.mode = LEN)
     (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ regs after, runX (inflate_LEN c) l h = .ok ((.ok (), regs), after) := by
   obtain ⟨after, zNext, sNext, used, made, cut, current, accounting⟩ :=

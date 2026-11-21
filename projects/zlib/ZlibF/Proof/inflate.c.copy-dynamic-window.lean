@@ -18,10 +18,10 @@ theorem inflateCopy_dynamic_window_exec
     (second : h.allocOk (h.nalloc + 1) = true)
     (window : s.window ≠ .null)
     (nextPtr : s.next = .ref (.istate_codes zs) nextOff)
-    (nextBound : nextOff ≤ 1444)
+    (nextBound : nextOff ≤ 1732)
     (len0 : s.lencode = .ref (.istate_codes zs) 0)
     (distPtr : s.distcode = .ref (.istate_codes zs) distOff)
-    (distBound : distOff ≤ 1443) :
+    (distBound : distOff ≤ 1731) :
     ∃ finished,
       C.run (inflateCopy (some dest) (some source)) h = .ok (Z_OK, finished) ∧
       source.get finished = some z ∧ finished.istates zs = some s ∧
@@ -119,7 +119,7 @@ theorem inflateCopy_dynamic_window_exec
     rw [setI_istates_ne _ _ _ _ distinct]
     exact sourceAfterBacklink
   have lenGet : afterLen.istates h.nextBlk = some lenState := by simp [afterLen]
-  have codeSize : s.codes.size = 1444 := good.inv.wf.2.2
+  have codeSize : s.codes.size = 1732 := good.inv.wf.2.2
   have distDiff : Ptr.diff (.ref (CodeRef.istate_codes zs) distOff)
       (.ref (CodeRef.istate_codes zs) 0) afterLen =
         .ok (Int64.ofInt (distOff : Int), afterLen) :=

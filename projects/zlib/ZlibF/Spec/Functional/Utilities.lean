@@ -89,7 +89,7 @@ def UncompressCounted
       (sourceLen ≠ .null → destLen ≠ .null →
         (source = .null → n = 0) → (dest = .null → capacity = 0) →
         ∃ out used got consumed h₁ h₂ expected,
-          Store h dest out h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
+          StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
           Store h₂ destLen (lengthBytes got) expected ∧ SameObjectsUpToTableShape expected after ∧
           Uncompressed (if source = .null then [] else src) capacity.toNat rc out used ∧
           ((got.toNat = out.length ∧ consumed.toNat = used) ∨
@@ -122,7 +122,7 @@ def UncompressSingle (program : BPtr → BPtr → BPtr → UInt64 → M Int32)
         rc = Z_STREAM_ERROR ∧ SameObjectsUpToTableShape h after) ∧
       (destLen ≠ .null → (source = .null → n = 0) → (dest = .null → capacity = 0) →
         ∃ out used got h₁ expected,
-          Store h dest out h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
+          StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
           SameObjectsUpToTableShape expected after ∧
           Uncompressed (if source = .null then [] else src) capacity.toNat rc out used ∧
           (got.toNat = out.length ∨ (rc = Z_MEM_ERROR ∧ out = [] ∧ got = capacity)) ∧

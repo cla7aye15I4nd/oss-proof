@@ -1,5 +1,6 @@
 import ZlibF.Proof.«inflate.c.fast-view-exact-frame-bridge»
 import ZlibF.Proof.«inflate.c.fast-view-full-view-frame»
+import ZlibF.Proof.«inflate.c.fast-writeback-frame»
 import ZlibF.Proof.«inflate.c.literal-step»
 import ZlibF.Proof.«inflate.c.match-output»
 
@@ -148,7 +149,8 @@ theorem inflate_MATCH_exact_frame {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
       refine ⟨.ok (), l, after, stream, state, 0, run, current,
         by omega, (inputAdvance_zero l.put).symm, ?_⟩
       rw [heapEq]
-      exact (badHeap_buffer_frame E.hz E.hs i [⟨l.put, 0⟩]).1
+      exact (fastWriteback_heap_frame E.hz E.hs
+        { z with msg := .ref (.str i) 0 } { s with mode := BAD } [⟨l.put, 0⟩]).1
     · subst outcome
       refine ⟨.ok (), regs, after, stream, state, copy.toNat, run, current, ?_, ?_, ?_⟩
       · rw [regsEq]

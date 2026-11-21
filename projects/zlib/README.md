@@ -4,13 +4,13 @@ A machine-checked proof, in Lean 4, that every documented public function of zli
 undefined behaviour, no memory error, no leak, and every call returns. This holds for every input
 and every sequence of calls that meets the conditions below.
 
-The subject is zlib 1.4 with seven patches, as built by default on x86_64 Linux: 86 functions.
+The subject is zlib 1.4.0.1-motley with six patches, as built by default on x86_64 Linux: 86 functions.
 Lean's kernel checks every proof.
 
 The conditions of the theorems:
 
-- **Source.** zlib 1.4 with the seven [patches](patches/README.md). Unpatched zlib 1.4 has the
-  defects listed under "Found in zlib".
+- **Source.** zlib 1.4.0.1-motley with the six [patches](patches/README.md). Unpatched zlib 1.4.0.1-motley still has seven of the
+  defects listed under "Found in zlib" (PR #1369 for `inflateCopy` was merged upstream).
 - **Allocator.** `zalloc` and `zfree` are `Z_NULL`, so zlib uses its default allocator. A custom
   allocator is outside every theorem. A failing `malloc` is covered.
 - **Sequence of calls.** A sequence is the history of one object: one stream from its init, one
@@ -60,8 +60,9 @@ two agree, not proof.
 ## Found in zlib
 
 Eight issues, each reached through documented calls: six are undefined behaviour or a memory
-error, two are a `deflateBound` that is too small. Seven patches fix all eight; each patch is a
-fix submitted upstream. The theorems are about the patched source.
+error, two are a `deflateBound` that is too small. One (`inflateCopy` pointer comparison, PR #1369)
+has been merged upstream; six patches fix the remaining seven; each patch is a fix submitted
+upstream. The theorems are about the patched source.
 [Findings](https://www.dataisland.org/oss-proof/zlib/en/findings.html) has the table, and
 [patches](patches/README.md) describes each patch.
 

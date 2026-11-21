@@ -2,9 +2,9 @@
  * Lines:
  *   inflate_table <type> <bits> <loff> <toff> <lens>   lens: one hex digit per symbol ("-" for none)
  *   inflate_fixed
- * inflate_table builds into codes[1444] (pre-filled with the marker {0xAA,0xBB,0xCCCC}) starting at codes+toff,
+ * inflate_table builds into codes[1732] (pre-filled with the marker {0xAA,0xBB,0xCCCC}) starting at codes+toff,
  * reading the lengths at lens+loff of a 320-entry array, with the work area work[288] (marker 0xABCD).
- * Output: return value, bits, table advance, FNV-1a of all 1444 entries, FNV-1a of the work area. */
+ * Output: return value, bits, table advance, FNV-1a of all 1732 entries, FNV-1a of the work area. */
 #define _LARGEFILE64_SOURCE 1
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,20 +53,20 @@ int main(void) {
             unsigned codes = (unsigned)strlen(ls);
             unsigned short *lensbuf = calloc(320, sizeof(unsigned short));
             unsigned short *work = malloc(288 * sizeof(unsigned short));
-            code *tab = malloc(1444 * sizeof(code));
-            if (loff + codes > 320 || toff > 1444) { fprintf(stderr, "out of range\n"); exit(2); }
+            code *tab = malloc(1732 * sizeof(code));
+            if (loff + codes > 320 || toff > 1732) { fprintf(stderr, "out of range\n"); exit(2); }
             for (unsigned i = 0; i < codes; i++) {
                 int v = hexval(ls[i]);
                 if (v < 0) { fprintf(stderr, "bad digit\n"); exit(2); }
                 lensbuf[loff + i] = (unsigned short)v;
             }
             for (int i = 0; i < 288; i++) work[i] = 0xABCD;
-            for (int i = 0; i < 1444; i++) { tab[i].op = 0xAA; tab[i].bits = 0xBB; tab[i].val = 0xCCCC; }
+            for (int i = 0; i < 1732; i++) { tab[i].op = 0xAA; tab[i].bits = 0xBB; tab[i].val = 0xCCCC; }
             code *next = tab + toff;
             int ret = inflate_table(type, lensbuf + loff, codes, &next, &bits, work);
             unsigned long long hw = 14695981039346656037ULL;
             for (int i = 0; i < 288; i++) { hw = fnv(hw, work[i] & 0xff); hw = fnv(hw, work[i] >> 8); }
-            printf("%d %u %ld %llu %llu\n", ret, bits, (long)(next - (tab + toff)), hash_codes(tab, 1444), hw);
+            printf("%d %u %ld %llu %llu\n", ret, bits, (long)(next - (tab + toff)), hash_codes(tab, 1732), hw);
             free(lensbuf); free(work); free(tab);
         } else if (strcmp(fn, "inflate_fixed") == 0 && nt == 1) {
             struct inflate_state *st = malloc(sizeof(struct inflate_state));

@@ -186,7 +186,7 @@ theorem inflate_step (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutpu
       (Stuck h s → s.strm.avail_out ≠ 0 → produced = 0 ∧ (rc = Z_DATA_ERROR ∨ rc = Z_MEM_ERROR)) ∧
       (rc = Z_DATA_ERROR ∨ rc = Z_MEM_ERROR → Stuck after { s with strm := z' }) ∧
       (MsgLit s → MsgLit { s with strm := z' }) ∧
-      GzPost h i s [⟨s.strm.next_out, produced⟩] fs after GzInvUpToOutput := by
+      GzPost h i s [⟨s.strm.next_out, s.strm.avail_out.toNat⟩] fs after GzInvUpToOutput := by
   have hs : h.gzstates i = some s := hu.1
   have inv := hu.2
   have rd := inv.reader hm
@@ -277,7 +277,7 @@ theorem inflate_step (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutpu
   have hstate' : z'.state = some (.inflate k) := by rw [acct.2.2.2.2.2.2.1, hstate]
   have frame' : BufferFrame h after
       (fun b => StreamRoot (gzStrm i) b ∨ InflateOwned k st b ∨ st.head = some (.tab b))
-      [⟨s.strm.next_out, outb.length⟩] := by
+      [⟨s.strm.next_out, s.strm.avail_out.toNat⟩] := by
     have e : HeaderRegions h st.head = [] := by rw [hhead]; rfl
     have := frame
     rw [e] at this
@@ -289,7 +289,7 @@ theorem inflate_step (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutpu
     · exact hso ⟨s.strm, hgetH, Or.inl ⟨k, st, hstate, hk, io⟩⟩
     · rw [hhead] at hh; cases hh
   have notRoot : ∀ b, ¬ ByteRoot s.strm.next_out b →
-      ¬ Zlib.Inflate.Proofs.RegionRoot [⟨s.strm.next_out, outb.length⟩] (.blk b) := by
+      ¬ Zlib.Inflate.Proofs.RegionRoot [⟨s.strm.next_out, s.strm.avail_out.toNat⟩] (.blk b) := by
     rintro b hn ⟨region, mem, off, hp⟩
     rw [List.mem_singleton] at mem
     subst mem
@@ -381,7 +381,7 @@ theorem inflate_step (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutpu
     · exact c0.recordFree ((hso0 i).2 so)
     · exact nl (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (by rw [hs]; intro x; cases x)))))))
   have staticEq : after.static = h.static := by
-    have o := Zlib.Inflate.Proofs.restoreRegions_other h after [⟨s.strm.next_out, outb.length⟩]
+    have o := Zlib.Inflate.Proofs.restoreRegions_other h after [⟨s.strm.next_out, s.strm.avail_out.toNat⟩]
     dsimp only at o
     rw [← o.1]; exact frame'.1.1.symm
   have freshA : Fresh (putGz after i (clearOut s')) := putGz_fresh hrec' good'.fresh
@@ -1361,7 +1361,7 @@ theorem inflate_trans (head : InflateHeadUsesInputR) (stuck : InflateStuckNoOutp
   rw [hd] at post
   refine ⟨rc, after, z', used, produced, run, hrec', ?_, acct, codes, pOK, fun e => pBUF e hao,
     fun hd => pHead hd hao, pFull, pDict, fun hs => pStuck hs hao, pStuck'⟩
-  refine Base.step B post hrec' (fun _ => Iff.rfl) (Or.inr ⟨d, produced, rfl, by have := acct.2.1; omega⟩)
+  refine Base.step B post hrec' (fun _ => Iff.rfl) (Or.inr ⟨d, s.strm.avail_out.toNat, rfl, by omega⟩)
     ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩ ?_ ?_ B.rb B.err (pMsg B.ml) St.hlen St.hm0 St.hsz0 St.outLen St.views
     (BudgetAcc.refl _ _)
   · refine ⟨d + produced, ?_, ?_⟩

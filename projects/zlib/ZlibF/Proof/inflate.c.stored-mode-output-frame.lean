@@ -63,7 +63,8 @@ theorem inflate_STORED_frame_of_run {c : Ctx} {l regs : IL} {h after : Heap}
       cases same
       have zero : made = 0 := by rw [left] at count; omega
       subst made
-      exact (badHeap_buffer_frame E.hz E.hs i [⟨l.put, 0⟩]).1
+      exact (fastWriteback_heap_frame E.hz E.hs
+        { z with msg := .ref (.str i) 0 } { s with mode := BAD } [⟨l.put, 0⟩]).1
     · let ready := { s with length := current.hold.toUInt32 &&& 0xffff, mode := COPY_ }
       let heap0 := setI h zs ready
       let first := { current with hold := 0, bits := 0 }

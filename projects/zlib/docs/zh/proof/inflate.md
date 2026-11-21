@@ -1,4 +1,4 @@
-<!-- source-sha256: 5c1328e154a1642eff421f6c9b1034a33fe00dafe3a6359889c9f3b023d0498a -->
+<!-- source-sha256: 04b9a916c9203593f9d308a661981bc9f459aa990cda26ed737cd7a8a0463f5e -->
 # 流式解码：`inflate` 为什么是安全的
 
 源文件：`zlib/inflate.c`。翻译：`ZlibF/Zlib/inflate.c.lean`。
@@ -250,7 +250,7 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 | `CODELENS` | 查表、`lens[have++]`、`lens[have - 1]` | 子句 `lengths`。会超过 `nlen + ndist` 的重复被拒绝。`have = 0` 时的代码 16 在访问 `lens[have - 1]` 之前被拒绝 |
 | `CODELENS` 的末尾 | 两次调用 `inflate_table`，写入 `codes[1444]` | `852 + 592 = 1444`。`inflate_table_safe` 给出无故障；`inflate_table_decoder_safe` 给出子句 `tables` 需要的表形状 |
 | `LEN` 到 `DISTEXT` | 查表 | 子句 `tables`：掩码后的下标在表内，表项是叶子，或是通向叶子的链接 |
-| `LEN`，快速路径 | 对 `inflate_fast` 的调用 | 这次调用是在 `RESTORE()` 留下的堆上，由不变量和 `StreamBuffers` 证明的，适用于 `StreamBuffers` 允许的每一种布局（`inflate_fast_default_view_buffers`）；见[快速路径](#the-fast-path) |
+| `LEN`，快速路径 | 对 `inflate_fast` 的调用 | 这次调用是在 `RESTORE()` 留下的堆上，由不变量和 `StreamBuffers` 证明的，适用于 `StreamBuffers` 允许的每一种布局（`inflate_fast_default_view_buffers_progress`）；见[快速路径](#the-fast-path) |
 | `MATCH` | 从窗口或更早的输出复制 | `offset > 0`（子句 `pending`）。距离超出本次调用的输出时去读窗口；因为 `sane = 1`，距离超过 `whave` 时 C 会拒绝。W 限定了窗口下标 |
 | `LIT` | 往 `*put` 写一个字节 | 先检查 `left > 0` |
 | `CHECK` | 对 `put` 之前的 `out` 个字节计算校验和：这是从调用开始以来的输出。一次调用至多算一次：算过之后模式是 `LENGTH`、`DONE` 或 `BAD` | 这些字节是本次调用写的，在输出区域之内 |
@@ -265,7 +265,7 @@ copy >  wsize - wnext         [ h h h h h h . . ]   wnext = 6   whave = 6
 证明通过三条途径到达对 `inflate_fast` 的调用。前两条是安全证明内部的引理，第三条属于功能结论。
 
 - `inflate_fast_raw_entry` 建立[快速解码](inffast.md#assumptions)的入口条件，从而复用那一页的定理。它有一条前提：输入和输出位于两个不同的堆块。建立在它之上的引理带着同一条前提，名为 `RawFastIO`；`inflate_dispatch_data_rank` 就是其中之一。
-- `inflate_fast_default_view_buffers` 对块没有前提。它直接由解码器不变量和调用者的区域证明 `inflate_fast` 的运行，输入和输出是同一个块里的两段时也适用。`inflate_dispatch_data_view_state_rank` 对每一次快速调用都用它，`inflate_call` 的证明在数据模式上依靠的就是这条引理。安全结论走的是这条途径。
+- `inflate_fast_default_view_buffers_progress` 通过 `fast_view_exec` 直接由解码器不变量和调用者的区域构造 `Env`（输入和输出是同一个块内互不重叠的两段时也适用），并复用 `inflate_fast_safe_progress_origin`。`inflate_dispatch_data_view_state_rank` 对每一次快速调用都用它，`inflate_call` 的证明在数据模式上依靠的就是这条引理。安全结论走的是这条途径。
 - `inflate_fast_entry` 对每一种布局建立[快速解码](inffast.md#assumptions)的入口条件，对块没有前提。功能定理 `fast_call_meaning` 用到它（[功能结论](#functional-results)）。安全结论不用它。
 
 ## 循环为什么会结束
@@ -330,4 +330,4 @@ rank = 64 * mass + credit(mode)
 
 ## 在 `inflateCopy` 中发现的缺陷
 
-未打补丁的 `inflateCopy` 用 `>=` 和 `<=` 来判断 `lencode` 是否落在 `codes` 之内。当 `lencode` 指向静态固定表时，这两个指针属于不同的对象，这种比较是未定义行为。补丁 0001 把它换成了指针相等的判断（`patches/README.md`；[发现](../findings.md)）。翻译和 `inflateCopy_safety` 针对的都是打过补丁的源码。
+在拉取请求 #1369 并入之前的 zlib 1.4 中，`inflateCopy` 用 `>=` 和 `<=` 来判断 `lencode` 是否落在 `codes` 之内。当 `lencode` 指向静态固定表时，这两个指针属于不同的对象，这种比较是未定义行为。拉取请求 #1369 已在 zlib 1.4.0.1-motley 中将指针相等的修复并入上游（[发现](../findings.md)），翻译和 `inflateCopy_safety` 针对的正是更新后的上游源码，不再需要补丁。

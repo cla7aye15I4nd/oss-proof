@@ -232,4 +232,57 @@ for _ in range(6):
     out.append("inflate_fast fixed %d %d %d %d %d %d %s %s %s" %
                (wsize, wsize, wnext, hold, bits, 3000, win.hex(), hexb(prior), inp.hex()))
 
+# 64-bit loop boundary cases (avail_in >= 16, avail_out >= 275): 3+ literals per refill,
+# copy_back dist=1 / 2..7 / 8..15 / >=16, overrun up to avail_out, and 64-bit -> 8-bit fallback
+def encode_specific(lit, dist, tokens):
+    lc, dc = canon(lit), canon(dist)
+    bits = []
+    for tok in tokens:
+        if tok[0] == "lit":
+            bits += code_bits(lc[tok[1]])
+        elif tok[0] == "match":
+            length, d = tok[1], tok[2]
+            li = max(i for i, b in enumerate(LBASE) if b <= length)
+            bits += code_bits(lc[257 + li]) + val_bits(length - LBASE[li], LEXT[li])
+            di = max(i for i, b in enumerate(DBASE) if b <= d)
+            bits += code_bits(dc[di]) + val_bits(d - DBASE[di], DEXT[di])
+        elif tok[0] == "eob":
+            bits += code_bits(lc[256])
+    return bits
+
+short_lit = [0] * 286
+for sym in [ord('A'), ord('B'), ord('C'), 256]:
+    short_lit[sym] = 3
+for sym in [257, 258, 261, 262, 263, 267, 268, 285]:
+    short_lit[sym] = 4
+short_dist = [0] * 30
+# dists: 1(sym0), 2(sym1), 3(sym2), 5..6(sym4), 7..8(sym5), 9..12(sym6), 13..16(sym7), 17..24(sym8) -> 8 symbols of len 3!
+for sym in [0, 1, 2, 4, 5, 6, 7, 8]:
+    short_dist[sym] = 3
+stab = "dyn:%s:%s" % (hexs(short_lit), hexs(short_dist))
+
+for dist_v in [1, 2, 3, 5, 7, 8, 9, 15, 16, 20]:
+    for len_v in [3, 4, 7, 8, 9, 15, 16, 17, 258]:
+        for avail_out in [274, 275, 276, 320]:
+            for tail_bits in [64, 128]:
+                toks = [("lit", ord('A')), ("lit", ord('B')), ("lit", ord('C')), ("lit", ord('A')),
+                        ("match", len_v, dist_v), ("lit", ord('B')), ("lit", ord('C')), ("eob",)]
+                bs = encode_specific(short_lit, short_dist, toks) + [rng.randrange(2) for _ in range(tail_bits)]
+                bts = rng.randrange(8)
+                hd = sum(b << i for i, b in enumerate(bs[:bts]))
+                ip = pack(bs[bts:])
+                if len(ip) < 16:
+                    ip += bytes(16 - len(ip))
+                pri = bytes((i % 251) for i in range(max(0, dist_v)))
+                out.append("inflate_fast %s 0 0 0 %d %d %d - %s %s" %
+                           (stab, hd, bts, avail_out, hexb(pri), ip.hex()))
+
+# Fallback from 64-bit loop (hits last8, leaves with out < end and mode == LEN) to 8-bit loop
+for extra_in in [15, 16, 17, 18]:
+    toks = [("lit", ord('A'))] * 25 + [("match", 7, 3), ("eob",)]
+    bs = encode_specific(short_lit, short_dist, toks)
+    ip = pack(bs)
+    ip = ip[:extra_in].ljust(extra_in, b"\x00")
+    out.append("inflate_fast %s 0 0 0 0 0 400 - 010203 %s" % (stab, ip.hex()))
+
 print("\n".join(out))

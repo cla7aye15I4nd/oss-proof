@@ -1,4 +1,5 @@
 import ZlibF.Proof.«inffast.c.message»
+import ZlibF.Proof.«inffast.c.fast64-bits»
 
 /-!
 # inffast.c: the complete fast loop
@@ -81,7 +82,7 @@ theorem fast_loop_wp (hc : CtxOK e c) (l : L) (i o : Nat) (A : Array UInt8)
     (hl : LS e l i o) (hA : A.size = e.A0.size) (hb : l.broke = false)
     (hi : i + 6 ≤ e.i0 + e.sm0.avail_in.toNat)
     (ho : o + 258 ≤ e.o0 + e.sm0.avail_out.toNat)
-    (hf : ∀ j, (j < e.o0 ∨ o ≤ j) → A[j]? = e.A0[j]?) :
+    (hf : ∀ j, (j < e.o0 ∨ (if α then o else e.o0 + e.sm0.avail_out.toNat) ≤ j) → A[j]? = e.A0[j]?) :
     Wp (cdoWhile (inflate_fast_body c)
       (fun l => do
         if l.broke then pure (false, l)
@@ -90,14 +91,14 @@ theorem fast_loop_wp (hc : CtxOK e c) (l : L) (i o : Nat) (A : Array UInt8)
       (fun l' h' => ∃ i' o' A' msg' m',
         LS e l' i' o' ∧ o' ≤ e.o0 + e.sm0.avail_out.toNat ∧ A'.size = e.A0.size ∧
         h' = e.heap A' msg' m' ∧
-        (∀ j, (j < e.o0 ∨ o' ≤ j) → A'[j]? = e.A0[j]?) ∧
+        (∀ j, (j < e.o0 ∨ (if α then o' else e.o0 + e.sm0.avail_out.toNat) ≤ j) → A'[j]? = e.A0[j]?) ∧
         ((m' = e.s0.mode ∧ msg' = e.sm0.msg) ∨ (m' = TYPE ∧ msg' = e.sm0.msg) ∨ m' = BAD) ∧
         (m' ≠ TYPE → m' ≠ BAD → i' + 6 > e.i0 + e.sm0.avail_in.toNat ∨
           o' + 258 > e.o0 + e.sm0.avail_out.toNat)) := by
   let Inv : L → Heap → Prop := fun l h => ∃ i o A,
     LS e l i o ∧ A.size = e.A0.size ∧ h = e.heap A e.sm0.msg e.s0.mode ∧ l.broke = false ∧
     i + 6 ≤ e.i0 + e.sm0.avail_in.toNat ∧ o + 258 ≤ e.o0 + e.sm0.avail_out.toNat ∧
-    (∀ j, (j < e.o0 ∨ o ≤ j) → A[j]? = e.A0[j]?)
+    (∀ j, (j < e.o0 ∨ (if α then o else e.o0 + e.sm0.avail_out.toNat) ≤ j) → A[j]? = e.A0[j]?)
   let μ : L → Nat := fun l => match l.out with
     | .null => 0
     | .ref _ k => e.o0 + e.sm0.avail_out.toNat - k
@@ -108,17 +109,27 @@ theorem fast_loop_wp (hc : CtxOK e c) (l : L) (i o : Nat) (A : Array UInt8)
   · intro l h hI
     obtain ⟨i, o, A, hl, hA, rfl, hb, hi, ho, hf⟩ := hI
     have hp : StepPre e c A l i o :=
-      ⟨hc, hl, hA, hi, ho, hb, e.inputFrame_of_frame hA hf (by omega) hl.hi0⟩
+      ⟨hc, hl, hA, hi, ho, hb, e.inputFrame_of_cap_frame hA hf (by omega) hl.hi0⟩
     obtain ⟨l1, h1, hr, hpost⟩ := inflate_fast_body_step_safe_gen e c A e.sm0.msg e.s0.mode l i o hp
     obtain ⟨B, p, q, hmsgheap, _, htype⟩ := Wp.at_run
       (inflate_fast_body_type_message e c A e.sm0.msg e.s0.mode l i o hp) hr
     obtain ⟨i', o', A', msg', m', hl', hii, hi6, hoo, ho258, hsz, hh, _, hframe, hcont, hbreak⟩ := hpost
     have hAsz : A'.size = e.A0.size := hsz.trans hA
     have hoend : o' ≤ e.o0 + e.sm0.avail_out.toNat := by omega
-    have hft : ∀ j, (j < e.o0 ∨ o' ≤ j) → A'[j]? = e.A0[j]? := by
+    have hft : ∀ j, (j < e.o0 ∨ (if α then o' else e.o0 + e.sm0.avail_out.toNat) ≤ j) →
+        A'[j]? = e.A0[j]? := by
       intro j hj
-      rw [hframe j (by have := hl.ho0; omega)]
-      exact hf j (by omega)
+      have := hl.ho0
+      cases α
+      · simp only [Bool.false_eq_true, ↓reduceIte] at hj hf ⊢
+        rcases hj with hj | hj
+        · rw [hframe j (Or.inl (by omega))]
+          exact hf j (Or.inl hj)
+        · rw [hframe j (Or.inr (by omega))]
+          exact hf j (Or.inr hj)
+      · simp only [↓reduceIte] at hj hf ⊢
+        rw [hframe j (by omega)]
+        exact hf j (by omega)
     have hmq := e.heap_msg_mode_eq (hh.symm.trans hmsgheap)
     have htype' : m' = TYPE → msg' = e.sm0.msg := by
       intro hm

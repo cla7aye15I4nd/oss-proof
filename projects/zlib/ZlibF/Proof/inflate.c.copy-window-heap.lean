@@ -131,8 +131,8 @@ theorem copiedWindowHeap_J
     (invariant : DefaultStateJ h source old z s)
     (destGet : dest.get h = some oldDest)
     (origin : CopyTableOrigin old s)
-    (nextBound : nextOff ≤ 1444)
-    (distBound : distOff ≤ 1443)
+    (nextBound : nextOff ≤ 1732)
+    (distBound : distOff ≤ 1731)
     (dynamicDist : s.lencode = .ref (.istate_codes old) 0 →
       s.distcode = .ref (.istate_codes old) distOff) :
     let fresh := h.nextBlk

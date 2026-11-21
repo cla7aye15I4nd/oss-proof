@@ -55,7 +55,7 @@ theorem accepted_run_safe {h : Heap} {dest destLen source sourceLen : BPtr}
     (dN : dest = .null → capacity = 0) :
     ∃ rc after, C.run (uncompress2_z dest destLen source sourceLen) h = .ok (rc, after) ∧
       ∃ out used got consumed h₁ h₂ expected,
-        Store h dest out h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
+        StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
         Store h₂ destLen (lengthBytes got) expected ∧ SameObjectsUpToTableShape expected after ∧
         SafeRel src capacity.toNat rc out used ∧
         ((got.toNat = out.length ∧ consumed.toNat = used) ∨
@@ -140,7 +140,8 @@ theorem accepted_run_safe {h : Heap} {dest destLen source sourceLen : BPtr}
     rw [loopEq]
     simp only []
     have hz : (ZStreamRef.tab h.nextBlk).get H' = some z := fin.good.live.hz
-    obtain ⟨H1, H2, H3, l1, s1, l2, s2, endRun, res1, res2, ⟨zz, hzz⟩, same, memF⟩ := epilogue ok cells fin
+    obtain ⟨written, H1, H2, H3, hpref, outWLe, l1, s1, l2, s2, endRun, res1, res2, ⟨zz, hzz⟩, same, memF⟩ :=
+      epilogue ok cells fin
     have endRun' : inflateEnd (some (ZStreamRef.tab h.nextBlk)) H2 = .ok (Z_OK, H3) := endRun
     simp only [ldZ, ldZStream_ok hz, l1, s1, l2, s2, endRun', pure_app]
     rw [freeB_reserved_run (k := h.nextBlk) (H := H3) res1 res2]
@@ -156,7 +157,7 @@ theorem accepted_run_safe {h : Heap} {dest destLen source sourceLen : BPtr}
     have cB := ok.capBound
     have srcLen := ok.srcLen
     have preIn := fin.pre.inCount
-    rw [eN] at inC nB preIn; rw [eCap] at outC cB; rw [eSrc, eN] at srcLen
+    rw [eN] at inC nB preIn; rw [eCap] at outC cB outWLe; rw [eSrc, eN] at srcLen
     have outLe : (logp.output ++ output).length ≤ capacity.toNat := by omega
     -- the counts as natural numbers
     have zin := z.avail_in.toNat_lt
@@ -174,41 +175,43 @@ theorem accepted_run_safe {h : Heap} {dest destLen source sourceLen : BPtr}
       rw [UInt64.toNat_sub_of_le _ _ (by rw [UInt64.le_iff_toNat_le, leftNat]; omega), leftNat]
       omega
     -- the stores
-    have h1W : Writable h dest (logp.output ++ output).length ∨ logp.output ++ output = [] := by
-      by_cases ne : logp.output ++ output = []
+    have h1W : Writable h dest written.length ∨ written = [] := by
+      by_cases ne : written = []
       · exact Or.inr ne
       · left
         have dn : dest ≠ .null := by
           intro dn
           have := dN dn
-          rw [this] at outLe
-          exact ne (List.eq_nil_of_length_eq_zero (by simpa using outLe))
-        have := writable_sub (c := 0) (m := (logp.output ++ output).length) (destW dn) (by omega)
+          rw [this] at outWLe
+          exact ne (List.eq_nil_of_length_eq_zero (by simpa using outWLe))
+        have := writable_sub (c := 0) (m := written.length) (destW dn) (by omega)
         rwa [advance_zero] at this
-    have h1eq : writeOut h dest (logp.output ++ output) = writeOut h out0 (logp.output ++ output) := by
+    have h1eq : writeOut h dest written = writeOut h out0 written := by
       rcases h1W with w | ne
       · simp only [out0]
         split
         · rename_i hb
           obtain ⟨c0, -⟩ := resCase hb
-          rw [c0] at outLe
-          simp at outLe
-          rw [show logp.output ++ output = [] from List.eq_nil_of_length_eq_zero (by simpa using outLe)]
+          rw [c0] at outWLe
+          simp at outWLe
+          rw [show written = [] from List.eq_nil_of_length_eq_zero (by simpa using outWLe)]
           simp [writeOut_nil]
         · rfl
       · rw [ne, writeOut_nil, writeOut_nil]
-    have store1 : Store h dest (logp.output ++ output) (writeOut h out0 (logp.output ++ output)) := by
+    have store1W : Store h dest written (writeOut h out0 written) := by
       rw [← h1eq]
       rcases h1W with w | ne
       · exact store_writeOut w
       · rw [ne, writeOut_nil]; exact Or.inl ⟨rfl, rfl⟩
-    have cS := cell_after_output (out := logp.output ++ output) ok scell cells.sepS outLe
-    have cD := cell_after_output (out := logp.output ++ output) ok dcell cells.sepD outLe
-    have store2 := store_writeOut (h := writeOut h out0 (logp.output ++ output)) (p := sourceLen)
+    have store1 : StorePrefix h dest (logp.output ++ output) capacity.toNat (writeOut h out0 written) :=
+      ⟨written, hpref, outWLe, store1W⟩
+    have cS := cell_after_output (out := written) ok scell cells.sepS outWLe
+    have cD := cell_after_output (out := written) ok dcell cells.sepD outWLe
+    have store2 := store_writeOut (h := writeOut h out0 written) (p := sourceLen)
       (xs := lengthBytes (n - (l'.len + z.avail_in.toUInt64))) (by rw [lengthBytes_length]; exact cS.2)
     have cD1 := cell_writeOut_sep (xs := lengthBytes (n - (l'.len + z.avail_in.toUInt64))) cD cells.sepSD
       (by simp [lengthBytes_length]) cS.2
-    have store3 := store_writeOut (h := writeOut (writeOut h out0 (logp.output ++ output)) sourceLen
+    have store3 := store_writeOut (h := writeOut (writeOut h out0 written) sourceLen
       (lengthBytes (n - (l'.len + z.avail_in.toUInt64)))) (p := destLen)
       (xs := lengthBytes (capacity - (l'.left + z.avail_out.toUInt64))) (by rw [lengthBytes_length]; exact cD1.2)
     -- the bounds and the code
@@ -229,7 +232,8 @@ theorem accepted_run_safe {h : Heap} {dest destLen source sourceLen : BPtr}
     simp only []
     rw [freeZStream_local_run (memHeap_stream h source)]
     refine ⟨Z_MEM_ERROR, freedHeap (memHeap h source) h.nextBlk, rfl, [], 0, capacity, n, h, h, h,
-      Or.inl ⟨rfl, rfl⟩, selfS, selfD, mem_same fresh source, ⟨Nat.zero_le _, Nat.zero_le _, Or.inr (Or.inr (Or.inr rfl))⟩,
+      ⟨[], List.nil_prefix, Nat.zero_le _, Or.inl ⟨rfl, rfl⟩⟩, selfS, selfD, mem_same fresh source,
+      ⟨Nat.zero_le _, Nat.zero_le _, Or.inr (Or.inr (Or.inr rfl))⟩,
       Or.inr ⟨rfl, rfl, rfl, rfl⟩, fun _ => ⟨h.nalloc, Nat.le_refl _, ?_, ?_⟩⟩
     · simp [freedHeap, reservedFreed, memHeap, initMemHeap, preHeap, localHeap, streamHeap]
     · cases e : h.allocOk h.nalloc

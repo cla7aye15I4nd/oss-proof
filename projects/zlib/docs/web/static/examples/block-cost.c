@@ -1,5 +1,5 @@
 /* Reproduce the blockcost scene's complete, deliberately selected record streams.
- * Source: zlib 99623ef7097352da7993ba614161fd6a311e046e, ordinary packed build.
+ * Source: zlib 617e19a81f38c15ff04de9f86882f42ad8a8ffd1, ordinary packed build.
  * From the repository root (do not compile trees.c separately):
  * cc -O2 -I zlib docs/web/static/examples/block-cost.c zlib/deflate.c \
  *    zlib/inflate.c zlib/inftrees.c zlib/inffast.c zlib/adler32.c \

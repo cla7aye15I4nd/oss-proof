@@ -174,6 +174,145 @@ theorem memoryMetaFrameM_fast_body (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
     | with_reducible apply memoryMetaFrameM_ite
     | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
 
+theorem memoryMetaFrameM_ptr_le {R T : Type} [Space Heap R T] [DecidableEq R]
+    (r : ZStreamRef) (p q : Ptr R) : MemoryMetaFrameM r (p.le q) :=
+  memoryMetaFrameM_bind (memoryMetaFrameM_ptr_lt r q p)
+    (fun b => memoryMetaFrameM_pure r (!b))
+
+theorem memoryMetaFrameM_fast_load64 (r : ZStreamRef) (p : BPtr) :
+    MemoryMetaFrameM r (Zlib.Inffast.load64 p) := by
+  unfold Zlib.Inffast.load64
+  repeat' first
+    | with_reducible exact memoryMetaFrameM_ptr_index r _ _
+    | with_reducible exact memoryMetaFrameM_pure r _
+    | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
+
+theorem memoryMetaFrameM_fast_store64 (r : ZStreamRef) (out : BPtr) (v : UInt64) :
+    MemoryMetaFrameM r (Zlib.Inffast.store64 out v) := by
+  unfold Zlib.Inffast.store64
+  repeat' first
+    | with_reducible exact memoryMetaFrameM_store8 r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_add r _ _
+    | with_reducible exact memoryMetaFrameM_pure r _
+    | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
+
+theorem memoryMetaFrameM_fast_copy_back (r : ZStreamRef) (out : BPtr) (dist len : UInt32) :
+    MemoryMetaFrameM r (Zlib.Inffast.copy_back out dist len) := by
+  unfold Zlib.Inffast.copy_back
+  repeat' first
+    | with_reducible exact memoryMetaFrameM_fast_subn r _ _
+    | with_reducible exact memoryMetaFrameM_fast_load64 r _
+    | with_reducible exact memoryMetaFrameM_fast_store64 r _ _
+    | with_reducible exact memoryMetaFrameM_memcpyB r _ _ _
+    | with_reducible exact memoryMetaFrameM_ptr_load r _
+    | with_reducible exact memoryMetaFrameM_ptr_add r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_lt r _ _
+    | with_reducible exact memoryMetaFrameM_pure r _
+    | with_reducible (refine memoryMetaFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply memoryMetaFrameM_ite
+    | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
+    | (intro p; cases p; dsimp only)
+
+theorem memoryMetaFrameM_fast_refill64 (r : ZStreamRef) (state : Zlib.Inffast.L) :
+    MemoryMetaFrameM r (Zlib.Inffast.refill64 state) := by
+  unfold Zlib.Inffast.refill64
+  repeat' first
+    | with_reducible exact memoryMetaFrameM_fast_load64 r _
+    | with_reducible exact memoryMetaFrameM_fast_shl64 r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_add r _ _
+    | with_reducible exact memoryMetaFrameM_pure r _
+    | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
+
+theorem memoryMetaFrameM_fast_copyMatch8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    MemoryMetaFrameM r (Zlib.Inffast.copyMatch8 context state) := by
+  unfold Zlib.Inffast.copyMatch8
+  repeat' first
+    | with_reducible exact memoryMetaFrameM_fast_badData r _ root _
+    | with_reducible exact memoryMetaFrameM_fast_copy_back r _ _ _
+    | with_reducible exact memoryMetaFrameM_fast_subn r _ _
+    | with_reducible exact memoryMetaFrameM_memcpyB r _ _ _
+    | with_reducible exact memoryMetaFrameM_ldS r _
+    | with_reducible exact memoryMetaFrameM_stS r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_add r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_diff r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_lt r _ _
+    | with_reducible exact memoryMetaFrameM_pure r _
+    | with_reducible exact memoryMetaFrameM_ub r _
+    | with_reducible (refine memoryMetaFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine memoryMetaFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply memoryMetaFrameM_ite
+    | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
+
+theorem memoryMetaFrameM_fast_dodist8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    MemoryMetaFrameM r (Zlib.Inffast.dodist8 context state) := by
+  unfold Zlib.Inffast.dodist8
+  repeat' first
+    | with_reducible exact memoryMetaFrameM_fast_badData r _ root _
+    | with_reducible exact memoryMetaFrameM_fast_copyMatch8 r _ root _
+    | with_reducible exact memoryMetaFrameM_fast_refill64 r _
+    | with_reducible exact memoryMetaFrameM_fast_shl32 r _ _
+    | with_reducible exact memoryMetaFrameM_fast_shl64 r _ _
+    | with_reducible exact memoryMetaFrameM_fast_shr64 r _ _
+    | with_reducible exact memoryMetaFrameM_fast_chk64 r _
+    | with_reducible exact memoryMetaFrameM_ldS r _
+    | with_reducible exact memoryMetaFrameM_stS r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_load r _
+    | with_reducible exact memoryMetaFrameM_ptr_index r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_add r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_diff r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_lt r _ _
+    | with_reducible exact memoryMetaFrameM_pure r _
+    | with_reducible exact memoryMetaFrameM_ub r _
+    | with_reducible (refine memoryMetaFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine memoryMetaFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply memoryMetaFrameM_ite
+    | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
+
+theorem memoryMetaFrameM_fast_dolen8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    MemoryMetaFrameM r (Zlib.Inffast.dolen8 context state) := by
+  unfold Zlib.Inffast.dolen8
+  repeat' first
+    | with_reducible exact memoryMetaFrameM_fast_badData r _ root _
+    | with_reducible exact memoryMetaFrameM_fast_dodist8 r _ root _
+    | with_reducible exact memoryMetaFrameM_fast_refill64 r _
+    | with_reducible exact memoryMetaFrameM_fast_shl32 r _ _
+    | with_reducible exact memoryMetaFrameM_fast_shl64 r _ _
+    | with_reducible exact memoryMetaFrameM_fast_shr64 r _ _
+    | with_reducible exact memoryMetaFrameM_fast_chk64 r _
+    | with_reducible exact memoryMetaFrameM_store8 r _ _
+    | with_reducible exact memoryMetaFrameM_ldS r _
+    | with_reducible exact memoryMetaFrameM_stS r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_load r _
+    | with_reducible exact memoryMetaFrameM_ptr_index r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_add r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_diff r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_lt r _ _
+    | with_reducible exact memoryMetaFrameM_pure r _
+    | with_reducible exact memoryMetaFrameM_ub r _
+    | with_reducible (refine memoryMetaFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine memoryMetaFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply memoryMetaFrameM_ite
+    | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
+
+theorem memoryMetaFrameM_fast_body8 (r : ZStreamRef) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    MemoryMetaFrameM r (Zlib.Inffast.inflate_fast_body8 context state) := by
+  unfold Zlib.Inffast.inflate_fast_body8
+  repeat' first
+    | with_reducible exact memoryMetaFrameM_fast_dolen8 r _ root _
+    | with_reducible exact memoryMetaFrameM_fast_refill64 r _
+    | with_reducible exact memoryMetaFrameM_fast_shr64 r _ _
+    | with_reducible exact memoryMetaFrameM_store8 r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_load r _
+    | with_reducible exact memoryMetaFrameM_ptr_add r _ _
+    | with_reducible exact memoryMetaFrameM_pure r _
+    | with_reducible (refine memoryMetaFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply memoryMetaFrameM_ite
+    | with_reducible (refine memoryMetaFrameM_bind ?_ (fun _ => ?_))
+
 /-- The whole actual fast decoder preserves read-only flags and the
 allocation frontier on every successful run. No raw-buffer or callee-safety
 contract is assumed by this frame. -/
@@ -182,6 +321,7 @@ theorem memoryMetaFrameM_inflate_fast (r : ZStreamRef) (start : UInt32) :
   unfold Zlib.Inffast.inflate_fast
   repeat' first
     | with_reducible exact memoryMetaFrameM_fast_body r _ rfl _
+    | with_reducible exact memoryMetaFrameM_fast_body8 r _ rfl _
     | with_reducible exact memoryMetaFrameM_fast_subn r _ _
     | with_reducible exact memoryMetaFrameM_fast_shl32 r _ _
     | with_reducible exact memoryMetaFrameM_fast_chk64 r _
@@ -192,6 +332,7 @@ theorem memoryMetaFrameM_inflate_fast (r : ZStreamRef) (start : UInt32) :
     | with_reducible exact memoryMetaFrameM_ptr_add r _ _
     | with_reducible exact memoryMetaFrameM_ptr_diff r _ _
     | with_reducible exact memoryMetaFrameM_ptr_lt r _ _
+    | with_reducible exact memoryMetaFrameM_ptr_le r _ _
     | with_reducible exact memoryMetaFrameM_pure r _
     | with_reducible exact memoryMetaFrameM_ub r _
     | with_reducible (refine memoryMetaFrameM_ldZ_update r _ _ (fun _ => ?_) (fun _ => ?_))

@@ -47,7 +47,7 @@ theorem inflate_default_view_public_output_bytes
       DefaultStateJ after r zs stream state ∧ DefAlloc stream ∧ after.bytes h.nextBlk = none ∧
       StreamAccounting z stream used output.length ∧ Bytes after z.next_out output.length output ∧
       BufferFrame h after (fun b => StreamRoot r b ∨ InflateOwned zs s b ∨ s.head = some (.tab b))
-        (⟨z.next_out, output.length⟩ :: HeaderRegions h s.head) := by
+        (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head) := by
   obtain ⟨rc, after, stream, state, used, made, run, current, finalAllocator, freed,
     _usedBound, madeBound, account, frame⟩ := inflate_default_view_public_exact_frame invariant allocator buffers entry record flush
   obtain ⟨output, length, observed⟩ : ∃ output, output.length = made ∧ Bytes after z.next_out made output := by
@@ -73,10 +73,14 @@ theorem inflate_default_view_public_output_bytes
       rcases writable with refused | ⟨ref, off, array, pointer, get, _write, room⟩
       · exact False.elim (null refused.1)
       · rw [pointer] at frame ⊢
-        exact BufferFrame.produced_bytes frame get (by omega)
+        obtain ⟨written, writtenGet, size, _⟩ :=
+          frame.2 ⟨.ref ref off, z.avail_out.toNat⟩ List.mem_cons_self ref off array rfl get
+        refine ⟨(written.toList.drop off).take made, ?_,
+          Or.inr ⟨ref, off, written, rfl, writtenGet, by omega, rfl⟩⟩
+        simp only [List.length_take, List.length_drop, Array.length_toList]
+        omega
   exact ⟨rc, after, stream, state, used, output, run, current, finalAllocator, freed,
-    by simpa only [length] using account, by simpa only [length] using observed,
-    by simpa only [length] using frame⟩
+    by simpa only [length] using account, by simpa only [length] using observed, frame⟩
 
 #print axioms inflate_default_view_public_output_bytes
 end Zlib.Inflate.Proofs

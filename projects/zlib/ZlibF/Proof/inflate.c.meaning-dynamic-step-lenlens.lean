@@ -523,7 +523,7 @@ theorem lenlens_step {c : Ctx} {f : LoopFrame} {h : Heap} {l : IL} {r : ZStreamR
         simpa using e
       have wf3 : s3.WellFormed :=
         ⟨wf2.1, by show work.size = 288; rw [workEq]; exact workSize'',
-          by show codes.size = 1444; rw [codesEq]; exact codeSize''⟩
+          by show codes.size = 1732; rw [codesEq]; exact codeSize''⟩
       have inv3 : CodeLengthInvariant zs s3 := by
         intro _
         refine ⟨rfl, contents.safe, ?_, ?_, ?_, ?_⟩

@@ -20,8 +20,8 @@ Each line ends with the Lean predicate that states it; a line that no predicate 
 
 **Every call**
 
-- The library is the default x86_64 Linux build: LP64, static, compiled from zlib 1.4 (upstream
-  commit `99623ef7`) with the seven [patches](../../patches/README.md).
+- The library is the default x86_64 Linux build: LP64, static, compiled from zlib 1.4.0.1-motley
+  (upstream commit `617e19a8`) with the six [patches](../../patches/README.md).
 - `zalloc` and `zfree` of every `z_stream` are `Z_NULL`, so zlib uses its default allocator
   (`DefaultOrNull`). A custom allocator is not covered. A failing `malloc` is covered.
 - No single object in memory has 2^63 bytes or more (`ByteObjectsFit`). This is the LP64 limit

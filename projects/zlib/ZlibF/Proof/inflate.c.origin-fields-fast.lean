@@ -181,12 +181,155 @@ theorem originFieldFrameM_fast_body (r : ZStreamRef) (owner : InflateStatePtr) (
     | with_reducible apply originFieldFrameM_ite
     | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
 
+theorem originFieldFrameM_ptr_le {R T : Type} [Space Heap R T] [DecidableEq R]
+    (r : ZStreamRef) (owner : InflateStatePtr) (p q : Ptr R) :
+    OriginFieldFrameM r owner (p.le q) :=
+  originFieldFrameM_bind (originFieldFrameM_ptr_lt r owner q p) (fun b => originFieldFrameM_pure r owner (!b))
+
+theorem originFieldFrameM_fast_load64 (r : ZStreamRef) (owner : InflateStatePtr) (p : BPtr) :
+    OriginFieldFrameM r owner (Zlib.Inffast.load64 p) := by
+  unfold Zlib.Inffast.load64
+  repeat' first
+    | with_reducible exact originFieldFrameM_ptr_index r owner _ _
+    | with_reducible exact originFieldFrameM_pure r owner _
+    | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
+
+theorem originFieldFrameM_fast_store64 (r : ZStreamRef) (owner : InflateStatePtr) (out : BPtr) (v : UInt64) :
+    OriginFieldFrameM r owner (Zlib.Inffast.store64 out v) := by
+  unfold Zlib.Inffast.store64
+  repeat' first
+    | with_reducible exact originFieldFrameM_store8 r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_add r owner _ _
+    | with_reducible exact originFieldFrameM_pure r owner _
+    | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
+
+theorem originFieldFrameM_fast_copy_back (r : ZStreamRef) (owner : InflateStatePtr) (out : BPtr)
+    (dist len : UInt32) : OriginFieldFrameM r owner (Zlib.Inffast.copy_back out dist len) := by
+  unfold Zlib.Inffast.copy_back
+  repeat' first
+    | with_reducible exact originFieldFrameM_fast_subn r owner _ _
+    | with_reducible exact originFieldFrameM_fast_load64 r owner _
+    | with_reducible exact originFieldFrameM_fast_store64 r owner _ _
+    | with_reducible exact originFieldFrameM_memcpyB r owner _ _ _
+    | with_reducible exact originFieldFrameM_ptr_load r owner _
+    | with_reducible exact originFieldFrameM_ptr_add r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_lt r owner _ _
+    | with_reducible exact originFieldFrameM_pure r owner _
+    | with_reducible (refine originFieldFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply originFieldFrameM_ite
+    | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
+    | (intro p; cases p; dsimp only)
+
+theorem originFieldFrameM_fast_refill64 (r : ZStreamRef) (owner : InflateStatePtr) (state : Zlib.Inffast.L) :
+    OriginFieldFrameM r owner (Zlib.Inffast.refill64 state) := by
+  unfold Zlib.Inffast.refill64
+  repeat' first
+    | with_reducible exact originFieldFrameM_fast_load64 r owner _
+    | with_reducible exact originFieldFrameM_fast_shl64 r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_add r owner _ _
+    | with_reducible exact originFieldFrameM_pure r owner _
+    | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
+
+theorem originFieldFrameM_fast_copyMatch8 (r : ZStreamRef) (owner : InflateStatePtr) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    OriginFieldFrameM r owner (Zlib.Inffast.copyMatch8 context state) := by
+  unfold Zlib.Inffast.copyMatch8
+  repeat' first
+    | with_reducible exact originFieldFrameM_fast_badData r owner _ root _
+    | with_reducible exact originFieldFrameM_fast_copy_back r owner _ _ _
+    | with_reducible exact originFieldFrameM_fast_subn r owner _ _
+    | with_reducible exact originFieldFrameM_memcpyB r owner _ _ _
+    | with_reducible exact originFieldFrameM_ldS r owner _
+    | with_reducible exact originFieldFrameM_ldS_store r owner _ _ (fun _ => rfl)
+    | with_reducible refine originFieldFrameM_ldS_update r owner _ _ _ (fun _ => rfl) (fun _ => ?_)
+    | with_reducible exact originFieldFrameM_ptr_add r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_diff r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_lt r owner _ _
+    | with_reducible exact originFieldFrameM_pure r owner _
+    | with_reducible exact originFieldFrameM_ub r owner _
+    | with_reducible (refine originFieldFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine originFieldFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply originFieldFrameM_ite
+    | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
+
+theorem originFieldFrameM_fast_dodist8 (r : ZStreamRef) (owner : InflateStatePtr) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    OriginFieldFrameM r owner (Zlib.Inffast.dodist8 context state) := by
+  unfold Zlib.Inffast.dodist8
+  repeat' first
+    | with_reducible exact originFieldFrameM_fast_badData r owner _ root _
+    | with_reducible exact originFieldFrameM_fast_copyMatch8 r owner _ root _
+    | with_reducible exact originFieldFrameM_fast_refill64 r owner _
+    | with_reducible exact originFieldFrameM_fast_shl32 r owner _ _
+    | with_reducible exact originFieldFrameM_fast_shl64 r owner _ _
+    | with_reducible exact originFieldFrameM_fast_shr64 r owner _ _
+    | with_reducible exact originFieldFrameM_fast_chk64 r owner _
+    | with_reducible exact originFieldFrameM_ldS r owner _
+    | with_reducible exact originFieldFrameM_ldS_store r owner _ _ (fun _ => rfl)
+    | with_reducible refine originFieldFrameM_ldS_update r owner _ _ _ (fun _ => rfl) (fun _ => ?_)
+    | with_reducible exact originFieldFrameM_ptr_load r owner _
+    | with_reducible exact originFieldFrameM_ptr_index r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_add r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_diff r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_lt r owner _ _
+    | with_reducible exact originFieldFrameM_pure r owner _
+    | with_reducible exact originFieldFrameM_ub r owner _
+    | with_reducible (refine originFieldFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine originFieldFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply originFieldFrameM_ite
+    | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
+
+theorem originFieldFrameM_fast_dolen8 (r : ZStreamRef) (owner : InflateStatePtr) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    OriginFieldFrameM r owner (Zlib.Inffast.dolen8 context state) := by
+  unfold Zlib.Inffast.dolen8
+  repeat' first
+    | with_reducible exact originFieldFrameM_fast_badData r owner _ root _
+    | with_reducible exact originFieldFrameM_fast_dodist8 r owner _ root _
+    | with_reducible exact originFieldFrameM_fast_refill64 r owner _
+    | with_reducible exact originFieldFrameM_fast_shl32 r owner _ _
+    | with_reducible exact originFieldFrameM_fast_shl64 r owner _ _
+    | with_reducible exact originFieldFrameM_fast_shr64 r owner _ _
+    | with_reducible exact originFieldFrameM_fast_chk64 r owner _
+    | with_reducible exact originFieldFrameM_store8 r owner _ _
+    | with_reducible exact originFieldFrameM_ldS r owner _
+    | with_reducible exact originFieldFrameM_ldS_store r owner _ _ (fun _ => rfl)
+    | with_reducible refine originFieldFrameM_ldS_update r owner _ _ _ (fun _ => rfl) (fun _ => ?_)
+    | with_reducible exact originFieldFrameM_ptr_load r owner _
+    | with_reducible exact originFieldFrameM_ptr_index r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_add r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_diff r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_lt r owner _ _
+    | with_reducible exact originFieldFrameM_pure r owner _
+    | with_reducible exact originFieldFrameM_ub r owner _
+    | with_reducible (refine originFieldFrameM_cwhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible (refine originFieldFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply originFieldFrameM_ite
+    | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
+
+theorem originFieldFrameM_fast_body8 (r : ZStreamRef) (owner : InflateStatePtr) (context : Zlib.Inffast.Ctx)
+    (root : context.strm = some r) (state : Zlib.Inffast.L) :
+    OriginFieldFrameM r owner (Zlib.Inffast.inflate_fast_body8 context state) := by
+  unfold Zlib.Inffast.inflate_fast_body8
+  repeat' first
+    | with_reducible exact originFieldFrameM_fast_dolen8 r owner _ root _
+    | with_reducible exact originFieldFrameM_fast_refill64 r owner _
+    | with_reducible exact originFieldFrameM_fast_shr64 r owner _ _
+    | with_reducible exact originFieldFrameM_store8 r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_load r owner _
+    | with_reducible exact originFieldFrameM_ptr_add r owner _ _
+    | with_reducible exact originFieldFrameM_pure r owner _
+    | with_reducible (refine originFieldFrameM_cdoWhile (fun _ => ?_) (fun _ => ?_) _)
+    | with_reducible apply originFieldFrameM_ite
+    | with_reducible (refine originFieldFrameM_bind ?_ (fun _ => ?_))
+
 /-- The whole actual fast decoder preserves decoder origin fields, through its actual record writes, on every successful run. -/
 theorem originFieldFrameM_inflate_fast (r : ZStreamRef) (owner : InflateStatePtr) (start : UInt32) :
     OriginFieldFrameM r owner (Zlib.Inffast.inflate_fast (some r) start) := by
   unfold Zlib.Inffast.inflate_fast
   repeat' first
     | with_reducible exact originFieldFrameM_fast_body r owner _ rfl _
+    | with_reducible exact originFieldFrameM_fast_body8 r owner _ rfl _
     | with_reducible exact originFieldFrameM_fast_subn r owner _ _
     | with_reducible exact originFieldFrameM_fast_shl32 r owner _ _
     | with_reducible exact originFieldFrameM_fast_chk64 r owner _
@@ -198,6 +341,7 @@ theorem originFieldFrameM_inflate_fast (r : ZStreamRef) (owner : InflateStatePtr
     | with_reducible exact originFieldFrameM_ptr_add r owner _ _
     | with_reducible exact originFieldFrameM_ptr_diff r owner _ _
     | with_reducible exact originFieldFrameM_ptr_lt r owner _ _
+    | with_reducible exact originFieldFrameM_ptr_le r owner _ _
     | with_reducible exact originFieldFrameM_pure r owner _
     | with_reducible exact originFieldFrameM_ub r owner _
     | with_reducible exact originFieldFrameM_stZ r owner _ _

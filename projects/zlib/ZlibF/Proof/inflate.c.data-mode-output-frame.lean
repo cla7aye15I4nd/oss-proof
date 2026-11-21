@@ -17,8 +17,27 @@ theorem inflate_dispatch_data_exact_frame
       runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) ∧
       Good after r zs stream state ∧ regs.left.toNat + made = l.left.toNat ∧
       regs.put = inputAdvance l.put made ∧
-      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made⟩] := by
+      BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
   have tables := invariant.tables mode
+  obtain ⟨dest, _array, off, pointer, _get, _write, _⟩ :=
+    callerRange_slow_output invariant.good l buffers.output.range buffers.output.nonnull
+      buffers.output.count buffers.output.produced
+  have widen {outcome : Except Ex Unit} {regs : IL} {after : Heap}
+      {stream : ZStream} {state : InflateState} {made : Nat}
+      (run : runX (inflate_dispatch c) l h = .ok ((outcome, regs), after))
+      (current : Good after r zs stream state)
+      (count : regs.left.toNat + made = l.left.toNat)
+      (put : regs.put = inputAdvance l.put made)
+      (frame : BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, made⟩]) :
+      ∃ outcome regs after stream state made,
+        runX (inflate_dispatch c) l h = .ok ((outcome, regs), after) ∧
+        Good after r zs stream state ∧ regs.left.toNat + made = l.left.toNat ∧
+        regs.put = inputAdvance l.put made ∧
+        BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
+    have wide : BufferFrame h after (fun b => StreamRoot r b ∨ b = zs) [⟨l.put, l.left.toNat⟩] := by
+      rw [pointer] at frame ⊢
+      exact BufferFrame.singleton_widen frame (Nat.le_refl off) (by omega)
+    exact ⟨outcome, regs, after, stream, state, made, run, current, count, put, wide⟩
   rcases mode with start | len | lenext | dist | distext | matching | literal
   · obtain ⟨outcome, regs, after, stream, state, made, run, current, count, put, frame⟩ :=
       inflate_LEN_start_exact_frame E invariant buffers start
@@ -30,26 +49,21 @@ theorem inflate_dispatch_data_exact_frame
       (inflate_dispatch_LEN E l len).trans run, current, count, put, frame⟩
   · obtain ⟨outcome, regs, after, stream, state, made, run, current, count, put, frame⟩ :=
       inflate_LENEXT_exact_frame E invariant.good tables buffers invariant.pending lenext
-    exact ⟨outcome, regs, after, stream, state, made,
-      (inflate_dispatch_LENEXT E l lenext).trans run, current, count, put, frame⟩
+    exact widen ((inflate_dispatch_LENEXT E l lenext).trans run) current count put frame
   · obtain ⟨outcome, regs, after, stream, state, made, run, current, count, put, frame⟩ :=
       inflate_DIST_exact_frame E invariant.good tables buffers invariant.pending dist
-    exact ⟨outcome, regs, after, stream, state, made,
-      (inflate_dispatch_DIST E l dist).trans run, current, count, put, frame⟩
+    exact widen ((inflate_dispatch_DIST E l dist).trans run) current count put frame
   · obtain ⟨outcome, regs, after, stream, state, made, run, current, count, put, frame⟩ :=
       inflate_DISTEXT_exact_frame E invariant.good tables buffers invariant.pending distext
-    exact ⟨outcome, regs, after, stream, state, made,
-      (inflate_dispatch_DISTEXT E l distext).trans run, current, count, put, frame⟩
+    exact widen ((inflate_dispatch_DISTEXT E l distext).trans run) current count put frame
   · have safe := invariant.pending.matching matching
     obtain ⟨outcome, regs, after, stream, state, made, run, current, count, put, frame⟩ :=
       inflate_MATCH_exact_frame E invariant.good tables buffers matching safe.1 safe.2.2.2
         (by rw [invariant.pending.sane]; decide)
-    exact ⟨outcome, regs, after, stream, state, made,
-      (inflate_dispatch_MATCH E l matching).trans run, current, count, put, frame⟩
+    exact widen ((inflate_dispatch_MATCH E l matching).trans run) current count put frame
   · obtain ⟨outcome, regs, after, state, made, run, current, count, put, frame⟩ :=
       inflate_LIT_exact_frame E invariant.good tables buffers
-    exact ⟨outcome, regs, after, z, state, made,
-      (inflate_dispatch_LIT E l literal).trans run, current, count, put, frame⟩
+    exact widen ((inflate_dispatch_LIT E l literal).trans run) current count put frame
 
 #print axioms inflate_dispatch_data_exact_frame
 end Zlib.Inflate.Proofs

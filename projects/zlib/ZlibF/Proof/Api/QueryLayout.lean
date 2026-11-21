@@ -54,7 +54,7 @@ private theorem refused_state_check {h : Heap} {p : ZStreamPtr} (hr : RefusedInf
 /-- The fixed C array bounds make pointer subtraction representable. No callee contract is assumed. -/
 theorem codes_used_record {h : Heap} {r : ZStreamRef} {i : Nat}
     {z : ZStream} {s : InflateState} {n : Nat}
-    (hv : InflateView h r i z s) (hsize : s.codes.size = 1444)
+    (hv : InflateView h r i z s) (hsize : s.codes.size = 1732)
     (hnext : s.next = .ref (.istate_codes i) n) (hn : n ≤ s.codes.size) :
     C.run (inflateCodesUsed (some r)) h = .ok (UInt64.ofNat n, h) := by
   rcases hv with ⟨hz,hstate,hi,hback,ha,hf,hlo,hhi⟩

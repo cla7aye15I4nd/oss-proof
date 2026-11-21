@@ -397,7 +397,7 @@ theorem epilogue2_steps {h A : Heap} {sourceLen destLen : BPtr} {gotV usedV n ca
 length cells keep. -/
 theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int32 → List UInt8 → Nat → Prop}
     (preserve : ∀ h cap n, Pre h → Pre (cells2 h cap n))
-    (relLe : ∀ src cap rc out used, Rel src cap rc out used → out.length ≤ cap)
+    (_relLe : ∀ src cap rc out used, Rel src cap rc out used → out.length ≤ cap)
     (inner : CountedWithOn Pre uncompress2_z true Rel) : CountedWithOn Pre uncompress2 false Rel := by
   intro h dest destLen source sourceLen capacity n src pre fresh uniq globals fit dcellO scellO nn srcB destW sep
   obtain ⟨dl, sl⟩ := nn rfl
@@ -522,11 +522,11 @@ theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int
     have dN : dest = .null → capacity = 0 := fun e => Classical.byContradiction fun ne => badW (Or.inr ⟨e, ne⟩)
     obtain ⟨out, usedN, gotV, consumed, h₁', h₂', exp', S1, S2, S3, sm, unc, counts, mem'⟩ :=
       good' (by simp [cellPtr, cellRaw]) (by simp [cellPtr]) sN dN
-    have f1 := store_fun S1
+    obtain ⟨written, hpref, outLe, S1'⟩ := S1
+    have f1 := store_fun S1'
     have f2 := store_fun S2
     have f3 := store_fun S3
     subst f1 f2 f3
-    have outLe : out.length ≤ capacity.toNat := relLe _ _ _ _ _ unc
     have wDest : Writable h dest capacity.toNat := by
       by_cases dn : dest = .null
       · exact Or.inl ⟨dn, by rw [dN dn]; rfl⟩
@@ -538,26 +538,26 @@ theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int
     -- the cells of the expected inner heap
     have gG := cells2_got h capacity n
     have uG := cells2_used h capacity n
-    have g1 := cell_writeOut_sep (xs := out) gG sepU.2.1 outLe wDestG
-    have u1 := cell_writeOut_sep (xs := out) uG sepU.2.2.2.1 outLe wDestG
+    have g1 := cell_writeOut_sep (xs := written) gG sepU.2.1 outLe wDestG
+    have u1 := cell_writeOut_sep (xs := written) uG sepU.2.2.2.1 outLe wDestG
     have u2 := cell_written (v := consumed) u1.2
     have g2 := cell_writeOut_sep (xs := lengthBytes consumed) g1 (separate_symm sUG) (len8 _) u1.2
     have g3 := cell_written (v := gotV) g2.2
     have u3 := cell_writeOut_sep (xs := lengthBytes gotV) u2 sUG (len8 _) g2.2
     have callerCell : ∀ (q : BPtr) (v : UInt64), LengthCell h q v → Separate q 8 dest capacity.toNat →
         (∀ r i, q = .ref r i → ∀ c, BRef.block r = some c → c < h.nextBlk) →
-        LengthCell (writeOut (writeOut (writeOut (cells2 h capacity n) dest out) (cellPtr (cellRaw h))
+        LengthCell (writeOut (writeOut (writeOut (cells2 h capacity n) dest written) (cellPtr (cellRaw h))
           (lengthBytes consumed)) (cellPtr h) (lengthBytes gotV)) q v := by
       intro q v c sq qb
-      have c1 := cell_writeOut_sep (xs := out) (kept.cell_of c) sq outLe wDestG
+      have c1 := cell_writeOut_sep (xs := written) (kept.cell_of c) sq outLe wDestG
       have c2 := cell_writeOut_sep (xs := lengthBytes consumed) c1 (separate_symm (sepCells q qb).2) (len8 _) u1.2
       exact cell_writeOut_sep (xs := lengthBytes gotV) c2 (separate_symm (sepCells q qb).1) (len8 _) g2.2
     have sE := callerCell sourceLen n scell sep.2.2.2.1 slB
     have dE := callerCell destLen capacity dcell sep.2.1 dlB
     have run := runTo gotV consumed (same_cell sm g3) (same_cell sm u3) (same_cell sm sE) (same_cell sm dE)
     -- the caller stores
-    have sC1 := cell_writeOut_sep (xs := out) scell sep.2.2.2.1 outLe wDest
-    have dC1 := cell_writeOut_sep (xs := out) dcell sep.2.1 outLe wDest
+    have sC1 := cell_writeOut_sep (xs := written) scell sep.2.2.2.1 outLe wDest
+    have dC1 := cell_writeOut_sep (xs := written) dcell sep.2.1 outLe wDest
     have dC2 := cell_writeOut_sep (xs := lengthBytes consumed) dC1 sep.2.2.2.2.2 (len8 _) sC1.2
     refine ⟨rc, _, run, fun b => absurd (by
       rcases b with b | b | b | b
@@ -565,12 +565,13 @@ theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int
       · exact absurd b dl
       · exact Or.inl b
       · exact Or.inr b) badW, fun _ _ _ _ => ?_⟩
-    refine ⟨out, usedN, gotV, consumed, writeOut h dest out, _, _, agree.store_in S1 (keepOf dest destB),
+    refine ⟨out, usedN, gotV, consumed, writeOut h dest written, _, _,
+      ⟨written, hpref, outLe, agree.store_in S1' (keepOf dest destB)⟩,
       store_writeOut (by rw [lengthBytes_length]; exact sC1.2), store_writeOut (by rw [lengthBytes_length]; exact dC2.2),
       ?_, unc, counts, ?_⟩
     · have s2 := same_writeOut_both (same_writeOut_both sm sourceLen (lengthBytes consumed)) destLen
         (lengthBytes gotV)
-      have a1 := agree.writeOut_both (xs := out) (keepOf dest destB)
+      have a1 := agree.writeOut_both (xs := written) (keepOf dest destB)
       have a2 := a1.write_out (xs := lengthBytes consumed) (p := cellPtr (cellRaw h))
         (fun r i hp c hc kc => by
           simp only [cellPtr, cellRaw, Ptr.ref.injEq] at hp; obtain ⟨rfl, -⟩ := hp
@@ -587,7 +588,7 @@ theorem counted2_of_z_on {Pre : Heap → Prop} {Rel : List UInt8 → Nat → Int
       have cellBlk : ∀ (h' : Heap), ∀ r i, cellPtr h' = .ref r i →
           (∀ c, BRef.block r = some c → c < h.nextBlk) ∨ ∃ j, r = .blk j :=
         fun h' r i hp => Or.inr ⟨h'.nextBlk, by simp only [cellPtr, Ptr.ref.injEq] at hp; exact hp.1.symm⟩
-      have xk := x'k _ (x'k _ (x'k _ (x'k _ (x'k _ Gnone dest out (notKeep dest destB)) (cellPtr (cellRaw h))
+      have xk := x'k _ (x'k _ (x'k _ (x'k _ (x'k _ Gnone dest written (notKeep dest destB)) (cellPtr (cellRaw h))
         (lengthBytes consumed) (cellBlk _)) (cellPtr h) (lengthBytes gotV) (cellBlk _)) sourceLen
         (lengthBytes consumed) (notKeep sourceLen slB)) destLen (lengthBytes gotV) (notKeep destLen dlB)
       have gl : ∀ (X : Heap) (q : BPtr) (xs : List UInt8), (writeOut X q xs).nextBlk = X.nextBlk ∧

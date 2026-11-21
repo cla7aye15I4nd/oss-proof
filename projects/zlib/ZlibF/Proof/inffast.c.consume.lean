@@ -389,7 +389,7 @@ theorem fast_loop_wp_consumes (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e
     (hl : LS e l i o) (hA : A.size = e.A0.size) (hb : l.broke = false)
     (hi : i + 6 ≤ e.i0 + e.sm0.avail_in.toNat)
     (ho : o + 258 ≤ e.o0 + e.sm0.avail_out.toNat)
-    (hf : ∀ j, (j < e.o0 ∨ o ≤ j) → A[j]? = e.A0[j]?) :
+    (hf : ∀ j, (j < e.o0 ∨ (if α then o else e.o0 + e.sm0.avail_out.toNat) ≤ j) → A[j]? = e.A0[j]?) :
     Wp (cdoWhile (inflate_fast_body c)
       (fun l => do
         if l.broke then pure (false, l)
@@ -398,7 +398,7 @@ theorem fast_loop_wp_consumes (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e
       (fun l' h' => ∃ i' o' A' msg' m',
         LS e l' i' o' ∧ o' ≤ e.o0 + e.sm0.avail_out.toNat ∧ A'.size = e.A0.size ∧
         h' = e.heap A' msg' m' ∧
-        (∀ j, (j < e.o0 ∨ o' ≤ j) → A'[j]? = e.A0[j]?) ∧
+        (∀ j, (j < e.o0 ∨ (if α then o' else e.o0 + e.sm0.avail_out.toNat) ≤ j) → A'[j]? = e.A0[j]?) ∧
         ((m' = e.s0.mode ∧ msg' = e.sm0.msg) ∨ (m' = TYPE ∧ msg' = e.sm0.msg) ∨ m' = BAD) ∧
         (m' ≠ TYPE → m' ≠ BAD → i' + 6 > e.i0 + e.sm0.avail_in.toNat ∨
           o' + 258 > e.o0 + e.sm0.avail_out.toNat) ∧ o ≤ o' ∧
@@ -408,7 +408,7 @@ theorem fast_loop_wp_consumes (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e
   let Inv : L → Heap → Prop := fun l h => ∃ i o A,
     LS e l i o ∧ A.size = e.A0.size ∧ h = e.heap A e.sm0.msg e.s0.mode ∧ l.broke = false ∧
     i + 6 ≤ e.i0 + e.sm0.avail_in.toNat ∧ o + 258 ≤ e.o0 + e.sm0.avail_out.toNat ∧
-    (∀ j, (j < e.o0 ∨ o ≤ j) → A[j]? = e.A0[j]?) ∧ firstOut ≤ o
+    (∀ j, (j < e.o0 ∨ (if α then o else e.o0 + e.sm0.avail_out.toNat) ≤ j) → A[j]? = e.A0[j]?) ∧ firstOut ≤ o
   let μ : L → Nat := fun l => match l.out with
     | .null => 0
     | .ref _ k => e.o0 + e.sm0.avail_out.toNat - k
@@ -419,7 +419,7 @@ theorem fast_loop_wp_consumes (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e
   · intro l h hI
     obtain ⟨i, o, A, hl, hA, rfl, hb, hi, ho, hf, lower⟩ := hI
     have hp : StepPre e c A l i o :=
-      ⟨hc, hl, hA, hi, ho, hb, e.inputFrame_of_frame hA hf (by omega) hl.hi0⟩
+      ⟨hc, hl, hA, hi, ho, hb, e.inputFrame_of_cap_frame hA hf (by omega) hl.hi0⟩
     obtain ⟨l1, h1, hr, hpost⟩ := inflate_fast_body_step_safe_gen e c A e.sm0.msg e.s0.mode l i o hp
     obtain ⟨B, p, q, hmsgheap, _, htype⟩ := Wp.at_run
       (inflate_fast_body_type_message e c A e.sm0.msg e.s0.mode l i o hp) hr
@@ -427,10 +427,20 @@ theorem fast_loop_wp_consumes (hc : CtxOK e c) (hpos : LenLeavesPositive e.LCA e
     obtain ⟨i', o', A', msg', m', hl', hii, hi6, hoo, ho258, hsz, hh, _, hframe, hcont, hbreak⟩ := hpost
     have hAsz : A'.size = e.A0.size := hsz.trans hA
     have hoend : o' ≤ e.o0 + e.sm0.avail_out.toNat := by omega
-    have hft : ∀ j, (j < e.o0 ∨ o' ≤ j) → A'[j]? = e.A0[j]? := by
+    have hft : ∀ j, (j < e.o0 ∨ (if α then o' else e.o0 + e.sm0.avail_out.toNat) ≤ j) →
+        A'[j]? = e.A0[j]? := by
       intro j hj
-      rw [hframe j (by have := hl.ho0; omega)]
-      exact hf j (by omega)
+      have := hl.ho0
+      cases α
+      · simp only [Bool.false_eq_true, ↓reduceIte] at hj hf ⊢
+        rcases hj with hj | hj
+        · rw [hframe j (Or.inl (by omega))]
+          exact hf j (Or.inl hj)
+        · rw [hframe j (Or.inr (by omega))]
+          exact hf j (Or.inr hj)
+      · simp only [↓reduceIte] at hj hf ⊢
+        rw [hframe j (by omega)]
+        exact hf j (by omega)
     have hmq := e.heap_msg_mode_eq (hh.symm.trans hmsgheap)
     have htype' : m' = TYPE → msg' = e.sm0.msg := by
       intro hm
@@ -492,7 +502,7 @@ ledger of the locals is the ledger of the records. -/
 theorem fast_finish_consumes_wp {α : Bool} (e : EnvG α) (A : Array UInt8) (msg : BPtr) (mode : UInt32)
     (l : L) (i o : Nat) (hl : LS e l i o) (hAsz : A.size = e.A0.size)
     (ho : o ≤ e.o0 + e.sm0.avail_out.toNat)
-    (hf : ∀ j, (j < e.o0 ∨ o ≤ j) → A[j]? = e.A0[j]?)
+    (hf : ∀ j, (j < e.o0 ∨ (if α then o else e.o0 + e.sm0.avail_out.toNat) ≤ j) → A[j]? = e.A0[j]?)
     (hclass : (mode = e.s0.mode ∧ msg = e.sm0.msg) ∨ (mode = TYPE ∧ msg = e.sm0.msg) ∨ mode = BAD)
     (hstop : mode ≠ TYPE → mode ≠ BAD → i + 6 > e.i0 + e.sm0.avail_in.toNat ∨
       o + 258 > e.o0 + e.sm0.avail_out.toNat)
@@ -623,68 +633,61 @@ theorem fast_consumes {α : Bool} (e : EnvG α) (hpos : LenLeavesPositive e.LCA 
       FastPost e after ∧ FastProgress e after ∧ FastConsumes e after := by
   have hw : Wp (inflate_fast e.strm e.start) e.h0
       (fun _ after => FastPost e after ∧ FastProgress e after ∧ FastConsumes e after) := by
-    let c0 : Ctx := {
-      strm := e.strm, state := some (.tab e.stid),
-      last := .ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5),
-      beg := .ref e.ob e.bg,
-      end_ := .ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257),
-      wsize := e.s0.wsize, whave := e.s0.whave, wnext := e.s0.wnext, window := e.s0.window,
-      lcode := e.s0.lencode, dcode := e.s0.distcode,
-      lmask := ((1 : UInt32) <<< e.s0.lenbits) - 1, dmask := ((1 : UInt32) <<< e.s0.distbits) - 1 }
-    let l0 : L := {
-      in_ := .ref e.ib e.i0, out := .ref e.ob e.o0,
-      hold := e.s0.hold, bits := e.s0.bits, here := default, op := 0, len := 0, dist := 0,
-      from_ := default, broke := false, againL := false, againD := false }
-    have hc0 : CtxOK e c0 := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
-    have hl0 : LS e l0 e.i0 e.o0 := by
-      dsimp only [l0]
-      refine ⟨rfl, rfl, by omega, ?_, by omega, ?_, e.hhold, ?_⟩
-      · have := e.hai; omega
-      · change e.s0.bits.toNat ≤ 30
-        have := e.hbits; omega
-      · change e.s0.bits.toNat + 8 * e.i0 ≤ e.s0.bits.toNat + 8 * e.i0
-        exact Nat.le_refl _
-    have hlast : OkOn e.h0 (Ptr.add e.sm0.next_in (e.sm0.avail_in - 5).toNat)
-        (.ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5)) := by
-      rw [e.hnin, u32_toNat_sub (by change 5 ≤ e.sm0.avail_in.toNat; have := e.hai; omega)]
-      have hr := Ptr.add_nat_ok (h := e.h0) (r := e.ib) (a := e.IN)
-        (off := e.i0) (n := e.sm0.avail_in.toNat - 5) e.hIN (by have := e.hINsz; omega)
-      have hoff : e.i0 + (e.sm0.avail_in.toNat - 5) = e.i0 + e.sm0.avail_in.toNat - 5 := by have := e.hai; omega
-      simpa [hoff] using hr
-    have hbeg : OkOn e.h0 (subn e.sm0.next_out (e.start - e.sm0.avail_out))
-        (.ref e.ob e.bg) := by
-      rw [e.hnout]
-      have hn : (e.start - e.sm0.avail_out).toNat = e.start.toNat - e.sm0.avail_out.toNat :=
-        u32_toNat_sub e.hstart
-      have hr := subn_ok (h := e.h0) (r := e.ob) (a := e.A0)
-        (off := e.o0) (n := e.start - e.sm0.avail_out) e.hA0 (by rw [hn]; exact e.hbeg)
-        (by have := e.hAsz; omega)
-      simpa only [hn, EnvG.bg] using hr
-    have hend : OkOn e.h0 (Ptr.add e.sm0.next_out (e.sm0.avail_out - 257).toNat)
-        (.ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257)) := by
-      rw [e.hnout, u32_toNat_sub (by change 257 ≤ e.sm0.avail_out.toNat; have := e.hao; omega)]
-      have hr := Ptr.add_nat_ok (h := e.h0) (r := e.ob) (a := e.A0)
-        (off := e.o0) (n := e.sm0.avail_out.toNat - 257) e.hA0 (by have := e.hAsz; omega)
-      have hoff : e.o0 + (e.sm0.avail_out.toNat - 257) = e.o0 + e.sm0.avail_out.toNat - 257 := by have := e.hao; omega
-      simpa [hoff] using hr
-    unfold inflate_fast
-    refine Wp.bindO (x := e.sm0) (by rw [e.hstrm]; exact ldZStream_ok e.hsm) ?_
-    refine Wp.bindO (x := some (InflateStateRef.tab e.stid)) (by rw [e.hstate]; exact castInflateState_ok) ?_
-    refine Wp.bindO hlast ?_
-    refine Wp.bindO hbeg ?_
-    refine Wp.bindO hend ?_
-    refine Wp.bindO (ldInflateState_tab e.hs0) ?_
-    refine Wp.bindO (shl32_ok (x := 1) (n := e.s0.lenbits) (by have := e.hlt.1; omega)) ?_
-    refine Wp.bindO (shl32_ok (x := 1) (n := e.s0.distbits) (by have := e.hdt.1; omega)) ?_
-    rw [e.hnin, e.hnout]
-    obtain ⟨l, h, hr, hpost⟩ := fast_loop_wp_consumes hc0 hpos l0 e.i0 e.o0 e.A0 hl0 rfl rfl
-      (by have := e.hai; omega) (by have := e.hao; omega) (by intro _ _; rfl)
-    rw [e.heap_initial] at hr
-    refine Wp.bindE hr ?_
-    obtain ⟨i, o, A, msg, mode, hl, ho, hA, hh, hf, hclass, hstop, _, progress, strict⟩ := hpost
-    rw [hh]
-    exact fast_finish_consumes_wp e A msg mode l i o hl hA ho hf hclass hstop progress strict
-      (e.inputFrame_of_frame hA hf ho hl.hi0)
+    refine inflate_fast_split_wp e fun l1 skip8 h1 hpost64 => ?_
+    obtain ⟨i1, o1, A1, msg1, m1, hl1, _, _, ho1, hAsz1, hh1, hf1, hclass1, hgo1, hstop1,
+      hskipAlpha1, horig1⟩ := hpost64
+    refine ⟨fun hskip => ?_, fun hskip => ?_⟩
+    · dsimp only [fastLoop8]
+      obtain ⟨hm1, hmsg1, hbr1, hi1_6, ho1_258⟩ := hgo1 hskip
+      obtain ⟨l, h, hr, hpost⟩ :=
+        fast_loop_wp_consumes (fastCtx_ok e) hpos l1 i1 o1 A1 hl1 hAsz1 hbr1 hi1_6 ho1_258 hf1
+      rw [hh1, hmsg1, hm1]
+      refine Wp.bindE hr ?_
+      dsimp only [fastFinish]
+      obtain ⟨i, o, A, msg, mode, hl, ho, hA, hh, hf, hclass, hstop, _, progress, strict⟩ := hpost
+      rw [hh]
+      exact fast_finish_consumes_wp e A msg mode l i o hl hA ho hf hclass hstop
+        (fun hnt hnb => Nat.lt_of_le_of_lt hl1.ho0 (progress hnt hnb)) strict
+        (e.inputFrame_of_cap_frame hA hf ho hl.hi0)
+    · have hα := hskipAlpha1 hskip
+      subst hα
+      dsimp only [fastFinish]
+      have horig1' := horig1 rfl
+      dsimp only at horig1'
+      rw [cast_eq] at horig1'
+      obtain ⟨u1, horig, htr1⟩ := horig1'
+      rw [hh1]
+      have hnbFn : m1 ≠ TYPE → m1 ≠ BAD →
+          ∃ htr : Fast64Trace e e.s0.mode e.A0 e.o0 0 A1 o1 u1 l1.broke m1,
+            (e.o0 < o1 ∨ l1.broke = true) ∧ l1.broke = false := by
+        intro hmT hmB
+        rcases htr1 with ⟨_, _, _, _, _, _, hbad⟩ | ⟨hpg, htr⟩
+        · exact absurd (hskip.symm.trans hbad) (by decide)
+        · cases hbr1 : l1.broke with
+          | false =>
+            rw [hbr1] at htr hpg
+            exact ⟨htr, hpg, rfl⟩
+          | true =>
+            rcases htr.output_bounds.2.2.2.1 hbr1 with hT | hB
+            · exact False.elim (hmT hT)
+            · exact False.elim (hmB hB)
+      have hprog1 : m1 ≠ TYPE → m1 ≠ BAD → e.o0 < o1 := fun hmT hmB => by
+        obtain ⟨_, hpg, hnb⟩ := hnbFn hmT hmB
+        exact hpg.resolve_right (by intro h; simp [hnb] at h)
+      have hstrict1 : m1 ≠ TYPE → m1 ≠ BAD → l1.bits.toNat + 8 * e.i0 < e.s0.bits.toNat + 8 * i1 := by
+        intro hmT hmB
+        obtain ⟨htr, _, hnb⟩ := hnbFn hmT hmB
+        have hposU : 0 < u1 := htr.pos hpos hnb
+        have hacc := horig.accounting
+        have hlo := horig.inputLower
+        omega
+      exact fast_finish_consumes_wp e A1 msg1 m1 l1 i1 o1 hl1 hAsz1 ho1 hf1 hclass1
+        (fun hmT hmB => by
+          rcases hstop1 hskip with ⟨hT, _⟩ | hB | ⟨_, _, hoBig⟩
+          · exact False.elim (hmT hT)
+          · exact False.elim (hmB hB)
+          · exact Or.inr hoBig)
+        hprog1 hstrict1 (e.inputFrame_of_cap_frame hAsz1 hf1 ho1 hl1.hi0)
   obtain ⟨⟨⟩, after, hr, hp⟩ := hw
   exact ⟨after, hr, hp⟩
 

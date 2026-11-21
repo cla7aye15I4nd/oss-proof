@@ -18,7 +18,7 @@ and the calls it covers, read [coverage by function](coverage.md) and
 ## Results {#scope}
 
 Safety means no undefined behaviour, no memory error, no leak, and termination. The results are
-about the default x86_64 Linux build of zlib 1.4 with the seven patches. Each holds under the
+about the default x86_64 Linux build of zlib 1.4.0.1-motley with the six patches. Each holds under the
 premises of its goals; [the overview](overview.md#the-claim) gives them in short, and
 [deviations](deviations.md) by function. A call sequence is the history of one stream, one gzip
 file handle or one callback decoder.

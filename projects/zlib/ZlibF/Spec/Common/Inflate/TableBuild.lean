@@ -67,9 +67,9 @@ end Zlib.Inftrees.Proofs
 namespace Zlib.Inftrees.Spec
 open C
 
-/-- The number of `code` entries the caller provides at `*table`: 128 for `CODES` (`1 << 7`), `ENOUGH_LENS` (852) for
-`LENS`, `ENOUGH_DISTS` (592) for `DISTS`. -/
-def capOf (type : UInt32) : Nat := if type = CODES then 128 else if type = LENS then 852 else 592
+/-- The number of `code` entries the caller provides at `*table`: 128 for `CODES` (`1 << 7`), `ENOUGH_LENS` (1332) for
+`LENS`, `ENOUGH_DISTS` (400) for `DISTS`. -/
+def capOf (type : UInt32) : Nat := if type = CODES then 128 else if type = LENS then 1332 else 400
 
 /-- The heap and the result after a call, safety part. The call changed only the `unsigned short` array `work` (inside
 `[ow, ow + n)`) and the `code` array of the table (inside `[oc, oc + cap)`), through `wa'` and `ca'`; the arrays kept
@@ -136,7 +136,7 @@ structure Env where
   h_fits : Fits f n
   h_end : Kc f n 15 = 2 ^ 15 ∨ (mxl f n = 1 ∧ Tc f n 15 = 1 ∧ c.type ≠ CODES)
   h_type : c.type = CODES ∨ c.type = LENS ∨ c.type = DISTS
-  h_cap : cap = (if c.type = CODES then 128 else if c.type = LENS then 852 else 592)
+  h_cap : cap = (if c.type = CODES then 128 else if c.type = LENS then 1332 else 400)
   h_codes : c.type = CODES → mxl f n ≤ 7 ∧ R = mxl f n ∧ n ≤ 19 ∧ c.match_ = 20
   h_lens' : c.type = LENS → n ≤ 288 ∧ c.base = lbase ∧ c.extra = lext ∧ c.match_ = 257
   h_dists : c.type = DISTS → n ≤ 32 ∧ c.base = dbase ∧ c.extra = dext ∧ c.match_ = 0

@@ -16,7 +16,7 @@ theorem inflateCopy_fixed_window_exec
     (second : h.allocOk (h.nalloc + 1) = true)
     (window : s.window ≠ .null)
     (nextPtr : s.next = .ref (.istate_codes zs) nextOff)
-    (nextBound : nextOff ≤ 1444)
+    (nextBound : nextOff ≤ 1732)
     (fixed : s.lencode = .ref .st_lenfix 0 ∧
       s.distcode = .ref .st_distfix 0) :
     ∃ finished,
@@ -105,7 +105,7 @@ theorem inflateCopy_fixed_window_exec
     exact stateWindow
   have backGet : backlinked.istates h.nextBlk = some backState := by
     simp [backlinked, backState]
-  have codeSize : s.codes.size = 1444 := good.inv.wf.2.2
+  have codeSize : s.codes.size = 1732 := good.inv.wf.2.2
   have nextDiff : Ptr.diff (.ref (CodeRef.istate_codes zs) nextOff)
       (.ref (CodeRef.istate_codes zs) 0) backlinked =
         .ok (Int64.ofInt (nextOff : Int), backlinked) :=

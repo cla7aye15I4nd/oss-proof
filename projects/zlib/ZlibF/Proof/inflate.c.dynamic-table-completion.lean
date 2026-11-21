@@ -47,11 +47,11 @@ theorem clTables_lens_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {
     (lengths : ∀ k, k < s.nlen.toNat → (s.lens.getD k 0).toNat ≤ 15)
     (valid : Acceptable .litLen (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD k 0).toNat) s.nlen.toNat)) :
     ∃ (ret : Int32) (next : CodePtr) (bits : UInt32) (work : Array UInt16) (codes : Array Code),
-      work.size = 288 ∧ codes.size = 1444 ∧
-      (∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 852) ∧ bits.toNat ≤ 15 ∧ (ret = 0 ∨ ret = 1) ∧
+      work.size = 288 ∧ codes.size = 1732 ∧
+      (∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 1332) ∧ bits.toNat ≤ 15 ∧ (ret = 0 ∨ ret = 1) ∧
       runX (clTables c) l h = runX (clAfterLens c ret) { l with ret := ret }
         (setI h zs (clLensResult zs s next bits work codes)) ∧
-      (ret = 0 → ∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 852 ∧
+      (ret = 0 → ∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 1332 ∧
         Zlib.Inffast.Spec.LenTableSafe codes 0 bits.toNat ∧
         Zlib.Inftrees.Spec.TableReadExtent LENS codes 0 bits.toNat used ∧
         Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS codes 0 bits.toNat used
@@ -65,7 +65,7 @@ theorem clTables_lens_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {
   have codes : Space.get (setI h zs (clLensPre zs s)) (CodeRef.istate_codes zs) = some s.codes := by
     simpa [clLensPre] using CodeRef.get_istate_codes stored
   let pre : Zlib.Inftrees.Proofs.CallPre (setI h zs (clLensPre zs s)) LENS
-      (.istate_lens zs) 0 s.nlen (.istate_codes zs) 0 9 (.istate_work zs) 0 :=
+      (.istate_lens zs) 0 s.nlen (.istate_codes zs) 0 10 (.istate_work zs) 0 :=
     ⟨s.lens, s.work, s.codes, Or.inr (Or.inl rfl), lens, work, codes, by simp, by simp,
       by omega, by omega, by simp [Zlib.Inftrees.Spec.capOf, LENS, CODES]; omega,
       by simpa using lengths, (by intro impossible; cases impossible),
@@ -74,7 +74,7 @@ theorem clTables_lens_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {
     Zlib.Inftrees.Proofs.inflate_table_read_extent _ _ _ _ _ _ _ _ _ _ pre
   obtain ⟨result0, after0, run0, rejected, _accepted, _space⟩ :=
     Zlib.Inftrees.Proofs.inflate_table_correct_ret (setI h zs (clLensPre zs s)) LENS
-      (.istate_lens zs) 0 s.nlen (.istate_codes zs) 0 9 (.istate_work zs) 0
+      (.istate_lens zs) 0 s.nlen (.istate_codes zs) 0 10 (.istate_work zs) 0
       pre.la pre.wa pre.ca pre.hty pre.hgl pre.hgw pre.hgc pre.hro pre.hne
       pre.hla pre.hwa pre.hca pre.hf15 pre.hcodes pre.hlens pre.hdists
   rw [run] at run0
@@ -90,7 +90,7 @@ theorem clTables_lens_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs : Nat} {
       obtain ⟨_, _, _, _, _, extent, _⟩ := tables success
       exact extent.2.1)
   obtain ⟨ret, next, bits⟩ := result
-  have pointerBounds : ∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 852 := by
+  have pointerBounds : ∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 1332 := by
     obtain ⟨used, bound, pointer⟩ := bounds.1
     exact ⟨used, by simpa using pointer,
       by simpa [Zlib.Inftrees.Spec.capOf, LENS, CODES] using bound⟩
@@ -147,18 +147,18 @@ theorem clAfterLens_distance_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs :
     (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
     (wf : s.WellFormed) (nlen : s.nlen.toNat ≤ 286) (ndist : s.ndist.toNat ≤ 30)
     (lengths : ∀ k, k < s.ndist.toNat → (s.lens.getD (s.nlen.toNat + k) 0).toNat ≤ 15)
-    (offset : Nat) (next : s.next = .ref (.istate_codes zs) offset) (room : offset ≤ 852)
+    (offset : Nat) (next : s.next = .ref (.istate_codes zs) offset) (room : offset ≤ 1332)
     (lensAlphabet : List Nat)
     (lensInvariant : Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS s.codes 0 s.lenbits.toNat offset lensAlphabet)
     (valid : Acceptable .dist (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD (s.nlen.toNat + k) 0).toNat) s.ndist.toNat)) :
     ∃ (ret : Int32) (next : CodePtr) (bits : UInt32) (work : Array UInt16) (codes : Array Code),
-      work.size = 288 ∧ codes.size = 1444 ∧
-      (∃ used, next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592) ∧ bits.toNat ≤ 15 ∧ (ret = 0 ∨ ret = 1) ∧
+      work.size = 288 ∧ codes.size = 1732 ∧
+      (∃ used, next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400) ∧ bits.toNat ≤ 15 ∧ (ret = 0 ∨ ret = 1) ∧
       runX (clAfterLens c 0) l h = runX (clAfterDist c ret) { l with ret := ret }
         (setI h zs (clDistResult s next bits work codes)) ∧
       Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS codes 0 s.lenbits.toNat offset lensAlphabet ∧
       (ret = 0 → ∃ used,
-        next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592 ∧
+        next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400 ∧
         Zlib.Inftrees.Spec.DecodeTableInvariant.Inv DISTS codes offset bits.toNat used
           (Zlib.Inftrees.Proofs.lensOf
             (fun k => (s.lens.getD (s.nlen.toNat + k) 0).toNat) s.ndist.toNat)) := by
@@ -171,7 +171,7 @@ theorem clAfterLens_distance_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs :
   have codes : Space.get (setI h zs (clDistPre s)) (CodeRef.istate_codes zs) = some s.codes := by
     simpa [clDistPre] using CodeRef.get_istate_codes stored
   let pre : Zlib.Inftrees.Proofs.CallPre (setI h zs (clDistPre s)) DISTS
-      (.istate_lens zs) s.nlen.toNat s.ndist (.istate_codes zs) offset 6 (.istate_work zs) 0 :=
+      (.istate_lens zs) s.nlen.toNat s.ndist (.istate_codes zs) offset 8 (.istate_work zs) 0 :=
     ⟨s.lens, s.work, s.codes, Or.inr (Or.inr rfl), lens, work, codes, by simp, by simp,
       by omega, by omega, by simp [Zlib.Inftrees.Spec.capOf, LENS, DISTS, CODES]; omega,
       lengths, (by intro impossible; cases impossible),
@@ -181,7 +181,7 @@ theorem clAfterLens_distance_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs :
       lensInvariant (by omega)
   obtain ⟨result0, after0, run0, rejected, _accepted, _space⟩ :=
     Zlib.Inftrees.Proofs.inflate_table_correct_ret (setI h zs (clDistPre s)) DISTS
-      (.istate_lens zs) s.nlen.toNat s.ndist (.istate_codes zs) offset 6 (.istate_work zs) 0
+      (.istate_lens zs) s.nlen.toNat s.ndist (.istate_codes zs) offset 8 (.istate_work zs) 0
       pre.la pre.wa pre.ca pre.hty pre.hgl pre.hgw pre.hgc pre.hro pre.hne
       pre.hla pre.hwa pre.hca pre.hf15 pre.hcodes pre.hlens pre.hdists
   rw [run] at run0
@@ -192,7 +192,7 @@ theorem clAfterLens_distance_valid_semantics {c : Ctx} {l : IL} {h : Heap} {zs :
       obtain ⟨_, _, _, invariant⟩ := newMeaning success
       exact invariant.rootTable.2.1)
   obtain ⟨ret, nextResult, bits⟩ := result
-  have pointerBounds : ∃ used, nextResult = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592 := by
+  have pointerBounds : ∃ used, nextResult = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400 := by
     obtain ⟨used, bound, pointer⟩ := bounds.1
     exact ⟨used, pointer, by simpa [Zlib.Inftrees.Spec.capOf, LENS, DISTS, CODES] using bound⟩
   obtain ⟨wa, ca, heap, waSize, caSize, _, _, retCases⟩ := frame
@@ -245,13 +245,13 @@ theorem clTables_valid_alphabets_boundary
       runX (clTables c) l h = runX (clAfterLens c retL) { l with ret := retL }
         (setI h zs (clLensResult zs s nextL bitsL workL codesL)) ∧
       (retL = 0 → ∃ (offset : Nat) (retD : Int32) (state : InflateState),
-        (retD = 0 ∨ retD = 1) ∧ offset ≤ 852 ∧
+        (retD = 0 ∨ retD = 1) ∧ offset ≤ 1332 ∧
         state.lencode = .ref (.istate_codes zs) 0 ∧ state.distcode = .ref (.istate_codes zs) offset ∧
         runX (clTables c) l h = runX (clAfterDist c retD) { l with ret := retD } (setI h zs state) ∧
         Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS state.codes 0 state.lenbits.toNat offset
           (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD k 0).toNat) s.nlen.toNat) ∧
         (retD = 0 → ∃ used,
-          state.next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592 ∧
+          state.next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400 ∧
           Zlib.Inftrees.Spec.DecodeTableInvariant.Inv DISTS state.codes offset state.distbits.toNat used
             (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD (s.nlen.toNat + k) 0).toNat) s.ndist.toNat) ∧
           runX (clTables c) l h =
@@ -344,13 +344,13 @@ theorem clTail_decoded_lengths_boundary
       runX (clTail c) l h = runX (clAfterLens c retL) { l with ret := retL }
         (setI h zs (clLensResult zs s nextL bitsL workL codesL)) ∧
       (retL = 0 → ∃ (offset : Nat) (retD : Int32) (state : InflateState),
-        (retD = 0 ∨ retD = 1) ∧ offset ≤ 852 ∧
+        (retD = 0 ∨ retD = 1) ∧ offset ≤ 1332 ∧
         state.lencode = .ref (.istate_codes zs) 0 ∧ state.distcode = .ref (.istate_codes zs) offset ∧
         runX (clTail c) l h = runX (clAfterDist c retD) { l with ret := retD } (setI h zs state) ∧
         Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS state.codes 0 state.lenbits.toNat offset
           (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD k 0).toNat) s.nlen.toNat) ∧
         (retD = 0 → ∃ used,
-          state.next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592 ∧
+          state.next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400 ∧
           Zlib.Inftrees.Spec.DecodeTableInvariant.Inv DISTS state.codes offset state.distbits.toNat used
             (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD (s.nlen.toNat + k) 0).toNat) s.ndist.toNat) ∧
           runX (clTail c) l h =
@@ -389,11 +389,11 @@ theorem clTables_lens_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs : Nat}
     (lengths : ∀ k, k < s.nlen.toNat → (s.lens.getD k 0).toNat ≤ 15)
     (valid : Acceptable .litLen (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD k 0).toNat) s.nlen.toNat)) :
     ∃ (ret : Int32) (next : CodePtr) (bits : UInt32) (work : Array UInt16) (codes : Array Code),
-      work.size = 288 ∧ codes.size = 1444 ∧
-      (∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 852) ∧ bits.toNat ≤ 15 ∧ ret = 0 ∧
+      work.size = 288 ∧ codes.size = 1732 ∧
+      (∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 1332) ∧ bits.toNat ≤ 15 ∧ ret = 0 ∧
       runX (clTables c) l h = runX (clAfterLens c ret) { l with ret := ret }
         (setI h zs (clLensResult zs s next bits work codes)) ∧
-      (ret = 0 → ∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 852 ∧
+      (ret = 0 → ∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 1332 ∧
         Zlib.Inffast.Spec.LenTableSafe codes 0 bits.toNat ∧
         Zlib.Inftrees.Spec.TableReadExtent LENS codes 0 bits.toNat used ∧
         Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS codes 0 bits.toNat used
@@ -407,7 +407,7 @@ theorem clTables_lens_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs : Nat}
   have codes : Space.get (setI h zs (clLensPre zs s)) (CodeRef.istate_codes zs) = some s.codes := by
     simpa [clLensPre] using CodeRef.get_istate_codes stored
   let pre : Zlib.Inftrees.Proofs.CallPre (setI h zs (clLensPre zs s)) LENS
-      (.istate_lens zs) 0 s.nlen (.istate_codes zs) 0 9 (.istate_work zs) 0 :=
+      (.istate_lens zs) 0 s.nlen (.istate_codes zs) 0 10 (.istate_work zs) 0 :=
     ⟨s.lens, s.work, s.codes, Or.inr (Or.inl rfl), lens, work, codes, by simp, by simp,
       by omega, by omega, by simp [Zlib.Inftrees.Spec.capOf, LENS, CODES]; omega,
       by simpa using lengths, (by intro impossible; cases impossible),
@@ -416,7 +416,7 @@ theorem clTables_lens_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs : Nat}
     Zlib.Inftrees.Proofs.inflate_table_read_extent _ _ _ _ _ _ _ _ _ _ pre
   obtain ⟨result0, after0, run0, rejected, _accepted, _space⟩ :=
     Zlib.Inftrees.Proofs.inflate_table_correct_ret (setI h zs (clLensPre zs s)) LENS
-      (.istate_lens zs) 0 s.nlen (.istate_codes zs) 0 9 (.istate_work zs) 0
+      (.istate_lens zs) 0 s.nlen (.istate_codes zs) 0 10 (.istate_work zs) 0
       pre.la pre.wa pre.ca pre.hty pre.hgl pre.hgw pre.hgc pre.hro pre.hne
       pre.hla pre.hwa pre.hca pre.hf15 pre.hcodes pre.hlens pre.hdists
   rw [run] at run0
@@ -436,7 +436,7 @@ theorem clTables_lens_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs : Nat}
       obtain ⟨_, _, _, _, _, extent, _⟩ := tables success
       exact extent.2.1)
   obtain ⟨ret, next, bits⟩ := result
-  have pointerBounds : ∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 852 := by
+  have pointerBounds : ∃ used, next = .ref (.istate_codes zs) used ∧ used ≤ 1332 := by
     obtain ⟨used, bound, pointer⟩ := bounds.1
     exact ⟨used, by simpa using pointer,
       by simpa [Zlib.Inftrees.Spec.capOf, LENS, CODES] using bound⟩
@@ -486,18 +486,18 @@ theorem clAfterLens_distance_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs
     (hc : c.st = some (.tab zs)) (hs : h.istates zs = some s)
     (wf : s.WellFormed) (nlen : s.nlen.toNat ≤ 286) (ndist : s.ndist.toNat ≤ 30)
     (lengths : ∀ k, k < s.ndist.toNat → (s.lens.getD (s.nlen.toNat + k) 0).toNat ≤ 15)
-    (offset : Nat) (next : s.next = .ref (.istate_codes zs) offset) (room : offset ≤ 852)
+    (offset : Nat) (next : s.next = .ref (.istate_codes zs) offset) (room : offset ≤ 1332)
     (lensAlphabet : List Nat)
     (lensInvariant : Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS s.codes 0 s.lenbits.toNat offset lensAlphabet)
     (valid : Acceptable .dist (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD (s.nlen.toNat + k) 0).toNat) s.ndist.toNat)) :
     ∃ (ret : Int32) (next : CodePtr) (bits : UInt32) (work : Array UInt16) (codes : Array Code),
-      work.size = 288 ∧ codes.size = 1444 ∧
-      (∃ used, next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592) ∧ bits.toNat ≤ 15 ∧ ret = 0 ∧
+      work.size = 288 ∧ codes.size = 1732 ∧
+      (∃ used, next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400) ∧ bits.toNat ≤ 15 ∧ ret = 0 ∧
       runX (clAfterLens c 0) l h = runX (clAfterDist c ret) { l with ret := ret }
         (setI h zs (clDistResult s next bits work codes)) ∧
       Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS codes 0 s.lenbits.toNat offset lensAlphabet ∧
       (ret = 0 → ∃ used,
-        next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592 ∧
+        next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400 ∧
         Zlib.Inftrees.Spec.DecodeTableInvariant.Inv DISTS codes offset bits.toNat used
           (Zlib.Inftrees.Proofs.lensOf
             (fun k => (s.lens.getD (s.nlen.toNat + k) 0).toNat) s.ndist.toNat)) := by
@@ -510,7 +510,7 @@ theorem clAfterLens_distance_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs
   have codes : Space.get (setI h zs (clDistPre s)) (CodeRef.istate_codes zs) = some s.codes := by
     simpa [clDistPre] using CodeRef.get_istate_codes stored
   let pre : Zlib.Inftrees.Proofs.CallPre (setI h zs (clDistPre s)) DISTS
-      (.istate_lens zs) s.nlen.toNat s.ndist (.istate_codes zs) offset 6 (.istate_work zs) 0 :=
+      (.istate_lens zs) s.nlen.toNat s.ndist (.istate_codes zs) offset 8 (.istate_work zs) 0 :=
     ⟨s.lens, s.work, s.codes, Or.inr (Or.inr rfl), lens, work, codes, by simp, by simp,
       by omega, by omega, by simp [Zlib.Inftrees.Spec.capOf, LENS, DISTS, CODES]; omega,
       lengths, (by intro impossible; cases impossible),
@@ -520,7 +520,7 @@ theorem clAfterLens_distance_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs
       lensInvariant (by omega)
   obtain ⟨result0, after0, run0, rejected, _accepted, _space⟩ :=
     Zlib.Inftrees.Proofs.inflate_table_correct_ret (setI h zs (clDistPre s)) DISTS
-      (.istate_lens zs) s.nlen.toNat s.ndist (.istate_codes zs) offset 6 (.istate_work zs) 0
+      (.istate_lens zs) s.nlen.toNat s.ndist (.istate_codes zs) offset 8 (.istate_work zs) 0
       pre.la pre.wa pre.ca pre.hty pre.hgl pre.hgw pre.hgc pre.hro pre.hne
       pre.hla pre.hwa pre.hca pre.hf15 pre.hcodes pre.hlens pre.hdists
   rw [run] at run0
@@ -535,7 +535,7 @@ theorem clAfterLens_distance_success_semantics {c : Ctx} {l : IL} {h : Heap} {zs
       obtain ⟨_, _, _, invariant⟩ := newMeaning success
       exact invariant.rootTable.2.1)
   obtain ⟨ret, nextResult, bits⟩ := result
-  have pointerBounds : ∃ used, nextResult = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592 := by
+  have pointerBounds : ∃ used, nextResult = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400 := by
     obtain ⟨used, bound, pointer⟩ := bounds.1
     exact ⟨used, pointer, by simpa [Zlib.Inftrees.Spec.capOf, LENS, DISTS, CODES] using bound⟩
   obtain ⟨wa, ca, heap, waSize, caSize, _, _, retCases⟩ := frame
@@ -583,13 +583,13 @@ theorem clTables_success_alphabets_boundary
       runX (clTables c) l h = runX (clAfterLens c retL) { l with ret := retL }
         (setI h zs (clLensResult zs s nextL bitsL workL codesL)) ∧
       (retL = 0 → ∃ (offset : Nat) (retD : Int32) (state : InflateState),
-        retD = 0 ∧ offset ≤ 852 ∧
+        retD = 0 ∧ offset ≤ 1332 ∧
         state.lencode = .ref (.istate_codes zs) 0 ∧ state.distcode = .ref (.istate_codes zs) offset ∧
         runX (clTables c) l h = runX (clAfterDist c retD) { l with ret := retD } (setI h zs state) ∧
         Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS state.codes 0 state.lenbits.toNat offset
           (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD k 0).toNat) s.nlen.toNat) ∧
         (retD = 0 → ∃ used,
-          state.next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 592 ∧
+          state.next = .ref (.istate_codes zs) (offset + used) ∧ used ≤ 400 ∧
           Zlib.Inftrees.Spec.DecodeTableInvariant.Inv DISTS state.codes offset state.distbits.toNat used
             (Zlib.Inftrees.Proofs.lensOf (fun k => (s.lens.getD (s.nlen.toNat + k) 0).toNat) s.ndist.toNat) ∧
           runX (clTables c) l h =
@@ -640,7 +640,7 @@ theorem clTail_decoded_lengths_complete
     (eob : HasEndOfBlock (decoded.take s.nlen.toNat))
     (validL : Acceptable .litLen (decoded.take s.nlen.toNat))
     (validD : Acceptable .dist (decoded.drop s.nlen.toNat)) :
-    ∃ (state : InflateState) (offset used : Nat), state.mode = LEN_ ∧ offset ≤ 852 ∧ used ≤ 592 ∧
+    ∃ (state : InflateState) (offset used : Nat), state.mode = LEN_ ∧ offset ≤ 1332 ∧ used ≤ 400 ∧
       state.lencode = .ref (.istate_codes zs) 0 ∧ state.distcode = .ref (.istate_codes zs) offset ∧
       state.next = .ref (.istate_codes zs) (offset + used) ∧
       Zlib.Inftrees.Spec.DecodeTableInvariant.Inv LENS state.codes 0 state.lenbits.toNat offset

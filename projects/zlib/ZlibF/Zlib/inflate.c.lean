@@ -41,7 +41,7 @@ never read). Types as in `docs/en/design/translation.md`. The notes are `docs/en
   code would call is `ub "custom allocator not modelled"`.
 * The cast of `strm->state` to `struct inflate_state *` faults if the state is a `deflate_state` (the C reads through
   the wrong type, which is formally undefined).
-* The upstream `inflateCopy` fix compares `state->lencode` with `state->codes` for equality before relocating
+* `inflateCopy` compares `state->lencode` with `state->codes` for equality before relocating
   pointers into the copied code array. A fixed-table pointer remains fixed and requires no cross-array ordering.
 * Error messages are string literals: `strm->msg` points to a fresh read-only block (`Zlib.Zutil.strLit`).
 -/
@@ -844,8 +844,8 @@ def inflate_CODELENS (c : Ctx) : X Unit := do
   if (← Ptr.index (lensP c.st) 256) == (0 : UInt16) then
     badMode c "invalid code -- missing end-of-block"
     return
-  -- state->next = state->codes; state->lencode = (const code FAR *)(state->next); state->lenbits = 9;
-  wrS c.st fun s => { s with next := codesP c.st, lencode := codesP c.st, lenbits := 9 }
+  -- state->next = state->codes; state->lencode = (const code FAR *)(state->next); state->lenbits = LENBITS;
+  wrS c.st fun s => { s with next := codesP c.st, lencode := codesP c.st, lenbits := 10 }
   -- ret = inflate_table(LENS, state->lens, state->nlen, &(state->next), &(state->lenbits), state->work);
   let s ← ldInflateState c.st
   let (r, nx, lb) ← inflate_table LENS (lensP c.st) s.nlen s.next s.lenbits (workP c.st)
@@ -855,8 +855,8 @@ def inflate_CODELENS (c : Ctx) : X Unit := do
   if r != 0 then
     badMode c "invalid literal/lengths set"
     return
-  -- state->distcode = (const code FAR *)(state->next); state->distbits = 6;
-  wrS c.st fun s => { s with distcode := s.next, distbits := 6 }
+  -- state->distcode = (const code FAR *)(state->next); state->distbits = DISTBITS;
+  wrS c.st fun s => { s with distcode := s.next, distbits := 8 }
   -- ret = inflate_table(DISTS, state->lens + state->nlen, state->ndist, &(state->next), &(state->distbits), state->work);
   let s ← ldInflateState c.st
   let (r, nx, db) ← inflate_table DISTS (← (lensP c.st).add (s.nlen.toNat : Int)) s.ndist s.next s.distbits (workP c.st)

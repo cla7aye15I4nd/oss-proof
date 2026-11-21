@@ -1,9 +1,9 @@
-<!-- source-sha256: f4263ff71c08230184ad21428868e1dbe47d9f1cdad121642fd6cdd15f610bb3 -->
+<!-- source-sha256: 98fbdc4a50c486b03a55db10757615565ef50ef6921569a3f0931b1c003cf2d6 -->
 # 运行时结构：对象堆上的 zlib 结构体
 
 本页说明 zlib 的每个结构体在 Lean 模型中如何表示：每个字段一行，给出 C 类型、Lean 类型和原因。
 Lean 记录和本页的表格是一起生成的：生成器通过 clang 的 JSON AST 转储，
-读取被验证的源码（zlib 提交 `99623ef7097352da7993ba614161fd6a311e046e`）中的
+读取被验证的源码（zlib 提交 `617e19a81f38c15ff04de9f86882f42ad8a8ffd1`）中的
 `zlib.h`、`zutil.h`、`inftrees.h`、`inflate.h`、`deflate.h`、`trees.h`、`gzguts.h` 和 `crc32.h`。
 采用默认 x86_64 Linux 构建（`./configure --static`、LP64、`-D_LARGEFILE64_SOURCE=1`）。
 
@@ -364,8 +364,8 @@ Lean 记录和本页的表格是一起生成的：生成器通过 clang 的 JSON
 " * Generated automatically by makefixed()."
 " */"
 " 3_6?"
-" deflate 1.4 Copyright 1995-2026 Jean-loup Gailly and Mark Adler "
-" inflate 1.4 Copyright 1995-2026 Mark Adler "
+" deflate 1.4.0.1 Copyright 1995-2026 Jean-loup Gailly and Mark Adler "
+" inflate 1.4.0.1 Copyright 1995-2026 Mark Adler "
 " l %2d v %4x "
 " start %u, match %d, length %d\n"
 "%1u%s"
@@ -385,7 +385,7 @@ Lean 记录和本页的表格是一起生成的：生成器通过 clang 的 JSON
 "/* crc32.h -- tables for rapid CRC calculation\n * Generated automatically by crc32.c\n */\n\nlocal const z_crc_t FAR crc_table[] = {\n    "
 "/* header created automatically with -DGEN_TREES_H */\n\n"
 "/* inffixed.h -- table for decoding fixed codes"
-"1.4"
+"1.4.0.1-motley"
 ": "
 "<fd:%d>"
 "C"

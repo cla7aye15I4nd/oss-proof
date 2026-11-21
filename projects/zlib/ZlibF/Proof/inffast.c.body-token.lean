@@ -12,18 +12,18 @@ open Zlib.Inffast.Spec.BodyToken
 open Zlib.Inffast.Spec.LengthTrace
 variable {e : Env} {c : Ctx}
 
-private theorem written_length (bytes : Array UInt8) (offset count : Nat)
+theorem written_length (bytes : Array UInt8) (offset count : Nat)
     (hc : count ≤ offset) (hb : offset ≤ bytes.size) :
     (writtenBytes bytes offset count).length = count := by
   simp only [writtenBytes, List.length_take, List.length_drop, Array.length_toList]
   omega
 
-private theorem written_get (bytes : Array UInt8) (offset count i : Nat) :
+theorem written_get (bytes : Array UInt8) (offset count i : Nat) :
     (writtenBytes bytes offset count)[i]? =
       if i < count then bytes[offset - count + i]? else none := by
   simp only [writtenBytes, List.getElem?_take, List.getElem?_drop, Array.getElem?_toList]
 
-private theorem written_set_append (bytes : Array UInt8) (offset count : Nat)
+theorem written_set_append (bytes : Array UInt8) (offset count : Nat)
     (value : UInt8) (hc : count ≤ offset) (hb : offset < bytes.size) :
     writtenBytes (bytes.set! offset value) (offset + 1) (count + 1) =
       writtenBytes bytes offset count ++ [value] := by
@@ -46,7 +46,7 @@ private theorem written_set_append (bytes : Array UInt8) (offset count : Nat)
       simp [hi, hn, hz]
 
 
-private theorem length_base_fields (symbol : Nat) (entry : Code)
+theorem length_base_fields (symbol : Nat) (entry : Code)
     (lo : 257 ≤ symbol) (hi : symbol ≤ 285)
     (meaning : DecodeSemantics.SymbolEntry LENS symbol entry) :
     entry.op &&& 16 ≠ 0 ∧
@@ -65,7 +65,7 @@ private theorem length_base_fields (symbol : Nat) (entry : Code)
   have shape := mask entry.op (by omega) (by omega)
   exact ⟨shape.1, by rw [shape.2, fields.1]; omega, fields.2⟩
 
-private theorem literal_symbol (symbol : Nat) (entry : Code) (hi : symbol ≤ 285)
+theorem literal_symbol (symbol : Nat) (entry : Code) (hi : symbol ≤ 285)
     (meaning : DecodeSemantics.SymbolEntry LENS symbol entry) (literal : entry.op = 0) :
     symbol < 256 ∧ entry.val.toNat = symbol := by
   by_cases small : symbol < 256
@@ -80,7 +80,7 @@ private theorem literal_symbol (symbol : Nat) (entry : Code) (hi : symbol ≤ 28
     · have fields := length_base_fields symbol entry (by omega) hi meaning
       simp [literal] at fields
 
-private theorem base_symbol (symbol : Nat) (entry : Code) (hi : symbol ≤ 285)
+theorem base_symbol (symbol : Nat) (entry : Code) (hi : symbol ≤ 285)
     (meaning : DecodeSemantics.SymbolEntry LENS symbol entry) (base : entry.op &&& 16 ≠ 0) :
     257 ≤ symbol := by
   by_cases small : symbol < 256
@@ -94,7 +94,7 @@ private theorem base_symbol (symbol : Nat) (entry : Code) (hi : symbol ≤ 285)
       exact False.elim (base (by rw [fields.1]; decide +kernel))
     · omega
 
-private theorem eob_symbol (symbol : Nat) (entry : Code) (hi : symbol ≤ 285)
+theorem eob_symbol (symbol : Nat) (entry : Code) (hi : symbol ≤ 285)
     (meaning : DecodeSemantics.SymbolEntry LENS symbol entry)
     (nonzero : entry.op ≠ 0) (noBase : entry.op &&& 16 = 0) : symbol = 256 := by
   by_cases small : symbol < 256

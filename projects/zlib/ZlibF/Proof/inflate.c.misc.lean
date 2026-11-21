@@ -176,16 +176,16 @@ theorem inflateMark_spec {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s
       · simp [c1, c2]
 
 /-- **inflateCodesUsed, specification.** For an initialised stream the call returns the offset of `next` in `codes`
-(at most 1444) without a fault; nothing changes. -/
+(at most 1732) without a fault; nothing changes. -/
 theorem inflateCodesUsed_spec {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {st : InflateState}
     (hG : Good h r zs z st) :
-    ∃ i, i ≤ 1444 ∧ st.next = .ref (.istate_codes zs) i ∧
+    ∃ i, i ≤ 1732 ∧ st.next = .ref (.istate_codes zs) i ∧
       C.run (inflateCodesUsed (some r)) h = .ok (UInt64.ofNat i, h) := by
   have hL := hG.live
   obtain ⟨i, hi, hi2⟩ := hG.inv.ptr.1
   refine ⟨i, hi2, hi, ?_⟩
   have hc : Space.get h (CodeRef.istate_codes zs) = some st.codes := by simp [Space.get, hL.hs]
-  have hsz : st.codes.size = 1444 := hG.inv.wf.2.2
+  have hsz : st.codes.size = 1732 := hG.inv.wf.2.2
   have hd : OkOn h (Ptr.diff (Ptr.ref (CodeRef.istate_codes zs) i) (Ptr.ref (CodeRef.istate_codes zs) 0))
       (Int64.ofInt ((i : Int) - (0 : Nat))) :=
     Ptr.diff_ok hc (by omega) (by omega) (by omega)

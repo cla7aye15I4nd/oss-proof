@@ -40,7 +40,7 @@ def CountedWith (program : BPtr → BPtr → BPtr → BPtr → M Int32) (nullabl
       (sourceLen ≠ .null → destLen ≠ .null →
         (source = .null → n = 0) → (dest = .null → capacity = 0) →
         ∃ out used got consumed h₁ h₂ expected,
-          Store h dest out h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
+          StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
           Store h₂ destLen (lengthBytes got) expected ∧ SameObjectsUpToTableShape expected after ∧
           Rel (if source = .null then [] else src) capacity.toNat rc out used ∧
           ((got.toNat = out.length ∧ consumed.toNat = used) ∨
@@ -63,7 +63,7 @@ def SingleWith (program : BPtr → BPtr → BPtr → UInt64 → M Int32) (nullab
         rc = Z_STREAM_ERROR ∧ SameObjectsUpToTableShape h after) ∧
       (destLen ≠ .null → (source = .null → n = 0) → (dest = .null → capacity = 0) →
         ∃ out used got h₁ expected,
-          Store h dest out h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
+          StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
           SameObjectsUpToTableShape expected after ∧
           Rel (if source = .null then [] else src) capacity.toNat rc out used ∧
           (got.toNat = out.length ∨ (rc = Z_MEM_ERROR ∧ out = [] ∧ got = capacity)) ∧
@@ -86,7 +86,7 @@ def CountedWithOn (Pre : Heap → Prop) (program : BPtr → BPtr → BPtr → BP
       (sourceLen ≠ .null → destLen ≠ .null →
         (source = .null → n = 0) → (dest = .null → capacity = 0) →
         ∃ out used got consumed h₁ h₂ expected,
-          Store h dest out h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
+          StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
           Store h₂ destLen (lengthBytes got) expected ∧ SameObjectsUpToTableShape expected after ∧
           Rel (if source = .null then [] else src) capacity.toNat rc out used ∧
           ((got.toNat = out.length ∧ consumed.toNat = used) ∨
@@ -109,7 +109,7 @@ def SingleWithOn (Pre : Heap → Prop) (program : BPtr → BPtr → BPtr → UIn
         rc = Z_STREAM_ERROR ∧ SameObjectsUpToTableShape h after) ∧
       (destLen ≠ .null → (source = .null → n = 0) → (dest = .null → capacity = 0) →
         ∃ out used got h₁ expected,
-          Store h dest out h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
+          StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
           SameObjectsUpToTableShape expected after ∧
           Rel (if source = .null then [] else src) capacity.toNat rc out used ∧
           (got.toNat = out.length ∨ (rc = Z_MEM_ERROR ∧ out = [] ∧ got = capacity)) ∧
@@ -200,44 +200,46 @@ theorem single_of_counted_on {Pre : Heap → Prop} {P : BPtr → BPtr → BPtr �
       badW (Or.inr (Or.inr ⟨e, ne⟩))
     obtain ⟨out, used, got, consumed, h₁', h₂', exp', S1, S2, S3, sm, unc, counts, mem'⟩ :=
       good' (by simp [cellPtr]) dl sN dN
+    obtain ⟨written, hpref, hlen, S1'⟩ := S1
     -- the heaps of the inner stores
-    have e1 := store_fun S1
+    have e1 := store_fun S1'
     have e2 := store_fun S2
     have e3 := store_fun S3
     subst e1 e2 e3
-    have a1 := agree.writeOut_both (xs := out) destK
+    have a1 := agree.writeOut_both (xs := written) destK
     have a2 := a1.write_right (xs := lengthBytes consumed) (p := cellPtr h)
       (fun r i hp => by simp only [cellPtr, Ptr.ref.injEq] at hp; obtain ⟨rfl, -⟩ := hp; rfl)
     have a3 := a2.writeOut_both (xs := lengthBytes got) lenK
-    have storeD := agree.store_left S1 destK
+    have storeD : StorePrefix h dest out capacity.toNat (writeOut h dest written) :=
+      ⟨written, hpref, hlen, agree.store_left S1' destK⟩
     have storeL := a2.store_left S3 lenK
     -- the cell before the free
-    have cellB : (writeOut (writeOut (writeOut (cellHeap h n) dest out) (cellPtr h) (lengthBytes consumed)) destLen
+    have cellB : (writeOut (writeOut (writeOut (cellHeap h n) dest written) (cellPtr h) (lengthBytes consumed)) destLen
         (lengthBytes got)).bytes h.nextBlk ≠ none ∧
-        (writeOut (writeOut (writeOut (cellHeap h n) dest out) (cellPtr h) (lengthBytes consumed)) destLen
+        (writeOut (writeOut (writeOut (cellHeap h n) dest written) (cellPtr h) (lengthBytes consumed)) destLen
         (lengthBytes got)).ro h.nextBlk = false := by
-      have l0 := writeOut_same_other (H := cellHeap h n) (p := dest) (xs := out) h.nextBlk
+      have l0 := writeOut_same_other (H := cellHeap h n) (p := dest) (xs := written) h.nextBlk
         (fun r i hp hb => destK r i hp _ hb rfl)
-      have l2 := writeOut_same_other (H := writeOut (writeOut (cellHeap h n) dest out) (cellPtr h)
+      have l2 := writeOut_same_other (H := writeOut (writeOut (cellHeap h n) dest written) (cellPtr h)
         (lengthBytes consumed)) (p := destLen) (xs := lengthBytes got) h.nextBlk
         (fun r i hp hb => lenK r i hp _ hb rfl)
-      have g1 : Space.get (writeOut (cellHeap h n) dest out) (BRef.blk h.nextBlk) =
+      have g1 : Space.get (writeOut (cellHeap h n) dest written) (BRef.blk h.nextBlk) =
           some (lengthBytes n).toArray := by
-        show (writeOut (cellHeap h n) dest out).bytes h.nextBlk = _
+        show (writeOut (cellHeap h n) dest written).bytes h.nextBlk = _
         rw [l0.1]; simp [cellHeap]
-      have r1 : Space.ro (writeOut (cellHeap h n) dest out) (BRef.blk h.nextBlk) = false := by
-        show (writeOut (cellHeap h n) dest out).ro h.nextBlk = false
+      have r1 : Space.ro (writeOut (cellHeap h n) dest written) (BRef.blk h.nextBlk) = false := by
+        show (writeOut (cellHeap h n) dest written).ro h.nextBlk = false
         rw [l0.2.2.2.2.2.2.2]; simp [cellHeap]
       have mid := writeOut_same (xs := lengthBytes consumed) (i := 0) g1 r1
       refine ⟨?_, ?_⟩
       · rw [l2.1]
-        show Space.get (writeOut (writeOut (cellHeap h n) dest out) (cellPtr h) (lengthBytes consumed))
+        show Space.get (writeOut (writeOut (cellHeap h n) dest written) (cellPtr h) (lengthBytes consumed))
           (BRef.blk h.nextBlk) ≠ none
         rcases mid with x | ⟨-, x⟩
         · rw [cellPtr, x]; simp
         · rw [cellPtr, x]; simp
       · rw [l2.2.2.2.2.2.2.2]
-        have := writeOut_ro (h := writeOut (cellHeap h n) dest out) (q := cellPtr h) (xs := lengthBytes consumed)
+        have := writeOut_ro (h := writeOut (cellHeap h n) dest written) (q := cellPtr h) (xs := lengthBytes consumed)
           (BRef.blk h.nextBlk)
         exact this.trans r1
     have others : ∀ (X : Heap), (X.words h.nextBlk = none ∧ X.streams h.nextBlk = none ∧
@@ -260,16 +262,16 @@ theorem single_of_counted_on {Pre : Heap → Prop} {P : BPtr → BPtr → BPtr �
     have notKq : ∀ (q : BPtr), (∀ r i, q = .ref r i → ∀ c, BRef.block r = some c → c ≠ h.nextBlk) →
         ∀ r i, q = .ref r i → (BRef.block r ≠ some h.nextBlk ∨ ∃ j, r = .blk j) :=
       fun q qk r i hq => Or.inl (fun hb => qk r i hq _ hb rfl)
-    have x'k3 := others _ (others _ (others _ x'k dest out (notKq dest destK)) (cellPtr h) (lengthBytes consumed)
+    have x'k3 := others _ (others _ (others _ x'k dest written (notKq dest destK)) (cellPtr h) (lengthBytes consumed)
       (fun r i hp => by simp only [cellPtr, Ptr.ref.injEq] at hp; obtain ⟨rfl, -⟩ := hp; exact Or.inr ⟨_, rfl⟩))
       destLen (lengthBytes got) (notKq destLen lenK)
     have gl : ∀ (X : Heap) (q : BPtr) (xs : List UInt8), (writeOut X q xs).nextBlk = X.nextBlk ∧
         (writeOut X q xs).nalloc = X.nalloc := fun X q xs =>
       ⟨(writeOut_globals X q xs).2.2.2.1, (writeOut_globals X q xs).2.2.2.2.1⟩
-    have xkE : ¬ (writeOut (writeOut h dest out) destLen (lengthBytes got)).live h.nextBlk := by
+    have xkE : ¬ (writeOut (writeOut h dest written) destLen (lengthBytes got)).live h.nextBlk := by
       rw [writeOut_live, writeOut_live]; exact k0
     refine ⟨rc, _, cellRun _ sm cellB.1 cellB.2, fun b => absurd b badW, fun _ _ _ => ?_⟩
-    refine ⟨out, used, got, writeOut h dest out, _, storeD, storeL,
+    refine ⟨out, used, got, writeOut h dest written, _, storeD, storeL,
       same_without_cell sm a3 xkE x'k3 ?_ ?_, unc, ?_, ?_⟩
     · rw [(gl _ _ _).1, (gl _ _ _).1, (gl _ _ _).1, (gl _ _ _).1, (gl _ _ _).1]; simp [cellHeap]
     · rw [(gl _ _ _).2, (gl _ _ _).2, (gl _ _ _).2, (gl _ _ _).2, (gl _ _ _).2]; simp [cellHeap]

@@ -41,8 +41,7 @@ theorem inflate_LEN_start_fast_view_state_run
   have env : Env c heap r zs z current :=
     ⟨E.strm, E.st, good.live.hz, good.live.hs⟩
   obtain ⟨regs, after, zNext, sNext, used, made, run, final, accounting⟩ :=
-    inflate_LEN_fast_view_state_run env currentJ packet
-      (by change DataTableMode LEN; unfold DataTableMode; decide) fast
+    inflate_LEN_fast_view_state_run env currentJ packet rfl fast
   have source : runX (inflate_LEN_ c) l h = runX (inflate_LEN c) l heap := by
     unfold inflate_LEN_
     rw [runX_bind, runX_setMode E]

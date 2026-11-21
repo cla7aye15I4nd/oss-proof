@@ -1,5 +1,4 @@
-import ZlibF.Proof.«inflate.c.fast-view-public-buffers»
-import ZlibF.Proof.«inflate.c.fast-view-callee-progress»
+import ZlibF.Proof.«inflate.c.fast-view-env»
 
 namespace Zlib.Inflate.Proofs
 open C Zlib.Inflate Zlib.Inflate.Spec ZlibF.Spec.Public
@@ -11,7 +10,7 @@ theorem inflate_fast_default_view_buffers_progress
     {h : Heap} {r : ZStreamRef} {zs : Nat}
     {z : ZStream} {s : InflateState} {slow : IL} {bs : List UInt8}
     (invariant : DefaultStateJ h r zs z s)
-    (buffers : DispatchBuffers h r slow bs) (mode : DataTableMode s.mode)
+    (buffers : DispatchBuffers h r slow bs) (mode : s.mode = LEN)
     (inputCursor : z.next_in = slow.next) (inputCount : z.avail_in = slow.have_)
     (outputCursor : z.next_out = slow.put) (outputCount : z.avail_out = slow.left)
     (stateHold : s.hold = slow.hold) (stateBits : s.bits = slow.bits)
@@ -29,31 +28,10 @@ theorem inflate_fast_default_view_buffers_progress
         put := zNext.next_out, left := zNext.avail_out,
         next := zNext.next_in, have_ := zNext.avail_in, hold := sNext.hold, bits := sNext.bits } ∧
       (sNext.mode = BAD ∨ sNext.mode = TYPE ∨ 0 < made) := by
-  obtain ⟨finished, zNext, sNext, used, made, regs, bound, run, current,
-    packet, sizes, next, count, put, left, small, budget, window, modes, shape⟩ :=
-    inflate_fast_default_view_buffers invariant buffers mode inputCursor
-      inputCount outputCursor outputCount stateHold stateBits fast
-  obtain ⟨progHeap, progZ, progS, progUsed, progMade, progRun,
-    progJ, progAccounting, progress⟩ :=
-    inflate_fast_default_view_progress invariant buffers mode inputCursor
-      inputCount outputCursor outputCount stateHold stateBits fast
-  have sameHeap : finished = progHeap := congrArg Prod.snd
-    (Except.ok.inj (run.symm.trans progRun))
-  subst progHeap
-  have sameZ : progZ = zNext := Option.some.inj
-    (progJ.good.live.hz.symm.trans current.good.live.hz)
-  have sameS : progS = sNext := Option.some.inj
-    (progJ.good.live.hs.symm.trans current.good.live.hs)
-  subst progZ
-  subst progS
-  have sameMade : progMade = made := by
-    have leftEq : regs.left = zNext.avail_out := congrArg IL.left shape
-    have first := left
-    rw [leftEq] at first
-    have second : zNext.avail_out.toNat + progMade = slow.left.toNat := by
-      simpa only [outputCount] using progAccounting.2.2.2.1
-    omega
-  subst progMade
+  obtain ⟨finished, zNext, sNext, used, made, regs, bound, run, current, _,
+    packet, sizes, next, count, put, left, small, budget, window, modes, shape, progress, _⟩ :=
+    fast_view_exec invariant buffers mode inputCursor inputCount
+      outputCursor outputCount stateHold stateBits fast
   exact ⟨finished, zNext, sNext, used, made, regs, bound, run, current,
     packet, sizes, next, count, put, left, small, budget, window, modes, shape, progress⟩
 

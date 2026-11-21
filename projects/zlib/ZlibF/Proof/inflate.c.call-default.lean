@@ -45,7 +45,7 @@ def InflateCall (h : Heap) (r : ZStreamRef) (i : Nat) (z : ZStream) (s : Inflate
       z'.total_out = z.total_out + UInt64.ofNat out.length) ∧
     BufferFrame h after
       (fun b => StreamRoot r b ∨ InflateOwned i s b ∨ s.head = some (.tab b))
-      (⟨z.next_out, out.length⟩ :: HeaderRegions h s.head) ∧
+      (⟨z.next_out, z.avail_out.toNat⟩ :: HeaderRegions h s.head) ∧
     LiveChange h after (fun b => InflateOwned i s' b ∧ ¬ h.live b) (fun _ => False) ∧
     (∀ b, InflateOwned i s b → InflateOwned i s' b)
 

@@ -92,7 +92,7 @@ theorem clAfterDist_error {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
 private theorem good_table_fields {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream}
     {before after : InflateState} (good : Good h r zs z before)
     (frame : after = { before with next := after.next, lencode := after.lencode, distcode := after.distcode, lenbits := after.lenbits, distbits := after.distbits, work := after.work, codes := after.codes, mode := after.mode })
-    (workSize : after.work.size = 288) (codeSize : after.codes.size = 1444)
+    (workSize : after.work.size = 288) (codeSize : after.codes.size = 1732)
     (pointers : PtrInv zs after) (mode : HEAD ≤ after.mode ∧ after.mode ≤ SYNC) :
     Good (setI h zs after) r zs z after := by
   have inv : StInv h zs after := by
@@ -154,7 +154,7 @@ theorem clTables_run_good_full {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef}
         if c.flush = Z_TREES then .ok ((.error Ex.leave, { l with ret := 0 }), after)
         else runX (inflate_LEN_ c) { l with ret := 0 } after) ∧
       ClTablesUpdate h r zs z s after z state) := by
-  have oldDist : ∃ offset, s.distcode = .ref (.istate_codes zs) offset ∧ offset ≤ 1443 := by
+  have oldDist : ∃ offset, s.distcode = .ref (.istate_codes zs) offset ∧ offset ≤ 1731 := by
     rcases good.inv.ptr.2 with ⟨_, offset, _, dist, _, bound⟩ | ⟨fixed, _⟩
     · exact ⟨offset, dist, bound⟩
     · rw [pointer] at fixed

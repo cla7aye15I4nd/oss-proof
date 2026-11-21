@@ -22,7 +22,7 @@ theorem inflate_LEN_fast_raw_default_J_configuration {c : Ctx} {h : Heap} {r : Z
   let tables := invariant.tables (by rw [mode]; unfold DataTableMode; decide)
   let pending := invariant.pending
   obtain ⟨entry, heap1, cut, post, platform, strmEq, refEq, idEq, stateEq, streamEq, heapEq, outputEq⟩ :=
-    inflate_LEN_fast_raw_cut E good fit tables buffers pending input output different fast
+    inflate_LEN_fast_raw_cut E good fit tables buffers pending mode input output different fast
   have count : l.bits.toNat < 8 := by
     have margins : (6 ≤ l.have_ ∧ 258 ≤ l.left) ∧ l.bits < 8 := by
       simpa only [Bool.and_eq_true, decide_eq_true_eq] using fast

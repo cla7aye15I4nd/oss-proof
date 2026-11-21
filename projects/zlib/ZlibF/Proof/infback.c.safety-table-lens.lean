@@ -20,7 +20,7 @@ set_option autoImplicit false
 
 /-- The state before the literal/length table call. -/
 def lnPre (i : Nat) (s : InflateState) : InflateState :=
-  { s with next := .ref (.istate_codes i) 0, lencode := .ref (.istate_codes i) 0, lenbits := 9 }
+  { s with next := .ref (.istate_codes i) 0, lencode := .ref (.istate_codes i) 0, lenbits := 10 }
 
 /-- The state after the literal/length table call. -/
 def lnSt (i : Nat) (s : InflateState) (nx : CodePtr) (lb : UInt32) (wa : Array UInt16) (ca : Array Code) :
@@ -28,7 +28,7 @@ def lnSt (i : Nat) (s : InflateState) (nx : CodePtr) (lb : UInt32) (wa : Array U
   { lnPre i s with next := nx, lenbits := lb, work := wa, codes := ca }
 
 /-- The state before the distance table call. -/
-def dsPre (s : InflateState) : InflateState := { s with distcode := s.next, distbits := 6 }
+def dsPre (s : InflateState) : InflateState := { s with distcode := s.next, distbits := 8 }
 
 /-- The state after the distance table call. -/
 def dsSt (s : InflateState) (nx : CodePtr) (db : UInt32) (wa : Array UInt16) (ca : Array Code) : InflateState :=
@@ -41,7 +41,7 @@ theorem tabLensTail1_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n 
     {s : InflateState} (hs : h.istates i = some s) (mode : s.mode = TABLE) (wf : s.WellFormed)
     (nlen : s.nlen.toNat ≤ 286) (ndist : s.ndist.toNat ≤ 30)
     (lengths : ∀ k, k < s.ndist.toNat → (s.lens.getD (s.nlen.toNat + k) 0).toNat ≤ 15)
-    {used : Nat} (next : s.next = .ref (.istate_codes i) used) (room : used ≤ 852)
+    {used : Nat} (next : s.next = .ref (.istate_codes i) used) (room : used ≤ 1332)
     (lenc : s.lencode = .ref (.istate_codes i) 0)
     (lensSafe : Zlib.Inffast.Spec.LenTableSafe s.codes 0 s.lenbits.toNat)
     (lensExtent : Zlib.Inftrees.Spec.TableReadExtent LENS s.codes 0 s.lenbits.toNat used)
@@ -63,7 +63,7 @@ theorem tabLensTail1_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n 
   have codes : Space.get (setI h i (dsPre s)) (CodeRef.istate_codes i) = some s.codes := by
     simpa [dsPre] using CodeRef.get_istate_codes stored
   let pre : Zlib.Inftrees.Proofs.CallPre (setI h i (dsPre s)) DISTS
-      (.istate_lens i) s.nlen.toNat s.ndist (.istate_codes i) used 6 (.istate_work i) 0 :=
+      (.istate_lens i) s.nlen.toNat s.ndist (.istate_codes i) used 8 (.istate_work i) 0 :=
     ⟨s.lens, s.work, s.codes, Or.inr (Or.inr rfl), lens, work, codes, by simp, by simp,
       by omega, by omega, by simp [Zlib.Inftrees.Spec.capOf, LENS, DISTS, CODES]; omega,
       lengths, (by intro impossible; cases impossible),
@@ -171,7 +171,7 @@ theorem tabLens_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat
   have codes : Space.get (setI h i (lnPre i s0)) (CodeRef.istate_codes i) = some s0.codes := by
     simpa [lnPre] using CodeRef.get_istate_codes stored
   let pre : Zlib.Inftrees.Proofs.CallPre (setI h i (lnPre i s0)) LENS
-      (.istate_lens i) 0 s0.nlen (.istate_codes i) 0 9 (.istate_work i) 0 :=
+      (.istate_lens i) 0 s0.nlen (.istate_codes i) 0 10 (.istate_work i) 0 :=
     ⟨s0.lens, s0.work, s0.codes, Or.inr (Or.inl rfl), lens, work, codes, by simp, by simp,
       by omega, by omega, by simp [Zlib.Inftrees.Spec.capOf, LENS, CODES]; omega,
       by simpa using lengths, (by intro impossible; cases impossible),
@@ -217,11 +217,11 @@ theorem tabLens_p (c : BCtx) {r : ZStreamRef} {i : Nat} {window : BPtr} {n : Nat
     obtain ⟨array, used, get, pointer, bound, extent, _, safe, _⟩ := tables rfl
     rw [actualGet] at get
     cases get
-    have used852 : used ≤ 852 := by simpa [Zlib.Inftrees.Spec.capOf, LENS, CODES] using bound
+    have used1332 : used ≤ 1332 := by simpa [Zlib.Inftrees.Spec.capOf, LENS, CODES] using bound
     have nextQ : sQ.next = .ref (.istate_codes i) used := by
       show nx = _; simpa using pointer
     rcases tabLensTail1_p c pr IQ hsQ st.mode wfQ nl nd (fun k hk => rl (s0.nlen.toNat + k) (by have e : sQ.ndist = s0.ndist := rfl; rw [e] at hk; omega))
-        nextQ used852 rfl (safe rfl) extent
+        nextQ used1332 rfl (safe rfl) extent
         (by obtain ⟨ca2, g2, p2⟩ := lensPos rfl rfl; rw [actualGet] at g2; cases g2; exact p2)
         (lensStable rfl ca actualGet) (lensPrefix rfl ca actualGet)
         (by obtain ⟨ca2, used2, g2, p2, -, inv2⟩ := lensInvC rfl

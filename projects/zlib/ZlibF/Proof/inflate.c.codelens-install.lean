@@ -20,7 +20,7 @@ contract or table property is supplied by the caller. -/
 theorem llTail_run_table_safe {c : Ctx} {l : IL} {h : Heap} {r : ZStreamRef} {zs : Nat} {z : ZStream} {s : InflateState}
     (hr : c.strm = some r) (hc : c.st = some (.tab zs)) (hz : r.get h = some z) (hs : h.istates zs = some s)
     (hwf : s.WellFormed) (hG : Good3 s.lens 19) :
-    ∃ (ret : Int32) (wa' : Array UInt16) (ca' : Array Code), wa'.size = 288 ∧ ca'.size = 1444 ∧
+    ∃ (ret : Int32) (wa' : Array UInt16) (ca' : Array Code), wa'.size = 288 ∧ ca'.size = 1732 ∧
       (∀ x, 19 ≤ x → wa'[x]? = s.work[x]?) ∧ (∀ x, 128 ≤ x → ca'[x]? = s.codes[x]?) ∧
       (ret = 0 ∨ ret = -1) ∧
       (ret = -1 ↔ ¬ ZlibF.Spec.Acceptable .codeLength (Zlib.Inftrees.Spec.lensList s.lens 0 19)) ∧

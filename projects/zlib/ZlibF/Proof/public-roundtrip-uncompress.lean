@@ -59,15 +59,23 @@ theorem final_output_eq {e : Env} (ok : EnvOK e) {l : UncLoop} {rc1 rc2 : Int32}
     have b : logp2.output ++ o2 = [] := List.eq_nil_of_length_eq_zero (by omega)
     rw [a, b]
   · have blocks := ZlibF.Spec.Public.Proofs.Compress.caller_view_blocks (Or.inr w)
-    have read : ∀ O : List UInt8, O.length ≤ e.cap → Agree e.h₀.live (writeOut e.h₀ e.out0 O) H →
-        Bytes H e.out0 O.length O := by
-      intro O le agree
+    have htake : ∀ {xs ys : List UInt8}, (xs ++ ys).take xs.length = xs := by
+      intro xs ys; induction xs <;> simp [*]
+    have read : ∀ O P : List UInt8, P <+: O → O.length ≤ e.cap →
+        Agree e.h₀.live (writeOut e.h₀ e.out0 O) H → Bytes H e.out0 P.length P := by
+      intro O P hpref le agree
       have wO : Writable e.h₀ e.out0 O.length := by
         have := writable_sub (c := 0) (m := O.length) w (by omega)
         rwa [advance_zero] at this
-      exact agree.bytes (bytes_writeOut_self wO) blocks
-    have b1 := read _ (by omega) f1.agree
-    have b2 := read _ (by omega) f2.agree
+      have bFull := agree.bytes (bytes_writeOut_self wO) blocks
+      have bSub := bytes_sub bFull (show 0 + P.length ≤ O.length by have := hpref.length_le; omega)
+      rw [advance_zero, List.drop_zero] at bSub
+      obtain ⟨suf, rfl⟩ := hpref
+      simpa only [htake] using bSub
+    obtain ⟨w1, p1, l1, a1⟩ := f1.agree
+    obtain ⟨w2, p2, l2, a2⟩ := f2.agree
+    have b1 := read w1 (logp1.output ++ o1) p1 l1 a1
+    have b2 := read w2 (logp2.output ++ o2) p2 l2 a2
     rw [len] at b1
     exact bytes_unique b1 b2
 
@@ -106,7 +114,8 @@ theorem classify {e : Env} {D : List UInt8} (F : UFacts e D) {l : UncLoop} {H H'
   subst ez
   have noFail : NoAllocationFailure H := by
     intro k
-    rw [st.agree.allocOk, (writeOut_globals e.h₀ e.out0 log.output).2.1]
+    obtain ⟨w, -, -, ag⟩ := st.agree
+    rw [ag.allocOk, (writeOut_globals e.h₀ e.out0 w).2.1]
     exact F.noFail k
   have inC := st.inCount
   have outC := st.outCount
@@ -178,7 +187,8 @@ theorem tracked_uloop {e : Env} {D : List UInt8} (F : UFacts e D) {body : UncLoo
   have trace1 : DefaultInflateTrace e.r (e.r.put H (refilled z l)) log := .caller trace rebuf st1.fit
   have noFail1 : NoAllocationFailure (e.r.put H (refilled z l)) := by
     intro k
-    rw [st1.agree.allocOk, (writeOut_globals e.h₀ e.out0 log.output).2.1]
+    obtain ⟨w, -, -, ag⟩ := st1.agree
+    rw [ag.allocOk, (writeOut_globals e.h₀ e.out0 w).2.1]
     exact F.noFail k
   obtain ⟨rc, H', run, more, done⟩ :=
     call_phase_safe Zlib.Inflate.Proofs.inflate_public F.ok st1 (refilled_full_in z l) (refilled_full_out z l)
@@ -310,7 +320,7 @@ theorem accepted_run_complete {h : Heap} {dest destLen source sourceLen : BPtr}
     (dN : dest = .null → capacity = 0) :
     ∃ rc after, C.run (uncompress2_z dest destLen source sourceLen) h = .ok (rc, after) ∧
       ∃ out used got consumed h₁ h₂ expected,
-        Store h dest out h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
+        StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
         Store h₂ destLen (lengthBytes got) expected ∧ SameObjectsUpToTableShape expected after ∧
         CRel src capacity.toNat rc out used ∧
         ((got.toNat = out.length ∧ consumed.toNat = used) ∨
@@ -410,7 +420,8 @@ theorem accepted_run_complete {h : Heap} {dest destLen source sourceLen : BPtr}
     rw [loopEq]
     simp only []
     have hz : (ZStreamRef.tab h.nextBlk).get H' = some z := fin.good.live.hz
-    obtain ⟨H1, H2, H3, l1, s1, l2, s2, endRun, res1, res2, ⟨zz, hzz⟩, same, memF⟩ := epilogue ok cells fin
+    obtain ⟨written, H1, H2, H3, hpref, outWLe, l1, s1, l2, s2, endRun, res1, res2, ⟨zz, hzz⟩, same, memF⟩ :=
+      epilogue ok cells fin
     have endRun' : inflateEnd (some (ZStreamRef.tab h.nextBlk)) H2 = .ok (Z_OK, H3) := endRun
     simp only [ldZ, ldZStream_ok hz, l1, s1, l2, s2, endRun', pure_app]
     rw [freeB_reserved_run (k := h.nextBlk) (H := H3) res1 res2]
@@ -426,7 +437,7 @@ theorem accepted_run_complete {h : Heap} {dest destLen source sourceLen : BPtr}
     have cB := ok.capBound
     have srcLen := ok.srcLen
     have preIn := fin.pre.inCount
-    rw [eN] at inC nB preIn; rw [eCap] at outC cB; rw [eSrc, eN] at srcLen
+    rw [eN] at inC nB preIn; rw [eCap] at outC cB outWLe; rw [eSrc, eN] at srcLen
     have outLe : (logp.output ++ output).length ≤ capacity.toNat := by omega
     -- the counts as natural numbers
     have zin := z.avail_in.toNat_lt
@@ -444,41 +455,43 @@ theorem accepted_run_complete {h : Heap} {dest destLen source sourceLen : BPtr}
       rw [UInt64.toNat_sub_of_le _ _ (by rw [UInt64.le_iff_toNat_le, leftNat]; omega), leftNat]
       omega
     -- the stores
-    have h1W : Writable h dest (logp.output ++ output).length ∨ logp.output ++ output = [] := by
-      by_cases ne : logp.output ++ output = []
+    have h1W : Writable h dest written.length ∨ written = [] := by
+      by_cases ne : written = []
       · exact Or.inr ne
       · left
         have dn : dest ≠ .null := by
           intro dn
           have := dN dn
-          rw [this] at outLe
-          exact ne (List.eq_nil_of_length_eq_zero (by simpa using outLe))
-        have := writable_sub (c := 0) (m := (logp.output ++ output).length) (destW dn) (by omega)
+          rw [this] at outWLe
+          exact ne (List.eq_nil_of_length_eq_zero (by simpa using outWLe))
+        have := writable_sub (c := 0) (m := written.length) (destW dn) (by omega)
         rwa [advance_zero] at this
-    have h1eq : writeOut h dest (logp.output ++ output) = writeOut h out0 (logp.output ++ output) := by
+    have h1eq : writeOut h dest written = writeOut h out0 written := by
       rcases h1W with w | ne
       · simp only [out0]
         split
         · rename_i hb
           obtain ⟨c0, -⟩ := resCase hb
-          rw [c0] at outLe
-          simp at outLe
-          rw [show logp.output ++ output = [] from List.eq_nil_of_length_eq_zero (by simpa using outLe)]
+          rw [c0] at outWLe
+          simp at outWLe
+          rw [show written = [] from List.eq_nil_of_length_eq_zero (by simpa using outWLe)]
           simp [writeOut_nil]
         · rfl
       · rw [ne, writeOut_nil, writeOut_nil]
-    have store1 : Store h dest (logp.output ++ output) (writeOut h out0 (logp.output ++ output)) := by
+    have store1W : Store h dest written (writeOut h out0 written) := by
       rw [← h1eq]
       rcases h1W with w | ne
       · exact store_writeOut w
       · rw [ne, writeOut_nil]; exact Or.inl ⟨rfl, rfl⟩
-    have cS := cell_after_output (out := logp.output ++ output) ok scell cells.sepS outLe
-    have cD := cell_after_output (out := logp.output ++ output) ok dcell cells.sepD outLe
-    have store2 := store_writeOut (h := writeOut h out0 (logp.output ++ output)) (p := sourceLen)
+    have store1 : StorePrefix h dest (logp.output ++ output) capacity.toNat (writeOut h out0 written) :=
+      ⟨written, hpref, outWLe, store1W⟩
+    have cS := cell_after_output (out := written) ok scell cells.sepS outWLe
+    have cD := cell_after_output (out := written) ok dcell cells.sepD outWLe
+    have store2 := store_writeOut (h := writeOut h out0 written) (p := sourceLen)
       (xs := lengthBytes (n - (l'.len + z.avail_in.toUInt64))) (by rw [lengthBytes_length]; exact cS.2)
     have cD1 := cell_writeOut_sep (xs := lengthBytes (n - (l'.len + z.avail_in.toUInt64))) cD cells.sepSD
       (by simp [lengthBytes_length]) cS.2
-    have store3 := store_writeOut (h := writeOut (writeOut h out0 (logp.output ++ output)) sourceLen
+    have store3 := store_writeOut (h := writeOut (writeOut h out0 written) sourceLen
       (lengthBytes (n - (l'.len + z.avail_in.toUInt64)))) (p := destLen)
       (xs := lengthBytes (capacity - (l'.left + z.avail_out.toUInt64))) (by rw [lengthBytes_length]; exact cD1.2)
     -- the bounds and the code
@@ -563,23 +576,37 @@ theorem uncompress_completes : Goal.uncompress_completes := by
     · exact c
     · rw [rcOk] at m
       exact absurd m (by decide)
-  have e1 := store_fun S1
+  obtain ⟨written, hpref, wLen, S1'⟩ := S1
+  have e1 := store_fun S1'
   have e2 := store_fun S2
   subst e1 e2
+  have wWritten : Writable h dest written.length := by
+    have := writable_sub (c := 0) (m := written.length) destW (by omega)
+    rwa [advance_zero] at this
+  have hPrefLen : out.length ≤ written.length := hpref.length_le
   have wOut : Writable h dest out.length := by
     have := writable_sub (c := 0) (m := out.length) destW (by omega)
     rwa [advance_zero] at this
-  have wLen1 : Writable (writeOut h dest out) destLen 8 := writable_writeOut cell.2 outLe destW
+  have wLen1 : Writable (writeOut h dest written) destLen 8 := writable_writeOut cell.2 wLen destW
   have lenBytes : (lengthBytes got).length ≤ 8 := by simp [lengthBytes]
-  have sepOut : Separate dest out.length destLen 8 := by
-    have := separate_sub (c := 0) (d := 0) (n' := 8) (m' := out.length) sep2 (by omega) (by omega)
+  have sepWritten : Separate dest written.length destLen 8 := by
+    have := separate_sub (c := 0) (d := 0) (n' := 8) (m' := written.length) sep2 (by omega) (by omega)
     rw [advance_zero, advance_zero] at this
     exact separate_symm this
-  have bytes1 : Bytes (writeOut h dest out) dest out.length out := bytes_writeOut_self wOut
-  have bytes2 := bytes_writeOut_sep (xs := lengthBytes got) bytes1 sepOut lenBytes wLen1
-  have wDest : Writable (writeOut (writeOut h dest out) destLen (lengthBytes got)) dest out.length :=
-    writable_writeOut (writable_writeOut wOut (Nat.le_refl _) wOut) lenBytes wLen1
-  refine ⟨after, by rw [← rcOk]; exact run, bytes_of_same sm wDest bytes2, ?_⟩
+  have bytes1 : Bytes (writeOut h dest written) dest written.length written := bytes_writeOut_self wWritten
+  have bytes2 := bytes_writeOut_sep (xs := lengthBytes got) bytes1 sepWritten lenBytes wLen1
+  have htake : ∀ {xs ys : List UInt8}, (xs ++ ys).take xs.length = xs := by
+    intro xs ys; induction xs <;> simp [*]
+  have writtenTake : written.take out.length = out := by
+    obtain ⟨suf, rfl⟩ := hpref
+    exact htake
+  have bytes2Out : Bytes (writeOut (writeOut h dest written) destLen (lengthBytes got)) dest out.length out := by
+    have bSub := bytes_sub bytes2 (show 0 + out.length ≤ written.length by omega)
+    rw [advance_zero, List.drop_zero, writtenTake] at bSub
+    exact bSub
+  have wDest : Writable (writeOut (writeOut h dest written) destLen (lengthBytes got)) dest out.length :=
+    writable_writeOut (writable_writeOut wOut (Nat.le_refl written.length) wWritten) lenBytes wLen1
+  refine ⟨after, by rw [← rcOk]; exact run, bytes_of_same sm wDest bytes2Out, ?_⟩
   have gotV : got = UInt64.ofNat out.length := by rw [← gotEq, UInt64.ofNat_toNat]
   rw [← gotV]
   exact same_cell sm (cell_written wLen1 got)

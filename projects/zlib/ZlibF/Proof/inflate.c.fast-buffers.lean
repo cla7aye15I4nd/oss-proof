@@ -138,6 +138,7 @@ theorem inflate_LEN_fast_raw_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamR
     (E : Env c h r zs z s) (good : Good h r zs z s)
     (fit : ZlibF.PlatformMemory.ByteObjectsFit h) (tables : DataTablesSafe h s)
     (buffers : DispatchBuffers h r l bs) (pending : DataPendingInvariant s)
+    (mode : s.mode = LEN)
     (input : l.next = .ref (.blk ib) io) (output : l.put = .ref (.blk ob) oo)
     (different : ib ≠ ob) (fast : (l.have_ >= 6 && l.left >= 258 && l.bits < 8) = true) :
     ∃ used made regs after stream state, used ≤ bs.length ∧
@@ -146,7 +147,7 @@ theorem inflate_LEN_fast_raw_buffers {c : Ctx} {l : IL} {h : Heap} {r : ZStreamR
       ByteViewSizes h after ∧ regs.next = inputAdvance l.next used ∧ regs.have_.toNat + used = l.have_.toNat ∧
       regs.put = inputAdvance l.put made ∧ regs.left.toNat + made = l.left.toNat ∧ regs.bits.toNat < 8 := by
   obtain ⟨entry, heap1, cut, post, _, strmEq, refEq, idEq, stateEq, streamEq, heapEq, outputEq⟩ :=
-    inflate_LEN_fast_raw_cut E good fit tables buffers pending input output different fast
+    inflate_LEN_fast_raw_cut E good fit tables buffers pending mode input output different fast
   have bitCount : l.bits.toNat < 8 := by
     have margins : (6 ≤ l.have_ ∧ 258 ≤ l.left) ∧ l.bits < 8 := by
       simpa only [Bool.and_eq_true, decide_eq_true_eq] using fast

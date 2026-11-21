@@ -1,9 +1,9 @@
 {
   "schema": 1,
   "kind": "fixed-source-native-example-runs",
-  "source_commit": "99623ef7097352da7993ba614161fd6a311e046e",
-  "zlib_version": "1.4",
-  "source_patches": ["0001-inflate-copy-pointer-equality.patch", "0002-gzseek-negative-position-overflow.patch", "0003-gzread-stale-next-and-position-overflow.patch", "0004-gzwrite-position-overflow.patch", "0005-gzoffset-negative-lseek.patch", "0006-deflatebound-fixed-conservative.patch", "0007-deflatebound-gzip-extra-length.patch"],
+  "source_commit": "617e19a81f38c15ff04de9f86882f42ad8a8ffd1",
+  "zlib_version": "1.4.0.1-motley",
+  "source_patches": ["0002-gzseek-negative-position-overflow.patch", "0003-gzread-stale-next-and-position-overflow.patch", "0004-gzwrite-position-overflow.patch", "0005-gzoffset-negative-lseek.patch", "0006-deflatebound-fixed-conservative.patch", "0007-deflatebound-gzip-extra-length.patch"],
   "input": {"bytes": 196608, "sha256": "d102172af46192ffbae104ba61502713619753598334be882a3d14d613f01d33",
     "generator": "three 65536-byte regions: periodic text with numeric markers; 1024-byte runs; xorshift32 bytes",
     "random_seed": "0x12345678", "random_shifts": [13, 17, 5]},

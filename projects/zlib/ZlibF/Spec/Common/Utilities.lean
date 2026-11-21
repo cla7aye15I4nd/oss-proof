@@ -71,7 +71,7 @@ def UncompressCountedSafe
       (sourceLen ≠ .null → destLen ≠ .null →
         (source = .null → n = 0) → (dest = .null → capacity = 0) →
         ∃ out got consumed h₁ h₂ expected,
-          Store h dest out h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
+          StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ sourceLen (lengthBytes consumed) h₂ ∧
           Store h₂ destLen (lengthBytes got) expected ∧ SameObjectsUpToTableShape expected after ∧
           out.length ≤ capacity.toNat ∧ consumed.toNat ≤ n.toNat ∧
           (rc = Z_OK ∨ rc = Z_BUF_ERROR ∨ rc = Z_DATA_ERROR ∨ rc = Z_MEM_ERROR) ∧
@@ -95,7 +95,7 @@ def UncompressSingleSafe (program : BPtr → BPtr → BPtr → UInt64 → M Int3
         rc = Z_STREAM_ERROR ∧ SameObjectsUpToTableShape h after) ∧
       (destLen ≠ .null → (source = .null → n = 0) → (dest = .null → capacity = 0) →
         ∃ out got h₁ expected,
-          Store h dest out h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
+          StorePrefix h dest out capacity.toNat h₁ ∧ Store h₁ destLen (lengthBytes got) expected ∧
           SameObjectsUpToTableShape expected after ∧ out.length ≤ capacity.toNat ∧
           (rc = Z_OK ∨ rc = Z_BUF_ERROR ∨ rc = Z_DATA_ERROR ∨ rc = Z_MEM_ERROR) ∧
           (got.toNat = out.length ∨ (rc = Z_MEM_ERROR ∧ out = [] ∧ got = capacity)) ∧

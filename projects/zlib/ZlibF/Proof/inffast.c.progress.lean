@@ -13,7 +13,7 @@ def FastProgress {α : Bool} (e : EnvG α) (after : Heap) : Prop :=
 theorem fast_finish_progress_wp {α : Bool} (e : EnvG α) (A : Array UInt8) (msg : BPtr) (mode : UInt32)
     (l : L) (i o : Nat) (hl : LS e l i o) (hAsz : A.size = e.A0.size)
     (ho : o ≤ e.o0 + e.sm0.avail_out.toNat)
-    (hf : ∀ j, (j < e.o0 ∨ o ≤ j) → A[j]? = e.A0[j]?)
+    (hf : ∀ j, (j < e.o0 ∨ (if α then o else e.o0 + e.sm0.avail_out.toNat) ≤ j) → A[j]? = e.A0[j]?)
     (hclass : (mode = e.s0.mode ∧ msg = e.sm0.msg) ∨ (mode = TYPE ∧ msg = e.sm0.msg) ∨ mode = BAD)
     (hstop : mode ≠ TYPE → mode ≠ BAD → i + 6 > e.i0 + e.sm0.avail_in.toNat ∨
       o + 258 > e.o0 + e.sm0.avail_out.toNat)
@@ -121,68 +121,46 @@ theorem inflate_fast_safe_progress {α : Bool} (e : EnvG α) :
     ∃ after, C.run (inflate_fast e.strm e.start) e.h0 = .ok ((), after) ∧
       FastPost e after ∧ FastProgress e after := by
   have hw : Wp (inflate_fast e.strm e.start) e.h0 (fun _ after => FastPost e after ∧ FastProgress e after) := by
-    let c0 : Ctx := {
-      strm := e.strm, state := some (.tab e.stid),
-      last := .ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5),
-      beg := .ref e.ob e.bg,
-      end_ := .ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257),
-      wsize := e.s0.wsize, whave := e.s0.whave, wnext := e.s0.wnext, window := e.s0.window,
-      lcode := e.s0.lencode, dcode := e.s0.distcode,
-      lmask := ((1 : UInt32) <<< e.s0.lenbits) - 1, dmask := ((1 : UInt32) <<< e.s0.distbits) - 1 }
-    let l0 : L := {
-      in_ := .ref e.ib e.i0, out := .ref e.ob e.o0,
-      hold := e.s0.hold, bits := e.s0.bits, here := default, op := 0, len := 0, dist := 0,
-      from_ := default, broke := false, againL := false, againD := false }
-    have hc0 : CtxOK e c0 := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
-    have hl0 : LS e l0 e.i0 e.o0 := by
-      dsimp only [l0]
-      refine ⟨rfl, rfl, by omega, ?_, by omega, ?_, e.hhold, ?_⟩
-      · have := e.hai; omega
-      · change e.s0.bits.toNat ≤ 30
-        have := e.hbits; omega
-      · change e.s0.bits.toNat + 8 * e.i0 ≤ e.s0.bits.toNat + 8 * e.i0
-        exact Nat.le_refl _
-    have hlast : OkOn e.h0 (Ptr.add e.sm0.next_in (e.sm0.avail_in - 5).toNat)
-        (.ref e.ib (e.i0 + e.sm0.avail_in.toNat - 5)) := by
-      rw [e.hnin, u32_toNat_sub (by change 5 ≤ e.sm0.avail_in.toNat; have := e.hai; omega)]
-      have hr := Ptr.add_nat_ok (h := e.h0) (r := e.ib) (a := e.IN)
-        (off := e.i0) (n := e.sm0.avail_in.toNat - 5) e.hIN (by have := e.hINsz; omega)
-      have hoff : e.i0 + (e.sm0.avail_in.toNat - 5) = e.i0 + e.sm0.avail_in.toNat - 5 := by have := e.hai; omega
-      simpa [hoff] using hr
-    have hbeg : OkOn e.h0 (subn e.sm0.next_out (e.start - e.sm0.avail_out))
-        (.ref e.ob e.bg) := by
-      rw [e.hnout]
-      have hn : (e.start - e.sm0.avail_out).toNat = e.start.toNat - e.sm0.avail_out.toNat :=
-        u32_toNat_sub e.hstart
-      have hr := subn_ok (h := e.h0) (r := e.ob) (a := e.A0)
-        (off := e.o0) (n := e.start - e.sm0.avail_out) e.hA0 (by rw [hn]; exact e.hbeg)
-        (by have := e.hAsz; omega)
-      simpa only [hn, EnvG.bg] using hr
-    have hend : OkOn e.h0 (Ptr.add e.sm0.next_out (e.sm0.avail_out - 257).toNat)
-        (.ref e.ob (e.o0 + e.sm0.avail_out.toNat - 257)) := by
-      rw [e.hnout, u32_toNat_sub (by change 257 ≤ e.sm0.avail_out.toNat; have := e.hao; omega)]
-      have hr := Ptr.add_nat_ok (h := e.h0) (r := e.ob) (a := e.A0)
-        (off := e.o0) (n := e.sm0.avail_out.toNat - 257) e.hA0 (by have := e.hAsz; omega)
-      have hoff : e.o0 + (e.sm0.avail_out.toNat - 257) = e.o0 + e.sm0.avail_out.toNat - 257 := by have := e.hao; omega
-      simpa [hoff] using hr
-    unfold inflate_fast
-    refine Wp.bindO (x := e.sm0) (by rw [e.hstrm]; exact ldZStream_ok e.hsm) ?_
-    refine Wp.bindO (x := some (InflateStateRef.tab e.stid)) (by rw [e.hstate]; exact castInflateState_ok) ?_
-    refine Wp.bindO hlast ?_
-    refine Wp.bindO hbeg ?_
-    refine Wp.bindO hend ?_
-    refine Wp.bindO (ldInflateState_tab e.hs0) ?_
-    refine Wp.bindO (shl32_ok (x := 1) (n := e.s0.lenbits) (by have := e.hlt.1; omega)) ?_
-    refine Wp.bindO (shl32_ok (x := 1) (n := e.s0.distbits) (by have := e.hdt.1; omega)) ?_
-    rw [e.hnin, e.hnout]
-    obtain ⟨l, h, hr, hpost⟩ := fast_loop_wp_progress hc0 l0 e.i0 e.o0 e.A0 hl0 rfl rfl
-      (by have := e.hai; omega) (by have := e.hao; omega) (by intro _ _; rfl)
-    rw [e.heap_initial] at hr
-    refine Wp.bindE hr ?_
-    obtain ⟨i, o, A, msg, mode, hl, ho, hA, hh, hf, hclass, hstop, _, progress⟩ := hpost
-    rw [hh]
-    exact fast_finish_progress_wp e A msg mode l i o hl hA ho hf hclass hstop progress
-      (e.inputFrame_of_frame hA hf ho hl.hi0)
+    refine inflate_fast_split_wp e fun l1 skip8 h1 hpost64 => ?_
+    obtain ⟨i1, o1, A1, msg1, m1, hl1, _, _, ho1, hAsz1, hh1, hf1, hclass1, hgo1, hstop1,
+      hskipAlpha1, horig1⟩ := hpost64
+    refine ⟨fun hskip => ?_, fun hskip => ?_⟩
+    · dsimp only [fastLoop8]
+      obtain ⟨hm1, hmsg1, hbr1, hi1_6, ho1_258⟩ := hgo1 hskip
+      obtain ⟨l, h, hr, hpost⟩ :=
+        fast_loop_wp_progress (fastCtx_ok e) l1 i1 o1 A1 hl1 hAsz1 hbr1 hi1_6 ho1_258 hf1
+      rw [hh1, hmsg1, hm1]
+      refine Wp.bindE hr ?_
+      dsimp only [fastFinish]
+      obtain ⟨i, o, A, msg, mode, hl, ho, hA, hh, hf, hclass, hstop, _, progress⟩ := hpost
+      rw [hh]
+      exact fast_finish_progress_wp e A msg mode l i o hl hA ho hf hclass hstop
+        (fun hnt hnb => Nat.lt_of_le_of_lt hl1.ho0 (progress hnt hnb))
+        (e.inputFrame_of_cap_frame hA hf ho hl.hi0)
+    · have hα := hskipAlpha1 hskip
+      subst hα
+      dsimp only [fastFinish]
+      have horig1' := horig1 rfl
+      dsimp only at horig1'
+      rw [cast_eq] at horig1'
+      obtain ⟨u1, _, htr1⟩ := horig1'
+      rw [hh1]
+      have hprog1 : m1 ≠ TYPE → m1 ≠ BAD → e.o0 < o1 := by
+        intro hmT hmB
+        rcases htr1 with ⟨_, _, _, _, _, _, hbad⟩ | ⟨hpg, htr⟩
+        · simp [hskip] at hbad
+        · cases hbr1 : l1.broke
+          · exact hpg.resolve_right (by intro h; simp [hbr1] at h)
+          · rcases htr.output_bounds.2.2.2.1 hbr1 with hT | hB
+            · exact False.elim (hmT hT)
+            · exact False.elim (hmB hB)
+      exact fast_finish_progress_wp e A1 msg1 m1 l1 i1 o1 hl1 hAsz1 ho1 hf1 hclass1
+        (fun hmT hmB => by
+          rcases hstop1 hskip with ⟨hT, _⟩ | hB | ⟨_, _, hoBig⟩
+          · exact False.elim (hmT hT)
+          · exact False.elim (hmB hB)
+          · exact Or.inr hoBig)
+        hprog1 (e.inputFrame_of_cap_frame hAsz1 hf1 ho1 hl1.hi0)
   obtain ⟨⟨⟩, after, hr, hp⟩ := hw
   exact ⟨after, hr, hp⟩
 
