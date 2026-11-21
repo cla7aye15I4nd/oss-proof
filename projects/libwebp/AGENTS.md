@@ -1,55 +1,41 @@
 # Working rules (`projects/libwebp`)
 
-Inherits every rule of the repository root [`../../AGENTS.md`](../../AGENTS.md), including the strict
-ISO C17 undefined-behaviour policy: no `NULL`, wild or dangling pointer `+ 0`, no `NULL - NULL`, no
-cross-object pointer subtraction or comparison, no out-of-bounds pointer formation, no zero-length
-`memcpy`/`memset` on invalid pointers, every struct pointer field written before it is read, and no
-"benign UB" arguments. The runtime starts from `framework/lean/StrictPtr.lean`.
+Inherits every rule of the repository root [`../../AGENTS.md`](../../AGENTS.md), which is
+authoritative on proof soundness, allowed axioms and the strict ISO C17 undefined-behaviour policy.
+The runtime starts from `framework/lean/StrictPtr.lean`.
 
-- **Status:** candidate. Upstream submodule `libwebp/` tracks the latest default branch. Not
-  registered in `framework/projects.json`; translation and proofs are not done.
+**Status:** candidate. Upstream submodule `libwebp/` tracks the latest default branch; not
+registered in `framework/projects.json`; translation and proofs are not done.
 
-## Why it matters
+## Tier 0
 
-Both Sharp (libvips `foreign/webp2vips.c`, `foreign/webpsave.c`) and Pillow (`src/_webp.c`) bundle
-libwebp 1.6.0 and decode every WebP upload with it, still or animated, lossy or lossless.
+Tier 0 is the code that turns untrusted bytes into pixels or metadata on a default path. It is the
+whole scope of this project.
 
-## Interfaces to prove (P0)
+**How it is reached.**
 
-- **Sharp decode:** `WebPInitDecoderConfig`, `WebPDecode`, `WebPFreeDecBuffer`, `WebPDemux`,
-  `WebPDemuxGetI`, `WebPDemuxGetFrame`, `WebPDemuxNextFrame`, `WebPDemuxReleaseIterator`,
-  `WebPDemuxGetChunk`, `WebPDemuxReleaseChunkIterator` (with scaled decoding for shrink-on-load).
-- **Pillow decode:** `WebPGetFeatures`, `WebPAnimDecoderNew`, `WebPAnimDecoderGetInfo`,
-  `WebPAnimDecoderGetNext`, `WebPAnimDecoderReset`, `WebPAnimDecoderGetDemuxer`,
-  `WebPAnimDecoderDelete`, `WebPDemuxGetChunk`, `WebPDemuxReleaseChunkIterator`, `WebPDataInit`,
-  `WebPDataCopy`, `WebPDataClear`. Pillow decodes still images through the animation decoder too.
-- **Encode (both):** `WebPConfigInit`, `WebPConfigPreset`, `WebPConfigLosslessPreset`,
-  `WebPValidateConfig`, `WebPPictureInit`, `WebPPictureAlloc`, `WebPPictureFree`, `WebPEncode`,
-  `WebPMemoryWriterInit`, `WebPMemoryWriterClear`, `WebPAnimEncoderOptionsInit`,
-  `WebPAnimEncoderNew`, `WebPAnimEncoderAdd`, `WebPAnimEncoderAssemble`,
-  `WebPAnimEncoderGetError`, `WebPAnimEncoderDelete`, `WebPMuxNew`, `WebPMuxCreate`,
-  `WebPMuxSetImage`, `WebPMuxSetChunk`, `WebPMuxGetFeatures`, `WebPMuxGetAnimationParams`,
-  `WebPMuxSetAnimationParams`, `WebPMuxAssemble`, `WebPMuxDelete`.
+- Sharp: `sharp(webp).jpeg().toBuffer()` → libvips `foreign/webp2vips.c` `read_header` (demux,
+  EXIF/ICC chunks) → `read_frame` (decode, scaled for shrink-on-load).
+- Pillow: `Image.open(webp)` → `WebPImageFile` → `src/_webp.c` `_anim_decoder_new` /
+  `_anim_decoder_get_next`; still images go through the animation decoder too.
 
-## Verification hazards
+**Functions:** `WebPInitDecoderConfig`, `WebPDecode`, `WebPFreeDecBuffer`, `WebPDemux`,
+`WebPDemuxGetI`, `WebPDemuxGetFrame`, `WebPDemuxNextFrame`, `WebPDemuxGetChunk`,
+`WebPDemuxReleaseIterator`, `WebPDemuxReleaseChunkIterator`, `WebPGetFeatures`,
+`WebPAnimDecoderNew`, `WebPAnimDecoderGetInfo`, `WebPAnimDecoderGetNext`,
+`WebPAnimDecoderReset`, `WebPAnimDecoderDelete` — and the VP8, VP8L, alpha and demux code behind
+them.
 
-1. Lossless (VP8L) Huffman table sizing: the allocation must cover every code-length set the table
-   builder accepts.
-2. VP8L transforms (predictor, cross-colour, subtract-green, colour indexing with packed pixels)
-   and the colour cache.
-3. Lossy (VP8) partitions, boolean decoder reads at the end of input, and the per-row caches.
-4. Alpha (`ALPH`) chunk decoding and filtering.
-5. RIFF chunk sizes and padding in the demuxer; animation frame rectangles and blending against
-   the canvas.
+**What the proofs must cover.**
 
-## Not in scope
-
-SIMD DSP files (build without SSE/NEON), threaded decoding, `sharpyuv` tuning, tools, and
-rate-distortion quality.
+1. Lossless (VP8L) Huffman tables are allocated large enough for every code-length set the builder
+   accepts; transforms and the colour cache stay in bounds.
+2. Lossy (VP8) partitions and the boolean decoder never read past the input.
+3. RIFF chunk sizes and animation frame rectangles stay inside the input and the canvas.
 
 ## Local commands
 
 ```bash
-lake --dir projects/libwebp build --wfail LibwebpF LibwebpF.Results
+LEAN_NUM_THREADS=4 lake --dir projects/libwebp build --wfail LibwebpF LibwebpF.Results
 python3 framework/check_project.py libwebp --skip-build
 ```

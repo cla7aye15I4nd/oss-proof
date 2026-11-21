@@ -60,44 +60,46 @@ def Goal.zcalloc_zcfree_safety : Prop :=
       C.run (ZlibNg.Zutil.zcalloc opq items size) h = .ok (p, h1) ∧
       C.run (ZlibNg.Zutil.zcfree opq p) h1 = .ok ((), h2)
 
-/-- `zng_alloc_aligned` + `zng_free_aligned` (with Patch 0001): for every `size : UInt32` (including `0xFFFFFFC0`)
-and every `align : UInt32` with `align = 0 ∨ 8 ≤ align.toNat`, allocation never faults and every non-null
-return value has a valid 8-byte header, `size` writable bytes in bounds, and safe `zng_free_aligned` reclamation. -/
+/-- `zng_alloc_aligned` + `zng_free_aligned` (internal; its only caller `gz_buffer_alloc` passes `align = 64` and
+`size ≤ 3 * 2^30`): for every `align ≥ 8` and every `size` with `8 + size + align < 2^32` (the 32-bit
+`alloc_size` does not wrap), allocation never faults and every non-null return value has a valid 8-byte header,
+`size` writable bytes in bounds, and safe `zng_free_aligned` reclamation. -/
 def Goal.zng_alloc_aligned_safety : Prop :=
   ∀ (h : C.Heap) (size align : UInt32),
-    (align.toNat = 0 ∨ 8 ≤ align.toNat) →
+    8 ≤ align.toNat →
+    8 + size.toNat + align.toNat < 2 ^ 32 →
     ∃ ret h',
       C.run (ZlibNg.Zutil.zng_alloc_aligned size align) h = .ok (ret, h') ∧
       AlignedAllocValid h h' size ret
 
-/-- Non-vacuity witness for `zng_alloc_aligned`: on `size = 0xFFFFFFC0`, `align = 64` (the exact input that
-triggered an 8-byte heap wraparound and out-of-bounds write in unpatched `zlib-ng` 2.3.3), `zng_alloc_aligned`
-succeeds on `Heap.empty` and returns a live non-null buffer of at least `0xFFFFFFC0` writable bytes. -/
+/-- Non-vacuity witness for `zng_alloc_aligned`: on `size = 0xC0000000` (`3 * 2^30`, the largest request of
+`gz_buffer_alloc`, made for a 1 GiB `gzbuffer` on a write stream), `align = 64`, `zng_alloc_aligned` succeeds on
+`Heap.empty` and returns a live non-null buffer of at least `0xC0000000` writable bytes. -/
 def Goal.zng_alloc_aligned_nonvacuous : Prop :=
   ∃ off h' data,
-    C.run (ZlibNg.Zutil.zng_alloc_aligned 0xffffffc0 64) C.Heap.empty = .ok (.ref (.heap 0) off, h') ∧
+    C.run (ZlibNg.Zutil.zng_alloc_aligned 0xc0000000 64) C.Heap.empty = .ok (.ref (.heap 0) off, h') ∧
     h'.bytes 0 = some data ∧
     8 ≤ off ∧
-    off + (0xffffffc0 : UInt32).toNat ≤ data.size
+    off + (0xc0000000 : UInt32).toNat ≤ data.size
 
 /-! ## `adler32.c` / `adler32_c.c` safety & non-vacuity goals -/
 
 /-- `unsigned long adler32(unsigned long adler, const unsigned char *buf, unsigned int len)`:
-safe and heap-preserving on every `BufferBytes` buffer, including `NULL` with any `len` (with Patch 0007). -/
+safe and heap-preserving on every `BufferBytes` buffer, including `NULL` with any `len`. -/
 def Goal.adler32_safety : Prop :=
   ∀ (h : C.Heap) (seed : UInt64) (buf : C.BPtr) (len : UInt32) (bytes : List UInt8),
     BufferBytes h buf len.toNat bytes →
     ∃ r, C.run (ZlibNg.Adler32.adler32 seed buf len) h = .ok (r, h)
 
 /-- `unsigned long adler32_z(unsigned long adler, const unsigned char *buf, size_t len)`:
-safe and heap-preserving on every `BufferBytes` buffer, including `NULL` with any `len` (with Patch 0007). -/
+safe and heap-preserving on every `BufferBytes` buffer, including `NULL` with any `len`. -/
 def Goal.adler32_z_safety : Prop :=
   ∀ (h : C.Heap) (seed : UInt64) (buf : C.BPtr) (len : UInt64) (bytes : List UInt8),
     BufferBytes h buf len.toNat bytes →
     ∃ r, C.run (ZlibNg.Adler32.adler32_z seed buf len) h = .ok (r, h)
 
-/-- Non-vacuity witness for `adler32`: concrete heap buffer of `6000` bytes (`> NMAX = 5552`) satisfies
-`BufferBytes` and executes `adler32` to `.ok`. -/
+/-- Non-vacuity witness for `adler32`: concrete heap buffer of `6000` bytes (`> NMAX = 5552`, so the 64-bit
+SWAR blocks run) satisfies `BufferBytes` and executes `adler32` to `.ok`. -/
 def Goal.adler32_nonvacuous : Prop :=
   ∃ h buf bytes r,
     buf ≠ .null ∧
@@ -156,33 +158,36 @@ def Goal.crc32_nonvacuous : Prop :=
     BufferBytes h buf 128 bytes ∧
     C.run (ZlibNg.Crc32.crc32_z 0 buf 128) h = .ok (r, h)
 
-/-- `unsigned long crc32_combine_gen(z_off_t len2)` (with Patch 0002): terminates without fault and preserves
-the heap for every signed `Int64` length (including negative `len2 < 0`, which hung in unpatched `2.3.3`). -/
+/-- `unsigned long crc32_combine_gen(z_off_t len2)`: terminates without fault and preserves the heap for every
+signed `Int64` length (including negative `len2 < 0`, which `zlib.h` excludes and which returns 0). -/
 def Goal.crc32_combine_gen_safety : Prop :=
   ∀ (h : C.Heap) (len2 : Int64),
     CrcGlobals h →
     ∃ r, C.run (ZlibNg.Crc32Comb.crc32_combine_gen len2) h = .ok (r, h)
 
-/-- `unsigned long crc32_combine_gen64(z_off64_t len2)` (with Patch 0002): terminates without fault for all `Int64`. -/
+/-- `unsigned long crc32_combine_gen64(z_off64_t len2)`: terminates without fault for all `Int64`. -/
 def Goal.crc32_combine_gen64_safety : Prop :=
   ∀ (h : C.Heap) (len2 : Int64),
     CrcGlobals h →
     ∃ r, C.run (ZlibNg.Crc32Comb.crc32_combine_gen64 len2) h = .ok (r, h)
 
-/-- `unsigned long crc32_combine_op(unsigned long crc1, unsigned long crc2, const unsigned long op)` (with Patch 0002):
-terminates without fault for all `UInt64` arguments (including `op = 0` and `op = 2^32`, which hung in `2.3.3`). -/
+/-- `unsigned long crc32_combine_op(unsigned long crc1, unsigned long crc2, const unsigned long op)`:
+terminates without fault for all `UInt64` checksums and every `op` whose low 32 bits are not zero. `zlib.h`
+allows only an `op` made by `crc32_combine_gen` from a non-negative length, which is never 0 (`x^n mod p`);
+with low half 0, `multmodp` does not return. -/
 def Goal.crc32_combine_op_safety : Prop :=
   ∀ (h : C.Heap) (crc1 crc2 op : UInt64),
+    op.toUInt32 ≠ 0 →
     ∃ r, C.run (ZlibNg.Crc32Comb.crc32_combine_op crc1 crc2 op) h = .ok (r, h)
 
-/-- `unsigned long crc32_combine(unsigned long crc1, unsigned long crc2, z_off_t len2)` (with Patch 0002):
+/-- `unsigned long crc32_combine(unsigned long crc1, unsigned long crc2, z_off_t len2)`:
 terminates without fault and preserves the heap for all `UInt64` checksums and all signed `Int64` lengths. -/
 def Goal.crc32_combine_safety : Prop :=
   ∀ (h : C.Heap) (crc1 crc2 : UInt64) (len2 : Int64),
     CrcGlobals h →
     ∃ r, C.run (ZlibNg.Crc32Comb.crc32_combine crc1 crc2 len2) h = .ok (r, h)
 
-/-- `unsigned long crc32_combine64(unsigned long crc1, unsigned long crc2, z_off64_t len2)` (with Patch 0002):
+/-- `unsigned long crc32_combine64(unsigned long crc1, unsigned long crc2, z_off64_t len2)`:
 terminates without fault and preserves the heap for all `UInt64` checksums and all signed `Int64` lengths. -/
 def Goal.crc32_combine64_safety : Prop :=
   ∀ (h : C.Heap) (crc1 crc2 : UInt64) (len2 : Int64),
@@ -195,5 +200,10 @@ def Goal.crc32_combine64_safety : Prop :=
 def Goal.compressBound_safety : Prop :=
   ∀ (h : C.Heap) (sourceLen : UInt64),
     ∃ r, C.run (ZlibNg.Compress.compressBound sourceLen) h = .ok (r, h)
+
+/-- `z_size_t compressBound_z(z_size_t sourceLen)`: never faults and preserves the heap for all `UInt64`. -/
+def Goal.compressBound_z_safety : Prop :=
+  ∀ (h : C.Heap) (sourceLen : UInt64),
+    ∃ r, C.run (ZlibNg.Compress.compressBound_z sourceLen) h = .ok (r, h)
 
 end ZlibNgF.Spec.Safety

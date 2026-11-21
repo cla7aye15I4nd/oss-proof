@@ -6,9 +6,10 @@
   "upstream": {
     "submodule": "zlib-ng",
     "repository": "https://github.com/zlib-ng/zlib-ng",
-    "version": "2.3.3",
+    "version": "develop @ e591472c",
     "target": "x86_64 Linux LP64 static library, cmake -DZLIB_COMPAT=ON -DWITH_OPTIM=OFF -DWITH_CRC32_CHORBA=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF",
-    "patches_dir": "patches"
+    "patches_dir": "patches",
+    "patch_layout": "directories"
   },
   "build": {
     "targets": [
@@ -47,6 +48,8 @@
       "tests/run.sh",
       "tests/build-zlib-ng.sh",
       "tests/zlib-ng-build-current.sh",
+      "tests/apply-patches.sh",
+      "tests/patch-gtest.sh",
       "patches/",
       "zlib-ng"
     ]
@@ -54,11 +57,11 @@
   "site": {
     "route": "zlib-ng",
     "brand": "zlib-ng × Lean",
-    "findings_count": 5,
-    "patches_count": 7,
+    "findings_count": 23,
+    "patches_count": 22,
     "summary": {
-      "en": "The checksum, version, error-string and compressBound functions of zlib-ng 2.3.3 (with seven patches) are proved safe, and most of them functionally correct; streaming deflate, inflate, one-shot and gz* safety are not done.",
-      "zh": "zlib-ng 2.3.3（含七个补丁）的校验和、版本、错误字符串与 compressBound 函数已证明安全，其中多数已证明功能正确；流式 deflate、inflate、单次调用与 gz* 系列的安全性尚未完成。"
+      "en": "The checksum, version, error-string and compressBound* functions, inflate and inflateBack, the compress and uncompress functions, the streaming deflate functions, and every gz* file function of zlib-ng (develop branch, with twenty-one patches) are proved safe, and the checksum and utility functions functionally correct; the deflate/inflate round trip is not done.",
+      "zh": "zlib-ng（develop 分支，含二十一个补丁）的校验和、版本、错误字符串与 compressBound* 函数，inflate 与 inflateBack，compress 与 uncompress 系列，流式 deflate 函数，以及全部 gz* 文件函数已证明安全，其中校验和与辅助函数已证明功能正确；deflate/inflate 往返尚未完成。"
     }
   }
 }

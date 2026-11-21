@@ -1,6 +1,8 @@
-/* Patch 0002. crc32_combine_gen / crc32_combine with a negative len2 loop forever in x2nmodp, and
- * crc32_combine_op with op == 0 loops forever in multmodp. Unpatched: the call does not return (the
- * runner stops it after a timeout). Patched: each returns 0. Argument: g (gen), o (op) or c (combine). */
+/* Plain regression test (fixed upstream). In zlib-ng 2.3.3 crc32_combine_gen / crc32_combine with a
+ * negative len2 looped forever in x2nmodp; the current upstream returns 0 for len2 < 0. Expected: each
+ * returns 0. Argument: g (gen) or c (combine). The argument o (crc32_combine_op with op == 0) still does
+ * not return: zlib.h only allows an op made by crc32_combine_gen from a non-negative length, which is
+ * never 0, so it is not run. */
 #include <stdio.h>
 #include "zlib.h"
 int main(int argc, char **argv) {

@@ -1,0 +1,104 @@
+From d11bbc54f6bba1e7f15c71590d317a12a9f5afee Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Fri, 20 Nov 2026 00:30:43 -0800
+Subject: [PATCH] Refuse gz writes that would move the position past GZ_OFF_MAX
+
+The writers added each length to the signed 64-bit x.pos without a bound,
+and a failed write keeps the addition, so after 2^63 bytes in all (failed
+writes included) x.pos overflowed. gz_write(), gzputc() and gzvprintf() now
+refuse such a write with Z_DATA_ERROR before touching the caller's data.
+gz_write() compares in 64 bits, since size_t may be narrower than z_off64_t.
+
+Reaching the bound takes 2^31 failing gzfwrite() calls of 2^32 - 1 bytes,
+too slow for a test. Add a test that writes one byte across 2^32 on
+/dev/null, which a bound compared in size_t would refuse where size_t has
+32 bits.
+---
+ gzwrite.c         | 20 +++++++++++++++++++-
+ test/test_gzio.cc | 24 ++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+), 1 deletion(-)
+
+diff --git a/gzwrite.c b/gzwrite.c
+index 4cfaa96..ef1ef37 100644
+--- a/gzwrite.c
++++ b/gzwrite.c
+@@ -8,6 +8,11 @@
+ #include <stdarg.h>
+ #include "gzguts.h"
+ 
++/* the largest value of x.pos (also defined in gzguts.h with the gzseek64 fix) */
++#ifndef GZ_OFF_MAX
++#define GZ_OFF_MAX ((z_off64_t)((~(uint64_t)0) >> (65 - sizeof(z_off64_t) * 8)))
++#endif
++
+ /* Local functions */
+ static int gz_write_init(gz_state *);
+ static int gz_comp(gz_state *, int);
+@@ -174,6 +179,13 @@ static size_t gz_write(gz_state *state, void const *buf, size_t len) {
+     if (state->skip && gz_zero(state) == -1)
+         return 0;
+ 
++    /* the position after the write must fit in x.pos (compared in 64 bits:
++       size_t may be narrower than z_off64_t) */
++    if ((uint64_t)len > (uint64_t)(GZ_OFF_MAX - state->x.pos)) {
++        PREFIX(gz_error)(state, Z_DATA_ERROR, "write position does not fit in z_off64_t");
++        return 0;
++    }
++
+     /* for small len, copy to input buffer, otherwise compress directly */
+     if (len < state->size) {
+         /* copy to input buffer, compress when full */
+@@ -303,7 +315,7 @@ z_int32_t Z_EXPORT PREFIX(gzputc)(gzFile file, z_int32_t c) {
+         if (strm->avail_in == 0)
+             strm->next_in = state->in;
+         have = (unsigned)((strm->next_in + strm->avail_in) - state->in);
+-        if (have < state->size) {
++        if (have < state->size && state->x.pos != GZ_OFF_MAX) {
+             state->in[have] = (unsigned char)c;
+             strm->avail_in++;
+             state->x.pos++;
+@@ -381,6 +393,12 @@ z_int32_t Z_EXPORTVA PREFIX(gzvprintf)(gzFile file, const char *format, va_list
+     if (len == 0 || (unsigned)len >= state->size || next[state->size - 1] != 0)
+         return 0;
+ 
++    /* the position after the write must fit in x.pos */
++    if (len > GZ_OFF_MAX - state->x.pos) {
++        PREFIX(gz_error)(state, Z_DATA_ERROR, "write position does not fit in z_off64_t");
++        return state->err;
++    }
++
+     /* update buffer and position, compress first half if past that */
+     strm->avail_in += (unsigned)len;
+     state->x.pos += len;
+diff --git a/test/test_gzio.cc b/test/test_gzio.cc
+index c43fa5b..eb2b963 100644
+--- a/test/test_gzio.cc
++++ b/test/test_gzio.cc
+@@ -214,3 +214,27 @@ TEST(gzip, read_position_limit) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
+ }
+ #endif
++
++#ifndef _WIN32
++/* A write across 2^32 bytes: the bound on the write position is compared in
++ * 64 bits, so a build whose size_t is 32 bits (with 64-bit file offsets) still
++ * accepts it. The seek writes 2^32 - 1 zeros to /dev/null. */
++TEST(gzip, write_position_past_4gb) {
++    typedef decltype(PREFIX(gzseek)((gzFile)NULL, 0, SEEK_SET)) off_type;
++    if (sizeof(off_type) < 8)
++        GTEST_SKIP() << "gzseek() does not take a 64-bit offset";
++    off_type pos = 0xffff;
++    pos *= 0x10001;    /* 2^32 - 1 */
++
++    gzFile file = PREFIX(gzopen)("/dev/null", "wT");
++    ASSERT_TRUE(file != NULL);
++    EXPECT_EQ(PREFIX(gzbuffer)(file, 1 << 20), 0);
++    EXPECT_EQ(PREFIX(gzseek)(file, pos, SEEK_SET), pos);
++    EXPECT_EQ(PREFIX(gzwrite)(file, "a", 1), 1);
++    int err;
++    PREFIX(gzerror)(file, &err);
++    EXPECT_EQ(err, Z_OK);
++    EXPECT_EQ(PREFIX(gztell)(file), pos + 1);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++}
++#endif

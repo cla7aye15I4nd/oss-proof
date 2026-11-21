@@ -34,6 +34,20 @@ class CoverageTests(unittest.TestCase):
     def api(self, manifest, function):
         return next(a for a in manifest["apis"] if a["function"] == function)
 
+    def not_done(self, manifest, function):
+        """A synthetic fixture: the copy `manifest` lists `function` as not done (the real inventory is not
+        changed), and its goals leave the lists of the copy `lists` returned with it."""
+        api = self.api(manifest, function)
+        goals = [api["safety_goal"]] + api.get("other_goals", [])
+        for key in ("source", "implementation", "safety_goal", "other_goals"):
+            api.pop(key, None)
+        api["status"] = "not-done"
+        api["reason"] = "synthetic not-done entry"
+        lists = copy.deepcopy(self.lists)
+        for key in ("proved", "required"):
+            lists[key] = [g for g in lists[key] if g not in goals]
+        return lists
+
     def test_header_inventory(self):
         names = v.public_names(self.header)
         self.assertEqual(len(names), len(set(names)))
@@ -55,22 +69,33 @@ class CoverageTests(unittest.TestCase):
         m["apis"].append({"function": "inflateFoo", "status": "not-done", "scope": "lp64-linux", "reason": "x"})
         self.rejects("extra=\\['inflateFoo'\\]", m)
         m = copy.deepcopy(self.manifest)
-        m["apis"].append(copy.deepcopy(self.api(m, "deflate")))
-        self.rejects("duplicated=\\['deflate'\\]", m)
+        m["apis"].append(copy.deepcopy(self.api(m, "gzbuffer")))
+        self.rejects("duplicated=\\['gzbuffer'\\]", m)
+
+    def test_not_done_entry_passes(self):
+        m = copy.deepcopy(self.manifest)
+        lists = self.not_done(m, "compressBound_z")
+        counts = self.check(m, lists)
+        self.assertEqual(counts["not-done"], 1)
 
     def test_status_needs_reason_or_goal(self):
         m = copy.deepcopy(self.manifest)
-        del self.api(m, "deflate")["reason"]
-        self.rejects("needs a reason", m)
+        lists = self.not_done(m, "compressBound_z")
+        del self.api(m, "compressBound_z")["reason"]
+        self.rejects("needs a reason", m, lists)
         m = copy.deepcopy(self.manifest)
-        self.api(m, "deflate")["status"] = "skipped"
-        self.rejects("status of deflate", m)
+        lists = self.not_done(m, "compressBound_z")
+        self.api(m, "compressBound_z")["status"] = "skipped"
+        self.rejects("status of compressBound_z", m, lists)
+        m = copy.deepcopy(self.manifest)
+        del self.api(m, "compressBound_z")["safety_goal"]
+        self.rejects("compressBound_z", m)
         m = copy.deepcopy(self.manifest)
         self.api(m, "inflate")["status"] = "not-applicable"
         self.rejects("only a Windows-only function", m)
 
     def test_done_goals_proved_and_required(self):
-        goal = v.SAFETY + "adler32_safety"
+        goal = v.SAFETY + "crc32_safety"
         lists = copy.deepcopy(self.lists)
         lists["required"].remove(goal)
         self.rejects("missing from `required`", lists=lists)
@@ -85,16 +110,17 @@ class CoverageTests(unittest.TestCase):
         self.rejects("names its own safety goal", m)
 
     def test_not_done_with_proved_goal_is_stale(self):
-        lists = copy.deepcopy(self.lists)
-        lists["proved"].append(v.SAFETY + "deflate_safety")
-        self.rejects("its safety goal is proved", lists=lists)
+        m = copy.deepcopy(self.manifest)
+        lists = self.not_done(m, "compressBound_z")
+        lists["proved"].append(v.SAFETY + "compressBound_z_safety")
+        self.rejects("its safety goal is proved", m, lists)
 
     def test_translation_binding(self):
         m = copy.deepcopy(self.manifest)
-        self.api(m, "adler32")["implementation"] = "ZlibNg.Crc32.adler32"
+        self.api(m, "crc32")["implementation"] = "ZlibNg.Adler32.crc32"
         self.rejects("wrong translated entry binding", m)
         m = copy.deepcopy(self.manifest)
-        self.api(m, "adler32")["source"] = "ZlibNgF/ZlibNg/crc32.c.lean"
+        self.api(m, "crc32")["source"] = "ZlibNgF/ZlibNg/adler32.c.lean"
         self.rejects("missing translated entry", m)
 
     def test_undocumented_list(self):

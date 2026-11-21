@@ -1,0 +1,33 @@
+# Example user-local build host pool configuration.
+# Copy to `~/.config/oss-proof/builders.toml` (OUTSIDE the git repository) and fill in your hosts.
+# Never commit real hostnames, IP addresses, usernames, or private paths to the repository.
+
+[defaults]
+sync_mode = "worktree"         # "worktree" (fast incremental rsync) or "ref" (clean git checkout)
+memory_max_gb = 16             # Per-job systemd MemoryMax cap (never exceed 16 GB per Lean build)
+min_free_mem_gb = 6            # Wait on remote host until MemAvailable >= this threshold
+local_lock = "/tmp/oss-proof-lean.lock"
+local_threads = 1              # Conservative local thread cap when a local memory guard is active
+
+[[builders]]
+name = "builder-a"
+ssh = "user@build-host-a.example.invalid"
+backup_ssh = "user@build-host-a-backup.example.invalid"
+remote_dir = "~/oss-proof-build"
+capabilities = ["lean"]
+threads = 8
+memory_max_gb = 16
+slice = "ossproof.slice"
+python = "python3"
+lean_bin = "~/.elan/bin"
+
+[[builders]]
+name = "builder-b"
+ssh = "user@build-host-b.example.invalid"
+remote_dir = "~/oss-proof-build"
+capabilities = ["lean", "difftest", "c-compiler"]
+threads = 8
+memory_max_gb = 16
+slice = "ossproof.slice"
+python = "python3"
+lean_bin = "~/.elan/bin"

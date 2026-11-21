@@ -28,7 +28,9 @@ total=0
 for name in $names; do
   [ -z "${ONLY:-}" ] || [ "$ONLY" = "$name" ] || continue
   cc -O2 -Wall -Wextra $cflags -I"$ZLIB_BUILD" "c/$name.c" "$ZLIB_BUILD/libz.a" -o "$build/bin$sfx/c_$name"
-  lake build "difftest_$name" >"$build/lake_$name.log" 2>&1 || { cat "$build/lake_$name.log"; echo "run.sh: lake build failed for $name" >&2; exit 2; }
+  if [ "${SKIP_LAKE_BUILD:-0}" != 1 ]; then
+    LEAN_NUM_THREADS="${LEAN_NUM_THREADS:-4}" lake build --wfail "difftest_$name" >"$build/lake_$name.log" 2>&1 || { cat "$build/lake_$name.log"; echo "run.sh: lake build failed for $name" >&2; exit 2; }
+  fi
   python3 "gen/$name.py" > "$build/data/$name.in"
   in="$build/data/$name.in"
   "$build/bin$sfx/c_$name" < "$in" > "$build/data/$name.c.out"

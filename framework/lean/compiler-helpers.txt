@@ -1,0 +1,6 @@
+# Compiler-generated execution auxiliaries of the pinned toolchain for OssProof.
+# PartialCheck.lean exempts these names from its unsafe/partial rule.
+OssProof.Ptr.memcmp.go._unsafe_rec
+OssProof.cdoWhile._unsafe_rec
+OssProof.cloop._unsafe_rec
+OssProof.cwhile._unsafe_rec

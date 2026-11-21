@@ -1,0 +1,94 @@
+From 62428f57bffd4ae978cb40069fe14756a45202dc Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Thu, 19 Nov 2026 23:45:55 -0800
+Subject: [PATCH] Skip buffered output covered by a pending seek in gzdirect()
+
+gzseek() on a reader that has not read yet only records a skip. gzdirect()
+then calls gz_look(), which for input that is not gzip puts what it read in
+the output buffer while the skip is still pending. gzgetc() (the function
+and the macro of zlib.h) takes bytes from the output buffer without checking
+for a skip request, so it returned bytes from before the position sought,
+and after a seek to the largest position gztell() overflowed computing
+x.pos + skip.
+
+Skip the buffered bytes that the pending seek covers in gzdirect(), as
+gzseek() and gz_skip() do. madler/zlib b2596bde fixes the same case the same
+way, with the loop body of gz_skip() moved into a new gz_skip_have().
+
+Add a test of gzgetc() after gzseek() and gzdirect() on a plain file.
+---
+ gzread.c            | 16 +++++++++++++++-
+ test/test_gzseek.cc | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+diff --git a/gzread.c b/gzread.c
+index e6fdedd..ee6fe5a 100644
+--- a/gzread.c
++++ b/gzread.c
+@@ -607,9 +607,23 @@ z_int32_t Z_EXPORT PREFIX(gzdirect)(gzFile file) {
+ 
+     /* if the state is not known, but we can find out, then do so (this is
+        mainly for right after a gzopen() or gzdopen()) */
+-    if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0)
++    if (state->mode == GZ_READ && state->how == LOOK && state->x.have == 0) {
+         (void)gz_look(state);
+ 
++        /* a pending seek comes before the data gz_look() just put in the
++           output buffer: skip what is there (gzgetc() takes bytes from the
++           output buffer without checking for a skip request) */
++        if (state->skip && state->x.have) {
++            unsigned n = GT_OFF(state->x.have) ||
++                (z_off64_t)state->x.have > state->skip ?
++                (unsigned)state->skip : state->x.have;
++            state->x.have -= n;
++            state->x.next += n;
++            state->x.pos += n;
++            state->skip -= n;
++        }
++    }
++
+     /* return 1 if transparent, 0 if processing a gzip stream */
+     return state->direct == 1;
+ }
+diff --git a/test/test_gzseek.cc b/test/test_gzseek.cc
+index ffc4a3d..3ab669f 100644
+--- a/test/test_gzseek.cc
++++ b/test/test_gzseek.cc
+@@ -213,3 +213,37 @@ TEST(gzip, seek_before_first_read) {
+     EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
+     remove("seek_first.txt");
+ }
++
++/* gzdirect() after a seek on a file that is not gzip: gzdirect() reads the
++ * start of the file into the output buffer, and the seek still has to skip
++ * it; gzgetc() (which takes buffered bytes directly) must then return the
++ * byte at the position sought. */
++TEST(gzip, seek_then_direct) {
++    const char *path = "seek_direct.txt";
++    FILE *fp = fopen(path, "wb");
++    ASSERT_TRUE(fp != NULL);
++    ASSERT_EQ(fwrite("abcde", 1, 5, fp), 5U);
++    ASSERT_EQ(fclose(fp), 0);
++
++    gzFile file = PREFIX(gzopen)(path, "rb");
++    ASSERT_TRUE(file != NULL);
++    EXPECT_EQ(PREFIX(gzseek)(file, 3, SEEK_SET), 3);
++    EXPECT_EQ(PREFIX(gzdirect)(file), 1);
++    EXPECT_EQ(PREFIX(gzgetc)(file), 'd');
++    EXPECT_EQ(PREFIX(gztell)(file), 4);
++    EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++
++    /* a seek past the end: gzgetc() reaches the end of the file */
++    typedef decltype(PREFIX(gzseek)((gzFile)NULL, 0, SEEK_SET)) off_type;
++    if (sizeof(off_type) == sizeof(z_off64_t)) {
++        const off_type off_max = (off_type)(((uint64_t)1 << (sizeof(off_type) * 8 - 1)) - 1);
++        file = PREFIX(gzopen)(path, "rb");
++        ASSERT_TRUE(file != NULL);
++        EXPECT_EQ(PREFIX(gzseek)(file, off_max, SEEK_SET), off_max);
++        EXPECT_EQ(PREFIX(gzdirect)(file), 1);
++        EXPECT_EQ(PREFIX(gzgetc)(file), -1);
++        EXPECT_EQ(PREFIX(gztell)(file), 5);
++        EXPECT_EQ(PREFIX(gzclose)(file), Z_OK);
++    }
++    remove(path);
++}

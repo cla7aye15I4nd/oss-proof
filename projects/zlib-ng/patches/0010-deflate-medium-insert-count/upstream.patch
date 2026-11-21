@@ -1,0 +1,76 @@
+From f07ba1219017f3ab4b5f93d16a33b8a38ca876e5 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Thu, 19 Nov 2026 11:59:19 -0800
+Subject: [PATCH] Bound the insert count of deflate_medium() to STD_MAX_MATCH
+
+max_insert_count is max_lazy_match as given to deflateTune(), which stores
+any int. For INT_MIN, max_len = 2 * max_insert_count in insert_match()
+wraps to 0, and a match at distance 1 reaches insert_knuth_stepped() with
+one position to insert, which divides by inserts - 1 = 0 (C17 6.5.5p5,
+SIGFPE on x86_64).
+
+Clamp the count to [2, STD_MAX_MATCH]. A match is at most STD_MAX_MATCH
+bytes long, so with any larger count every position of a match was already
+inserted one by one, and the output is unchanged except where the old code
+divided by zero.
+
+Add a deflateTune() test for levels 3 to 6 with out-of-range and large
+max_lazy values; with INT32_MIN it fails with a division by zero without
+the change.
+---
+ deflate_medium_tpl.h      |  2 +-
+ test/test_deflate_tune.cc | 31 +++++++++++++++++++++++++++++++
+ 2 files changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/deflate_medium_tpl.h b/deflate_medium_tpl.h
+index ad4ac1d..d88ef7c 100644
+--- a/deflate_medium_tpl.h
++++ b/deflate_medium_tpl.h
+@@ -173,7 +173,7 @@ Z_INTERNAL block_state SUFFIX(deflate_medium)(deflate_state *s, int flush) {
+                  struct match next_match = {0};
+ #endif
+     unsigned char *window = s->window;
+-    uint32_t max_insert_count = MAX(2, s->max_insert_count); // stepped insert requires min 2
++    uint32_t max_insert_count = MIN(MAX(2, s->max_insert_count), STD_MAX_MATCH); // stepped insert requires 2..258
+     int32_t max_dist = MAX_DIST(s);
+ 
+     for (;;) {
+diff --git a/test/test_deflate_tune.cc b/test/test_deflate_tune.cc
+index 9921ee6..e6c11a7 100644
+--- a/test/test_deflate_tune.cc
++++ b/test/test_deflate_tune.cc
+@@ -54,3 +54,34 @@ TEST(deflate, tune) {
+     err = PREFIX(deflateEnd)(&c_stream);
+     EXPECT_EQ(err, Z_OK);
+ }
++
++/* deflate_medium (levels 3 to 6) inserts the positions of a long match in steps of a size derived from
++ * max_lazy as given to deflateTune(). Out-of-range values (INT32_MIN wrapped 2 * max_lazy to 0, which divided
++ * by zero on a match at distance 1) and large ones must still give a stream that decodes to the input. */
++TEST(deflate, tune_insert_count) {
++    uint8_t input[4096], compressed[8192], output[sizeof(input)];
++    memset(input, 'a', sizeof(input));
++
++    const int levels[] = {3, 4, 5, 6};
++    const int32_t max_lazies[] = {INT32_MIN, -1, 0, 1, 258, 259, 100000};
++    for (int level : levels) {
++        for (int32_t max_lazy : max_lazies) {
++            SCOPED_TRACE(testing::Message() << "level " << level << ", max_lazy " << max_lazy);
++            PREFIX3(stream) strm = {};
++            ASSERT_EQ(PREFIX(deflateInit)(&strm, level), Z_OK);
++            EXPECT_EQ(PREFIX(deflateTune)(&strm, 8, max_lazy, 128, 128), Z_OK);
++            strm.next_in = input;
++            strm.avail_in = sizeof(input);
++            strm.next_out = compressed;
++            strm.avail_out = sizeof(compressed);
++            EXPECT_EQ(PREFIX(deflate)(&strm, Z_FINISH), Z_STREAM_END);
++            z_uintmax_t compressed_len = strm.total_out;
++            EXPECT_EQ(PREFIX(deflateEnd)(&strm), Z_OK);
++
++            z_uintmax_t output_len = sizeof(output);
++            ASSERT_EQ(PREFIX(uncompress)(output, &output_len, compressed, compressed_len), Z_OK);
++            EXPECT_EQ(output_len, (z_uintmax_t)sizeof(input));
++            EXPECT_EQ(memcmp(input, output, sizeof(input)), 0);
++        }
++    }
++}

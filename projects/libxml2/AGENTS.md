@@ -1,47 +1,36 @@
 # Working rules (`projects/libxml2`)
 
-Inherits every rule of the repository root [`../../AGENTS.md`](../../AGENTS.md), including the strict
-ISO C17 undefined-behaviour policy: no `NULL`, wild or dangling pointer `+ 0`, no `NULL - NULL`, no
-cross-object pointer subtraction or comparison, no out-of-bounds pointer formation, no zero-length
-`memcpy`/`memset` on invalid pointers, every struct pointer field written before it is read, and no
-"benign UB" arguments. The runtime starts from `framework/lean/StrictPtr.lean`.
+Inherits every rule of the repository root [`../../AGENTS.md`](../../AGENTS.md), which is
+authoritative on proof soundness, allowed axioms and the strict ISO C17 undefined-behaviour policy.
+The runtime starts from `framework/lean/StrictPtr.lean`.
 
-- **Status:** candidate. Upstream submodule `libxml2/` tracks the latest default branch. Not
-  registered in `framework/projects.json`; translation and proofs are not done.
+**Status:** candidate. Upstream submodule `libxml2/` tracks the latest default branch; not
+registered in `framework/projects.json`; translation and proofs are not done.
 
-## Why it matters
+## Tier 0
 
-Sharp accepts SVG input by default (libvips' `svgload` is flagged untrusted, but nothing blocks it
-unless the application sets `VIPS_BLOCK_UNTRUSTED` or calls `sharp.block()`). libvips passes the
-bytes to librsvg (`rsvg_handle_new_from_data`). librsvg is written in Rust, but it parses the XML
-with libxml2's SAX parser through FFI (`rsvg/src/xml/xml2_load.rs`), so every SVG upload is parsed
-by libxml2 C code (2.15.4 in Sharp 0.35.5). Pillow does not use libxml2.
+Tier 0 is the code that turns untrusted bytes into pixels or metadata on a default path. It is the
+whole scope of this project.
 
-## Interfaces to prove (P0)
+**How it is reached.** Sharp accepts SVG by default: `sharp(Buffer.from(svg)).png().toBuffer()` →
+libvips `foreign/svgload.c` `vips_foreign_load_svg_source_header` →
+`rsvg_handle_new_from_stream_sync`. librsvg is Rust, but it parses the XML with libxml2's SAX parser
+through FFI (`rsvg/src/xml/xml2_load.rs`). Pillow does not use libxml2.
 
-Exactly what librsvg calls: `xmlInitParser`, `xmlCreateIOParserCtxt` (with librsvg's SAX handler
-and I/O callbacks), `xmlCtxtUseOptions`, `xmlParseDocument`, `xmlStopParser`,
-`xmlCtxtGetLastError`, `xmlNewEntity`, `xmlFreeEntity`, `xmlFreeNode`, `xmlFreeDoc`,
-`xmlFreeParserCtxt` — and the parser core they drive: input buffers and encoding conversion,
-tokenizer, entity handling, and the SAX callback dispatch.
+**Functions:** `xmlInitParser`, `xmlCreateIOParserCtxt` (with librsvg's SAX handler and read
+callbacks), `xmlCtxtUseOptions`, `xmlParseDocument`, `xmlStopParser`, `xmlCtxtGetLastError`,
+`xmlFreeParserCtxt` — and the parser core they drive: input buffers, encoding detection and
+conversion, the tokenizer, entities and SAX dispatch.
 
-## Verification hazards
+**What the proofs must cover.**
 
-1. Push/pull input buffer growth and the pointer adjustments made after each `realloc`.
-2. Encoding detection and conversion (UTF-8, UTF-16, Latin-1) with sequences split across input
-   chunks.
-3. Entity declaration and expansion, including amplification limits.
-4. SAX callbacks that stop the parser (`xmlStopParser`) from inside a callback.
-5. Error paths freeing partially built nodes and entities.
-
-## Not in scope
-
-XPath, XInclude, XSLT, schema and RelaxNG validation, HTML parser, catalogs, network I/O, the
-tree-building DOM API beyond what the SAX path touches, threads, and `xmllint`.
+1. Input buffer growth and the pointer adjustments after each reallocation.
+2. Multi-byte sequences split across input chunks, in every supported encoding.
+3. Entity expansion within its amplification limits, and stopping the parser from a callback.
 
 ## Local commands
 
 ```bash
-lake --dir projects/libxml2 build --wfail Libxml2F Libxml2F.Results
+LEAN_NUM_THREADS=4 lake --dir projects/libxml2 build --wfail Libxml2F Libxml2F.Results
 python3 framework/check_project.py libxml2 --skip-build
 ```

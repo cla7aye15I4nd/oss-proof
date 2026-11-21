@@ -1,0 +1,65 @@
+From 81437e10b03fa0969f8fe41e58207297d1cb72ca Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Wed, 18 Nov 2026 18:41:27 -0800
+Subject: [PATCH] Advance next_in in inflateSync() only when input was consumed
+
+inflateSync() may be called with no input (next_in == NULL, avail_in == 0)
+when at least 8 bits are held, for example after inflatePrime(). It then
+searches only the held bits, syncsearch() consumes nothing, and
+strm->next_in += 0 adds 0 to a null pointer, which is undefined in C
+(C17 6.5.6p8). Advance next_in only when bytes were consumed.
+
+Add a test that calls inflateSync() with primed bits and no input, with and
+without a sync pattern in the bits, and checks that next_in stays NULL.
+Adding 0 to a null pointer is not reported by the sanitizers, so the test
+passes without the change as well.
+---
+ inflate.c                 |  3 ++-
+ test/test_inflate_sync.cc | 23 +++++++++++++++++++++++
+ 2 files changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/inflate.c b/inflate.c
+index 4a76256..62de337 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -1345,7 +1345,8 @@ int32_t Z_EXPORT PREFIX(inflateSync)(PREFIX3(stream) *strm) {
+     /* search available input */
+     len = syncsearch(&(state->have), strm->next_in, strm->avail_in);
+     strm->avail_in -= len;
+-    strm->next_in += len;
++    if (len)
++        strm->next_in += len;
+     strm->total_in += len;
+ 
+     /* return no joy or set up to restart inflate() on a new block */
+diff --git a/test/test_inflate_sync.cc b/test/test_inflate_sync.cc
+index a79d867..bd412df 100644
+--- a/test/test_inflate_sync.cc
++++ b/test/test_inflate_sync.cc
+@@ -73,3 +73,26 @@ TEST(inflate, sync) {
+     err = PREFIX(inflateEnd)(&d_stream);
+     EXPECT_EQ(err, Z_OK);
+ }
++
++/* inflateSync() with no input (next_in == NULL, avail_in == 0) searches only the bits given to inflatePrime(),
++ * and must not advance next_in. */
++TEST(inflate, sync_primed_bits_without_input) {
++    PREFIX3(stream) strm = {};
++    ASSERT_EQ(PREFIX(inflateInit2)(&strm, -MAX_WBITS), Z_OK);
++    EXPECT_EQ(PREFIX(inflatePrime)(&strm, 16, 0x1234), Z_OK);
++    EXPECT_EQ(PREFIX(inflateSync)(&strm), Z_DATA_ERROR);
++    EXPECT_EQ(strm.next_in, nullptr);
++    EXPECT_EQ(strm.avail_in, 0U);
++    EXPECT_EQ(PREFIX(inflateEnd)(&strm), Z_OK);
++
++    /* The primed bits hold a whole 00 00 ff ff sync pattern. */
++    strm = {};
++    ASSERT_EQ(PREFIX(inflateInit2)(&strm, -MAX_WBITS), Z_OK);
++    EXPECT_EQ(PREFIX(inflatePrime)(&strm, 16, 0x0000), Z_OK);
++    EXPECT_EQ(PREFIX(inflatePrime)(&strm, 16, 0xffff), Z_OK);
++    EXPECT_EQ(PREFIX(inflateSync)(&strm), Z_OK);
++    EXPECT_EQ(strm.next_in, nullptr);
++    EXPECT_EQ(strm.avail_in, 0U);
++    EXPECT_EQ(strm.total_in, 0U);
++    EXPECT_EQ(PREFIX(inflateEnd)(&strm), Z_OK);
++}

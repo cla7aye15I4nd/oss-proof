@@ -1,0 +1,154 @@
+From 24d62145713033627cb567f7e16dcf2dbc29cff1 Mon Sep 17 00:00:00 2001
+From: Zheng Yu <dataisland@outlook.com>
+Date: Thu, 19 Nov 2026 22:59:05 -0800
+Subject: [PATCH] Reject matches in deflate_slow() that do not start before
+ strstart
+
+After Z_FULL_FLUSH (or deflateReset()) strstart restarts at 0 and head[] is
+cleared, but prev[] keeps positions of the earlier input: levels 2 to 6 do
+not insert every position of a long match, so those slots are not
+overwritten, and deflateParams() to level 7 or 8 does not rebuild the
+chains. The offset search of the slow matcher reads prev[] inside a match,
+and the chain walk after it does not test cur_match against strstart
+again, so it can accept a stale position ahead of strstart. deflate_slow()
+then tallied a wrapped distance: d_code() read far outside dist_code[]
+(C17 6.5.6p8) and the stream decoded to wrong data.
+
+Treat a match with match_start >= strstart as no match, as deflate_slow()
+already treats a match that is too short and as deflate_medium() already
+does. A match from a chain that holds only earlier positions starts before
+strstart, so the output is otherwise unchanged.
+
+Add two deflateParams() tests, one after Z_FULL_FLUSH and one after
+deflateReset(), whose streams must decode to the input. Without the change
+AddressSanitizer reports the read outside dist_code[], and without a
+sanitizer the round trip fails.
+---
+ deflate_slow.c              |  7 +--
+ test/test_deflate_params.cc | 98 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 102 insertions(+), 3 deletions(-)
+
+diff --git a/deflate_slow.c b/deflate_slow.c
+index 1d5fbcf..783cf32 100644
+--- a/deflate_slow.c
++++ b/deflate_slow.c
+@@ -74,9 +74,10 @@ Z_INTERNAL block_state deflate_slow(deflate_state *s, int flush) {
+             s->prev_length = prev_length;
+             /* longest_match() sets match_start */
+ 
+-            if (match_len <= match_discard) {
+-                /* Match not long enough, treat it as no match found, which makes a garbage
+-                 * match_start that is harmless. */
++            if (match_len <= match_discard || s->match_start >= s->strstart) {
++                /* Match not long enough, or not behind strstart (a hash chain that a strategy without
++                 * full insertion left from before a reset of strstart can lead longest_match there),
++                 * treat it as no match found, which makes a garbage match_start that is harmless. */
+                 match_len = STD_MIN_MATCH - 1;
+             }
+         }
+diff --git a/test/test_deflate_params.cc b/test/test_deflate_params.cc
+index 15d6e5b..36b9e90 100644
+--- a/test/test_deflate_params.cc
++++ b/test/test_deflate_params.cc
+@@ -282,3 +282,101 @@ TEST(deflate, params_from_stored) {
+         }
+     }
+ }
++
++/* After Z_FULL_FLUSH (or deflateReset()) strstart restarts at 0 and head[] is cleared, but prev[] keeps positions
++ * of the earlier input that levels 2 to 6 did not overwrite, and deflateParams() to level 7 or 8 does not rebuild
++ * the chains. longest_match() can then follow a stale entry to a match that starts at or after strstart, which
++ * deflate_slow() must not take: the distance would wrap. One raw stream: input a at a lower level, a full flush
++ * (or deflateReset()), part of b at that level, deflateParams() to level 7 or 8, the rest of b; it must decode
++ * to the input. */
++static void verify_stale_prev_after_reset(uint32_t seed, bool use_reset) {
++    uint64_t state = (uint64_t)seed * 7919ULL + 3ULL;
++    auto rnd = [&state]() -> unsigned {
++        state = state * UINT64_C(6364136223846793005) + UINT64_C(1442695040888963407);
++        return (unsigned)(state >> 33);
++    };
++    static uint8_t a[70000], b[70000], decoded[140000], compressed[1 << 18];
++    int la = 2 + rnd() % 5, lb = 7 + rnd() % 2, alpha1 = 2 + rnd() % 6, alpha2 = 2 + rnd() % 4;
++    (void)rnd();
++    size_t na = 33000 + rnd() % 31000, nb = 34000 + rnd() % 30000, sa = 2000 + rnd() % 20000;
++    for (size_t k = 0; k < na; k++)
++        a[k] = 'a' + rnd() % alpha1;
++    size_t k = 0;
++    while (k < sa) {
++        size_t run = 300 + rnd() % 3000, txt = 10 + rnd() % 300;
++        int per = 1 + rnd() % 12;
++        unsigned char pat[16];
++        for (int j = 0; j < per; j++)
++            pat[j] = 'a' + rnd() % alpha2;
++        for (size_t j = 0; j < run && k < sa; j++)
++            b[k++] = pat[j % per];
++        for (size_t j = 0; j < txt && k < sa; j++)
++            b[k++] = 'a' + rnd() % alpha2;
++    }
++    while (k < nb) {
++        int kind = rnd() % 3;
++        if (kind == 0) {
++            size_t off = rnd() % sa, len = 4 + rnd() % 8;
++            for (size_t j = 0; j < len && k < nb; j++)
++                b[k++] = b[off + j];
++            if (k < nb)
++                b[k++] = 'a' + rnd() % (alpha2 + 1);
++        } else if (kind == 1) {
++            size_t len = 1 + rnd() % 40;
++            for (size_t j = 0; j < len && k < nb; j++)
++                b[k++] = 'a' + rnd() % alpha2;
++        } else {
++            size_t off = rnd() % k, len = 3 + rnd() % 30;
++            for (size_t j = 0; j < len && k < nb; j++, k++)
++                b[k] = b[off + j];
++        }
++    }
++    PREFIX3(stream) stream = {};
++    ASSERT_EQ(PREFIX(deflateInit2)(&stream, la, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY), Z_OK);
++    stream.next_out = compressed;
++    stream.avail_out = sizeof(compressed);
++    stream.next_in = a;
++    stream.avail_in = (uint32_t)na;
++    if (use_reset) {
++        EXPECT_EQ(PREFIX(deflate)(&stream, Z_NO_FLUSH), Z_OK);
++        EXPECT_EQ(PREFIX(deflateReset)(&stream), Z_OK);
++        stream.next_out = compressed;
++        stream.avail_out = sizeof(compressed);
++    } else {
++        EXPECT_EQ(PREFIX(deflate)(&stream, Z_FULL_FLUSH), Z_OK);
++    }
++    stream.next_in = b;
++    stream.avail_in = (uint32_t)sa;
++    EXPECT_EQ(PREFIX(deflate)(&stream, Z_NO_FLUSH), Z_OK);
++    EXPECT_EQ(PREFIX(deflateParams)(&stream, lb, Z_DEFAULT_STRATEGY), Z_OK);
++    stream.next_in = b + sa;
++    stream.avail_in = (uint32_t)(nb - sa);
++    EXPECT_EQ(PREFIX(deflate)(&stream, Z_FINISH), Z_STREAM_END);
++    uint32_t compressed_len = (uint32_t)stream.total_out;
++    EXPECT_EQ(PREFIX(deflateEnd)(&stream), Z_OK);
++
++    PREFIX3(stream) decoder = {};
++    ASSERT_EQ(PREFIX(inflateInit2)(&decoder, -MAX_WBITS), Z_OK);
++    decoder.next_in = compressed;
++    decoder.avail_in = compressed_len;
++    decoder.next_out = decoded;
++    decoder.avail_out = sizeof(decoded);
++    EXPECT_EQ(PREFIX(inflate)(&decoder, Z_FINISH), Z_STREAM_END);
++    if (use_reset) {
++        ASSERT_EQ(decoder.total_out, nb);
++        EXPECT_EQ(memcmp(decoded, b, nb), 0);
++    } else {
++        ASSERT_EQ(decoder.total_out, na + nb);
++        EXPECT_EQ(memcmp(decoded, a, na), 0);
++        EXPECT_EQ(memcmp(decoded + na, b, nb), 0);
++    }
++    EXPECT_EQ(PREFIX(inflateEnd)(&decoder), Z_OK);
++}
++
++TEST(deflate, changes_level_after_full_flush) {
++    verify_stale_prev_after_reset(362, false);
++}
++
++TEST(deflate, changes_level_after_reset) {
++    verify_stale_prev_after_reset(303, true);
++}

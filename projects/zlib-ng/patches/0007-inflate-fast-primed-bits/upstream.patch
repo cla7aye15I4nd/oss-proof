@@ -1,0 +1,78 @@
+From 0db07d28f948c5156af89081bb74d4e8a23e6287 Mon Sep 17 00:00:00 2001
+From: arfa k <arfa@research.itecz.au>
+Date: Fri, 20 Nov 2026 19:59:06 +0530
+Subject: [PATCH] Keep inflate_fast() from returning primed bits as input
+
+inflate_fast() gives every whole byte left in the bit buffer back to
+next_in when it returns. After inflatePrime() some of those bits never
+came from next_in, so next_in could end up before the start of the
+input buffer and the next refill read out of bounds. Return no more
+bytes than the call loaded.
+
+Reported by Trail of Bits (TOB-ZLIB-014). zlib fixed it differently in
+madler/zlib@e7bb9788, by keeping primed streams off the fast path.
+---
+ inffast_tpl.h            |  6 +++---
+ test/test_inflate_cve.cc | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+), 3 deletions(-)
+
+diff --git a/inffast_tpl.h b/inffast_tpl.h
+index 25298c6..76343a5 100644
+--- a/inffast_tpl.h
++++ b/inffast_tpl.h
+@@ -24,7 +24,7 @@
+         strm->avail_in >= INFLATE_FAST_MIN_HAVE
+         strm->avail_out >= INFLATE_FAST_MIN_LEFT
+         start >= strm->avail_out
+-        state->bits < 8
++        state->bits <= 32
+ 
+    On return, state->mode is one of:
+ 
+@@ -322,8 +322,8 @@ void Z_INTERNAL INFLATE_FAST(PREFIX3(stream) *strm, uint32_t start) {
+         }
+     } while (in < last && out < end);
+ 
+-    /* return unused bytes (on entry, bits < 8, so in won't go too far back) */
+-    len = bits >> 3;
++    /* return unused bytes, but no more than this call loaded from next_in */
++    len = MIN((unsigned)(bits >> 3), (unsigned)(in - strm->next_in));
+     in -= len;
+     bits -= (bits_t)(len << 3);
+     hold &= (UINT64_C(1) << bits) - 1;
+diff --git a/test/test_inflate_cve.cc b/test/test_inflate_cve.cc
+index b8cee37..fb66fe8 100644
+--- a/test/test_inflate_cve.cc
++++ b/test/test_inflate_cve.cc
+@@ -376,3 +376,31 @@ TEST(inflate, reset_restores_requested_window) {
+     EXPECT_EQ(memcmp(src, dst, sizeof(src)), 0);
+     EXPECT_EQ(PREFIX(inflateEnd)(&strm), Z_OK);
+ }
++
++/* Bits from inflatePrime() did not come from next_in, so inflate_fast() must not hand them back
++ * as input bytes. Otherwise next_in ends up before the start of the input buffer. */
++TEST(inflate, primed_bits_fast_path) {
++    PREFIX3(stream) strm;
++    /* Guard bytes before the input catch a next_in that moved back. */
++    uint8_t buf[8 + 16], dst[1024];
++    uint8_t *input = buf + 8;
++
++    memset(buf, 0xff, 8);
++    memset(input, 0, 16);
++
++    memset(&strm, 0, sizeof(strm));
++    ASSERT_EQ(PREFIX(inflateInit2)(&strm, -MAX_WBITS), Z_OK);
++    /* Fixed block with only an end-of-block code, then a last fixed block with only an
++     * end-of-block code, in 20 of the 32 primed bits. */
++    ASSERT_EQ(PREFIX(inflatePrime)(&strm, 16, 0x0c02), Z_OK);
++    ASSERT_EQ(PREFIX(inflatePrime)(&strm, 16, 0), Z_OK);
++    strm.next_in = input;
++    strm.avail_in = 16;
++    strm.next_out = dst;
++    strm.avail_out = sizeof(dst);
++    EXPECT_EQ(PREFIX(inflate)(&strm, Z_NO_FLUSH), Z_STREAM_END) << (strm.msg ? strm.msg : "");
++    EXPECT_GE(strm.next_in, input);
++    EXPECT_EQ(strm.next_in + strm.avail_in, input + 16);
++    EXPECT_EQ(strm.total_out, 0u);
++    EXPECT_EQ(PREFIX(inflateEnd)(&strm), Z_OK);
++}

@@ -76,7 +76,7 @@ configurations, custom allocators, and the functions `zlib.h` lists as undocumen
 
 ## Check it yourself
 
-From `projects/zlib/` (or with `lake --dir projects/zlib` from the repository root):
+From `projects/zlib/` (or with `LEAN_NUM_THREADS=4 lake --dir projects/zlib` from the repository root):
 
 ```bash
 lake build --wfail ZlibF

@@ -1,7 +1,7 @@
-<!-- source-sha256: 919a1ee7daa371a07a8a3b72bb125fcfe7817c03a7560737bb86cae9f84c2df4 -->
+<!-- source-sha256: 5a31274ee8a2314e076ac1935867ce0044b467a1195005f0fb29aa1e48c065d9 -->
 # zlib-ng
 
-验证对象：zlib-ng 2.3.3 加七个补丁，按 zlib 兼容模式（`ZLIB_COMPAT`）构建为 x86_64 Linux LP64 库，使用通用 C
+验证对象：zlib-ng `develop` 分支提交 `e591472c` 加二十二个补丁，按 zlib 兼容模式（`ZLIB_COMPAT`）构建为 x86_64 Linux LP64 库，使用通用 C
 内核：每个分派函数（`adler32`、`crc32` 等）都运行其可移植 C 版本，不含 SIMD 代码。
 
 ## 构建配置
@@ -34,11 +34,13 @@
   安全并正确合并两个校验和。
 - `get_crc_table`、`crc32` 与 `crc32_z` 对每个可读缓冲区、缓冲区在内存中的每种对齐方式都安全；五个 `crc32_combine*`
   函数对每个参数都安全，并对负长度返回 0。
-- `compressBound` 安全并返回 `deflate_quick` 路径的精确上界。
+- `compressBound` 与 `compressBound_z` 安全并返回 `deflate_quick` 路径的精确上界。
 - `gz*` 函数使用的两个内部分配辅助函数（`zcalloc` / `zcfree`、`zng_alloc_aligned` / `zng_free_aligned`）安全，
   且 `zng_alloc_aligned` 返回对齐的内存。
+- 流式 `inflate*` 与 `inflateBack*` 函数、`uncompress*`、流式 `deflate*` 函数、单次调用 `compress*`
+  函数，以及全部 `gz*` 文件函数（`gzopen`、`gzdopen`、读、写、`gzprintf`、定位、`gzclose` 等）安全。
 
-流式 `deflate*` 与 `inflate*`、单次调用 `compress*` 与 `uncompress*`、`gz*` 系列以及往返性质尚未完成。`zlib.h`
+本构建中 `zlib.h` 的每个公开函数都安全；往返性质尚未完成。`gzopen_w` 仅用于 Windows，不属于本构建。`zlib.h`
 的每个公开函数都被列为已完成或未完成。
 
 上述每个函数的翻译还在生成的输入上与按上述配置构建的真实 C 库进行比较。这类测试是翻译与 C 一致的证据，而不是证明。参见
